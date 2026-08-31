@@ -1,8 +1,127 @@
 # 校标教案设计 Plugin
 
-Codex harness 分层交付：**Rules 常驻、Skill 按需、Examples 金标准、Hooks 确定性校验**。飞书豆包工作伙伴只拖 `skills/lesson-plan-design/` 即可。
+给东莞经贸学校信息技术课写教案用。你用自然语言提需求，Agent 按技能 `lesson-plan-design` 生成**校标结构**（元信息、三维目标、八步流程），校验通过后再导出 Word。
 
-## 分层
+飞书豆包工作伙伴只需拖入 `skills/lesson-plan-design/`；Cursor / Claude Code / Codex 安装整个插件目录。
+
+---
+
+## 技能怎么用
+
+### 1. 你要提供什么
+
+| 必给 | 说明 | 例子 |
+|------|------|------|
+| 周次 | 正整数 | 第 2 周 |
+| 课次 | 正整数 | 第 1 次课 |
+| 教学内容标题 | 课题 | 一级考证辅导2 |
+
+可选：练习套别、班级、教师、日期、学时。不说则用默认校标（东莞经贸学校 / 信息技术 / 计算机教研组 / 机房）。
+
+### 2. 直接对话（最常用）
+
+在已启用本插件（或已放入技能文件夹）的对话里，原话说即可：
+
+| 你想做的事 | 可以这样说 |
+|------------|------------|
+| 写一份新教案 | `帮我写第2周第1次课教案，课题一级考证辅导2` |
+| 改某一节 | `把知识学习那一步改成先讲快捷键再练第3套` |
+| 校验 | `帮我校验这份教案 JSON 过不过校标` |
+| 导出 Word | `校验通过后导出 docx` |
+| 对照样例打分 | `对照 examples 给这份教案打分` |
+
+Agent 应先给出：课题、周次课次、三维目标要点、八步是否齐全、校验结果、docx 路径。完整 JSON 会落成文件，不会用一篇散文代替教案。
+
+### 3. 斜杠命令（可选）
+
+| 命令 | 作用 |
+|------|------|
+| `/write-lesson-plan` | 按技能全流程撰写或导出。可带参数：`/write-lesson-plan 第2周第1次 一级考证辅导2` |
+| `/validate-lesson-plan` | 只跑校验。可带 JSON 路径：`/validate-lesson-plan plan.json` |
+
+审校（只评结构、不擅自改内容）：让 Agent 启用子代理 `lesson-plan-reviewer`，或说「对照样例检查这份教案」。
+
+### 4. Agent 实际会做什么
+
+技能文件是 `skills/lesson-plan-design/SKILL.md`。顺序固定，不要跳：
+
+1. 读 `references/schema.md`（字段名、八步标题）
+2. 读 `CATALOG.md`，打开 `examples/` 里**最接近**的一份 JSON 当结构金标准
+3. 用 `templates/empty-plan.json` 填完整教案；缺周次/课次/课题则先问
+4. **导出前必须**运行校验（失败先改，禁止带错导出）：
+
+```bash
+python skills/lesson-plan-design/scripts/validate.py <教案.json>
+```
+
+5. 通过后再导出：
+
+```bash
+python skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出.docx>
+```
+
+对照样例打分（可选）：
+
+```bash
+python skills/lesson-plan-design/scripts/score.py <教案.json>
+```
+
+修订某一节时改 JSON 对应字段，再跑步骤 4。飞书没有 Hooks 时，这一步仍由技能强制执行。
+
+---
+
+## 技能目录（方便对照阅读）
+
+路径：`skills/lesson-plan-design/`
+
+| 文件 / 目录 | 给谁看 | 干什么 |
+|-------------|--------|--------|
+| `SKILL.md` | Agent | 短流程：读什么、校验、导出 |
+| `RULES.md` | Agent | 五条硬约束（结构优先、缺输入先问、导出前校验…） |
+| `CATALOG.md` | Agent | 7 份金标准索引（周次/课次/课题） |
+| `references/schema.md` | Agent | 校标字段与八步名称 |
+| `references/validation.md` | Agent | 校验规则说明 |
+| `templates/empty-plan.json` | Agent | 空骨架 |
+| `examples/*.json` | Agent | 金标准，只打开最接近的一份 |
+| `scripts/validate.py` | 本机 Python | 结构校验，退出码 0 才合格 |
+| `scripts/export_docx.py` | 本机 Python | JSON → Word |
+| `scripts/draft.py` | 本机 Python | 按周次/课次/课题出草稿 JSON |
+| `scripts/score.py` | 本机 Python | 对照 examples 打结构分 |
+
+八步流程在 JSON 的 `activityFlow` 里，标题固定为：复习与导入 → 明确学习目标 → 知识学习 → 工作任务实施 → 课程考核 → 课堂小结 → 布置作业 → 教学反思。
+
+现成金标准课题（一级考证辅导 1–7）见 `CATALOG.md`。
+
+---
+
+## 不经过对话、自己跑脚本
+
+在仓库根目录（Windows 可用 `py -3` 代替 `python`）：
+
+```bash
+# 按周次课次出一份草稿 JSON
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/draft.py --week 2 --session 1 --title 一级考证辅导2 --out plan.json
+
+# 校验（不合格会打印 issues，退出码非 0）
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py plan.json
+
+# 导出 Word
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx
+
+# 校验全部金标准 / 跑单元测试
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py --examples
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/test_validate.py
+```
+
+故意缺「知识目标」应失败。导出前必须 validate 通过。
+
+MCP 工具与脚本一一对应：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
+
+---
+
+## 分层（给改插件的人）
+
+Codex harness：**Rules 常驻、Skill 按需、Examples 金标准、Hooks 确定性校验**。
 
 | 层 | 路径 |
 |----|------|
@@ -13,22 +132,14 @@ Codex harness 分层交付：**Rules 常驻、Skill 按需、Examples 金标准�
 | 技能 | `skills/lesson-plan-design/SKILL.md` |
 | 金标准 | `skills/lesson-plan-design/examples/*.json`（7 份） |
 | 校验/导出 | `skills/lesson-plan-design/scripts/` |
-| 清单 | `.codex-plugin` / `.qoder-plugin` / `.codebuddy-plugin` / `.claude-plugin` |
+| 清单 | `.codex-plugin` / `.qoder-plugin` / `.codebuddy-plugin` / `.claude-plugin` / `.cursor-plugin` |
 | MCP | `.mcp.json` → `scripts/mcp_server.py` |
 
-## 本地校验
-
-```bash
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py --examples
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/test_validate.py
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/draft.py --week 2 --session 1 --title 一级考证辅导2 --out plan.json
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx
-```
-
-故意缺知识目标应失败。导出前必须 validate 通过。
+---
 
 ## 安装
 
+- Cursor / Claude Code / Codex：[docs/ide-setup.md](../../docs/ide-setup.md)
 - 飞书：[docs/feishu-miaoda-setup.md](../../docs/feishu-miaoda-setup.md)
 - Qoder：[docs/qoder-setup.md](../../docs/qoder-setup.md)
 - CodeBuddy：[docs/codebuddy-setup.md](../../docs/codebuddy-setup.md)
