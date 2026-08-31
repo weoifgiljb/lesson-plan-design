@@ -1,0 +1,11 @@
+{
+  "name": "lesson-plan-design",
+  "version": "1.0.0",
+  "displayName": "校标教案设计",
+  "description": "职教校标教案：结构化草稿、examples 金标准、hooks 校验与 DOCX 导出。",
+  "author": { "name": "毕业设计" },
+  "keywords": ["教案", "职业教育", "信息技术"],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}

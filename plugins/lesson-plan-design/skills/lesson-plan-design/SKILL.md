@@ -1,0 +1,37 @@
+---
+name: lesson-plan-design
+description: >
+  撰写、修订、校验或导出职教校标教案（东莞经贸学校信息技术，三维目标与八步流程）。
+  用户提到写教案、改教案、一级考证、周次课次、机房实训时使用。
+---
+
+# 教案设计（短流程）
+
+硬约束见同目录 `RULES.md`。不要把样例全文贴进回复；按需打开下列文件。
+
+## 必须按序
+
+1. Read `references/schema.md`（字段与八步名称）。
+2. Read `CATALOG.md`，打开 `examples/` 中最接近的一份 JSON 作为结构金标准。
+3. 以 `templates/empty-plan.json` 为骨架填写完整教案（缺周次/课次/课题则先问）。
+4. **导出前必须执行**（飞书无 hooks 时同样强制）：
+
+```bash
+python scripts/validate.py <教案.json>
+```
+
+退出码非 0 则按 issues 修改后再跑，禁止跳过。
+
+5. 通过后再导出：
+
+```bash
+python scripts/export_docx.py <教案.json> -o <输出.docx>
+```
+
+修订某一节时改 JSON 对应字段，再跑步骤 4。
+
+对照样例打分（可选）：`python scripts/score.py <教案.json>`
+
+## 输出
+
+给用户：课题、周次课次、三维目标要点、八步是否齐全、校验结果、docx 路径。完整 JSON 可附文件，不要用散文代替结构。

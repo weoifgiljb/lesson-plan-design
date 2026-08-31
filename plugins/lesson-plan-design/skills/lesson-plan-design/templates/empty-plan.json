@@ -1,0 +1,33 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "信息技术",
+  "planNumber": "",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 1,
+  "session": 1,
+  "contentTitle": "",
+  "contentDetail": "",
+  "plannedHours": 2,
+  "teachingPurpose": "",
+  "knowledgeGoals": "",
+  "abilityGoals": "",
+  "qualityGoals": "",
+  "keyPoints": "",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": "",
+    "learningGoals": "",
+    "knowledgeLearning": "",
+    "taskImplementation": "",
+    "assessment": "",
+    "summary": "",
+    "homework": "",
+    "reflection": ""
+  }
+}
