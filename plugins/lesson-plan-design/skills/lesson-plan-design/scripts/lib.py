@@ -371,8 +371,6 @@ def _normalise_finding(plan: dict[str, Any], finding: dict[str, Any], round_numb
         repair=str(finding["minimalRepair"]),
         round_number=round_number,
     )
-    item["id"] = str(finding.get("id") or item["id"])
-    item["status"] = str(finding.get("status") or "open")
     return item
 
 
@@ -497,15 +495,38 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         reasons.append("审查报告与当前教案内容不匹配")
     if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):
         reasons.append("审查报告显示结构校验未通过")
-    if report.get("status") not in {"passed", "needs_repair", "structure_invalid"}:
+    report_status = report.get("status")
+    if report_status not in {"passed", "needs_repair", "structure_invalid"}:
         reasons.append("审查报告状态无效")
+    findings = report.get("findings") if isinstance(report.get("findings"), list) else []
+    has_open_blocking_finding = False
+    for item in findings:
+        if not isinstance(item, dict):
+            reasons.append("审查问题格式无效")
+            continue
+        severity = item.get("severity")
+        status = item.get("status")
+        if severity not in {"blocker", "major", "minor"}:
+            reasons.append("审查问题严重级别无效")
+        if status not in {"open", "waived"}:
+            reasons.append("审查问题状态无效")
+        if severity in BLOCKING_SEVERITIES and status == "open":
+            has_open_blocking_finding = True
+    if report_status == "passed" and findings:
+        reasons.append("通过的审查报告不能包含问题")
+    if report_status == "needs_repair" and not any(
+        item.get("severity") in BLOCKING_SEVERITIES for item in findings if isinstance(item, dict)
+    ):
+        reasons.append("待修复的审查报告缺少未关闭的 blocker 或 major 问题")
+    if report_status == "structure_invalid" and not reasons:
+        reasons.append("审查报告状态显示结构校验未通过")
     approved_ids = {
         item.get("findingId")
         for item in report.get("overrides", [])
         if item.get("planHash") == plan_hash(plan) and item.get("teacher") and item.get("reason")
     }
-    for item in report.get("findings", []):
-        if item.get("severity") in BLOCKING_SEVERITIES and item.get("status") != "closed" and item.get("id") not in approved_ids:
+    for item in findings:
+        if item.get("severity") in BLOCKING_SEVERITIES and item.get("status") == "open" and item.get("id") not in approved_ids:
             reasons.append(f"存在未关闭的 {item.get('severity')} 问题：{item.get('id')}")
     return {"ok": not reasons, "reasons": reasons, "structuralValidation": structural}
 

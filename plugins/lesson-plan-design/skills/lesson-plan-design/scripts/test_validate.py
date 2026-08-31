@@ -118,6 +118,24 @@ class TestLessonPlan(unittest.TestCase):
         self.assertEqual(finding["severity"], "blocker")
         self.assertEqual(report["reviewer"], "native_subagent")
 
+    def test_new_blocking_finding_cannot_claim_to_be_closed(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(
+            plan,
+            finding={
+                "severity": "major",
+                "hypothesis": "unverifiable_assessment",
+                "evidence": ["assessment lacks observable evidence"],
+                "affectedPaths": ["activityFlow.assessment"],
+                "whyItBreaksTheLoop": "目标无法被核验。",
+                "minimalRepair": "补充可观察的评分证据。",
+                "status": "closed",
+            },
+        )
+
+        self.assertEqual(report["findings"][0]["status"], "open")
+        self.assertFalse(export_gate(plan, report)["ok"])
+
     def test_export_gate_rejects_report_for_changed_plan(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         report = adversarial_review(plan)
@@ -177,6 +195,17 @@ class TestLessonPlan(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertIn("审查报告状态无效", result["reasons"])
+
+    def test_export_gate_rejects_unknown_finding_severity(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan)
+        report["status"] = "needs_repair"
+        report["findings"] = [{"id": "unknown-1", "severity": "critical", "status": "open"}]
+
+        result = export_gate(plan, report)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("审查问题严重级别无效", result["reasons"])
 
     def test_export_gate_rejects_incomplete_forged_pass_report(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
@@ -272,6 +301,24 @@ class TestLessonPlan(unittest.TestCase):
 
         self.assertFalse(response["ok"])
         self.assertIn("缺少当前教案的对抗审查报告", response["reasons"])
+
+    def test_mcp_read_review_valid_matches_export_gate(self) -> None:
+        plugin_root = Path(__file__).resolve().parents[3]
+        mcp_path = plugin_root / "scripts" / "mcp_server.py"
+        sys.path.insert(0, str(mcp_path.parent))
+        spec = importlib.util.spec_from_file_location("lesson_plan_mcp_read_test", mcp_path)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        self.assertIsNotNone(spec.loader)
+        spec.loader.exec_module(module)
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        report = adversarial_review(plan)
+
+        response = json.loads(module.call_tool("read_lesson_review", {"plan": plan, "reviewReport": report})["content"][0]["text"])
+
+        self.assertFalse(response["gate"]["ok"])
+        self.assertFalse(response["valid"])
 
 
 if __name__ == "__main__":

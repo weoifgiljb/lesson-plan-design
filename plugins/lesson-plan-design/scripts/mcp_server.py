@@ -151,7 +151,7 @@ def call_tool(name: str, args: dict) -> dict:
         plan = args.get("plan") or {}
         report = args.get("reviewReport")
         gate = export_gate(plan, report)
-        return _result(dump({"report": report, "valid": not any("报告" in item for item in gate["reasons"]), "gate": gate}))
+        return _result(dump({"report": report, "valid": gate["ok"], "gate": gate}))
     if name == "record_teacher_override":
         report = args.get("reviewReport") or {}
         try:
