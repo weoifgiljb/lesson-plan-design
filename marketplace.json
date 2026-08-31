@@ -1,0 +1,20 @@
+{
+  "name": "lesson-plan-design-marketplace",
+  "interface": {
+    "displayName": "Lesson Plan Design"
+  },
+  "plugins": [
+    {
+      "name": "lesson-plan-design",
+      "source": {
+        "source": "local",
+        "path": "./plugins/lesson-plan-design"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
