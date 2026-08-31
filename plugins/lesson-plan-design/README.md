@@ -27,7 +27,8 @@
 | 写一份新教案 | `帮我写第2周第1次课教案，课题一级考证辅导2` |
 | 改某一节 | `把知识学习那一步改成先讲快捷键再练第3套` |
 | 校验 | `帮我校验这份教案 JSON 过不过校标` |
-| 导出 Word | `校验通过后导出 docx` |
+| 对抗性审校 | `对这份教案做对抗性教学闭环审查` |
+| 导出 Word | `结构校验和审查通过后导出 docx` |
 | 对照样例打分 | `对照 examples 给这份教案打分` |
 
 Agent 应先给出：课题、周次课次、三维目标要点、八步是否齐全、校验结果、docx 路径。完整 JSON 会落成文件，不会用一篇散文代替教案。
@@ -37,9 +38,10 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 | 命令 | 作用 |
 |------|------|
 | `/write-lesson-plan` | 按技能全流程撰写或导出。可带参数：`/write-lesson-plan 第2周第1次 一级考证辅导2` |
-| `/validate-lesson-plan` | 只跑校验。可带 JSON 路径：`/validate-lesson-plan plan.json` |
+| `/validate-lesson-plan` | 只跑结构校验。可带 JSON 路径：`/validate-lesson-plan plan.json` |
+| `/adversarial-review-lesson-plan` | 独立子 Agent 进行一轮最强反例审查。 |
 
-审校（只评结构、不擅自改内容）：让 Agent 启用子代理 `lesson-plan-reviewer`，或说「对照样例检查这份教案」。
+审校使用独立子代理 `lesson-plan-reviewer`，它不改教案，只尝试用最强反例推翻目标、活动、任务和考核的教学闭环。修复必须交给另一 Agent；不支持子代理的宿主会在报告中标记 `role_simulation`。
 
 ### 4. Agent 实际会做什么
 
@@ -54,7 +56,13 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 python skills/lesson-plan-design/scripts/validate.py <教案.json>
 ```
 
-5. 通过后再导出：
+5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行。
+
+```bash
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode role_simulation
+```
+
+6. 当前审查报告哈希匹配且门禁通过后再导出：
 
 ```bash
 python skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出.docx>
@@ -66,7 +74,7 @@ python skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出
 python skills/lesson-plan-design/scripts/score.py <教案.json>
 ```
 
-修订某一节时改 JSON 对应字段，再跑步骤 4。飞书没有 Hooks 时，这一步仍由技能强制执行。
+修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告会因教案内容哈希不匹配而自动失效。飞书没有 Hooks 时，这些步骤仍由技能强制执行。
 
 ---
 
@@ -84,7 +92,8 @@ python skills/lesson-plan-design/scripts/score.py <教案.json>
 | `templates/empty-plan.json` | Agent | 空骨架 |
 | `examples/*.json` | Agent | 金标准，只打开最接近的一份 |
 | `scripts/validate.py` | 本机 Python | 结构校验，退出码 0 才合格 |
-| `scripts/export_docx.py` | 本机 Python | JSON → Word |
+| `scripts/adversarial_review.py` | 本机 Python | 对抗审查报告、复审和教师放行 |
+| `scripts/export_docx.py` | 本机 Python | 仅在当前审查报告门禁通过时 JSON → Word |
 | `scripts/draft.py` | 本机 Python | 按周次/课次/课题出草稿 JSON |
 | `scripts/score.py` | 本机 Python | 对照 examples 打结构分 |
 
@@ -105,7 +114,10 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/draft.py --we
 # 校验（不合格会打印 issues，退出码非 0）
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py plan.json
 
-# 导出 Word
+# 生成与教案哈希绑定的审查报告
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode role_simulation
+
+# 门禁通过后导出 Word
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx
 
 # 校验全部金标准 / 跑单元测试
@@ -113,9 +125,9 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py -
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/test_validate.py
 ```
 
-故意缺「知识目标」应失败。导出前必须 validate 通过。
+故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`。
 
-MCP 工具与脚本一一对应：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
+MCP 工具包括：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`start_adversarial_review`、`read_lesson_review`、`record_teacher_override`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
 
 ---
 

@@ -9,6 +9,7 @@ argument-hint: "[第N周第M次] [课题]"
 2. 用 `CATALOG.md` 对照 `examples/` 中最接近的金标准
 3. 基于 `templates/empty-plan.json` 填完整教案
 4. 运行 `python skills/lesson-plan-design/scripts/validate.py <教案.json>`
-5. 通过后再运行 `python skills/lesson-plan-design/scripts/export_docx.py <教案.json>`
+5. 由独立审校 Agent 产出一个最强教学闭环反例，运行 `python skills/lesson-plan-design/scripts/adversarial_review.py <教案.json>` 写入当前报告；`blocker`/`major` 必须由修复 Agent 处理并复审，或由教师实名放行
+6. 当前报告门禁通过后再运行 `python skills/lesson-plan-design/scripts/export_docx.py <教案.json>`
 
 缺周次/课次/课题时先问。不要只输出散文。

@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import ACTIVITY_FLOW_LABELS, load_json, validate_plan
+from lib import (
+    ACTIVITY_FLOW_LABELS,
+    default_review_path,
+    dump,
+    export_gate,
+    load_json,
+    load_review_report,
+)
 
 CONTENT_TYPES = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -121,25 +129,25 @@ def main() -> int:
     p = argparse.ArgumentParser(description="导出教案 DOCX")
     p.add_argument("path", help="教案 JSON")
     p.add_argument("-o", "--out", help="输出 docx 路径")
-    p.add_argument("--force", action="store_true", help="校验失败仍导出")
+    p.add_argument("--review", help="对抗审查报告路径；默认读取教案同目录 .review.json")
     args = p.parse_args()
-    plan = load_json(Path(args.path))
-    check = validate_plan(plan)
-    if not check["ok"] and not args.force:
-        print(dump_issues(check), file=sys.stderr)
+    plan_path = Path(args.path)
+    plan = load_json(plan_path)
+    review_path = Path(args.review) if args.review else default_review_path(plan_path)
+    try:
+        report = load_review_report(review_path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        report = None
+    gate = export_gate(plan, report)
+    if not gate["ok"]:
+        print(dump({"ok": False, "reasons": gate["reasons"]}), file=sys.stderr)
         return 1
     week = plan.get("week")
     session = plan.get("session")
-    out = Path(args.out) if args.out else Path(f"教案_第{week}周第{session}次.docx")
+    out = Path(args.out) if args.out else plan_path.parent / f"教案_第{week}周第{session}次.docx"
     saved = export_docx(plan, out)
     print(f'{{"ok": true, "path": "{saved.as_posix()}", "bytes": {saved.stat().st_size}}}')
     return 0
-
-
-def dump_issues(check: dict) -> str:
-    import json
-
-    return json.dumps({"ok": False, "issues": check["issues"]}, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
