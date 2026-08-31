@@ -4,13 +4,19 @@
 
 ## Cursor
 
-将目录链到本地插件或在 MCP 中加入 `.mcp.json` 的 `lesson-plan` 服务：
+本地插件目录（官方安装位置）：
 
 ```text
-python plugins/lesson-plan-design/scripts/mcp_server.py
+%USERPROFILE%\.cursor\plugins\local\lesson-plan-design
 ```
 
-Skill 也可复制 `skills/lesson-plan-design` 到项目 `.cursor/skills/`。
+将 `plugins/lesson-plan-design` 链到上述路径后，重载窗口。也可在 MCP 中加入 `lesson-plan` 服务：
+
+```text
+py -3 plugins/lesson-plan-design/scripts/mcp_server.py
+```
+
+Skill 也可复制或链接 `skills/lesson-plan-design` 到项目 `.cursor/skills/`。
 
 ## Claude Code
 

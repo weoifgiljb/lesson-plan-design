@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "py -3 \"${PLUGIN_ROOT}/scripts/session-start.py\"",
+        "timeout": 20
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "py -3 \"${PLUGIN_ROOT}/scripts/hook-post-write.py\"",
+        "timeout": 30
+      }
+    ],
+    "stop": [
+      {
+        "command": "py -3 \"${PLUGIN_ROOT}/scripts/hook-stop.py\"",
+        "timeout": 30
+      }
+    ]
+  }
+}

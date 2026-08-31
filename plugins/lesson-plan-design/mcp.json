@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lesson-plan": {
+      "command": "py",
+      "args": ["-3", "${PLUGIN_ROOT}/scripts/mcp_server.py"]
+    }
+  }
+}
