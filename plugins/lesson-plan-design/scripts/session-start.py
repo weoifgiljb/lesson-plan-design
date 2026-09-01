@@ -11,7 +11,9 @@ from _paths import plugin_root
 
 TEXT = (
     "已启用校标教案插件 lesson-plan-design。"
-    "写教案必须走技能流程，导出前运行 skills/lesson-plan-design/scripts/validate.py。"
+    "写教案必须走技能流程，导出前运行 skills/lesson-plan-design/scripts/validate.py，"
+    "并持有与当前教案哈希匹配的对抗审查报告（.review.json）。"
+    "未关闭的 blocker/major 必须修复并复审，或由教师实名放行。"
     f"插件根：{plugin_root()}"
 )
 

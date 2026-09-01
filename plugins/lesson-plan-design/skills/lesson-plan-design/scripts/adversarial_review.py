@@ -36,6 +36,7 @@ def main() -> int:
     parser.add_argument("--review", help="审查报告路径；默认与教案同目录")
     parser.add_argument("--round", type=int, help="复审轮次；默认在现有报告基础上加一")
     parser.add_argument("--finding", help="审校 Agent 产出的单条 finding JSON 或其文件路径")
+    parser.add_argument("--no-counterexample", action="store_true", help="审校员确认本轮无可证实反例")
     parser.add_argument("--reviewer-mode", choices=["native_subagent", "role_simulation"], default="role_simulation")
     parser.add_argument("--override", metavar="ISSUE_ID", help="教师放行的问题 ID")
     parser.add_argument("--teacher", help="教师姓名；与 --override 同用")
@@ -51,12 +52,17 @@ def main() -> int:
         if not previous:
             parser.error("教师放行需要现有审查报告")
         try:
-            override = record_teacher_override(previous, args.override, teacher=args.teacher or "", reason=args.reason or "")
+            override = record_teacher_override(
+                previous, args.override, teacher=args.teacher or "", reason=args.reason or "", plan=plan,
+            )
         except ValueError as exc:
             parser.error(str(exc))
         save_review_report(report_path, previous)
         print(dump({"ok": True, "path": str(report_path), "override": override, "reviewReport": previous}))
         return 0
+
+    if args.finding and args.no_counterexample:
+        parser.error("不能同时使用 --finding 与 --no-counterexample")
 
     round_number = args.round if args.round is not None else (int(previous.get("round", 0)) + 1 if previous else 1)
     try:
@@ -66,12 +72,14 @@ def main() -> int:
             finding=_finding(args.finding),
             reviewer=args.reviewer_mode,
             previous_report=previous,
+            no_counterexample=args.no_counterexample,
         )
     except (ValueError, json.JSONDecodeError) as exc:
         parser.error(str(exc))
     save_review_report(report_path, report)
-    print(dump({"ok": report["status"] == "passed", "path": str(report_path), "reviewReport": report}))
-    return 0 if report["status"] == "passed" else 1
+    passed = report["status"] in {"passed", "passed_with_override"}
+    print(dump({"ok": passed, "path": str(report_path), "reviewReport": report}))
+    return 0 if passed else 1
 
 
 if __name__ == "__main__":

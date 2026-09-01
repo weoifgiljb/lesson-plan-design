@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -36,6 +37,15 @@ class TestLessonPlan(unittest.TestCase):
         for path, plan in items:
             result = validate_plan(plan)
             self.assertTrue(result["ok"], f"{path.name}: {result['issues']}")
+
+    def test_gold_examples_do_not_trigger_preflight_findings(self) -> None:
+        items = load_examples()
+        self.assertEqual(len(items), 7)
+        for path, plan in items:
+            report = adversarial_review(plan)
+            hypotheses = [item.get("hypothesis") for item in report.get("findings", [])]
+            self.assertNotIn("task_not_executable", hypotheses, path.name)
+            self.assertNotIn("assessment_cannot_prove_learning", hypotheses, path.name)
 
     def test_draft_valid(self) -> None:
         plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
@@ -171,7 +181,7 @@ class TestLessonPlan(unittest.TestCase):
         report = adversarial_review(plan, reviewer="native_subagent")
         issue_id = report["findings"][0]["id"]
 
-        record_teacher_override(report, issue_id, teacher="张老师", reason="本课先保留评分量表")
+        record_teacher_override(report, issue_id, teacher="张老师", reason="本课先保留评分量表", plan=plan)
         result = export_gate(plan, report)
 
         self.assertTrue(result["ok"], result["reasons"])
@@ -190,6 +200,7 @@ class TestLessonPlan(unittest.TestCase):
                 report["findings"][0]["id"],
                 teacher="张老师",
                 reason="保留当前评分量表",
+                plan=plan,
             )
 
     def test_export_gate_rejects_blank_teacher_override_fields(self) -> None:
@@ -268,7 +279,7 @@ class TestLessonPlan(unittest.TestCase):
     def test_role_simulation_report_can_open_export_gate(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
 
-        result = export_gate(plan, adversarial_review(plan, reviewer="role_simulation"))
+        result = export_gate(plan, adversarial_review(plan, reviewer="role_simulation", no_counterexample=True))
 
         self.assertTrue(result["ok"], result["reasons"])
 
@@ -369,7 +380,7 @@ class TestLessonPlan(unittest.TestCase):
             self.assertNotEqual(denied.returncode, 0)
             self.assertFalse(output_path.exists())
 
-            save_review_report(default_review_path(plan_path), adversarial_review(plan, reviewer="native_subagent"))
+            save_review_report(default_review_path(plan_path), adversarial_review(plan, reviewer="native_subagent", no_counterexample=True))
             exported = subprocess.run([sys.executable, str(script), str(plan_path)], capture_output=True, text=True, encoding="utf-8", errors="replace")
             self.assertEqual(exported.returncode, 0, exported.stderr)
             self.assertTrue((root / "教案_第1周第1次.docx").is_file())
@@ -383,7 +394,7 @@ class TestLessonPlan(unittest.TestCase):
             review_script = Path(__file__).with_name("adversarial_review.py")
 
             reviewed = subprocess.run(
-                [sys.executable, str(review_script), str(plan_path)],
+                [sys.executable, str(review_script), str(plan_path), "--no-counterexample"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
 
@@ -489,6 +500,7 @@ class TestLessonPlan(unittest.TestCase):
         report["overrides"] = {}
 
         response = json.loads(module.call_tool("record_teacher_override", {
+            "plan": plan,
             "reviewReport": report,
             "issueId": report["findings"][0]["id"],
             "teacher": "张老师",
@@ -497,6 +509,235 @@ class TestLessonPlan(unittest.TestCase):
 
         self.assertFalse(response["ok"])
         self.assertIn("审查放行记录格式无效", response["error"])
+
+    def test_review_without_finding_or_attestation_is_pending(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+
+        report = adversarial_review(plan, reviewer="native_subagent")
+        result = export_gate(plan, report)
+
+        self.assertEqual(report["status"], "pending_reviewer")
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("尚未完成" in reason for reason in result["reasons"]))
+
+    def test_explicit_no_counterexample_opens_export_gate(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        result = export_gate(plan, report)
+
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(report["attestation"], "no_counterexample")
+        self.assertTrue(result["ok"], result["reasons"])
+
+    def test_gold_examples_can_export_after_no_counterexample_attestation(self) -> None:
+        for path, plan in load_examples():
+            report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+            result = export_gate(plan, report)
+            self.assertEqual(report["status"], "passed", path.name)
+            self.assertTrue(result["ok"], f"{path.name}: {result['reasons']}")
+
+    def test_cli_teacher_override_rejects_stale_plan(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "教案.json"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            review_script = Path(__file__).with_name("adversarial_review.py")
+            subprocess.run(
+                [sys.executable, str(review_script), str(plan_path)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=_utf8_env(),
+            )
+            report = load_review_report(default_review_path(plan_path))
+            plan["activityFlow"]["summary"] = "已改课堂小结"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+
+            overridden = subprocess.run(
+                [
+                    sys.executable, str(review_script), str(plan_path),
+                    "--override", report["findings"][0]["id"],
+                    "--teacher", "张老师", "--reason", "本课先保留评分量表",
+                ],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=_utf8_env(),
+            )
+
+            combined = overridden.stderr + overridden.stdout
+            self.assertNotEqual(overridden.returncode, 0)
+            self.assertIn("不匹配", combined)
+
+    def test_teacher_override_marks_passed_with_override(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        report = adversarial_review(plan, reviewer="native_subagent")
+
+        record_teacher_override(
+            report, report["findings"][0]["id"],
+            teacher="张老师", reason="本课先保留评分量表", plan=plan,
+        )
+
+        self.assertEqual(report["status"], "passed_with_override")
+        self.assertTrue(export_gate(plan, report)["ok"], export_gate(plan, report)["reasons"])
+
+    def test_finding_ids_differ_across_plans(self) -> None:
+        first = draft_plan(1, 1, "课题甲")
+        second = draft_plan(1, 2, "课题乙")
+        first["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        second["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+
+        first_id = adversarial_review(first)["findings"][0]["id"]
+        second_id = adversarial_review(second)["findings"][0]["id"]
+
+        self.assertNotEqual(first_id, second_id)
+
+    def test_cli_export_reports_unreadable_review_file(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "教案.json"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            default_review_path(plan_path).write_text("{not-json", encoding="utf-8")
+            script = Path(__file__).with_name("export_docx.py")
+
+            denied = subprocess.run(
+                [sys.executable, str(script), str(plan_path), "-o", str(root / "blocked.docx")],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=_utf8_env(),
+            )
+
+            combined = denied.stderr + denied.stdout
+            self.assertNotEqual(denied.returncode, 0)
+            self.assertIn("无法解析", combined)
+            self.assertNotIn("缺少当前教案的对抗审查报告", combined)
+
+    def test_mcp_review_without_attestation_cannot_export(self) -> None:
+        module = _load_mcp("lesson_plan_mcp_pending_export")
+        plan = draft_plan(1, 1, "测试课题")
+
+        started = json.loads(module.call_tool("start_adversarial_review", {
+            "plan": plan, "reviewerMode": "native_subagent",
+        })["content"][0]["text"])
+        exported = json.loads(module.call_tool("export_lesson_docx", {
+            "plan": plan, "reviewReport": started,
+        })["content"][0]["text"])
+
+        self.assertEqual(started["status"], "pending_reviewer")
+        self.assertFalse(exported["ok"])
+
+    def test_mcp_attested_review_then_export_writes_docx(self) -> None:
+        module = _load_mcp("lesson_plan_mcp_export_success")
+        plan = draft_plan(1, 1, "测试课题")
+        started = json.loads(module.call_tool("start_adversarial_review", {
+            "plan": plan,
+            "reviewerMode": "native_subagent",
+            "noCounterexample": True,
+        })["content"][0]["text"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "exported.docx"
+            exported = json.loads(module.call_tool("export_lesson_docx", {
+                "plan": plan,
+                "reviewReport": started,
+                "outputPath": str(output_path),
+            })["content"][0]["text"])
+
+            self.assertEqual(started["status"], "passed")
+            self.assertTrue(exported["ok"], exported)
+            self.assertTrue(output_path.is_file())
+
+    def test_mcp_teacher_override_requires_matching_plan(self) -> None:
+        module = _load_mcp("lesson_plan_mcp_override_plan")
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        report = adversarial_review(plan, reviewer="native_subagent")
+
+        missing_plan = json.loads(module.call_tool("record_teacher_override", {
+            "reviewReport": report,
+            "issueId": report["findings"][0]["id"],
+            "teacher": "张老师",
+            "reason": "保留当前评分量表",
+        })["content"][0]["text"])
+        stale = dict(plan)
+        stale["activityFlow"] = dict(plan["activityFlow"])
+        stale["activityFlow"]["summary"] = "已改小结"
+        mismatched = json.loads(module.call_tool("record_teacher_override", {
+            "reviewReport": report,
+            "issueId": report["findings"][0]["id"],
+            "teacher": "张老师",
+            "reason": "保留当前评分量表",
+            "plan": stale,
+        })["content"][0]["text"])
+
+        self.assertFalse(missing_plan["ok"])
+        self.assertIn("教案", missing_plan["error"])
+        self.assertFalse(mismatched["ok"])
+        self.assertIn("不匹配", mismatched["error"])
+
+    def test_session_start_mentions_review_report_gate(self) -> None:
+        script = Path(__file__).resolve().parents[3] / "scripts" / "session-start.py"
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env=_utf8_env(),
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(".review.json", proc.stdout)
+        self.assertIn("validate.py", proc.stdout)
+
+    def test_stop_hook_notes_missing_review_report(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        script = Path(__file__).resolve().parents[3] / "scripts" / "hook-stop.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "教案.json").write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            proc = subprocess.run(
+                [sys.executable, str(script)],
+                cwd=tmp,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=_utf8_env(),
+            )
+        payload = json.loads(proc.stdout)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(any(item.get("review") for item in payload["reports"]))
+
+    def test_plugin_root_has_adversarial_review_forwarder(self) -> None:
+        script = Path(__file__).resolve().parents[3] / "scripts" / "adversarial_review.py"
+        self.assertTrue(script.is_file(), script)
+        proc = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("no-counterexample", proc.stdout)
+
+    def test_write_flow_docs_require_finding_or_attestation(self) -> None:
+        plugin_root = Path(__file__).resolve().parents[3]
+        skill = Path(__file__).resolve().parents[1] / "SKILL.md"
+        write_cmd = plugin_root / "commands" / "write-lesson-plan.md"
+        skill_text = skill.read_text(encoding="utf-8")
+        write_text = write_cmd.read_text(encoding="utf-8")
+        self.assertIn("--finding", skill_text)
+        self.assertIn("--no-counterexample", skill_text)
+        self.assertIn("--finding", write_text)
+        self.assertIn("--no-counterexample", write_text)
+
+
+def _utf8_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
+def _load_mcp(name: str):
+    plugin_root = Path(__file__).resolve().parents[3]
+    mcp_path = plugin_root / "scripts" / "mcp_server.py"
+    spec = importlib.util.spec_from_file_location(name, mcp_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None and spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 if __name__ == "__main__":

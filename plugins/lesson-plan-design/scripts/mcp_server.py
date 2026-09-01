@@ -17,7 +17,6 @@ from lib import (  # type: ignore
     dump,
     empty_plan,
     export_gate,
-    plan_hash,
     record_teacher_override,
     score_against_examples,
     validate_plan,
@@ -59,7 +58,7 @@ TOOLS = [
     },
     {
         "name": "start_adversarial_review",
-        "description": "建立对抗审查报告骨架；宿主须将其交给独立审校 Agent 填写一个最强反例",
+        "description": "建立或完成本轮对抗审查报告；无反例时须传 noCounterexample=true，有反例时传 finding",
         "inputSchema": {
             "type": "object",
             "required": ["plan"],
@@ -68,7 +67,8 @@ TOOLS = [
                 "round": {"type": "integer"},
                 "finding": {"type": "object"},
                 "reviewerMode": {"type": "string", "enum": ["native_subagent", "role_simulation"]},
-                "previousReport": {"type": "object"}
+                "previousReport": {"type": "object"},
+                "noCounterexample": {"type": "boolean"},
             },
         },
     },
@@ -86,8 +86,9 @@ TOOLS = [
         "description": "记录教师对当前 blocker 或 major 问题的实名放行",
         "inputSchema": {
             "type": "object",
-            "required": ["reviewReport", "issueId", "teacher", "reason"],
+            "required": ["plan", "reviewReport", "issueId", "teacher", "reason"],
             "properties": {
+                "plan": {"type": "object"},
                 "reviewReport": {"type": "object"}, "issueId": {"type": "string"},
                 "teacher": {"type": "string"}, "reason": {"type": "string"},
             },
@@ -149,6 +150,7 @@ def call_tool(name: str, args: dict) -> dict:
                 finding=args.get("finding"),
                 reviewer=str(args.get("reviewerMode") or "role_simulation"),
                 previous_report=args.get("previousReport"),
+                no_counterexample=bool(args.get("noCounterexample")),
             )
         except (TypeError, ValueError) as exc:
             return _result(dump({"ok": False, "error": str(exc)}))
@@ -165,6 +167,7 @@ def call_tool(name: str, args: dict) -> dict:
                 report, str(args.get("issueId") or ""),
                 teacher=str(args.get("teacher") or ""),
                 reason=str(args.get("reason") or ""),
+                plan=args.get("plan") or {},
             )
         except (TypeError, ValueError, AttributeError) as exc:
             return _result(dump({"ok": False, "error": str(exc)}))

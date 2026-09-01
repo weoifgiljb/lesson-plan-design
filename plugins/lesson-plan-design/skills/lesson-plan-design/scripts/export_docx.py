@@ -134,10 +134,14 @@ def main() -> int:
     plan_path = Path(args.path)
     plan = load_json(plan_path)
     review_path = Path(args.review) if args.review else default_review_path(plan_path)
-    try:
-        report = load_review_report(review_path)
-    except (OSError, ValueError, json.JSONDecodeError):
+    if not review_path.is_file():
         report = None
+    else:
+        try:
+            report = load_review_report(review_path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            print(dump({"ok": False, "reasons": [f"审查报告无法解析：{review_path.as_posix()}"]}), file=sys.stderr)
+            return 1
     gate = export_gate(plan, report)
     if not gate["ok"]:
         print(dump({"ok": False, "reasons": gate["reasons"]}), file=sys.stderr)

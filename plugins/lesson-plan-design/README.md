@@ -56,10 +56,11 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 python skills/lesson-plan-design/scripts/validate.py <教案.json>
 ```
 
-5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行。
+5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例，或显式声明无反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行。
 
 ```bash
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode native_subagent
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --finding finding.json --reviewer-mode native_subagent
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --no-counterexample --reviewer-mode native_subagent
 ```
 
 6. 当前审查报告哈希匹配且门禁通过后再导出：
@@ -114,8 +115,8 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/draft.py --we
 # 校验（不合格会打印 issues，退出码非 0）
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py plan.json
 
-# 生成与教案哈希绑定的审查报告
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode native_subagent
+# 生成与教案哈希绑定的审查报告（有反例用 --finding，无反例用 --no-counterexample）
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --no-counterexample --reviewer-mode native_subagent
 
 # 门禁通过后导出 Word
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx
@@ -125,7 +126,7 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py -
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/test_validate.py
 ```
 
-故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`。
+故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`。无反例时必须使用 `--no-counterexample`，不能省略审校声明。
 
 MCP 工具包括：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`start_adversarial_review`、`read_lesson_review`、`record_teacher_override`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
 

@@ -338,7 +338,7 @@ def _finding(
     repair: str,
     round_number: int,
 ) -> dict[str, Any]:
-    key = f"{hypothesis}:{'|'.join(affected_paths)}".encode("utf-8")
+    key = f"{plan_hash(plan)}:{hypothesis}:{'|'.join(affected_paths)}".encode("utf-8")
     return {
         "id": f"AR-{hashlib.sha256(key).hexdigest()[:10]}",
         "round": round_number,
@@ -419,10 +419,13 @@ def adversarial_review(
     finding: dict[str, Any] | None = None,
     reviewer: str = "role_simulation",
     previous_report: dict[str, Any] | None = None,
+    no_counterexample: bool = False,
 ) -> dict[str, Any]:
     """Build one immutable review round; no mutation of the lesson plan occurs here."""
     if previous_report is not None and not isinstance(previous_report, dict):
         raise ValueError("previousReport 必须是 JSON 对象")
+    if finding and no_counterexample:
+        raise ValueError("不能同时提交反例并声明无反例")
     structural = validate_plan(plan)
     report: dict[str, Any] = {
         "schemaVersion": REVIEW_SCHEMA_VERSION,
@@ -435,6 +438,7 @@ def adversarial_review(
         "findings": [],
         "overrides": [],
         "repairHistory": [],
+        "attestation": None,
     }
     if previous_report:
         report["repairHistory"] = list(previous_report.get("repairHistory", [])) + [
@@ -461,13 +465,36 @@ def adversarial_review(
         report["findings"] = [strongest]
         report["status"] = "needs_repair"
         report["conclusion"] = "发现一个需独立修复 Agent 处理的最强反例。"
-    else:
+    elif no_counterexample:
         report["status"] = "passed"
-        report["conclusion"] = "本轮未能证明教学闭环失效。"
+        report["attestation"] = "no_counterexample"
+        report["conclusion"] = "审校员确认本轮未能证明教学闭环失效。"
+    else:
+        report["status"] = "pending_reviewer"
+        report["conclusion"] = "审查尚未完成：需要审校员提交反例或明确声明无反例。"
     return report
 
 
-def record_teacher_override(report: dict[str, Any], finding_id: str, *, teacher: str, reason: str) -> dict[str, Any]:
+def record_teacher_override(
+    report: dict[str, Any],
+    finding_id: str,
+    *,
+    teacher: str,
+    reason: str,
+    plan: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(plan, dict) or not plan:
+        raise ValueError("教师放行需要当前教案")
+    if not isinstance(report, dict):
+        raise ValueError("审查报告格式无效")
+    if report.get("planHash") != plan_hash(plan):
+        raise ValueError("审查报告与当前教案内容不匹配")
+    required_report = (
+        "schemaVersion", "rubricVersion", "planHash", "round", "reviewer",
+        "reviewedAt", "structuralValidation", "findings", "overrides", "repairHistory", "status",
+    )
+    if any(key not in report for key in required_report):
+        raise ValueError("审查报告缺少必要字段")
     if not teacher.strip() or not reason.strip():
         raise ValueError("教师姓名和放行原因不能为空")
     findings = report.get("findings", [])
@@ -491,6 +518,14 @@ def record_teacher_override(report: dict[str, Any], finding_id: str, *, teacher:
     }
     overrides.append(override)
     finding["status"] = "waived"
+    open_blocking = [
+        item for item in findings
+        if isinstance(item, dict)
+        and item.get("severity") in BLOCKING_SEVERITIES
+        and item.get("status") == "open"
+    ]
+    if not open_blocking:
+        report["status"] = "passed_with_override"
     return override
 
 
@@ -505,7 +540,7 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     if not isinstance(report, dict):
         reasons.append("审查报告格式无效")
         return {"ok": False, "reasons": reasons, "structuralValidation": structural}
-    required_report = ("schemaVersion", "rubricVersion", "planHash", "round", "reviewer", "reviewedAt", "structuralValidation", "findings", "overrides", "repairHistory", "status")
+    required_report = ("schemaVersion", "rubricVersion", "planHash", "round", "reviewer", "reviewedAt", "structuralValidation", "findings", "overrides", "repairHistory", "status", "attestation")
     if any(key not in report for key in required_report):
         reasons.append("审查报告缺少必要字段")
     if not isinstance(report.get("findings"), list) or len(report.get("findings") or []) > 1:
@@ -521,7 +556,7 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):
         reasons.append("审查报告显示结构校验未通过")
     report_status = report.get("status")
-    if report_status not in {"passed", "needs_repair", "structure_invalid"}:
+    if report_status not in {"passed", "needs_repair", "structure_invalid", "pending_reviewer", "passed_with_override"}:
         reasons.append("审查报告状态无效")
     findings = report.get("findings") if isinstance(report.get("findings"), list) else []
     for item in findings:
@@ -534,10 +569,16 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
             reasons.append("审查问题严重级别无效")
         if status not in {"open", "waived"}:
             reasons.append("审查问题状态无效")
+    if report_status == "pending_reviewer":
+        reasons.append("审查尚未完成：缺少审校员反例或无反例声明")
     if report_status == "passed" and findings:
         reasons.append("通过的审查报告不能包含问题")
+    if report_status == "passed" and report.get("attestation") != "no_counterexample":
+        reasons.append("通过的审查报告必须包含无反例声明")
     if report_status == "needs_repair" and not findings:
         reasons.append("待修复的审查报告必须包含审查问题")
+    if report_status == "passed_with_override" and not findings:
+        reasons.append("教师放行的审查报告必须包含审查问题")
     if report_status == "structure_invalid" and not reasons:
         reasons.append("审查报告状态显示结构校验未通过")
     current_hash = plan_hash(plan)
