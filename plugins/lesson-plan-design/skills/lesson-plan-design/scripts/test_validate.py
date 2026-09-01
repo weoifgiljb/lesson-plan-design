@@ -207,6 +207,16 @@ class TestLessonPlan(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("审查问题严重级别无效", result["reasons"])
 
+    def test_export_gate_rejects_malformed_finding_without_crashing(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan)
+        report["findings"] = [None]
+
+        result = export_gate(plan, report)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("审查问题格式无效", result["reasons"])
+
     def test_export_gate_rejects_incomplete_forged_pass_report(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         forged = {

@@ -514,10 +514,8 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
             has_open_blocking_finding = True
     if report_status == "passed" and findings:
         reasons.append("通过的审查报告不能包含问题")
-    if report_status == "needs_repair" and not any(
-        item.get("severity") in BLOCKING_SEVERITIES for item in findings if isinstance(item, dict)
-    ):
-        reasons.append("待修复的审查报告缺少未关闭的 blocker 或 major 问题")
+    if report_status == "needs_repair" and not findings:
+        reasons.append("待修复的审查报告必须包含审查问题")
     if report_status == "structure_invalid" and not reasons:
         reasons.append("审查报告状态显示结构校验未通过")
     approved_ids = {
@@ -526,6 +524,8 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         if item.get("planHash") == plan_hash(plan) and item.get("teacher") and item.get("reason")
     }
     for item in findings:
+        if not isinstance(item, dict):
+            continue
         if item.get("severity") in BLOCKING_SEVERITIES and item.get("status") == "open" and item.get("id") not in approved_ids:
             reasons.append(f"存在未关闭的 {item.get('severity')} 问题：{item.get('id')}")
     return {"ok": not reasons, "reasons": reasons, "structuralValidation": structural}
