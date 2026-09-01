@@ -123,6 +123,8 @@ def _result(text: str) -> dict:
 
 
 def call_tool(name: str, args: dict) -> dict:
+    if not isinstance(args, dict):
+        return _result(dump({"ok": False, "error": "工具参数必须是 JSON 对象"}))
     if name == "get_lesson_template":
         return _result(dump({"skeleton": empty_plan()}))
     if name == "draft_lesson_plan":
@@ -140,13 +142,17 @@ def call_tool(name: str, args: dict) -> dict:
         return _result(dump(validate_plan(args.get("plan") or args)))
     if name == "start_adversarial_review":
         plan = args.get("plan") or args
-        return _result(dump(adversarial_review(
-            plan,
-            round_number=int(args.get("round") or 1),
-            finding=args.get("finding"),
-            reviewer=str(args.get("reviewerMode") or "role_simulation"),
-            previous_report=args.get("previousReport"),
-        )))
+        try:
+            report = adversarial_review(
+                plan,
+                round_number=int(args.get("round") or 1),
+                finding=args.get("finding"),
+                reviewer=str(args.get("reviewerMode") or "role_simulation"),
+                previous_report=args.get("previousReport"),
+            )
+        except (TypeError, ValueError) as exc:
+            return _result(dump({"ok": False, "error": str(exc)}))
+        return _result(dump(report))
     if name == "read_lesson_review":
         plan = args.get("plan") or {}
         report = args.get("reviewReport")

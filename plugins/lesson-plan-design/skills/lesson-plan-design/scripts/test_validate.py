@@ -168,7 +168,7 @@ class TestLessonPlan(unittest.TestCase):
     def test_teacher_override_allows_current_major_finding(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
-        report = adversarial_review(plan)
+        report = adversarial_review(plan, reviewer="native_subagent")
         issue_id = report["findings"][0]["id"]
 
         record_teacher_override(report, issue_id, teacher="张老师", reason="本课先保留评分量表")
@@ -219,6 +219,7 @@ class TestLessonPlan(unittest.TestCase):
         plan = draft_plan(1, 1, "测试课题")
         report = adversarial_review(
             plan,
+            reviewer="native_subagent",
             finding={
                 "id": "minor-1",
                 "severity": "minor",
@@ -231,6 +232,14 @@ class TestLessonPlan(unittest.TestCase):
         )
 
         self.assertTrue(export_gate(plan, report)["ok"])
+
+    def test_role_simulation_report_cannot_open_export_gate(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+
+        result = export_gate(plan, adversarial_review(plan, reviewer="role_simulation"))
+
+        self.assertFalse(result["ok"])
+        self.assertIn("审查报告必须由独立审校 Agent 生成", result["reasons"])
 
     def test_report_with_wrong_rubric_version_cannot_open_export_gate(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
@@ -329,7 +338,7 @@ class TestLessonPlan(unittest.TestCase):
             self.assertNotEqual(denied.returncode, 0)
             self.assertFalse(output_path.exists())
 
-            save_review_report(default_review_path(plan_path), adversarial_review(plan))
+            save_review_report(default_review_path(plan_path), adversarial_review(plan, reviewer="native_subagent"))
             exported = subprocess.run([sys.executable, str(script), str(plan_path)], capture_output=True, text=True, encoding="utf-8", errors="replace")
             self.assertEqual(exported.returncode, 0, exported.stderr)
             self.assertTrue((root / "教案_第1周第1次.docx").is_file())
@@ -383,6 +392,22 @@ class TestLessonPlan(unittest.TestCase):
 
         self.assertFalse(response["ok"])
         self.assertIn("审查报告格式无效", response["reasons"])
+
+    def test_mcp_rejects_non_object_previous_report_without_crashing(self) -> None:
+        plugin_root = Path(__file__).resolve().parents[3]
+        mcp_path = plugin_root / "scripts" / "mcp_server.py"
+        sys.path.insert(0, str(mcp_path.parent))
+        spec = importlib.util.spec_from_file_location("lesson_plan_mcp_bad_previous_report_test", mcp_path)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        self.assertIsNotNone(spec.loader)
+        spec.loader.exec_module(module)
+        plan = draft_plan(1, 1, "测试课题")
+
+        response = json.loads(module.call_tool("start_adversarial_review", {"plan": plan, "previousReport": "bad"})["content"][0]["text"])
+
+        self.assertFalse(response["ok"])
+        self.assertIn("previousReport", response["error"])
 
     def test_mcp_read_review_valid_matches_export_gate(self) -> None:
         plugin_root = Path(__file__).resolve().parents[3]

@@ -421,6 +421,8 @@ def adversarial_review(
     previous_report: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build one immutable review round; no mutation of the lesson plan occurs here."""
+    if previous_report is not None and not isinstance(previous_report, dict):
+        raise ValueError("previousReport 必须是 JSON 对象")
     structural = validate_plan(plan)
     report: dict[str, Any] = {
         "schemaVersion": REVIEW_SCHEMA_VERSION,
@@ -510,6 +512,8 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         reasons.append("审查报告版本不受支持")
     if report.get("rubricVersion") != RUBRIC_VERSION:
         reasons.append("审查量规版本不受支持")
+    if report.get("reviewer") != "native_subagent":
+        reasons.append("审查报告必须由独立审校 Agent 生成")
     if report.get("planHash") != plan_hash(plan):
         reasons.append("审查报告与当前教案内容不匹配")
     if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):

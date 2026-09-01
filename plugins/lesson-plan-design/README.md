@@ -41,7 +41,7 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 | `/validate-lesson-plan` | 只跑结构校验。可带 JSON 路径：`/validate-lesson-plan plan.json` |
 | `/adversarial-review-lesson-plan` | 独立子 Agent 进行一轮最强反例审查。 |
 
-审校使用独立子代理 `lesson-plan-reviewer`，它不改教案，只尝试用最强反例推翻目标、活动、任务和考核的教学闭环。修复必须交给另一 Agent；不支持子代理的宿主会在报告中标记 `role_simulation`。
+审校使用独立子代理 `lesson-plan-reviewer`，它不改教案，只尝试用最强反例推翻目标、活动、任务和考核的教学闭环。修复必须交给另一 Agent；不支持子代理的宿主可记录 `role_simulation` 审查，但该报告不能打开导出门禁。
 
 ### 4. Agent 实际会做什么
 
@@ -59,7 +59,7 @@ python skills/lesson-plan-design/scripts/validate.py <教案.json>
 5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行。
 
 ```bash
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode role_simulation
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode native_subagent
 ```
 
 6. 当前审查报告哈希匹配且门禁通过后再导出：
@@ -115,7 +115,7 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/draft.py --we
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py plan.json
 
 # 生成与教案哈希绑定的审查报告
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode role_simulation
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --reviewer-mode native_subagent
 
 # 门禁通过后导出 Word
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx

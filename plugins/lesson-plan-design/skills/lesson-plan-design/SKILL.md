@@ -22,10 +22,10 @@ python scripts/validate.py <教案.json>
 
 退出码非 0 则按 issues 修改后再跑，禁止跳过。
 
-5. 结构通过后，生成当前教案的对抗审查报告。Codex 使用独立子 Agent 审校；不支持子 Agent 的宿主使用同一量规串行模拟，并在报告中标记 `role_simulation`。出现 `blocker`/`major` 时交由修复 Agent 修改教案并复审；只有教师实名说明原因后可放行。
+5. 结构通过后，生成当前教案的对抗审查报告。仅 `native_subagent` 生成的报告可打开导出门禁；不支持子 Agent 的宿主可使用 `role_simulation` 记录审查，但不能替代独立审校。出现 `blocker`/`major` 时交由修复 Agent 修改教案并复审；只有教师实名说明原因后可放行。
 
 ```bash
-python scripts/adversarial_review.py <教案.json> --reviewer-mode role_simulation
+python scripts/adversarial_review.py <教案.json> --reviewer-mode native_subagent
 ```
 
 6. 当前报告有效且门禁通过后再导出：
