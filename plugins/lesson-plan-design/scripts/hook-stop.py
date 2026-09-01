@@ -10,6 +10,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _paths import skill_scripts
 
+sys.path.insert(0, str(skill_scripts()))
+from lib import default_review_path, export_gate, load_json, load_review_report  # type: ignore
+
 CANDIDATE_GLOBS = ("*.json", "output/*.json", "教案*.json")
 
 
@@ -19,6 +22,19 @@ def _is_plan(path: Path) -> bool:
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return False
     return isinstance(data, dict) and "activityFlow" in data and "contentTitle" in data
+
+
+def _review_note(path: Path) -> str:
+    review_path = default_review_path(path)
+    if not review_path.is_file():
+        return "缺少当前教案的对抗审查报告"
+    try:
+        gate = export_gate(load_json(path), load_review_report(review_path))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return f"审查报告无法解析：{review_path.name}"
+    if gate["ok"]:
+        return "审查门禁通过"
+    return "；".join(gate["reasons"])
 
 
 def main() -> int:
@@ -48,7 +64,12 @@ def main() -> int:
             text=True,
             encoding="utf-8",
         )
-        reports.append({"file": str(path), "code": proc.returncode, "stdout": proc.stdout.strip()})
+        reports.append({
+            "file": str(path),
+            "code": proc.returncode,
+            "stdout": proc.stdout.strip(),
+            "review": _review_note(path),
+        })
         if proc.returncode != 0:
             failed = True
     print(json.dumps({"ok": not failed, "reports": reports}, ensure_ascii=False, indent=2))

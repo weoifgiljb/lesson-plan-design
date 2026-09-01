@@ -22,13 +22,20 @@ python scripts/validate.py <教案.json>
 
 退出码非 0 则按 issues 修改后再跑，禁止跳过。
 
-5. 通过后再导出：
+5. 结构通过后，由独立审校 Agent 产出一个最强教学闭环反例并写入报告。Codex 使用独立子 Agent 审校；不支持子 Agent 的宿主使用 `role_simulation` 串行模拟同一量规。出现 `blocker`/`major` 时交由修复 Agent 修改教案并复审；只有教师实名说明原因后可放行。无反例时必须显式声明，禁止省略参数直接通过。
+
+```bash
+python scripts/adversarial_review.py <教案.json> --finding '<JSON>' --reviewer-mode native_subagent
+python scripts/adversarial_review.py <教案.json> --no-counterexample --reviewer-mode native_subagent
+```
+
+6. 当前报告有效且门禁通过后再导出：
 
 ```bash
 python scripts/export_docx.py <教案.json> -o <输出.docx>
 ```
 
-修订某一节时改 JSON 对应字段，再跑步骤 4。
+修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告因内容哈希不匹配自动失效。
 
 对照样例打分（可选）：`python scripts/score.py <教案.json>`
 

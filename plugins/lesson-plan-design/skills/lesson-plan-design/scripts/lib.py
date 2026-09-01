@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import hashlib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = SKILL_DIR / "examples"
 TEMPLATES_DIR = SKILL_DIR / "templates"
+REVIEW_SCHEMA_VERSION = 1
+RUBRIC_VERSION = "1.0"
+BLOCKING_SEVERITIES = {"blocker", "major"}
 
 ACTIVITY_FLOW_LABELS = {
     "introduction": "一、复习与导入新课",
@@ -218,8 +223,12 @@ def draft_plan(
         "introduction": intro,
         "learningGoals": goals,
         "knowledgeLearning": knowledge,
-        "taskImplementation": f"1、必须完成：完成{must}\n2、选做：{opt}",
-        "assessment": "1、过程考核：30\n2、结果考核：70",
+        "taskImplementation": (
+            f"1、必须完成：完成{must}并提交结果文件\n"
+            "2、完成标准：文件保存到指定位置，可现场演示关键操作\n"
+            f"3、选做：{opt}"
+        ),
+        "assessment": "1、过程考核：依据现场操作记录评分（30）\n2、结果考核：依据提交的结果文件评分（70）",
         "summary": "评讲课堂学生遇到的难题",
         "homework": "课后复习选择题",
         "reflection": "课后根据课堂完成情况补充教学反思。",
@@ -310,6 +319,315 @@ def score_against_examples(plan: dict[str, Any]) -> dict[str, Any]:
         "checks": [{"id": i, "weight": w, "passed": ok} for i, w, ok in checks],
         "nearestSample": nearest,
     }
+
+
+def plan_hash(plan: dict[str, Any]) -> str:
+    """Return a stable content hash used to invalidate stale review evidence."""
+    encoded = json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _finding(
+    plan: dict[str, Any],
+    *,
+    hypothesis: str,
+    severity: str,
+    evidence: list[str],
+    affected_paths: list[str],
+    why: str,
+    repair: str,
+    round_number: int,
+) -> dict[str, Any]:
+    key = f"{plan_hash(plan)}:{hypothesis}:{'|'.join(affected_paths)}".encode("utf-8")
+    return {
+        "id": f"AR-{hashlib.sha256(key).hexdigest()[:10]}",
+        "round": round_number,
+        "severity": severity,
+        "hypothesis": hypothesis,
+        "evidence": evidence,
+        "affectedPaths": affected_paths,
+        "whyItBreaksTheLoop": why,
+        "minimalRepair": repair,
+        "status": "open",
+    }
+
+
+def _normalise_finding(plan: dict[str, Any], finding: dict[str, Any], round_number: int) -> dict[str, Any]:
+    if not isinstance(finding, dict):
+        raise ValueError("审查发现必须是 JSON 对象")
+    required = ("severity", "hypothesis", "evidence", "affectedPaths", "whyItBreaksTheLoop", "minimalRepair")
+    missing = [key for key in required if not finding.get(key)]
+    if missing:
+        raise ValueError(f"审查发现缺少字段：{', '.join(missing)}")
+    if not isinstance(finding["evidence"], list) or not all(isinstance(item, str) and item.strip() for item in finding["evidence"]):
+        raise ValueError("审查发现 evidence 必须是非空字符串列表")
+    if not isinstance(finding["affectedPaths"], list) or not all(isinstance(item, str) and item.strip() for item in finding["affectedPaths"]):
+        raise ValueError("审查发现 affectedPaths 必须是非空字符串列表")
+    severity = str(finding["severity"]).lower()
+    if severity not in {"blocker", "major", "minor"}:
+        raise ValueError("严重级别须为 blocker、major 或 minor")
+    paths = list(finding["affectedPaths"])
+    item = _finding(
+        plan,
+        hypothesis=str(finding["hypothesis"]),
+        severity=severity,
+        evidence=[str(item) for item in finding["evidence"]],
+        affected_paths=[str(path) for path in paths],
+        why=str(finding["whyItBreaksTheLoop"]),
+        repair=str(finding["minimalRepair"]),
+        round_number=round_number,
+    )
+    return item
+
+
+def _preflight_adversarial_finding(plan: dict[str, Any], round_number: int) -> dict[str, Any] | None:
+    """Catch one deterministic counterexample; agents supply deeper pedagogical judgment."""
+    flow = plan.get("activityFlow") or {}
+    task = str(flow.get("taskImplementation") or "").strip()
+    task_terms = ("提交", "作品", "文件", "完成标准", "操作记录")
+    if task and not any(term in task for term in task_terms):
+        return _finding(
+            plan,
+            hypothesis="task_not_executable",
+            severity="major",
+            evidence=[f"activityFlow.taskImplementation: {task}"],
+            affected_paths=["activityFlow.taskImplementation"],
+            why="任务没有可核验的产出或完成标准，学生完成与否无法判断。",
+            repair="说明学生须提交的产出、完成标准或可观察的操作记录。",
+            round_number=round_number,
+        )
+    assessment = str(flow.get("assessment") or "").strip()
+    observable_terms = ("作品", "提交", "操作", "演示", "记录", "文件", "答题", "完成情况", "评分标准")
+    if assessment and not any(term in assessment for term in observable_terms):
+        return _finding(
+            plan,
+            hypothesis="assessment_cannot_prove_learning",
+            severity="major",
+            evidence=[f"activityFlow.assessment: {assessment}"],
+            affected_paths=["activityFlow.assessment"],
+            why="考核只给出分值或笼统名称，未说明以何种学生产出或操作证据判断目标达成。",
+            repair="明确提交物或现场操作，并说明其对应的目标与评分依据。",
+            round_number=round_number,
+        )
+    return None
+
+
+def adversarial_review(
+    plan: dict[str, Any],
+    *,
+    round_number: int = 1,
+    finding: dict[str, Any] | None = None,
+    reviewer: str = "role_simulation",
+    previous_report: dict[str, Any] | None = None,
+    no_counterexample: bool = False,
+) -> dict[str, Any]:
+    """Build one immutable review round; no mutation of the lesson plan occurs here."""
+    if previous_report is not None and not isinstance(previous_report, dict):
+        raise ValueError("previousReport 必须是 JSON 对象")
+    if finding and no_counterexample:
+        raise ValueError("不能同时提交反例并声明无反例")
+    structural = validate_plan(plan)
+    report: dict[str, Any] = {
+        "schemaVersion": REVIEW_SCHEMA_VERSION,
+        "rubricVersion": RUBRIC_VERSION,
+        "planHash": plan_hash(plan),
+        "round": round_number,
+        "reviewer": reviewer,
+        "reviewedAt": datetime.now(timezone.utc).isoformat(),
+        "structuralValidation": {key: value for key, value in structural.items() if key != "plan"},
+        "findings": [],
+        "overrides": [],
+        "repairHistory": [],
+        "attestation": None,
+    }
+    if previous_report:
+        report["repairHistory"] = list(previous_report.get("repairHistory", [])) + [
+            {
+                "round": previous_report.get("round"),
+                "planHash": previous_report.get("planHash"),
+                "status": previous_report.get("status"),
+            }
+        ]
+    if not structural["ok"]:
+        report["status"] = "structure_invalid"
+        report["conclusion"] = "结构校验未通过，不能进入教学质量对抗审查。"
+        return report
+
+    preflight = _preflight_adversarial_finding(plan, round_number)
+    reported = _normalise_finding(plan, finding, round_number) if finding else None
+    severity_rank = {"minor": 1, "major": 2, "blocker": 3}
+    strongest = max(
+        (item for item in (preflight, reported) if item),
+        key=lambda item: severity_rank[item["severity"]],
+        default=None,
+    )
+    if strongest:
+        report["findings"] = [strongest]
+        report["status"] = "needs_repair"
+        report["conclusion"] = "发现一个需独立修复 Agent 处理的最强反例。"
+    elif no_counterexample:
+        report["status"] = "passed"
+        report["attestation"] = "no_counterexample"
+        report["conclusion"] = "审校员确认本轮未能证明教学闭环失效。"
+    else:
+        report["status"] = "pending_reviewer"
+        report["conclusion"] = "审查尚未完成：需要审校员提交反例或明确声明无反例。"
+    return report
+
+
+def record_teacher_override(
+    report: dict[str, Any],
+    finding_id: str,
+    *,
+    teacher: str,
+    reason: str,
+    plan: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(plan, dict) or not plan:
+        raise ValueError("教师放行需要当前教案")
+    if not isinstance(report, dict):
+        raise ValueError("审查报告格式无效")
+    if report.get("planHash") != plan_hash(plan):
+        raise ValueError("审查报告与当前教案内容不匹配")
+    required_report = (
+        "schemaVersion", "rubricVersion", "planHash", "round", "reviewer",
+        "reviewedAt", "structuralValidation", "findings", "overrides", "repairHistory", "status",
+    )
+    if any(key not in report for key in required_report):
+        raise ValueError("审查报告缺少必要字段")
+    if not teacher.strip() or not reason.strip():
+        raise ValueError("教师姓名和放行原因不能为空")
+    findings = report.get("findings", [])
+    if not isinstance(findings, list):
+        raise ValueError("审查问题格式无效")
+    overrides = report.get("overrides", [])
+    if not isinstance(overrides, list):
+        raise ValueError("审查放行记录格式无效")
+    report["overrides"] = overrides
+    finding = next((item for item in findings if isinstance(item, dict) and item.get("id") == finding_id), None)
+    if not finding:
+        raise ValueError(f"未找到审查问题：{finding_id}")
+    if finding.get("severity") not in BLOCKING_SEVERITIES:
+        raise ValueError("仅 blocker 或 major 问题需要教师放行")
+    override = {
+        "findingId": finding_id,
+        "teacher": teacher.strip(),
+        "reason": reason.strip(),
+        "planHash": report.get("planHash"),
+        "approvedAt": datetime.now(timezone.utc).isoformat(),
+    }
+    overrides.append(override)
+    finding["status"] = "waived"
+    open_blocking = [
+        item for item in findings
+        if isinstance(item, dict)
+        and item.get("severity") in BLOCKING_SEVERITIES
+        and item.get("status") == "open"
+    ]
+    if not open_blocking:
+        report["status"] = "passed_with_override"
+    return override
+
+
+def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str, Any]:
+    structural = validate_plan(plan)
+    reasons: list[str] = []
+    if not structural["ok"]:
+        reasons.append("教案未通过结构校验")
+    if report is None:
+        reasons.append("缺少当前教案的对抗审查报告")
+        return {"ok": False, "reasons": reasons, "structuralValidation": structural}
+    if not isinstance(report, dict):
+        reasons.append("审查报告格式无效")
+        return {"ok": False, "reasons": reasons, "structuralValidation": structural}
+    required_report = ("schemaVersion", "rubricVersion", "planHash", "round", "reviewer", "reviewedAt", "structuralValidation", "findings", "overrides", "repairHistory", "status", "attestation")
+    if any(key not in report for key in required_report):
+        reasons.append("审查报告缺少必要字段")
+    if not isinstance(report.get("findings"), list) or len(report.get("findings") or []) > 1:
+        reasons.append("审查报告必须包含至多一个最强反例")
+    if not isinstance(report.get("overrides"), list) or not isinstance(report.get("repairHistory"), list):
+        reasons.append("审查报告的审计记录格式无效")
+    if report.get("schemaVersion") != REVIEW_SCHEMA_VERSION:
+        reasons.append("审查报告版本不受支持")
+    if report.get("rubricVersion") != RUBRIC_VERSION:
+        reasons.append("审查量规版本不受支持")
+    if report.get("planHash") != plan_hash(plan):
+        reasons.append("审查报告与当前教案内容不匹配")
+    if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):
+        reasons.append("审查报告显示结构校验未通过")
+    report_status = report.get("status")
+    if report_status not in {"passed", "needs_repair", "structure_invalid", "pending_reviewer", "passed_with_override"}:
+        reasons.append("审查报告状态无效")
+    findings = report.get("findings") if isinstance(report.get("findings"), list) else []
+    for item in findings:
+        if not isinstance(item, dict):
+            reasons.append("审查问题格式无效")
+            continue
+        severity = item.get("severity")
+        status = item.get("status")
+        if severity not in {"blocker", "major", "minor"}:
+            reasons.append("审查问题严重级别无效")
+        if status not in {"open", "waived"}:
+            reasons.append("审查问题状态无效")
+    if report_status == "pending_reviewer":
+        reasons.append("审查尚未完成：缺少审校员反例或无反例声明")
+    if report_status == "passed" and findings:
+        reasons.append("通过的审查报告不能包含问题")
+    if report_status == "passed" and report.get("attestation") != "no_counterexample":
+        reasons.append("通过的审查报告必须包含无反例声明")
+    if report_status == "needs_repair" and not findings:
+        reasons.append("待修复的审查报告必须包含审查问题")
+    if report_status == "passed_with_override" and not findings:
+        reasons.append("教师放行的审查报告必须包含审查问题")
+    if report_status == "structure_invalid" and not reasons:
+        reasons.append("审查报告状态显示结构校验未通过")
+    current_hash = plan_hash(plan)
+    approved_ids: set[str] = set()
+    overrides = report.get("overrides") if isinstance(report.get("overrides"), list) else []
+    for item in overrides:
+        if not isinstance(item, dict):
+            reasons.append("审查放行记录格式无效")
+            continue
+        if (
+            not all(item.get(key) for key in ("findingId", "planHash", "teacher", "reason"))
+            or not isinstance(item.get("teacher"), str)
+            or not isinstance(item.get("reason"), str)
+            or not item["teacher"].strip()
+            or not item["reason"].strip()
+        ):
+            reasons.append("审查放行记录格式无效")
+            continue
+        if item.get("planHash") == current_hash:
+            approved_ids.add(str(item["findingId"]))
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        if item.get("severity") not in BLOCKING_SEVERITIES:
+            continue
+        if item.get("status") == "open" and str(item.get("id")) not in approved_ids:
+            reasons.append(f"存在未关闭的 {item.get('severity')} 问题：{item.get('id')}")
+        elif item.get("status") == "waived" and str(item.get("id")) not in approved_ids:
+            reasons.append(f"缺少与 waived 问题匹配的教师放行记录：{item.get('id')}")
+    return {"ok": not reasons, "reasons": reasons, "structuralValidation": structural}
+
+
+def default_review_path(plan_path: Path) -> Path:
+    return plan_path.with_suffix(".review.json")
+
+
+def load_review_report(path: Path) -> dict[str, Any]:
+    data = load_json(path)
+    if not isinstance(data, dict):
+        raise ValueError("审查报告必须是 JSON 对象")
+    return data
+
+
+def save_review_report(path: Path, report: dict[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(dump(report) + "\n", encoding="utf-8")
+    temporary.replace(path)
+    return path
 
 
 def dump(obj: Any) -> str:

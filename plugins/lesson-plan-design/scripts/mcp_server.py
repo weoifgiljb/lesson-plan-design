@@ -12,9 +12,12 @@ from _paths import skill_scripts
 sys.path.insert(0, str(skill_scripts()))
 from export_docx import export_docx  # type: ignore
 from lib import (  # type: ignore
+    adversarial_review,
     draft_plan,
     dump,
     empty_plan,
+    export_gate,
+    record_teacher_override,
     score_against_examples,
     validate_plan,
 )
@@ -54,14 +57,53 @@ TOOLS = [
         },
     },
     {
+        "name": "start_adversarial_review",
+        "description": "建立或完成本轮对抗审查报告；无反例时须传 noCounterexample=true，有反例时传 finding",
+        "inputSchema": {
+            "type": "object",
+            "required": ["plan"],
+            "properties": {
+                "plan": {"type": "object"},
+                "round": {"type": "integer"},
+                "finding": {"type": "object"},
+                "reviewerMode": {"type": "string", "enum": ["native_subagent", "role_simulation"]},
+                "previousReport": {"type": "object"},
+                "noCounterexample": {"type": "boolean"},
+            },
+        },
+    },
+    {
+        "name": "read_lesson_review",
+        "description": "读取内存审查报告并验证其是否仍对应当前教案",
+        "inputSchema": {
+            "type": "object",
+            "required": ["plan", "reviewReport"],
+            "properties": {"plan": {"type": "object"}, "reviewReport": {"type": "object"}},
+        },
+    },
+    {
+        "name": "record_teacher_override",
+        "description": "记录教师对当前 blocker 或 major 问题的实名放行",
+        "inputSchema": {
+            "type": "object",
+            "required": ["plan", "reviewReport", "issueId", "teacher", "reason"],
+            "properties": {
+                "plan": {"type": "object"},
+                "reviewReport": {"type": "object"}, "issueId": {"type": "string"},
+                "teacher": {"type": "string"}, "reason": {"type": "string"},
+            },
+        },
+    },
+    {
         "name": "export_lesson_docx",
-        "description": "导出教案为 docx",
+        "description": "仅在结构与当前对抗审查报告均放行时导出教案为 docx",
         "inputSchema": {
             "type": "object",
             "required": ["plan"],
             "properties": {
                 "plan": {"type": "object"},
                 "outputPath": {"type": "string"},
+                "reviewReport": {"type": "object"},
             },
         },
     },
@@ -82,6 +124,8 @@ def _result(text: str) -> dict:
 
 
 def call_tool(name: str, args: dict) -> dict:
+    if not isinstance(args, dict):
+        return _result(dump({"ok": False, "error": "工具参数必须是 JSON 对象"}))
     if name == "get_lesson_template":
         return _result(dump({"skeleton": empty_plan()}))
     if name == "draft_lesson_plan":
@@ -97,11 +141,42 @@ def call_tool(name: str, args: dict) -> dict:
         return _result(dump({"plan": plan, "validation": validate_plan(plan)}))
     if name == "validate_lesson_plan":
         return _result(dump(validate_plan(args.get("plan") or args)))
+    if name == "start_adversarial_review":
+        plan = args.get("plan") or args
+        try:
+            report = adversarial_review(
+                plan,
+                round_number=int(args.get("round") or 1),
+                finding=args.get("finding"),
+                reviewer=str(args.get("reviewerMode") or "role_simulation"),
+                previous_report=args.get("previousReport"),
+                no_counterexample=bool(args.get("noCounterexample")),
+            )
+        except (TypeError, ValueError) as exc:
+            return _result(dump({"ok": False, "error": str(exc)}))
+        return _result(dump(report))
+    if name == "read_lesson_review":
+        plan = args.get("plan") or {}
+        report = args.get("reviewReport")
+        gate = export_gate(plan, report)
+        return _result(dump({"report": report, "valid": gate["ok"], "gate": gate}))
+    if name == "record_teacher_override":
+        report = args.get("reviewReport") or {}
+        try:
+            override = record_teacher_override(
+                report, str(args.get("issueId") or ""),
+                teacher=str(args.get("teacher") or ""),
+                reason=str(args.get("reason") or ""),
+                plan=args.get("plan") or {},
+            )
+        except (TypeError, ValueError, AttributeError) as exc:
+            return _result(dump({"ok": False, "error": str(exc)}))
+        return _result(dump({"ok": True, "override": override, "reviewReport": report}))
     if name == "export_lesson_docx":
         plan = args.get("plan") or args
-        check = validate_plan(plan)
-        if not check["ok"]:
-            return _result(dump(check))
+        gate = export_gate(plan, args.get("reviewReport"))
+        if not gate["ok"]:
+            return _result(dump({"ok": False, "reasons": gate["reasons"]}))
         out = Path(args.get("outputPath") or f"教案_第{plan.get('week')}周第{plan.get('session')}次.docx")
         saved = export_docx(plan, out)
         return _result(dump({"ok": True, "path": str(saved), "bytes": saved.stat().st_size}))
