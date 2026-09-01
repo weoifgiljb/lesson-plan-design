@@ -353,10 +353,16 @@ def _finding(
 
 
 def _normalise_finding(plan: dict[str, Any], finding: dict[str, Any], round_number: int) -> dict[str, Any]:
+    if not isinstance(finding, dict):
+        raise ValueError("审查发现必须是 JSON 对象")
     required = ("severity", "hypothesis", "evidence", "affectedPaths", "whyItBreaksTheLoop", "minimalRepair")
     missing = [key for key in required if not finding.get(key)]
     if missing:
         raise ValueError(f"审查发现缺少字段：{', '.join(missing)}")
+    if not isinstance(finding["evidence"], list) or not all(isinstance(item, str) and item.strip() for item in finding["evidence"]):
+        raise ValueError("审查发现 evidence 必须是非空字符串列表")
+    if not isinstance(finding["affectedPaths"], list) or not all(isinstance(item, str) and item.strip() for item in finding["affectedPaths"]):
+        raise ValueError("审查发现 affectedPaths 必须是非空字符串列表")
     severity = str(finding["severity"]).lower()
     if severity not in {"blocker", "major", "minor"}:
         raise ValueError("严重级别须为 blocker、major 或 minor")
@@ -455,7 +461,10 @@ def adversarial_review(
 def record_teacher_override(report: dict[str, Any], finding_id: str, *, teacher: str, reason: str) -> dict[str, Any]:
     if not teacher.strip() or not reason.strip():
         raise ValueError("教师姓名和放行原因不能为空")
-    finding = next((item for item in report.get("findings", []) if item.get("id") == finding_id), None)
+    findings = report.get("findings", [])
+    if not isinstance(findings, list):
+        raise ValueError("审查问题格式无效")
+    finding = next((item for item in findings if isinstance(item, dict) and item.get("id") == finding_id), None)
     if not finding:
         raise ValueError(f"未找到审查问题：{finding_id}")
     if finding.get("severity") not in BLOCKING_SEVERITIES:
@@ -499,7 +508,6 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     if report_status not in {"passed", "needs_repair", "structure_invalid"}:
         reasons.append("审查报告状态无效")
     findings = report.get("findings") if isinstance(report.get("findings"), list) else []
-    has_open_blocking_finding = False
     for item in findings:
         if not isinstance(item, dict):
             reasons.append("审查问题格式无效")
@@ -510,24 +518,33 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
             reasons.append("审查问题严重级别无效")
         if status not in {"open", "waived"}:
             reasons.append("审查问题状态无效")
-        if severity in BLOCKING_SEVERITIES and status == "open":
-            has_open_blocking_finding = True
     if report_status == "passed" and findings:
         reasons.append("通过的审查报告不能包含问题")
     if report_status == "needs_repair" and not findings:
         reasons.append("待修复的审查报告必须包含审查问题")
     if report_status == "structure_invalid" and not reasons:
         reasons.append("审查报告状态显示结构校验未通过")
-    approved_ids = {
-        item.get("findingId")
-        for item in report.get("overrides", [])
-        if item.get("planHash") == plan_hash(plan) and item.get("teacher") and item.get("reason")
-    }
+    current_hash = plan_hash(plan)
+    approved_ids: set[str] = set()
+    overrides = report.get("overrides") if isinstance(report.get("overrides"), list) else []
+    for item in overrides:
+        if not isinstance(item, dict):
+            reasons.append("审查放行记录格式无效")
+            continue
+        if not all(item.get(key) for key in ("findingId", "planHash", "teacher", "reason")):
+            reasons.append("审查放行记录格式无效")
+            continue
+        if item.get("planHash") == current_hash:
+            approved_ids.add(str(item["findingId"]))
     for item in findings:
         if not isinstance(item, dict):
             continue
-        if item.get("severity") in BLOCKING_SEVERITIES and item.get("status") == "open" and item.get("id") not in approved_ids:
+        if item.get("severity") not in BLOCKING_SEVERITIES:
+            continue
+        if item.get("status") == "open" and str(item.get("id")) not in approved_ids:
             reasons.append(f"存在未关闭的 {item.get('severity')} 问题：{item.get('id')}")
+        elif item.get("status") == "waived" and str(item.get("id")) not in approved_ids:
+            reasons.append(f"缺少与 waived 问题匹配的教师放行记录：{item.get('id')}")
     return {"ok": not reasons, "reasons": reasons, "structuralValidation": structural}
 
 

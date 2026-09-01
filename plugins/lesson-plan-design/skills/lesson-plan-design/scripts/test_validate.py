@@ -159,6 +159,43 @@ class TestLessonPlan(unittest.TestCase):
         self.assertEqual(report["overrides"][0]["planHash"], plan_hash(plan))
         self.assertEqual(report["findings"][0]["status"], "waived")
 
+    def test_waived_blocking_finding_requires_matching_teacher_override(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        report = adversarial_review(plan)
+        report["findings"][0]["status"] = "waived"
+
+        result = export_gate(plan, report)
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("缺少与 waived 问题匹配的教师放行记录" in reason for reason in result["reasons"]))
+
+    def test_export_gate_rejects_malformed_override_without_crashing(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan)
+        report["overrides"] = [None]
+
+        result = export_gate(plan, report)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("审查放行记录格式无效", result["reasons"])
+
+    def test_adversarial_review_rejects_non_list_finding_fields(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+
+        with self.assertRaises(ValueError):
+            adversarial_review(
+                plan,
+                finding={
+                    "severity": "minor",
+                    "hypothesis": "bad_shape",
+                    "evidence": "not-a-list",
+                    "affectedPaths": ["activityFlow.assessment"],
+                    "whyItBreaksTheLoop": "格式错误",
+                    "minimalRepair": "修正格式",
+                },
+            )
+
     def test_minor_finding_does_not_block_export(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         report = adversarial_review(
