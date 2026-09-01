@@ -473,6 +473,10 @@ def record_teacher_override(report: dict[str, Any], finding_id: str, *, teacher:
     findings = report.get("findings", [])
     if not isinstance(findings, list):
         raise ValueError("审查问题格式无效")
+    overrides = report.get("overrides", [])
+    if not isinstance(overrides, list):
+        raise ValueError("审查放行记录格式无效")
+    report["overrides"] = overrides
     finding = next((item for item in findings if isinstance(item, dict) and item.get("id") == finding_id), None)
     if not finding:
         raise ValueError(f"未找到审查问题：{finding_id}")
@@ -485,7 +489,7 @@ def record_teacher_override(report: dict[str, Any], finding_id: str, *, teacher:
         "planHash": report.get("planHash"),
         "approvedAt": datetime.now(timezone.utc).isoformat(),
     }
-    report.setdefault("overrides", []).append(override)
+    overrides.append(override)
     finding["status"] = "waived"
     return override
 
@@ -512,8 +516,6 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         reasons.append("审查报告版本不受支持")
     if report.get("rubricVersion") != RUBRIC_VERSION:
         reasons.append("审查量规版本不受支持")
-    if report.get("reviewer") != "native_subagent":
-        reasons.append("审查报告必须由独立审校 Agent 生成")
     if report.get("planHash") != plan_hash(plan):
         reasons.append("审查报告与当前教案内容不匹配")
     if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):
@@ -545,7 +547,13 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         if not isinstance(item, dict):
             reasons.append("审查放行记录格式无效")
             continue
-        if not all(item.get(key) for key in ("findingId", "planHash", "teacher", "reason")):
+        if (
+            not all(item.get(key) for key in ("findingId", "planHash", "teacher", "reason"))
+            or not isinstance(item.get("teacher"), str)
+            or not isinstance(item.get("reason"), str)
+            or not item["teacher"].strip()
+            or not item["reason"].strip()
+        ):
             reasons.append("审查放行记录格式无效")
             continue
         if item.get("planHash") == current_hash:

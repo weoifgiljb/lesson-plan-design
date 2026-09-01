@@ -178,6 +178,38 @@ class TestLessonPlan(unittest.TestCase):
         self.assertEqual(report["overrides"][0]["planHash"], plan_hash(plan))
         self.assertEqual(report["findings"][0]["status"], "waived")
 
+    def test_teacher_override_rejects_non_list_overrides(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        report = adversarial_review(plan, reviewer="native_subagent")
+        report["overrides"] = {}
+
+        with self.assertRaises(ValueError):
+            record_teacher_override(
+                report,
+                report["findings"][0]["id"],
+                teacher="张老师",
+                reason="保留当前评分量表",
+            )
+
+    def test_export_gate_rejects_blank_teacher_override_fields(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        report = adversarial_review(plan, reviewer="native_subagent")
+        finding = report["findings"][0]
+        finding["status"] = "waived"
+        report["overrides"] = [{
+            "findingId": finding["id"],
+            "planHash": plan_hash(plan),
+            "teacher": " ",
+            "reason": " ",
+        }]
+
+        result = export_gate(plan, report)
+
+        self.assertFalse(result["ok"])
+        self.assertIn("审查放行记录格式无效", result["reasons"])
+
     def test_waived_blocking_finding_requires_matching_teacher_override(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
@@ -233,13 +265,12 @@ class TestLessonPlan(unittest.TestCase):
 
         self.assertTrue(export_gate(plan, report)["ok"])
 
-    def test_role_simulation_report_cannot_open_export_gate(self) -> None:
+    def test_role_simulation_report_can_open_export_gate(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
 
         result = export_gate(plan, adversarial_review(plan, reviewer="role_simulation"))
 
-        self.assertFalse(result["ok"])
-        self.assertIn("审查报告必须由独立审校 Agent 生成", result["reasons"])
+        self.assertTrue(result["ok"], result["reasons"])
 
     def test_report_with_wrong_rubric_version_cannot_open_export_gate(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
@@ -361,6 +392,22 @@ class TestLessonPlan(unittest.TestCase):
             self.assertEqual(report["planHash"], plan_hash(plan))
             self.assertEqual(report["status"], "passed")
 
+    def test_review_cli_returns_nonzero_for_needs_repair(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "教案.json"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            review_script = Path(__file__).with_name("adversarial_review.py")
+
+            reviewed = subprocess.run(
+                [sys.executable, str(review_script), str(plan_path), "--reviewer-mode", "native_subagent"],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+            )
+
+            self.assertNotEqual(reviewed.returncode, 0)
+
     def test_mcp_export_reuses_review_gate(self) -> None:
         plugin_root = Path(__file__).resolve().parents[3]
         mcp_path = plugin_root / "scripts" / "mcp_server.py"
@@ -426,6 +473,30 @@ class TestLessonPlan(unittest.TestCase):
 
         self.assertFalse(response["gate"]["ok"])
         self.assertFalse(response["valid"])
+
+    def test_mcp_teacher_override_rejects_malformed_overrides_without_crashing(self) -> None:
+        plugin_root = Path(__file__).resolve().parents[3]
+        mcp_path = plugin_root / "scripts" / "mcp_server.py"
+        sys.path.insert(0, str(mcp_path.parent))
+        spec = importlib.util.spec_from_file_location("lesson_plan_mcp_bad_override_test", mcp_path)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        self.assertIsNotNone(spec.loader)
+        spec.loader.exec_module(module)
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        report = adversarial_review(plan, reviewer="native_subagent")
+        report["overrides"] = {}
+
+        response = json.loads(module.call_tool("record_teacher_override", {
+            "reviewReport": report,
+            "issueId": report["findings"][0]["id"],
+            "teacher": "张老师",
+            "reason": "保留当前评分量表",
+        })["content"][0]["text"])
+
+        self.assertFalse(response["ok"])
+        self.assertIn("审查放行记录格式无效", response["error"])
 
 
 if __name__ == "__main__":

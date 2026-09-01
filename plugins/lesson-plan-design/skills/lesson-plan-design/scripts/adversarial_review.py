@@ -71,7 +71,7 @@ def main() -> int:
         parser.error(str(exc))
     save_review_report(report_path, report)
     print(dump({"ok": report["status"] == "passed", "path": str(report_path), "reviewReport": report}))
-    return 0 if report["status"] != "structure_invalid" else 1
+    return 0 if report["status"] == "passed" else 1
 
 
 if __name__ == "__main__":

@@ -166,7 +166,7 @@ def call_tool(name: str, args: dict) -> dict:
                 teacher=str(args.get("teacher") or ""),
                 reason=str(args.get("reason") or ""),
             )
-        except ValueError as exc:
+        except (TypeError, ValueError, AttributeError) as exc:
             return _result(dump({"ok": False, "error": str(exc)}))
         return _result(dump({"ok": True, "override": override, "reviewReport": report}))
     if name == "export_lesson_docx":

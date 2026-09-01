@@ -3,7 +3,7 @@ description: 对校标教案进行独立的对抗性教学闭环审查，只提�
 argument-hint: "[教案.json 路径]"
 ---
 
-先读取 `agents/lesson-plan-reviewer.md`。在 Codex 中必须派发独立子 Agent；其他宿主以 `role_simulation` 运行同一量规并如实标记。
+先读取 `agents/lesson-plan-reviewer.md`。在 Codex 中派发独立子 Agent；其他宿主以 `role_simulation` 运行同一量规并如实标记。
 
 1. 对指定教案运行 `python skills/lesson-plan-design/scripts/validate.py <教案.json>`；失败时停止。
 2. 对抗审校 Agent 只输出一条符合审校员契约的 finding JSON，禁止修改教案。

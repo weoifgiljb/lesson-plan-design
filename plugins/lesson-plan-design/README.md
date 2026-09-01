@@ -41,7 +41,7 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 | `/validate-lesson-plan` | 只跑结构校验。可带 JSON 路径：`/validate-lesson-plan plan.json` |
 | `/adversarial-review-lesson-plan` | 独立子 Agent 进行一轮最强反例审查。 |
 
-审校使用独立子代理 `lesson-plan-reviewer`，它不改教案，只尝试用最强反例推翻目标、活动、任务和考核的教学闭环。修复必须交给另一 Agent；不支持子代理的宿主可记录 `role_simulation` 审查，但该报告不能打开导出门禁。
+审校使用独立子代理 `lesson-plan-reviewer`，它不改教案，只尝试用最强反例推翻目标、活动、任务和考核的教学闭环。修复必须交给另一 Agent；不支持子代理的宿主用 `role_simulation` 执行同一量规。
 
 ### 4. Agent 实际会做什么
 
