@@ -88,6 +88,25 @@ class TestLessonPlan(unittest.TestCase):
         self.assertEqual(finding["affectedPaths"], ["activityFlow.assessment"])
         self.assertEqual(finding["status"], "open")
 
+    def test_external_finding_cannot_bypass_stronger_preflight_finding(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+
+        report = adversarial_review(
+            plan,
+            finding={
+                "severity": "minor",
+                "hypothesis": "cosmetic_issue",
+                "evidence": ["课堂小结可以更具体。"],
+                "affectedPaths": ["activityFlow.summary"],
+                "whyItBreaksTheLoop": "反馈证据较弱。",
+                "minimalRepair": "补充一项回顾问题。",
+            },
+        )
+
+        self.assertEqual(report["findings"][0]["hypothesis"], "assessment_cannot_prove_learning")
+        self.assertEqual(report["findings"][0]["severity"], "major")
+
     def test_adversarial_review_exposes_task_without_verifiable_output(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         plan["activityFlow"]["taskImplementation"] = "1、必须完成：完成第21套\n2、选做：第1套"
@@ -348,6 +367,22 @@ class TestLessonPlan(unittest.TestCase):
 
         self.assertFalse(response["ok"])
         self.assertIn("缺少当前教案的对抗审查报告", response["reasons"])
+
+    def test_mcp_rejects_non_object_review_report_without_crashing(self) -> None:
+        plugin_root = Path(__file__).resolve().parents[3]
+        mcp_path = plugin_root / "scripts" / "mcp_server.py"
+        sys.path.insert(0, str(mcp_path.parent))
+        spec = importlib.util.spec_from_file_location("lesson_plan_mcp_bad_report_test", mcp_path)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        self.assertIsNotNone(spec.loader)
+        spec.loader.exec_module(module)
+        plan = draft_plan(1, 1, "测试课题")
+
+        response = json.loads(module.call_tool("export_lesson_docx", {"plan": plan, "reviewReport": "bad"})["content"][0]["text"])
+
+        self.assertFalse(response["ok"])
+        self.assertIn("审查报告格式无效", response["reasons"])
 
     def test_mcp_read_review_valid_matches_export_gate(self) -> None:
         plugin_root = Path(__file__).resolve().parents[3]

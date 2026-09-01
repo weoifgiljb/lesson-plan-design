@@ -447,7 +447,14 @@ def adversarial_review(
         report["conclusion"] = "结构校验未通过，不能进入教学质量对抗审查。"
         return report
 
-    strongest = _normalise_finding(plan, finding, round_number) if finding else _preflight_adversarial_finding(plan, round_number)
+    preflight = _preflight_adversarial_finding(plan, round_number)
+    reported = _normalise_finding(plan, finding, round_number) if finding else None
+    severity_rank = {"minor": 1, "major": 2, "blocker": 3}
+    strongest = max(
+        (item for item in (preflight, reported) if item),
+        key=lambda item: severity_rank[item["severity"]],
+        default=None,
+    )
     if strongest:
         report["findings"] = [strongest]
         report["status"] = "needs_repair"
@@ -486,8 +493,11 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     reasons: list[str] = []
     if not structural["ok"]:
         reasons.append("教案未通过结构校验")
-    if not report:
+    if report is None:
         reasons.append("缺少当前教案的对抗审查报告")
+        return {"ok": False, "reasons": reasons, "structuralValidation": structural}
+    if not isinstance(report, dict):
+        reasons.append("审查报告格式无效")
         return {"ok": False, "reasons": reasons, "structuralValidation": structural}
     required_report = ("schemaVersion", "rubricVersion", "planHash", "round", "reviewer", "reviewedAt", "structuralValidation", "findings", "overrides", "repairHistory", "status")
     if any(key not in report for key in required_report):
