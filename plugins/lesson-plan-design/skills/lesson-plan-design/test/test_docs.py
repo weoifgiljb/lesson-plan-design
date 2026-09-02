@@ -31,3 +31,16 @@ class TestDocs(unittest.TestCase):
         write_text = (PLUGIN_ROOT / "commands" / "write-lesson-plan.md").read_text(encoding="utf-8")
         self.assertIn("mediaAssets", write_text)
         self.assertIn("Markdown", write_text)
+
+    def test_qc_goal_and_keypoint_writing_rules(self) -> None:
+        rules = (SKILL_DIR / "RULES.md").read_text(encoding="utf-8")
+        agents = (PLUGIN_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        schema = (SKILL_DIR / "references" / "schema.md").read_text(encoding="utf-8")
+        reviewer = (PLUGIN_ROOT / "agents" / "lesson-plan-reviewer.md").read_text(encoding="utf-8")
+        for text in (rules, agents, schema, reviewer):
+            self.assertIn("可评可测", text)
+            self.assertIn("学生会什么", text)
+            self.assertIn("重点由", text)
+            self.assertIn("教学内容", text)
+            self.assertIn("难点", text)
+            self.assertIn("学情", text)

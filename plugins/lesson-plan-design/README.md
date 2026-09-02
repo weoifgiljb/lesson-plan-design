@@ -88,12 +88,12 @@ python skills/lesson-plan-design/scripts/score.py <教案.json>
 | 文件 / 目录 | 给谁看 | 干什么 |
 |-------------|--------|--------|
 | `SKILL.md` | Agent | 短流程：读什么、校验、导出 |
-| `RULES.md` | Agent | 五条硬约束（结构优先、缺输入先问、导出前校验…） |
-| `CATALOG.md` | Agent | 7 份金标准索引（周次/课次/课题） |
-| `references/schema.md` | Agent | 校标字段与八步名称 |
+| `RULES.md` | Agent | 七条硬约束（结构优先、缺输入先问、导出前校验、三维目标可评可测、重难点分源…） |
+| `CATALOG.md` | Agent | 7 份金标准索引（周次/课次/课题）；样例只管结构 |
+| `references/schema.md` | Agent | 校标字段、八步名称与三维目标/重难点写法 |
 | `references/validation.md` | Agent | 校验规则说明 |
 | `templates/empty-plan.json` | Agent | 空骨架 |
-| `examples/*.json` | Agent | 金标准，只打开最接近的一份 |
+| `examples/*.json` | Agent | 结构金标准，只打开最接近的一份 |
 | `scripts/validate.py` | 本机 Python | 结构校验，退出码 0 才合格 |
 | `scripts/adversarial_review.py` | 本机 Python | 对抗审查报告、复审和教师放行 |
 | `scripts/export_docx.py` | 本机 Python | 仅在当前审查报告门禁通过时 JSON → Word |
