@@ -10,13 +10,21 @@ from pathlib import Path
 
 from support import PNG_1X1, SKILLS_DIR
 
+sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
+from export_docx import export_docx, _split_key_points
+from lib import draft_plan
+
+
+def _document_xml(plan: dict) -> str:
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "plan.docx"
+        export_docx(plan, out, base_dir=Path(tmp))
+        with zipfile.ZipFile(out) as zf:
+            return zf.read("word/document.xml").decode("utf-8")
+
 
 class TestExportDocxFormat(unittest.TestCase):
     def test_export_splits_flow_and_renders_markdown(self) -> None:
-        sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
-        from export_docx import export_docx
-        from lib import draft_plan
-
         plan = draft_plan(1, 1, "认识 C 语言")
         plan["knowledgeGoals"] = "1. 说出用途\n2. 区分编译\n\n常见错误：**未保存**。"
         with tempfile.TemporaryDirectory() as tmp:
@@ -33,51 +41,60 @@ class TestExportDocxFormat(unittest.TestCase):
             export_docx(plan, out, base_dir=Path(tmp))
             with zipfile.ZipFile(out) as zf:
                 names = set(zf.namelist())
-                self.assertIn("word/numbering.xml", names)
-                self.assertIn("word/styles.xml", names)
                 document = zf.read("word/document.xml").decode("utf-8")
                 rels = zf.read("word/_rels/document.xml.rels").decode("utf-8")
+            self.assertIn("word/numbering.xml", names)
+            self.assertIn("word/styles.xml", names)
             self.assertIn("<w:b/>", document)
             self.assertGreaterEqual(document.count("<w:tr>"), 17)
             self.assertIn("课前组织", document)
             self.assertIn("知识学习", document)
+            self.assertIn("课程考核", document)
             self.assertIn("word/media/", "\n".join(names))
             self.assertIn("/image", rels)
 
     def test_title_run_uses_black_font(self) -> None:
-        sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
-        from export_docx import export_docx
-        from lib import draft_plan
-
-        plan = draft_plan(1, 1, "标题字体")
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "title.docx"
-            export_docx(plan, out, base_dir=Path(tmp))
-            with zipfile.ZipFile(out) as zf:
-                document = zf.read("word/document.xml").decode("utf-8")
-            self.assertIn('w:rFonts w:ascii="黑体" w:eastAsia="黑体"', document)
+        document = _document_xml(draft_plan(1, 1, "标题字体"))
+        self.assertIn('w:rFonts w:ascii="黑体" w:eastAsia="黑体"', document)
 
     def test_title_uses_specific_content_topic(self) -> None:
-        sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
-        from export_docx import export_docx
-        from lib import draft_plan
+        document = _document_xml(draft_plan(1, 1, "认识 C 语言与 Dev-C++"))
+        self.assertIn("《认识 C 语言与 Dev-C++》", document)
+        self.assertNotIn("东莞经贸学校教案", document)
 
-        plan = draft_plan(1, 1, "认识 C 语言与 Dev-C++")
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "topic.docx"
-            export_docx(plan, out, base_dir=Path(tmp))
-            with zipfile.ZipFile(out) as zf:
-                document = zf.read("word/document.xml").decode("utf-8")
-            self.assertIn("《认识 C 语言与 Dev-C++》", document)
-            self.assertNotIn("东莞经贸学校教案", document)
+    def test_header_includes_meta_and_purpose(self) -> None:
+        plan = draft_plan(2, 1, "导出表头元信息", teacher="龙琼芳", teaching_object="计算机1班")
+        plan["teachingPurpose"] = "帮助学生完成可观察的上机任务。"
+        plan["academicYear"] = "2026-2027"
+        document = _document_xml(plan)
+        self.assertIn("2026-2027学年", document)
+        self.assertIn("任课教师：龙琼芳", document)
+        self.assertIn("教学对象：计算机1班", document)
+        self.assertIn("第2周第1次", document)
+        self.assertIn("教学目的", document)
+        self.assertIn("帮助学生完成可观察的上机任务。", document)
+
+    def test_split_key_and_difficult_points(self) -> None:
+        self.assertEqual(
+            _split_key_points("重点：编辑—编译—运行。难点：区分报错与结果。"),
+            ("编辑—编译—运行。", "区分报错与结果。"),
+        )
+        plan = draft_plan(1, 1, "重难点分写")
+        plan["keyPoints"] = "重点：for 三段式。难点：循环边界。"
+        document = _document_xml(plan)
+        key_pos = document.index("教学重点")
+        diff_pos = document.index("教学难点")
+        method_pos = document.index("教学方法")
+        key_cell = document[key_pos:diff_pos]
+        diff_cell = document[diff_pos:method_pos]
+        self.assertIn("for 三段式", key_cell)
+        self.assertNotIn("循环边界", key_cell)
+        self.assertIn("循环边界", diff_cell)
+        self.assertNotIn("for 三段式", diff_cell)
 
     def test_structured_flow_uses_reference_grid_and_a4_margins(self) -> None:
-        sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
-        from export_docx import export_docx
-        from lib import draft_plan
-
         plan = draft_plan(1, 1, "认识 C 语言")
-        plan["activityFlow"]["knowledgeLearning"] = [
+        plan["activityFlow"]["taskImplementation"] = [
             {
                 "mainContent": "源文件、编译与运行",
                 "teacherActivity": "演示新建并编译 C 文件",
@@ -86,24 +103,46 @@ class TestExportDocxFormat(unittest.TestCase):
                 "evidence": "生成 C01.c",
             }
         ]
-        with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "structured.docx"
-            export_docx(plan, out, base_dir=Path(tmp))
-            with zipfile.ZipFile(out) as zf:
-                document = zf.read("word/document.xml").decode("utf-8")
-            self.assertIn("教学环节", document)
-            self.assertIn("主要内容", document)
-            self.assertIn("教学活动", document)
-            self.assertIn("教师", document)
-            self.assertIn("学生", document)
-            self.assertIn("生成 C01.c", document)
-            self.assertIn('w:w="11906" w:h="16838"', document)
-            self.assertIn('w:left="1800"', document)
-            self.assertIn('w:right="1800"', document)
-            self.assertNotIn("D6E3F8", document)
-            self.assertIn(
-                '<w:gridCol w:w="827"/><w:gridCol w:w="274"/><w:gridCol w:w="1275"/>'
-                '<w:gridCol w:w="1985"/><w:gridCol w:w="2551"/><w:gridCol w:w="664"/>'
-                '<w:gridCol w:w="1001"/><w:gridCol w:w="711"/>',
-                document,
-            )
+        document = _document_xml(plan)
+        self.assertIn("教学环节", document)
+        self.assertIn("主要内容", document)
+        self.assertIn("教学活动", document)
+        self.assertIn("教师活动", document)
+        self.assertIn("学生活动", document)
+        self.assertIn("生成 C01.c", document)
+        self.assertIn("（20分钟）", document)
+        self.assertIn('w:w="11906" w:h="16838"', document)
+        self.assertIn('w:left="1800"', document)
+        self.assertIn('w:right="1800"', document)
+        self.assertNotIn("D6E3F8", document)
+        self.assertIn(
+            '<w:gridCol w:w="827"/><w:gridCol w:w="274"/><w:gridCol w:w="1275"/>'
+            '<w:gridCol w:w="1985"/><w:gridCol w:w="2551"/><w:gridCol w:w="664"/>'
+            '<w:gridCol w:w="1001"/><w:gridCol w:w="711"/>',
+            document,
+        )
+
+    def test_only_task_implementation_uses_activity_columns(self) -> None:
+        plan = draft_plan(1, 1, "仅任务实施分列")
+        plan["activityFlow"]["introduction"] = {
+            "mainContent": "导入内容",
+            "teacherActivity": "导入教师活动",
+            "studentActivity": "导入学生活动",
+            "evidence": "导入产出",
+        }
+        plan["activityFlow"]["taskImplementation"] = {
+            "mainContent": "任务内容",
+            "teacherActivity": "任务教师活动",
+            "studentActivity": "任务学生活动",
+            "evidence": "任务产出",
+        }
+        document = _document_xml(plan)
+        self.assertNotIn("导入教师活动", document)
+        self.assertNotIn("导入学生活动", document)
+        self.assertNotIn("导入产出", document)
+        self.assertEqual(document.count("教学活动"), 1)
+        self.assertIn("任务教师活动", document)
+        self.assertIn("任务学生活动", document)
+        self.assertIn("任务产出", document)
+        self.assertIn("课程考核", document)
+        self.assertNotIn("任务实施与考核", document)

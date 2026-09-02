@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "formatting-lesson-docx" / "scripts"))
 from lib import (
+    ACTIVITY_FLOW_LABELS,
     default_review_path,
     dump,
     export_gate,
@@ -20,6 +23,9 @@ from markdown_ooxml import DocxPackage, NS_W
 
 LABEL_SHADE = "E7E7E7"
 HEADER_SHADE = "D9D9D9"
+COL_WIDTHS = [827, 274, 1275, 1985, 2551, 664, 1001, 711]
+_KEY_DIFF_RE = re.compile(r"难点[:：]")
+_KEY_PREFIX_RE = re.compile(r"^重点[:：]\s*")
 
 
 def _borders() -> str:
@@ -113,19 +119,92 @@ def _activity_text(item: dict, field: str) -> str:
     return str(value).strip()
 
 
+def _activity_label(label: str, item: dict) -> str:
+    minutes = item.get("minutes")
+    if minutes in (None, ""):
+        return label
+    return f"{label}\n（{minutes}分钟）"
+
+
+def _split_key_points(text: str) -> tuple[str, str]:
+    """Split `重点：…难点：…` into two cells; otherwise keep the whole text as 重点."""
+    raw = (text or "").strip()
+    if not raw:
+        return "", ""
+    if _KEY_DIFF_RE.search(raw):
+        before, after = _KEY_DIFF_RE.split(raw, maxsplit=1)
+        key = _KEY_PREFIX_RE.sub("", before).strip()
+        return key, after.strip()
+    return _KEY_PREFIX_RE.sub("", raw).strip(), ""
+
+
+def _meta_line(plan: dict) -> str:
+    teacher = plan.get("teacher") or "____"
+    teaching_object = plan.get("teachingObject") or "____"
+    return (
+        f"{plan.get('academicYear', '')}学年 第{plan.get('semester', '')}学期  "
+        f"课程：{plan.get('course', '')}  教研组：{plan.get('teachingGroup', '')}  "
+        f"任课教师：{teacher}  教学对象：{teaching_object}  "
+        f"第{plan.get('week')}周第{plan.get('session')}次"
+    )
+
+
+def _student_with_evidence(item: dict) -> str:
+    student = _activity_text(item, "studentActivity")
+    evidence = _activity_text(item, "evidence")
+    if evidence:
+        return "\n".join(part for part in (student, f"产出：{evidence}") if part)
+    return student
+
+
+def _prefixed_flow_text(key: str, text: str, *, prefixed: bool) -> str:
+    if not prefixed:
+        return text
+    heading = ACTIVITY_FLOW_LABELS.get(key, key)
+    return f"**{heading}**\n{text}"
+
+
+def _collect_step(
+    plan: dict,
+    key: str,
+    *,
+    keep_activity_columns: bool,
+    prefixed: bool,
+) -> tuple[list[str], list[dict], list[dict]]:
+    value = (plan.get("activityFlow") or {}).get(key)
+    assets = _assets_for(plan, f"activityFlow.{key}") + _assets_for(plan, key)
+    activities = _structured_activities(value)
+    if activities is None:
+        if not value:
+            return [], [], assets
+        return [_prefixed_flow_text(key, str(value), prefixed=prefixed)], [], assets
+    if keep_activity_columns:
+        return [], activities, assets
+    mains: list[str] = []
+    for item in activities:
+        main = _activity_text(item, "mainContent")
+        if main:
+            mains.append(_prefixed_flow_text(key, main, prefixed=prefixed))
+    return mains, [], assets
+
+
 def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
     """Build the reference-style single table used by the supplied teaching design."""
-    flow = plan.get("activityFlow") or {}
     content = "\n".join(x for x in [plan.get("contentTitle") or "", plan.get("contentDetail") or ""] if x)
-    widths = [827, 274, 1275, 1985, 2551, 664, 1001, 711]
+    widths = COL_WIDTHS
     full_w = sum(widths)
     rows: list[str] = []
+    key_text, diff_text = _split_key_points(str(plan.get("keyPoints") or ""))
 
     rows.append(_row([
         _cell_xml(pkg.label_paragraph("教学内容", center=True), shade=LABEL_SHADE, span=2, width=1101, valign="center"),
         _cell_xml(_field_paras(pkg, plan, "contentTitle", content), shade=LABEL_SHADE, span=4, width=6475),
         _cell_xml(pkg.label_paragraph("课时", center=True), shade=LABEL_SHADE, width=1001, valign="center"),
         _cell_xml(pkg.render_markdown(str(plan.get("plannedHours", ""))), shade=LABEL_SHADE, width=711),
+    ]))
+    rows.append(_row([
+        _cell_xml(pkg.label_paragraph("教学目的", center=True), shade=LABEL_SHADE, span=2, width=1101, valign="center"),
+        _cell_xml(_field_paras(pkg, plan, "teachingPurpose", str(plan.get("teachingPurpose") or "")), span=6, width=8187),
     ]))
     goals = [("知识目标", "knowledgeGoals"), ("能力目标", "abilityGoals"), ("素质目标", "qualityGoals")]
     for index, (label, field) in enumerate(goals):
@@ -134,70 +213,83 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
             _cell_xml(pkg.label_paragraph(label, center=True), width=1275, valign="center"),
             _cell_xml(_field_paras(pkg, plan, field, str(plan.get(field) or "")), span=5, width=6912),
         ]))
-    for label, field in (("教学重点", "keyPoints"), ("教学难点", "keyPoints"), ("教学方法", "teachingMethods"), ("教学准备", "teachingResources")):
+    for label, text, field in (
+        ("教学重点", key_text, "keyPoints"),
+        ("教学难点", diff_text, "keyPoints"),
+        ("教学方法", str(plan.get("teachingMethods") or ""), "teachingMethods"),
+        ("教学准备", str(plan.get("teachingResources") or ""), "teachingResources"),
+    ):
         rows.append(_row([
             _cell_xml(pkg.label_paragraph(label, center=True), shade=LABEL_SHADE, span=2, width=1101, valign="center"),
-            _cell_xml(_field_paras(pkg, plan, field, str(plan.get(field) or "")), span=6, width=8187),
+            _cell_xml(_field_paras(pkg, plan, field, text), span=6, width=8187),
         ]))
 
     rows.append(_row([_cell_xml(pkg.label_paragraph("教学过程", center=True), shade=HEADER_SHADE, span=8, width=full_w, valign="center")], header=True))
-    rows.append(_row([
-        _cell_xml(pkg.label_paragraph("教学环节", center=True), shade=HEADER_SHADE, width=827, vmerge="restart", valign="center"),
-        _cell_xml(pkg.label_paragraph("主要内容", center=True), shade=HEADER_SHADE, span=3, width=3534, vmerge="restart", valign="center"),
-        _cell_xml(pkg.label_paragraph("教学活动", center=True), shade=HEADER_SHADE, span=4, width=4927, valign="center"),
-    ], header=True))
-    rows.append(_row([
-        _cell_xml("", shade=HEADER_SHADE, width=827, vmerge="continue", valign="center"),
-        _cell_xml("", shade=HEADER_SHADE, span=3, width=3534, vmerge="continue", valign="center"),
-        _cell_xml(pkg.label_paragraph("教师活动", center=True), shade=HEADER_SHADE, width=2551, valign="center"),
-        _cell_xml(pkg.label_paragraph("学生活动", center=True), shade=HEADER_SHADE, span=3, width=2376, valign="center"),
-    ], header=True))
 
     groups = [
-        ("课前组织", ("introduction",)),
-        ("导入新课", ("learningGoals",)),
-        ("知识学习", ("knowledgeLearning",)),
-        ("任务实施与考核", ("taskImplementation", "assessment")),
-        ("课堂小结", ("summary",)),
-        ("课后作业与反思", ("homework", "reflection")),
+        ("课前组织", ("introduction",), False),
+        ("导入新课", ("learningGoals",), False),
+        ("知识学习", ("knowledgeLearning",), False),
+        ("任务实施", ("taskImplementation",), True),
+        ("课程考核", ("assessment",), False),
+        ("课堂小结", ("summary",), False),
+        ("课后作业与反思", ("homework", "reflection"), False),
     ]
-    for label, keys in groups:
+    for label, keys, is_task_group in groups:
+        if is_task_group:
+            rows.append(_row([
+                _cell_xml(pkg.label_paragraph("教学环节", center=True), shade=HEADER_SHADE, width=827, valign="center"),
+                _cell_xml(pkg.label_paragraph("主要内容", center=True), shade=HEADER_SHADE, span=3, width=3534, valign="center"),
+                _cell_xml(pkg.label_paragraph("教学活动", center=True), shade=HEADER_SHADE, span=4, width=4927, valign="center"),
+            ], header=True))
+            rows.append(_row([
+                _cell_xml("", shade=HEADER_SHADE, width=827, valign="center"),
+                _cell_xml("", shade=HEADER_SHADE, span=3, width=3534, valign="center"),
+                _cell_xml(pkg.label_paragraph("教师活动", center=True), shade=HEADER_SHADE, width=2551, valign="center"),
+                _cell_xml(pkg.label_paragraph("学生活动", center=True), shade=HEADER_SHADE, span=3, width=2376, valign="center"),
+            ], header=True))
+
+        prefixed = len(keys) > 1
         main_parts: list[str] = []
-        teacher_parts: list[str] = []
-        student_parts: list[str] = []
-        assets = []
+        structured_items: list[dict] = []
+        assets: list[dict] = []
+        nonempty_keys = [key for key in keys if (plan.get("activityFlow") or {}).get(key)]
+        use_prefix = prefixed and len(nonempty_keys) > 1
         for key in keys:
-            value = flow.get(key)
-            activities = _structured_activities(value)
-            if activities is None:
-                if value:
-                    main_parts.append(str(value))
-            else:
-                for item in activities:
-                    if _activity_text(item, "mainContent"):
-                        main_parts.append(_activity_text(item, "mainContent"))
-                    if _activity_text(item, "teacherActivity"):
-                        teacher_parts.append(_activity_text(item, "teacherActivity"))
-                    student = _activity_text(item, "studentActivity")
-                    evidence = _activity_text(item, "evidence")
-                    if evidence:
-                        student = "\n".join(x for x in (student, f"产出：{evidence}") if x)
-                    if student:
-                        student_parts.append(student)
-            assets.extend(_assets_for(plan, f"activityFlow.{key}") + _assets_for(plan, key))
+            mains, items, step_assets = _collect_step(
+                plan, key, keep_activity_columns=is_task_group, prefixed=use_prefix
+            )
+            main_parts.extend(mains)
+            structured_items.extend(items)
+            assets.extend(step_assets)
+
+        if is_task_group and structured_items:
+            for index, item in enumerate(structured_items):
+                main_xml = pkg.render_markdown(_activity_text(item, "mainContent"))
+                if index == 0:
+                    for asset in assets:
+                        main_xml += pkg.render_image_asset(asset)
+                rows.append(_row([
+                    _cell_xml(pkg.label_paragraph(_activity_label(label, item), center=True), shade=LABEL_SHADE, width=827, valign="center"),
+                    _cell_xml(main_xml, span=3, width=3534),
+                    _cell_xml(pkg.render_markdown(_activity_text(item, "teacherActivity")), width=2551),
+                    _cell_xml(pkg.render_markdown(_student_with_evidence(item)), span=3, width=2376),
+                ]))
+            continue
+
         main_xml = pkg.render_markdown("\n\n".join(main_parts))
         for asset in assets:
             main_xml += pkg.render_image_asset(asset)
+        minutes_item = next((item for item in structured_items if item.get("minutes") not in (None, "")), None)
+        step_label = _activity_label(label, minutes_item) if minutes_item else label
         rows.append(_row([
-            _cell_xml(pkg.label_paragraph(label, center=True), shade=LABEL_SHADE, width=827, valign="center"),
-            _cell_xml(main_xml, span=3, width=3534),
-            _cell_xml(pkg.render_markdown("\n\n".join(teacher_parts)), width=2551),
-            _cell_xml(pkg.render_markdown("\n\n".join(student_parts)), span=3, width=2376),
+            _cell_xml(pkg.label_paragraph(step_label, center=True), shade=LABEL_SHADE, width=827, valign="center"),
+            _cell_xml(main_xml, span=7, width=8461),
         ]))
 
     table = _table_xml(rows, widths)
     title = pkg.title_paragraph(f"《{plan.get('contentTitle') or '未命名课题'}》")
-    body = title + table
+    body = title + pkg.render_markdown(_meta_line(plan)) + table
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         f'<w:document xmlns:w="{NS_W}"><w:body>{body}'
