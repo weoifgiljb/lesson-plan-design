@@ -53,5 +53,6 @@ python scripts/capture_ebook.py 教材/C语言.pdf -o output/ebook-captures/C语
 ## Additional Resources
 
 - 脚本：[scripts/capture_ebook.py](scripts/capture_ebook.py)
+- 测试：[test/index.py](test/index.py)
 - Word 嵌图：`formatting-lesson-docx`
 - 教案门禁：`lesson-plan-design`

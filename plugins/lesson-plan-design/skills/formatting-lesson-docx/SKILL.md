@@ -53,5 +53,6 @@ python ../lesson-plan-design/scripts/export_docx.py <plan.json> -o <out.docx>
 ## Additional Resources
 
 - 解析器：[scripts/markdown_ooxml.py](scripts/markdown_ooxml.py)
+- 测试：[test/index.py](test/index.py)
 - 教材截图：`capturing-ebook-pages`
 - 教案主流程：`lesson-plan-design`
