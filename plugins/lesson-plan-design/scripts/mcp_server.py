@@ -104,6 +104,7 @@ TOOLS = [
                 "plan": {"type": "object"},
                 "outputPath": {"type": "string"},
                 "reviewReport": {"type": "object"},
+                "baseDir": {"type": "string"},
             },
         },
     },
@@ -178,7 +179,8 @@ def call_tool(name: str, args: dict) -> dict:
         if not gate["ok"]:
             return _result(dump({"ok": False, "reasons": gate["reasons"]}))
         out = Path(args.get("outputPath") or f"教案_第{plan.get('week')}周第{plan.get('session')}次.docx")
-        saved = export_docx(plan, out)
+        base_dir = Path(str(args["baseDir"])) if args.get("baseDir") else out.parent
+        saved = export_docx(plan, out, base_dir=base_dir)
         return _result(dump({"ok": True, "path": str(saved), "bytes": saved.stat().st_size}))
     if name == "score_against_samples":
         return _result(dump(score_against_examples(args.get("plan") or args)))

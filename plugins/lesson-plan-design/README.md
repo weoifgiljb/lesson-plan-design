@@ -97,10 +97,18 @@ python skills/lesson-plan-design/scripts/score.py <教案.json>
 | `scripts/export_docx.py` | 本机 Python | 仅在当前审查报告门禁通过时 JSON → Word |
 | `scripts/draft.py` | 本机 Python | 按周次/课次/课题出草稿 JSON |
 | `scripts/score.py` | 本机 Python | 对照 examples 打结构分 |
+| `test/index.py` | 本机 Python | 导入并运行本技能全部单元测试 |
 
 八步流程在 JSON 的 `activityFlow` 里，标题固定为：复习与导入 → 明确学习目标 → 知识学习 → 工作任务实施 → 课程考核 → 课堂小结 → 布置作业 → 教学反思。
 
 现成金标准课题（一级考证辅导 1–7）见 `CATALOG.md`。
+
+配套技能（与主流程并列）：
+
+| 路径 | 干什么 |
+|------|--------|
+| `skills/formatting-lesson-docx/` | 教案 Markdown 子集 → Word 原生样式，可选 `mediaAssets` 嵌图 |
+| `skills/capturing-ebook-pages/` | 本地 PDF/DOCX/PPT(X) 截成 PNG 并写 manifest |
 
 ---
 
@@ -121,9 +129,11 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_r
 # 门禁通过后导出 Word
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx
 
-# 校验全部金标准 / 跑单元测试
+# 校验全部金标准 / 跑各技能单元测试
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py --examples
-py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/test_validate.py
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/test/index.py
+py -3 plugins/lesson-plan-design/skills/formatting-lesson-docx/test/index.py
+py -3 plugins/lesson-plan-design/skills/capturing-ebook-pages/test/index.py
 ```
 
 故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`。无反例时必须使用 `--no-counterexample`，不能省略审校声明。
