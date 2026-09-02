@@ -301,8 +301,8 @@ STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:rPrDefault>
       <w:rPr>
         <w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>
-        <w:sz w:val="24"/>
-        <w:szCs w:val="24"/>
+        <w:sz w:val="21"/>
+        <w:szCs w:val="21"/>
       </w:rPr>
     </w:rPrDefault>
     <w:pPrDefault>
@@ -319,7 +319,7 @@ STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:name w:val="heading 1"/>
     <w:basedOn w:val="Normal"/>
     <w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="32"/><w:rFonts w:ascii="黑体" w:eastAsia="黑体"/></w:rPr>
+    <w:rPr><w:b/><w:sz w:val="36"/><w:rFonts w:ascii="黑体" w:eastAsia="黑体"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading2">
     <w:name w:val="heading 2"/>

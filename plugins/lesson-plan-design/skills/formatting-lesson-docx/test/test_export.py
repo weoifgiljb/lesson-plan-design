@@ -38,9 +38,9 @@ class TestExportDocxFormat(unittest.TestCase):
                 document = zf.read("word/document.xml").decode("utf-8")
                 rels = zf.read("word/_rels/document.xml.rels").decode("utf-8")
             self.assertIn("<w:b/>", document)
-            self.assertGreaterEqual(document.count("<w:tr>"), 16)
-            self.assertIn("一、复习与导入新课", document)
-            self.assertIn("三、知识学习", document)
+            self.assertGreaterEqual(document.count("<w:tr>"), 17)
+            self.assertIn("课前组织", document)
+            self.assertIn("知识学习", document)
             self.assertIn("word/media/", "\n".join(names))
             self.assertIn("/image", rels)
 
@@ -57,7 +57,21 @@ class TestExportDocxFormat(unittest.TestCase):
                 document = zf.read("word/document.xml").decode("utf-8")
             self.assertIn('w:rFonts w:ascii="黑体" w:eastAsia="黑体"', document)
 
-    def test_structured_flow_uses_single_content_column_and_a4_margins(self) -> None:
+    def test_title_uses_specific_content_topic(self) -> None:
+        sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
+        from export_docx import export_docx
+        from lib import draft_plan
+
+        plan = draft_plan(1, 1, "认识 C 语言与 Dev-C++")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "topic.docx"
+            export_docx(plan, out, base_dir=Path(tmp))
+            with zipfile.ZipFile(out) as zf:
+                document = zf.read("word/document.xml").decode("utf-8")
+            self.assertIn("《认识 C 语言与 Dev-C++》", document)
+            self.assertNotIn("东莞经贸学校教案", document)
+
+    def test_structured_flow_uses_reference_grid_and_a4_margins(self) -> None:
         sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
         from export_docx import export_docx
         from lib import draft_plan
@@ -79,12 +93,17 @@ class TestExportDocxFormat(unittest.TestCase):
                 document = zf.read("word/document.xml").decode("utf-8")
             self.assertIn("教学环节", document)
             self.assertIn("主要内容", document)
-            self.assertIn("教师活动", document)
-            self.assertIn("学生活动", document)
+            self.assertIn("教学活动", document)
+            self.assertIn("教师", document)
+            self.assertIn("学生", document)
             self.assertIn("生成 C01.c", document)
             self.assertIn('w:w="11906" w:h="16838"', document)
             self.assertIn('w:left="1800"', document)
             self.assertIn('w:right="1800"', document)
             self.assertNotIn("D6E3F8", document)
-            self.assertIn('<w:gridCol w:w="1300"/><w:gridCol w:w="7000"/>', document)
-            self.assertNotIn('<w:gridCol w:w="1300"/><w:gridCol w:w="2800"/>', document)
+            self.assertIn(
+                '<w:gridCol w:w="827"/><w:gridCol w:w="274"/><w:gridCol w:w="1275"/>'
+                '<w:gridCol w:w="1985"/><w:gridCol w:w="2551"/><w:gridCol w:w="664"/>'
+                '<w:gridCol w:w="1001"/><w:gridCol w:w="711"/>',
+                document,
+            )
