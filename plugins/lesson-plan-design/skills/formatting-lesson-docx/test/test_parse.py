@@ -58,3 +58,18 @@ class TestParseMarkdown(unittest.TestCase):
     def test_chinese_enumerated_text_stays_paragraph(self) -> None:
         blocks = parse_markdown("1、计算机基础知识理论题 2、文件管理")
         self.assertEqual(blocks[0].kind, "paragraph")
+
+    def test_c_pointer_stars_are_not_italic(self) -> None:
+        blocks = parse_markdown("区分 *p 与 *q 的含义")
+        kinds = [item.kind for item in blocks[0].inlines]
+        joined = "".join(item.text for item in blocks[0].inlines)
+        self.assertNotIn("italic", kinds)
+        self.assertIn("*p", joined)
+        self.assertIn("*q", joined)
+
+    def test_markdown_italic_still_works(self) -> None:
+        blocks = parse_markdown("强调 *中文斜体* 即可")
+        kinds = [item.kind for item in blocks[0].inlines]
+        texts = [item.text for item in blocks[0].inlines]
+        self.assertIn("italic", kinds)
+        self.assertIn("中文斜体", texts)

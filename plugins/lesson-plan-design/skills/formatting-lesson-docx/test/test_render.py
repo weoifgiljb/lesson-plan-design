@@ -2,6 +2,7 @@
 """Markdown 子集 → OOXML 渲染。"""
 from __future__ import annotations
 
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -84,3 +85,15 @@ class TestRenderOoxml(unittest.TestCase):
             xml = pkg.image_drawing("wide.png", alt="wide")
             self.assertIn('cx="4680000"', xml)
             self.assertIn('cy="2340000"', xml)
+
+    def test_image_nv_ids_are_unique(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.png").write_bytes(PNG_1X1)
+            (root / "b.png").write_bytes(PNG_1X1)
+            pkg = DocxPackage(base_dir=root)
+            xml = pkg.render_markdown("![一](a.png)\n\n![二](b.png)")
+            ids = re.findall(r'<pic:cNvPr id="(\d+)"', xml)
+            self.assertEqual(len(ids), 2)
+            self.assertEqual(len(set(ids)), 2)
+            self.assertNotIn("0", ids)

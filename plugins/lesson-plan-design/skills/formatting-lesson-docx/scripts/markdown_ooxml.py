@@ -81,6 +81,16 @@ def _next_markup(text: str, start: int) -> int:
     return min(hits) if hits else len(text)
 
 
+def _ascii_ident_char(char: str) -> bool:
+    return char.isascii() and (char.isalnum() or char == "_")
+
+
+def _looks_like_c_pointers(text: str, open_at: int, close_at: int) -> bool:
+    after_open = open_at + 1 < len(text) and _ascii_ident_char(text[open_at + 1])
+    after_close = close_at + 1 < len(text) and _ascii_ident_char(text[close_at + 1])
+    return after_open and after_close
+
+
 def parse_inlines(text: str) -> list[Inline]:
     result: list[Inline] = []
     i = 0
@@ -106,7 +116,7 @@ def parse_inlines(text: str) -> list[Inline]:
                 continue
         if text[i] == "*":
             close = text.find("*", i + 1)
-            if close != -1:
+            if close != -1 and not _looks_like_c_pointers(text, i, close):
                 result.append(Inline("italic", text[i + 1 : close]))
                 i = close + 1
                 continue
@@ -358,7 +368,7 @@ class DocxPackage:
             f'<a:graphicData uri="{NS_PIC}">'
             f'<pic:pic xmlns:pic="{NS_PIC}">'
             "<pic:nvPicPr>"
-            f'<pic:cNvPr id="0" name="{name}"/>'
+            f'<pic:cNvPr id="{doc_id}" name="{name}"/>'
             "<pic:cNvPicPr/>"
             "</pic:nvPicPr>"
             "<pic:blipFill>"

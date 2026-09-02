@@ -4,10 +4,20 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
-from support import write_flate_pages_pdf, write_pages_pdf
-from capture_ebook import CaptureError, detect_kind, pdf_page_count, prepare_jobs, write_minimal_pdf
+from support import write_flate_pages_pdf, write_pages_pdf, write_pdf
+from capture_ebook import (
+    CaptureError,
+    PDF_INFLATE_MAX_BYTES,
+    RenderJob,
+    detect_kind,
+    pdf_page_count,
+    prepare_jobs,
+    screenshot_full_page,
+    write_minimal_pdf,
+)
 
 
 class TestAdapters(unittest.TestCase):
@@ -44,3 +54,54 @@ class TestAdapters(unittest.TestCase):
             pdf = Path(tmp) / "flate.pdf"
             write_flate_pages_pdf(pdf, page_count=4)
             self.assertEqual(pdf_page_count(pdf), 4)
+
+    def test_pdf_page_count_skips_image_streams(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf = Path(tmp) / "image-count.pdf"
+            fake = zlib.compress(b"<< /Type /Pages /Count 99 /Kids [] >>")
+            image_stream = (
+                b"<< /Type /XObject /Subtype /Image /Width 1 /Height 1 "
+                b"/Filter /FlateDecode /Length "
+                + str(len(fake)).encode("ascii")
+                + b" >>\nstream\n"
+                + fake
+                + b"\nendstream"
+            )
+            write_pdf(
+                pdf,
+                [
+                    b"<< /Type /Catalog /Pages 2 0 R >>",
+                    b"<< /Type /Pages /Kids [] /Count 3 >>",
+                    image_stream,
+                ],
+            )
+            self.assertEqual(pdf_page_count(pdf), 3)
+
+    def test_pdf_page_count_skips_large_streams(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf = Path(tmp) / "large-stream.pdf"
+            payload = zlib.compress(b"<< /Type /Pages /Count 88 /Kids [] >>")
+            pad = PDF_INFLATE_MAX_BYTES + 1 - len(payload)
+            raw = payload + (b"X" * max(pad, 1))
+            large_stream = (
+                b"<< /Filter /FlateDecode /Length "
+                + str(len(raw)).encode("ascii")
+                + b" >>\nstream\n"
+                + raw
+                + b"\nendstream"
+            )
+            write_pdf(
+                pdf,
+                [
+                    b"<< /Type /Catalog /Pages 2 0 R >>",
+                    b"<< /Type /Pages /Kids [] /Count 2 >>",
+                    large_stream,
+                ],
+            )
+            self.assertEqual(pdf_page_count(pdf), 2)
+
+    def test_pdf_jobs_use_viewport_screenshot(self) -> None:
+        pdf_job = RenderJob(page=1, path=Path("book.pdf"), kind="pdf")
+        html_job = RenderJob(page=1, path=Path("slide.html"), kind="html")
+        self.assertFalse(screenshot_full_page(pdf_job))
+        self.assertTrue(screenshot_full_page(html_job))

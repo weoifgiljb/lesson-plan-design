@@ -27,7 +27,7 @@ python scripts/capture_ebook.py <book.pdf> -o output/ebook-captures/<stem> --pag
    省略 `--pages` 则截全部页。`--pages` 支持 `3-7` 或 `1,3,5`。
 4. 读 `manifest.json`（`source`、`page`、`png`、`caption`），把选用页写入教案 `mediaAssets`，再按 `formatting-lesson-docx` / `lesson-plan-design` 导出 Word。
 5. 适配规则：
-   - PDF：Chromium 打开 `file://…#page=N`
+   - PDF：Chromium 打开 `file://…#page=N`，按视口截当前页（不要 `full_page`，避免整本滚进一张图）
    - DOCX / PPTX：有 LibreOffice（`soffice`）则转 PDF；否则 mammoth / python-pptx 转 HTML（无 soffice 时 .docx 整份算 1 页；复杂 PPTX 会失真）
    - `.ppt`：必须有 LibreOffice；没有就失败并说明原因，禁止假装成功
 6. 缺少 Chromium 时退出码非 0，并提示 `pip install playwright && python -m playwright install chromium`。截图失败不得跳过教案审查。

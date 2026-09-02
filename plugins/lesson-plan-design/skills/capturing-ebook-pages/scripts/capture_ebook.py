@@ -14,6 +14,7 @@ from pathlib import Path
 from xml.sax.saxutils import escape as html_escape
 
 INSTALL_HINT = "pip install playwright && python -m playwright install chromium"
+PDF_INFLATE_MAX_BYTES = 256 * 1024
 
 
 class CaptureError(Exception):
@@ -77,10 +78,19 @@ def pdf_page_count(path: Path) -> int:
     return max(1, len(pages))
 
 
+def _should_inflate_pdf_stream(data: bytes, stream_at: int, raw: bytes) -> bool:
+    if len(raw) > PDF_INFLATE_MAX_BYTES:
+        return False
+    header = data[max(0, stream_at - 400) : stream_at]
+    return re.search(rb"/Subtype\s*/Image\b", header) is None
+
+
 def _pdf_search_blobs(data: bytes) -> list[bytes]:
     blobs = [data]
     for match in re.finditer(rb"stream\r?\n(.+?)\r?\nendstream", data, re.DOTALL):
         raw = match.group(1).strip(b"\r\n")
+        if not _should_inflate_pdf_stream(data, match.start(), raw):
+            continue
         for wbits in (zlib.MAX_WBITS, -zlib.MAX_WBITS):
             try:
                 blobs.append(zlib.decompress(raw, wbits))
@@ -223,6 +233,11 @@ class RenderJob:
     kind: str
 
 
+def screenshot_full_page(job: RenderJob) -> bool:
+    """HTML 长页需要整页；PDF 阅读器整本可滚，必须按视口截当前页。"""
+    return job.kind != "pdf"
+
+
 def prepare_jobs(src: Path, work: Path, *, soffice: Path | None | object = ...) -> list[RenderJob]:
     kind = detect_kind(src)
     if soffice is ...:
@@ -278,7 +293,7 @@ def _screenshot_jobs(jobs: list[RenderJob], out_dir: Path) -> list[dict]:
                     uri = f"{uri}#page={job.page}"
                 page.goto(uri, wait_until="load", timeout=30000)
                 page.wait_for_timeout(800)
-                page.screenshot(path=str(dest), full_page=True)
+                page.screenshot(path=str(dest), full_page=screenshot_full_page(job))
                 pages.append(
                     {
                         "page": job.page,

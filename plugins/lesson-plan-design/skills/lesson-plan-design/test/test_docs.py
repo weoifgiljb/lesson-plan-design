@@ -28,3 +28,6 @@ class TestDocs(unittest.TestCase):
         self.assertIn("mediaAssets", schema_text)
         self.assertIn("capturing-ebook-pages", readme_text)
         self.assertIn("formatting-lesson-docx", readme_text)
+        write_text = (PLUGIN_ROOT / "commands" / "write-lesson-plan.md").read_text(encoding="utf-8")
+        self.assertIn("mediaAssets", write_text)
+        self.assertIn("Markdown", write_text)
