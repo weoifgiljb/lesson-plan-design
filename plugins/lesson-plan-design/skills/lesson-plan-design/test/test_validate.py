@@ -33,3 +33,34 @@ class TestValidate(unittest.TestCase):
         items = load_examples()
         score = score_against_examples(items[0][1])
         self.assertGreaterEqual(score["ratio"], 0.95)
+
+    def test_structured_activity_requires_main_content(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["knowledgeLearning"] = [
+            {"teacherActivity": "演示", "studentActivity": "跟做"}
+        ]
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any(i["path"] == "activityFlow.knowledgeLearning[0].mainContent" for i in result["issues"]))
+
+    def test_structured_activity_is_valid_with_evidence(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["taskImplementation"] = [
+            {
+                "mainContent": "完成个人名片程序",
+                "teacherActivity": "演示调试",
+                "studentActivity": "编写并运行",
+                "minutes": 20,
+                "evidence": "提交 C01_学号.c",
+            }
+        ]
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+
+    def test_c_language_draft_uses_structured_topic_template(self) -> None:
+        plan = draft_plan(1, 1, "认识C语言与Dev-C++开发环境")
+        flow = plan["activityFlow"]
+        self.assertIsInstance(flow["knowledgeLearning"], list)
+        self.assertTrue(flow["knowledgeLearning"][0]["mainContent"])
+        self.assertTrue(flow["taskImplementation"][0]["studentActivity"])
+        self.assertTrue(flow["taskImplementation"][0]["evidence"])

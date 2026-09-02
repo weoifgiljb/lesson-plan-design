@@ -33,6 +33,8 @@
 
 Agent 应先给出：课题、周次课次、三维目标要点、八步是否齐全、校验结果、docx 路径。完整 JSON 会落成文件，不会用一篇散文代替教案。
 
+课堂流程字段兼容原有 Markdown 字符串，也支持结构化活动数组；每行可填写 `mainContent`、`teacherActivity`、`studentActivity`、`minutes` 和 `evidence`，导出 Word 时排成“教学环节 / 主要内容 / 教师活动 / 学生活动”四栏。
+
 ### 3. 斜杠命令（可选）
 
 | 命令 | 作用 |

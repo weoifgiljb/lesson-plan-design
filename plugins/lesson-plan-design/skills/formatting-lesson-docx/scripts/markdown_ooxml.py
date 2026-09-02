@@ -47,9 +47,55 @@ def _png_pixel_size(data: bytes) -> tuple[int, int] | None:
     return width, height
 
 
+def _gif_pixel_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 10 or data[:6] not in (b"GIF87a", b"GIF89a"):
+        return None
+    width, height = struct.unpack("<HH", data[6:10])
+    return (width, height) if width > 0 and height > 0 else None
+
+
+def _bmp_pixel_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 26 or data[:2] != b"BM":
+        return None
+    width, height = struct.unpack("<ii", data[18:26])
+    width, height = abs(width), abs(height)
+    return (width, height) if width > 0 and height > 0 else None
+
+
+def _jpeg_pixel_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 4 or data[:2] != b"\xff\xd8":
+        return None
+    index = 2
+    while index + 9 < len(data):
+        if data[index] != 0xFF:
+            index += 1
+            continue
+        marker = data[index + 1]
+        index += 2
+        if marker in (0xD8, 0xD9):
+            continue
+        if index + 2 > len(data):
+            break
+        length = struct.unpack(">H", data[index:index + 2])[0]
+        if length < 2 or index + length > len(data):
+            break
+        if marker in range(0xC0, 0xC4) or marker in range(0xC5, 0xC8) or marker in range(0xC9, 0xCC) or marker in range(0xCD, 0xD0):
+            if length >= 7:
+                height, width = struct.unpack(">HH", data[index + 3:index + 7])
+                return (width, height) if width > 0 and height > 0 else None
+        index += length
+    return None
+
+
 def _image_extent(path: Path) -> tuple[int, int]:
     try:
-        size = _png_pixel_size(path.read_bytes())
+        data = path.read_bytes()
+        size = (
+            _png_pixel_size(data)
+            or _gif_pixel_size(data)
+            or _bmp_pixel_size(data)
+            or _jpeg_pixel_size(data)
+        )
     except OSError:
         size = None
     if size is None:
@@ -404,6 +450,13 @@ class DocxPackage:
             f"<w:p><w:pPr>{align}</w:pPr>"
             f"{_run(text, bold=True)}"
             "</w:p>"
+        )
+
+    def title_paragraph(self, text: str) -> str:
+        """Render a centered, larger black title using the built-in heading style."""
+        return (
+            '<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:jc w:val="center"/></w:pPr>'
+            f"{_run(text, bold=True)}</w:p>"
         )
 
     def render_markdown(self, source: str | None) -> str:

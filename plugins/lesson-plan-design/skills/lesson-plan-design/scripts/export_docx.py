@@ -19,7 +19,8 @@ from lib import (
 )
 from markdown_ooxml import DocxPackage, NS_W
 
-LABEL_SHADE = "D6E3F8"
+LABEL_SHADE = "E7E7E7"
+HEADER_SHADE = "D9D9D9"
 FLOW_KEYS = list(ACTIVITY_FLOW_LABELS.keys())
 
 
@@ -38,12 +39,35 @@ def _cell_xml(paras: str, *, span: int = 1, shade: str | None = None, width: int
     grid = f'<w:gridSpan w:val="{span}"/>' if span > 1 else ""
     fill = f'<w:shd w:val="clear" w:fill="{shade}"/>' if shade else ""
     cell_width = f'<w:tcW w:w="{width}" w:type="dxa"/>' if width else ""
+    padding = (
+        '<w:tcMar><w:top w:w="90" w:type="dxa"/><w:left w:w="110" w:type="dxa"/>'
+        '<w:bottom w:w="90" w:type="dxa"/><w:right w:w="110" w:type="dxa"/></w:tcMar>'
+    )
     body = paras or "<w:p></w:p>"
-    return f"<w:tc><w:tcPr>{cell_width}{grid}{_borders()}{fill}</w:tcPr>{body}</w:tc>"
+    return f"<w:tc><w:tcPr>{cell_width}{grid}{_borders()}{fill}{padding}<w:vAlign w:val=\"top\"/></w:tcPr>{body}</w:tc>"
 
 
-def _row(cells: list[str]) -> str:
-    return "<w:tr>" + "".join(cells) + "</w:tr>"
+def _row(cells: list[str], *, header: bool = False) -> str:
+    trpr = '<w:trPr><w:cantSplit/>'
+    if header:
+        trpr += '<w:tblHeader/>'
+    trpr += '</w:trPr>'
+    return "<w:tr>" + trpr + "".join(cells) + "</w:tr>"
+
+
+def _table_xml(rows: list[str], widths: list[int]) -> str:
+    total = sum(widths)
+    grid = "".join(f'<w:gridCol w:w="{width}"/>' for width in widths)
+    return (
+        f'<w:tbl><w:tblPr><w:tblW w:w="{total}" w:type="dxa"/>'
+        '<w:tblLayout w:type="fixed"/><w:tblCellMar>'
+        '<w:top w:w="90" w:type="dxa"/><w:left w:w="110" w:type="dxa"/>'
+        '<w:bottom w:w="90" w:type="dxa"/><w:right w:w="110" w:type="dxa"/>'
+        '</w:tblCellMar></w:tblPr>'
+        f'<w:tblGrid>{grid}</w:tblGrid>'
+        + "".join(rows)
+        + "</w:tbl>"
+    )
 
 
 def _assets_for(plan: dict, field: str) -> list[dict]:
@@ -66,6 +90,29 @@ def _field_paras(pkg: DocxPackage, plan: dict, field: str, text: str) -> str:
     return xml
 
 
+def _structured_activities(value: object) -> list[dict] | None:
+    """Return structured activities, while leaving legacy strings untouched."""
+    if isinstance(value, dict):
+        value = [value]
+    if not isinstance(value, list) or not value or not all(isinstance(item, dict) for item in value):
+        return None
+    return value
+
+
+def _activity_text(item: dict, field: str) -> str:
+    value = item.get(field)
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _activity_label(label: str, item: dict) -> str:
+    minutes = item.get("minutes")
+    if minutes in (None, ""):
+        return label
+    return f"{label}\n（{minutes}分钟）"
+
+
 def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
     flow = plan.get("activityFlow") or {}
     content = "\n".join(x for x in [plan.get("contentTitle") or "", plan.get("contentDetail") or ""] if x)
@@ -76,13 +123,14 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
         f"教学对象 {plan.get('teachingObject') or '____'}"
     )
     date_cell = plan.get("teachDate") or f"第{plan.get('week')}周第{plan.get('session')}次"
-    label_w, value_w = 1600, 7400
+    # A4 width minus 1.25in side margins leaves approximately 8,300 twips.
+    label_w, value_w = 1300, 7000
     rows = [
         _row(
             [
-                _cell_xml(pkg.label_paragraph("授课日期"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(pkg.render_markdown(str(date_cell)), width=2100),
-                _cell_xml(pkg.label_paragraph("计划学时"), shade=LABEL_SHADE, width=1600),
+                _cell_xml(pkg.label_paragraph("授课日期"), shade=LABEL_SHADE, width=1300),
+                _cell_xml(pkg.render_markdown(str(date_cell)), width=2000),
+                _cell_xml(pkg.label_paragraph("计划学时"), shade=LABEL_SHADE, width=1300),
                 _cell_xml(pkg.render_markdown(str(plan.get("plannedHours", ""))), width=3700),
             ]
         ),
@@ -163,37 +211,74 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
             ]
         ),
     ]
-    for key in FLOW_KEYS:
-        text = str(flow.get(key) or "")
-        paras = pkg.render_markdown(text)
-        for asset in _assets_for(plan, f"activityFlow.{key}") + _assets_for(plan, key):
-            paras += pkg.render_image_asset(asset)
-        rows.append(
-            _row(
-                [
-                    _cell_xml(pkg.label_paragraph(ACTIVITY_FLOW_LABELS[key]), shade=LABEL_SHADE, width=label_w),
-                    _cell_xml(paras, span=3, width=value_w),
-                ]
-            )
+    metadata_table = _table_xml(rows, [1300, 2000, 1300, 3700])
+    flow_rows = [
+        _row(
+            [
+                _cell_xml(pkg.label_paragraph("教学环节"), shade=HEADER_SHADE, width=1300),
+                _cell_xml(pkg.label_paragraph("主要内容"), shade=HEADER_SHADE, width=2800),
+                _cell_xml(pkg.label_paragraph("教师活动"), shade=HEADER_SHADE, width=2100),
+                _cell_xml(pkg.label_paragraph("学生活动"), shade=HEADER_SHADE, width=2100),
+            ],
+            header=True,
         )
-
-    table = (
-        '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'
-        '<w:tblLayout w:type="fixed"/></w:tblPr>'
-        '<w:tblGrid><w:gridCol w:w="1600"/><w:gridCol w:w="2100"/><w:gridCol w:w="1600"/><w:gridCol w:w="3700"/></w:tblGrid>'
-        + "".join(rows)
-        + "</w:tbl>"
-    )
-    title = pkg.label_paragraph(f"{plan.get('school', '')}教案", center=True)
+    ]
+    for key in FLOW_KEYS:
+        value = flow.get(key)
+        activities = _structured_activities(value)
+        if activities is None:
+            text = str(value or "")
+            paras = pkg.render_markdown(text)
+            for asset in _assets_for(plan, f"activityFlow.{key}") + _assets_for(plan, key):
+                paras += pkg.render_image_asset(asset)
+            flow_rows.append(
+                _row(
+                    [
+                        _cell_xml(pkg.label_paragraph(ACTIVITY_FLOW_LABELS[key]), shade=LABEL_SHADE, width=1300),
+                        _cell_xml(paras, span=3, width=7000),
+                    ]
+                )
+            )
+            continue
+        for item in activities:
+            main = _activity_text(item, "mainContent")
+            teacher = _activity_text(item, "teacherActivity")
+            student = _activity_text(item, "studentActivity")
+            evidence = _activity_text(item, "evidence")
+            if evidence:
+                student = "\n".join(x for x in (student, f"产出：{evidence}") if x)
+            flow_rows.append(
+                _row(
+                    [
+                        _cell_xml(pkg.render_markdown(_activity_label(ACTIVITY_FLOW_LABELS[key], item)), shade=LABEL_SHADE, width=1300),
+                        _cell_xml(pkg.render_markdown(main), width=2800),
+                        _cell_xml(pkg.render_markdown(teacher), width=2100),
+                        _cell_xml(pkg.render_markdown(student), width=2100),
+                    ]
+                )
+            )
+        assets = _assets_for(plan, f"activityFlow.{key}") + _assets_for(plan, key)
+        if assets:
+            asset_xml = "".join(pkg.render_image_asset(asset) for asset in assets)
+            flow_rows.append(
+                _row(
+                    [
+                        _cell_xml(pkg.label_paragraph(ACTIVITY_FLOW_LABELS[key]), shade=LABEL_SHADE, width=1300),
+                        _cell_xml(asset_xml, span=3, width=7000),
+                    ]
+                )
+            )
+    flow_table = _table_xml(flow_rows, [1300, 2800, 2100, 2100])
+    title = pkg.title_paragraph(f"{plan.get('school', '')}教案")
     header_p = pkg.render_markdown(header)
-    body = title + header_p + table
+    body = title + header_p + metadata_table + flow_table
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         f'<w:document xmlns:w="{NS_W}">'
         "<w:body>"
         f"{body}"
-        '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/>'
-        '<w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080"/>'
+        '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
+        '<w:pgMar w:top="1440" w:right="1800" w:bottom="1440" w:left="1800"/>'
         "</w:sectPr></w:body></w:document>"
     )
 

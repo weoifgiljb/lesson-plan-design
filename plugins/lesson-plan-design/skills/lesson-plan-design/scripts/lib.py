@@ -11,6 +11,7 @@ from typing import Any
 SKILL_DIR = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = SKILL_DIR / "examples"
 TEMPLATES_DIR = SKILL_DIR / "templates"
+C_LANGUAGE_TEMPLATES_PATH = TEMPLATES_DIR / "c-language-topics.json"
 REVIEW_SCHEMA_VERSION = 1
 RUBRIC_VERSION = "1.0"
 BLOCKING_SEVERITIES = {"blocker", "major"}
@@ -120,7 +121,36 @@ def _nonempty(value: Any) -> bool:
         return False
     if isinstance(value, (int, float)):
         return True
+    if isinstance(value, (list, tuple, dict)):
+        return bool(value)
     return str(value).strip() != ""
+
+
+def _structured_activities(value: Any) -> list[dict[str, Any]] | None:
+    """Return structured activity rows, accepting a single object or list."""
+    if isinstance(value, dict):
+        return [value]
+    if isinstance(value, list) and all(isinstance(item, dict) for item in value):
+        return value
+    return None
+
+
+def _validate_activity_rows(value: Any, path: str, issues: list[dict[str, str]]) -> None:
+    rows = _structured_activities(value)
+    if rows is None:
+        return
+    if not rows:
+        issues.append({"path": path, "message": "结构化活动列表不能为空"})
+        return
+    for idx, row in enumerate(rows):
+        row_path = f"{path}[{idx}]"
+        if not _nonempty(row.get("mainContent")):
+            issues.append({"path": f"{row_path}.mainContent", "message": "主要内容不能为空"})
+        minutes = row.get("minutes")
+        if minutes is not None and (not isinstance(minutes, (int, float)) or minutes < 0):
+            issues.append({"path": f"{row_path}.minutes", "message": "分钟数须为非负数"})
+        # Teacher/student/evidence are optional individually for compatibility;
+        # at least one learner-facing action or verifiable output is recommended.
 
 
 def validate_plan(data: Any) -> dict[str, Any]:
@@ -155,7 +185,9 @@ def validate_plan(data: Any) -> dict[str, Any]:
             if not _nonempty(flow.get(key)):
                 label = ACTIVITY_FLOW_LABELS.get(key, key)
                 issues.append({"path": f"activityFlow.{key}", "message": f"{label} 不能为空"})
-        task = str(flow.get("taskImplementation") or "")
+            _validate_activity_rows(flow.get(key), f"activityFlow.{key}", issues)
+        task_rows = _structured_activities(flow.get("taskImplementation"))
+        task = "" if task_rows is not None else str(flow.get("taskImplementation") or "")
         if task and ("必须完成" not in task and "必做" not in task):
             issues.append(
                 {
@@ -233,7 +265,32 @@ def draft_plan(
         "homework": "课后复习选择题",
         "reflection": "课后根据课堂完成情况补充教学反思。",
     }
+    topic = _match_c_language_template(content_title)
+    if topic:
+        plan.update({k: topic[k] for k in ("contentDetail", "teachingPurpose", "knowledgeGoals", "abilityGoals", "qualityGoals", "keyPoints") if k in topic})
+        plan["activityFlow"] = topic["flow"]
     return plan
+
+
+def _load_c_language_templates() -> list[dict[str, Any]]:
+    try:
+        raw = json.loads(C_LANGUAGE_TEMPLATES_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    return raw if isinstance(raw, list) else []
+
+
+def _match_c_language_template(title: str) -> dict[str, Any] | None:
+    """Select the most specific C-language topic by number of matched phrases."""
+    title = str(title or "")
+    best: dict[str, Any] | None = None
+    best_score = 0
+    for template in _load_c_language_templates():
+        terms = template.get("match") or []
+        score = sum(1 for term in terms if str(term) and str(term) in title)
+        if score > best_score:
+            best, best_score = template, score
+    return best
 
 
 def load_json(path: Path) -> Any:
@@ -383,6 +440,34 @@ def _normalise_finding(plan: dict[str, Any], finding: dict[str, Any], round_numb
 def _preflight_adversarial_finding(plan: dict[str, Any], round_number: int) -> dict[str, Any] | None:
     """Catch one deterministic counterexample; agents supply deeper pedagogical judgment."""
     flow = plan.get("activityFlow") or {}
+    # Structured activities must expose a learner action and a verifiable output
+    # in the implementation step; otherwise the activity cannot close the loop.
+    task_rows = _structured_activities(flow.get("taskImplementation"))
+    if task_rows is not None:
+        missing_student = [i for i, row in enumerate(task_rows) if not _nonempty(row.get("studentActivity"))]
+        missing_output = [i for i, row in enumerate(task_rows) if not (_nonempty(row.get("evidence")) or _nonempty(row.get("output")))]
+        if missing_student:
+            return _finding(
+                plan,
+                hypothesis="structured_activity_without_student_action",
+                severity="major",
+                evidence=[f"activityFlow.taskImplementation[{i}] 缺少 studentActivity" for i in missing_student],
+                affected_paths=[f"activityFlow.taskImplementation[{i}].studentActivity" for i in missing_student],
+                why="结构化任务只有教师安排，没有明确的学生操作，能力目标无法在课堂内观察。",
+                repair="补充学生具体操作步骤或协作方式。",
+                round_number=round_number,
+            )
+        if missing_output:
+            return _finding(
+                plan,
+                hypothesis="structured_activity_without_verifiable_output",
+                severity="major",
+                evidence=[f"activityFlow.taskImplementation[{i}] 缺少 evidence/output" for i in missing_output],
+                affected_paths=[f"activityFlow.taskImplementation[{i}].evidence" for i in missing_output],
+                why="任务没有可提交或可观察的产出，无法判断学生是否完成。",
+                repair="增加文件、截图、运行结果或现场演示等核验产出。",
+                round_number=round_number,
+            )
     task = str(flow.get("taskImplementation") or "").strip()
     task_terms = ("提交", "作品", "文件", "完成标准", "操作记录")
     if task and not any(term in task for term in task_terms):
@@ -396,7 +481,8 @@ def _preflight_adversarial_finding(plan: dict[str, Any], round_number: int) -> d
             repair="说明学生须提交的产出、完成标准或可观察的操作记录。",
             round_number=round_number,
         )
-    assessment = str(flow.get("assessment") or "").strip()
+    assessment_rows = _structured_activities(flow.get("assessment"))
+    assessment = "" if assessment_rows is not None else str(flow.get("assessment") or "").strip()
     observable_terms = ("作品", "提交", "操作", "演示", "记录", "文件", "答题", "完成情况", "评分标准")
     if assessment and not any(term in assessment for term in observable_terms):
         return _finding(

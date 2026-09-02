@@ -46,6 +46,22 @@
 | homework | 七、布置作业 |
 | reflection | 八、教学反思（可空） |
 
+### 结构化活动（可选）
+
+八步字段默认继续支持字符串。需要分别呈现主要内容、教师活动和学生活动时，可将任一字段写成单个对象或对象数组：
+
+```json
+{
+  "mainContent": "完成两数加法程序",
+  "teacherActivity": "演示变量声明和调试",
+  "studentActivity": "编写、运行并互查代码",
+  "minutes": 20,
+  "evidence": "提交 C04_学号.c 和运行截图"
+}
+```
+
+`mainContent` 必填；`teacherActivity`、`studentActivity`、`minutes`、`evidence` 为可选字段。工作任务实施中的结构化活动应提供学生操作和可核验产出，便于课堂考核与导出排版。
+
 ## 可选配图 `mediaAssets`
 
 不是结构校验必填。导出 Word 时按 `attachTo` 挂到对应字段（八步可用 `knowledgeLearning` 或 `activityFlow.knowledgeLearning`）。
