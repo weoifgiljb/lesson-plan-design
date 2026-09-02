@@ -45,3 +45,10 @@
 | summary | 六、课堂小结 |
 | homework | 七、布置作业 |
 | reflection | 八、教学反思（可空） |
+
+## 可选配图 `mediaAssets`
+
+不是结构校验必填。导出 Word 时按 `attachTo` 挂到对应字段（八步可用 `knowledgeLearning` 或 `activityFlow.knowledgeLearning`）。
+
+长文本支持 Markdown 子集（`**粗体**`、`1. ` 列表、`#`–`###`、围栏代码、`![说明](相对路径)`），详见技能 `formatting-lesson-docx`。教材截图见 `capturing-ebook-pages`。
+

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -29,6 +30,32 @@ OL_RE = re.compile(r"^\d+\.\s+(.+)$")
 FENCE_RE = re.compile(r"^```(\w*)\s*$")
 IMAGE_LINE_RE = re.compile(r"^!\[([^\]]*)\]\(([^)]+)\)\s*$")
 IMAGE_INLINE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
+MAX_IMAGE_CX = 4680000
+DEFAULT_IMAGE_CY = 3510000
+
+
+def _xml_attr(text: str) -> str:
+    return escape(text, {'"': "&quot;", "'": "&apos;"})
+
+
+def _png_pixel_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    width, height = struct.unpack(">II", data[16:24])
+    if width < 1 or height < 1:
+        return None
+    return width, height
+
+
+def _image_extent(path: Path) -> tuple[int, int]:
+    try:
+        size = _png_pixel_size(path.read_bytes())
+    except OSError:
+        size = None
+    if size is None:
+        return MAX_IMAGE_CX, DEFAULT_IMAGE_CY
+    width, height = size
+    return MAX_IMAGE_CX, max(1, round(MAX_IMAGE_CX * height / width))
 
 
 @dataclass
@@ -314,13 +341,14 @@ class DocxPackage:
         return rid
 
     def image_drawing(self, src: str, *, alt: str = "") -> str:
+        path = self._resolve(src)
         rid = self.register_image(src)
-        if rid is None:
+        if rid is None or path is None:
             return _run(alt or src)
         doc_id = self._docpr_id
         self._docpr_id += 1
-        cx, cy = 4680000, 3510000
-        name = escape(alt or Path(src).name)
+        cx, cy = _image_extent(path)
+        name = _xml_attr(alt or path.name)
         return (
             "<w:r><w:drawing>"
             f'<wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="{NS_WP}">'

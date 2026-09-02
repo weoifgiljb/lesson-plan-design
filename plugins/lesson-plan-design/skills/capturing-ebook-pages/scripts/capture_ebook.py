@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from xml.sax.saxutils import escape as html_escape
@@ -65,11 +66,51 @@ def parse_pages(spec: str | None, total: int) -> list[int]:
 
 def pdf_page_count(path: Path) -> int:
     data = path.read_bytes()
-    match = re.search(rb"/Type\s*/Pages\b[^>]*?/Count\s+(\d+)", data)
-    if match:
-        return int(match.group(1))
+    best = 0
+    for blob in _pdf_search_blobs(data):
+        counted = _pages_count_in(blob)
+        if counted and counted > best:
+            best = counted
+    if best:
+        return best
     pages = re.findall(rb"/Type\s*/Page\b", data)
     return max(1, len(pages))
+
+
+def _pdf_search_blobs(data: bytes) -> list[bytes]:
+    blobs = [data]
+    for match in re.finditer(rb"stream\r?\n(.+?)\r?\nendstream", data, re.DOTALL):
+        raw = match.group(1).strip(b"\r\n")
+        for wbits in (zlib.MAX_WBITS, -zlib.MAX_WBITS):
+            try:
+                blobs.append(zlib.decompress(raw, wbits))
+                break
+            except zlib.error:
+                continue
+    return blobs
+
+
+def _pages_count_in(blob: bytes) -> int | None:
+    best = None
+    for match in re.finditer(rb"<<(?:(?!<<).)*?>>", blob, re.DOTALL):
+        block = match.group(0)
+        if not re.search(rb"/Type\s*/Pages\b", block):
+            continue
+        counted = re.search(rb"/Count\s+(\d+)", block)
+        if counted:
+            value = int(counted.group(1))
+            if best is None or value > best:
+                best = value
+    if best is not None:
+        return best
+    for pattern in (
+        rb"/Type\s*/Pages\b.{0,800}?/Count\s+(\d+)",
+        rb"/Count\s+(\d+).{0,800}?/Type\s*/Pages\b",
+    ):
+        counted = re.search(pattern, blob, re.DOTALL)
+        if counted:
+            return int(counted.group(1))
+    return None
 
 
 def write_minimal_pdf(path: Path, text: str = "Hello ebook") -> Path:

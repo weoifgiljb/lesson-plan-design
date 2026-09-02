@@ -2,10 +2,12 @@
 """Markdown 子集解析与 OOXML 渲染测试。"""
 from __future__ import annotations
 
+import struct
 import sys
 import tempfile
 import unittest
 import zipfile
+import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -15,6 +17,23 @@ PNG_1X1 = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
     "0000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082"
 )
+
+
+def _png_rgba(width: int, height: int) -> bytes:
+    raw = b""
+    for _ in range(height):
+        raw += b"\x00" + b"\x00\x00\x00\xff" * width
+    compressed = zlib.compress(raw)
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+        + chunk(b"IDAT", compressed)
+        + chunk(b"IEND", b"")
+    )
 
 
 class TestParseMarkdown(unittest.TestCase):
@@ -63,6 +82,10 @@ class TestParseMarkdown(unittest.TestCase):
         self.assertEqual(blocks[0].kind, "image")
         self.assertEqual(blocks[0].alt, "教材第3页")
         self.assertEqual(blocks[0].src, "pages/page-003.png")
+
+    def test_chinese_enumerated_text_stays_paragraph(self) -> None:
+        blocks = parse_markdown("1、计算机基础知识理论题 2、文件管理")
+        self.assertEqual(blocks[0].kind, "paragraph")
 
 
 class TestRenderOoxml(unittest.TestCase):
@@ -115,6 +138,26 @@ class TestRenderOoxml(unittest.TestCase):
             if isinstance(rels, bytes):
                 rels = rels.decode("utf-8")
             self.assertIn("/image", rels)
+
+    def test_image_alt_quotes_are_xml_escaped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            png = root / "shot.png"
+            png.write_bytes(PNG_1X1)
+            pkg = DocxPackage(base_dir=root)
+            xml = pkg.image_drawing("shot.png", alt='page"3')
+            self.assertIn("&quot;", xml)
+            self.assertNotIn('name="page"3"', xml)
+
+    def test_png_keeps_pixel_aspect_ratio(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            png = root / "wide.png"
+            png.write_bytes(_png_rgba(2, 1))
+            pkg = DocxPackage(base_dir=root)
+            xml = pkg.image_drawing("wide.png", alt="wide")
+            self.assertIn('cx="4680000"', xml)
+            self.assertIn('cy="2340000"', xml)
 
 
 class TestExportDocxFormat(unittest.TestCase):

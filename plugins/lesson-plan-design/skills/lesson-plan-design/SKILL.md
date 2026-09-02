@@ -35,6 +35,8 @@ python scripts/adversarial_review.py <教案.json> --no-counterexample --reviewe
 python scripts/export_docx.py <教案.json> -o <输出.docx>
 ```
 
+长文本可用 Markdown 子集（`**粗体**`、`1. ` 列表、围栏代码、`![说明](相对路径)`），由 `formatting-lesson-docx` 渲成 Word 原生样式。可选 `mediaAssets` 嵌教材截图；截图先走 `capturing-ebook-pages`。金标准里的 `1、` 仍按普通段落导出。
+
 修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告因内容哈希不匹配自动失效。
 
 对照样例打分（可选）：`python scripts/score.py <教案.json>`

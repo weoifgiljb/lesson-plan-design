@@ -102,6 +102,13 @@ python skills/lesson-plan-design/scripts/score.py <教案.json>
 
 现成金标准课题（一级考证辅导 1–7）见 `CATALOG.md`。
 
+配套技能（与主流程并列）：
+
+| 路径 | 干什么 |
+|------|--------|
+| `skills/formatting-lesson-docx/` | 教案 Markdown 子集 → Word 原生样式，可选 `mediaAssets` 嵌图 |
+| `skills/capturing-ebook-pages/` | 本地 PDF/DOCX/PPT(X) 截成 PNG 并写 manifest |
+
 ---
 
 ## 不经过对话、自己跑脚本

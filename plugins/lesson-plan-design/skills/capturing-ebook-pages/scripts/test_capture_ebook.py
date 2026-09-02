@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -55,6 +56,18 @@ class TestAdapters(unittest.TestCase):
             write_minimal_pdf(pdf, "Hello ebook")
             self.assertEqual(pdf_page_count(pdf), 1)
 
+    def test_pdf_page_count_when_count_precedes_type(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf = Path(tmp) / "count-first.pdf"
+            _write_pages_pdf(pdf, page_count=3, count_before_type=True)
+            self.assertEqual(pdf_page_count(pdf), 3)
+
+    def test_pdf_page_count_reads_flate_pages_dict(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf = Path(tmp) / "flate.pdf"
+            _write_flate_pages_pdf(pdf, page_count=4)
+            self.assertEqual(pdf_page_count(pdf), 4)
+
 
 class TestPlaywrightCapture(unittest.TestCase):
     def test_pdf_screenshot_or_skip(self) -> None:
@@ -77,6 +90,56 @@ class TestPlaywrightCapture(unittest.TestCase):
             self.assertTrue(png.is_file())
             self.assertGreater(png.stat().st_size, 1000)
             self.assertEqual(manifest["pages"][0]["caption"], "第1页")
+
+
+def _write_pdf(path: Path, objects: list[bytes]) -> Path:
+    body = b"%PDF-1.4\n"
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(body))
+        body += f"{index} 0 obj\n".encode("ascii") + obj + b"\nendobj\n"
+    xref_start = len(body)
+    xref = f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii")
+    for offset in offsets[1:]:
+        xref += f"{offset:010d} 00000 n \n".encode("ascii")
+    trailer = (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF\n"
+    ).encode("ascii")
+    path.write_bytes(body + xref + trailer)
+    return path
+
+
+def _write_pages_pdf(path: Path, *, page_count: int, count_before_type: bool) -> Path:
+    if count_before_type:
+        pages = f"<< /Count {page_count} /Type /Pages /Kids [] >>".encode("ascii")
+    else:
+        pages = f"<< /Type /Pages /Kids [] /Count {page_count} >>".encode("ascii")
+    return _write_pdf(
+        path,
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            pages,
+        ],
+    )
+
+
+def _write_flate_pages_pdf(path: Path, *, page_count: int) -> Path:
+    payload = f"<< /Type /Pages /Count {page_count} /Kids [] >>".encode("ascii")
+    compressed = zlib.compress(payload)
+    stream_obj = (
+        b"<< /Filter /FlateDecode /Length "
+        + str(len(compressed)).encode("ascii")
+        + b" >>\nstream\n"
+        + compressed
+        + b"\nendstream"
+    )
+    return _write_pdf(
+        path,
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            stream_obj,
+        ],
+    )
 
 
 if __name__ == "__main__":

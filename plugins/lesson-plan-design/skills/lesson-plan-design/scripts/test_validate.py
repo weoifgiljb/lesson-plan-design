@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 import importlib.util
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -647,6 +648,38 @@ class TestLessonPlan(unittest.TestCase):
             self.assertTrue(exported["ok"], exported)
             self.assertTrue(output_path.is_file())
 
+    def test_mcp_export_embeds_relative_media_with_base_dir(self) -> None:
+        module = _load_mcp("lesson_plan_mcp_export_media")
+        plan = draft_plan(1, 1, "测试课题")
+        plan["mediaAssets"] = [
+            {"path": "page-003.png", "caption": "教材第3页", "attachTo": "knowledgeLearning"}
+        ]
+        started = json.loads(module.call_tool("start_adversarial_review", {
+            "plan": plan,
+            "reviewerMode": "native_subagent",
+            "noCounterexample": True,
+        })["content"][0]["text"])
+        png_bytes = bytes.fromhex(
+            "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+            "0000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            lesson_dir = Path(tmp)
+            (lesson_dir / "page-003.png").write_bytes(png_bytes)
+            output_path = lesson_dir / "exported.docx"
+            exported = json.loads(module.call_tool("export_lesson_docx", {
+                "plan": plan,
+                "reviewReport": started,
+                "outputPath": str(output_path),
+                "baseDir": str(lesson_dir),
+            })["content"][0]["text"])
+            self.assertTrue(exported["ok"], exported)
+            with zipfile.ZipFile(output_path) as zf:
+                names = zf.namelist()
+                rels = zf.read("word/_rels/document.xml.rels").decode("utf-8")
+            self.assertTrue(any(name.startswith("word/media/") for name in names), names)
+            self.assertIn("/image", rels)
+
     def test_mcp_teacher_override_requires_matching_plan(self) -> None:
         module = _load_mcp("lesson_plan_mcp_override_plan")
         plan = draft_plan(1, 1, "测试课题")
@@ -721,6 +754,21 @@ class TestLessonPlan(unittest.TestCase):
         self.assertIn("--no-counterexample", skill_text)
         self.assertIn("--finding", write_text)
         self.assertIn("--no-counterexample", write_text)
+
+    def test_write_flow_docs_mention_markdown_and_media_assets(self) -> None:
+        plugin_root = Path(__file__).resolve().parents[3]
+        skill = Path(__file__).resolve().parents[1] / "SKILL.md"
+        schema = Path(__file__).resolve().parents[1] / "references" / "schema.md"
+        readme = plugin_root / "README.md"
+        skill_text = skill.read_text(encoding="utf-8")
+        schema_text = schema.read_text(encoding="utf-8")
+        readme_text = readme.read_text(encoding="utf-8")
+        self.assertIn("mediaAssets", skill_text)
+        self.assertIn("Markdown", skill_text)
+        self.assertIn("formatting-lesson-docx", skill_text)
+        self.assertIn("mediaAssets", schema_text)
+        self.assertIn("capturing-ebook-pages", readme_text)
+        self.assertIn("formatting-lesson-docx", readme_text)
 
 
 def _utf8_env() -> dict[str, str]:
