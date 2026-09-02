@@ -113,6 +113,20 @@ def _activity_label(label: str, item: dict) -> str:
     return f"{label}\n（{minutes}分钟）"
 
 
+def _activity_markdown(item: dict) -> str:
+    sections = []
+    for field, label in (
+        ("mainContent", "主要内容"),
+        ("teacherActivity", "教师活动"),
+        ("studentActivity", "学生活动"),
+        ("evidence", "产出"),
+    ):
+        value = _activity_text(item, field)
+        if value:
+            sections.append(f"**{label}：** {value}")
+    return "\n\n".join(sections)
+
+
 def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
     flow = plan.get("activityFlow") or {}
     content = "\n".join(x for x in [plan.get("contentTitle") or "", plan.get("contentDetail") or ""] if x)
@@ -216,9 +230,7 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
         _row(
             [
                 _cell_xml(pkg.label_paragraph("教学环节"), shade=HEADER_SHADE, width=1300),
-                _cell_xml(pkg.label_paragraph("主要内容"), shade=HEADER_SHADE, width=2800),
-                _cell_xml(pkg.label_paragraph("教师活动"), shade=HEADER_SHADE, width=2100),
-                _cell_xml(pkg.label_paragraph("学生活动"), shade=HEADER_SHADE, width=2100),
+                _cell_xml(pkg.label_paragraph("教学内容"), shade=HEADER_SHADE, width=7000),
             ],
             header=True,
         )
@@ -235,25 +247,17 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
                 _row(
                     [
                         _cell_xml(pkg.label_paragraph(ACTIVITY_FLOW_LABELS[key]), shade=LABEL_SHADE, width=1300),
-                        _cell_xml(paras, span=3, width=7000),
+                        _cell_xml(paras, width=7000),
                     ]
                 )
             )
             continue
         for item in activities:
-            main = _activity_text(item, "mainContent")
-            teacher = _activity_text(item, "teacherActivity")
-            student = _activity_text(item, "studentActivity")
-            evidence = _activity_text(item, "evidence")
-            if evidence:
-                student = "\n".join(x for x in (student, f"产出：{evidence}") if x)
             flow_rows.append(
                 _row(
                     [
                         _cell_xml(pkg.render_markdown(_activity_label(ACTIVITY_FLOW_LABELS[key], item)), shade=LABEL_SHADE, width=1300),
-                        _cell_xml(pkg.render_markdown(main), width=2800),
-                        _cell_xml(pkg.render_markdown(teacher), width=2100),
-                        _cell_xml(pkg.render_markdown(student), width=2100),
+                        _cell_xml(pkg.render_markdown(_activity_markdown(item)), width=7000),
                     ]
                 )
             )
@@ -264,11 +268,11 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
                 _row(
                     [
                         _cell_xml(pkg.label_paragraph(ACTIVITY_FLOW_LABELS[key]), shade=LABEL_SHADE, width=1300),
-                        _cell_xml(asset_xml, span=3, width=7000),
+                        _cell_xml(asset_xml, width=7000),
                     ]
                 )
             )
-    flow_table = _table_xml(flow_rows, [1300, 2800, 2100, 2100])
+    flow_table = _table_xml(flow_rows, [1300, 7000])
     title = pkg.title_paragraph(f"{plan.get('school', '')}教案")
     header_p = pkg.render_markdown(header)
     body = title + header_p + metadata_table + flow_table

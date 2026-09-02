@@ -57,7 +57,7 @@ class TestExportDocxFormat(unittest.TestCase):
                 document = zf.read("word/document.xml").decode("utf-8")
             self.assertIn('w:rFonts w:ascii="黑体" w:eastAsia="黑体"', document)
 
-    def test_structured_flow_uses_activity_columns_and_a4_margins(self) -> None:
+    def test_structured_flow_uses_single_content_column_and_a4_margins(self) -> None:
         sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
         from export_docx import export_docx
         from lib import draft_plan
@@ -86,3 +86,5 @@ class TestExportDocxFormat(unittest.TestCase):
             self.assertIn('w:left="1800"', document)
             self.assertIn('w:right="1800"', document)
             self.assertNotIn("D6E3F8", document)
+            self.assertIn('<w:gridCol w:w="1300"/><w:gridCol w:w="7000"/>', document)
+            self.assertNotIn('<w:gridCol w:w="1300"/><w:gridCol w:w="2800"/>', document)
