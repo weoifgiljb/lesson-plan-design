@@ -247,11 +247,22 @@ def parse_markdown(source: str | None) -> list[Block]:
     return blocks
 
 
-def _run(text: str, *, bold: bool = False, italic: bool = False, code: bool = False) -> str:
+def _run(
+    text: str,
+    *,
+    bold: bool = False,
+    italic: bool = False,
+    code: bool = False,
+    font_family: str | None = None,
+) -> str:
     fonts = (
         '<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="宋体"/>'
         if code
-        else '<w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>'
+        else (
+            f'<w:rFonts w:ascii="{font_family}" w:eastAsia="{font_family}" w:hAnsi="{font_family}"/>'
+            if font_family
+            else '<w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>'
+        )
     )
     extras = ""
     if bold:
@@ -456,7 +467,7 @@ class DocxPackage:
         """Render a centered, larger black title using the built-in heading style."""
         return (
             '<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:jc w:val="center"/></w:pPr>'
-            f"{_run(text, bold=True)}</w:p>"
+            f"{_run(text, bold=True, font_family='黑体')}</w:p>"
         )
 
     def render_markdown(self, source: str | None) -> str:

@@ -468,19 +468,20 @@ def _preflight_adversarial_finding(plan: dict[str, Any], round_number: int) -> d
                 repair="增加文件、截图、运行结果或现场演示等核验产出。",
                 round_number=round_number,
             )
-    task = str(flow.get("taskImplementation") or "").strip()
-    task_terms = ("提交", "作品", "文件", "完成标准", "操作记录")
-    if task and not any(term in task for term in task_terms):
-        return _finding(
-            plan,
-            hypothesis="task_not_executable",
-            severity="major",
-            evidence=[f"activityFlow.taskImplementation: {task}"],
-            affected_paths=["activityFlow.taskImplementation"],
-            why="任务没有可核验的产出或完成标准，学生完成与否无法判断。",
-            repair="说明学生须提交的产出、完成标准或可观察的操作记录。",
-            round_number=round_number,
-        )
+    else:
+        task = str(flow.get("taskImplementation") or "").strip()
+        task_terms = ("提交", "作品", "文件", "完成标准", "操作记录")
+        if task and not any(term in task for term in task_terms):
+            return _finding(
+                plan,
+                hypothesis="task_not_executable",
+                severity="major",
+                evidence=[f"activityFlow.taskImplementation: {task}"],
+                affected_paths=["activityFlow.taskImplementation"],
+                why="任务没有可核验的产出或完成标准，学生完成与否无法判断。",
+                repair="说明学生须提交的产出、完成标准或可观察的操作记录。",
+                round_number=round_number,
+            )
     assessment_rows = _structured_activities(flow.get("assessment"))
     assessment = "" if assessment_rows is not None else str(flow.get("assessment") or "").strip()
     observable_terms = ("作品", "提交", "操作", "演示", "记录", "文件", "答题", "完成情况", "评分标准")

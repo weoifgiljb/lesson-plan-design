@@ -44,6 +44,19 @@ class TestExportDocxFormat(unittest.TestCase):
             self.assertIn("word/media/", "\n".join(names))
             self.assertIn("/image", rels)
 
+    def test_title_run_uses_black_font(self) -> None:
+        sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
+        from export_docx import export_docx
+        from lib import draft_plan
+
+        plan = draft_plan(1, 1, "标题字体")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "title.docx"
+            export_docx(plan, out, base_dir=Path(tmp))
+            with zipfile.ZipFile(out) as zf:
+                document = zf.read("word/document.xml").decode("utf-8")
+            self.assertIn('w:rFonts w:ascii="黑体" w:eastAsia="黑体"', document)
+
     def test_structured_flow_uses_activity_columns_and_a4_margins(self) -> None:
         sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
         from export_docx import export_docx

@@ -78,6 +78,19 @@ class TestReview(unittest.TestCase):
         self.assertEqual(report["findings"][0]["hypothesis"], "task_not_executable")
         self.assertEqual(report["findings"][0]["severity"], "major")
 
+    def test_structured_task_with_student_action_and_evidence_skips_legacy_task_check(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["taskImplementation"] = [
+            {
+                "mainContent": "完成练习",
+                "teacherActivity": "演示步骤",
+                "studentActivity": "编写并运行程序",
+                "evidence": "C01.c",
+            }
+        ]
+        report = adversarial_review(plan)
+        self.assertEqual(report["findings"], [])
+
     def test_adversarial_review_accepts_one_agent_reported_goal_activity_counterexample(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         report = adversarial_review(
