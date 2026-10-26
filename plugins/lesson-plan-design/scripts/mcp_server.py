@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _paths import skill_scripts
 
 sys.path.insert(0, str(skill_scripts()))
-from export_docx import export_docx  # type: ignore
+from export_docx import export_docx_result, self_check  # type: ignore
 from lib import (  # type: ignore
     adversarial_review,
     draft_plan,
@@ -282,7 +282,7 @@ def _dispatch_tool(name: str, args: dict) -> dict:
         if isinstance(report, dict):
             independence = report.get("independence") or report.get("reviewer")
         try:
-            saved = export_docx(
+            result = export_docx_result(
                 plan,
                 out,
                 base_dir=base_dir,
@@ -291,7 +291,17 @@ def _dispatch_tool(name: str, args: dict) -> dict:
             )
         except ValueError as exc:
             return _result(dump({"ok": False, "reasons": [str(exc)]}))
-        return _result(dump({"ok": True, "path": str(saved), "bytes": saved.stat().st_size}))
+        check = self_check(Path(result["path"]), plan, result["media"])
+        if not check["ok"]:
+            return _result(dump({"ok": False, "reasons": ["导出后自检未通过"], "selfCheck": check}))
+        return _result(dump({
+            "ok": True,
+            "path": str(result["path"]),
+            "bytes": Path(result["path"]).stat().st_size,
+            "engineVersion": result["engineVersion"],
+            "selfCheck": check,
+            "warnings": result["warnings"],
+        }))
     if name == "score_against_samples":
         return _result(dump(score_against_examples(args.get("plan") or args)))
     return _result(json.dumps({"error": f"unknown tool {name}"}))

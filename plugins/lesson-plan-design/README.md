@@ -141,7 +141,7 @@ py -3 plugins/lesson-plan-design/skills/formatting-lesson-docx/test/index.py
 py -3 plugins/lesson-plan-design/skills/capturing-ebook-pages/test/index.py
 ```
 
-故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`/`minor`；`blocker`/`major` 由教师实名放行，`minor` 由教师实名接受。无反例时必须使用 `--no-counterexample`，不能省略审校声明。
+故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`/`minor`；`blocker`/`major` 由教师实名放行，`minor` 由教师实名接受。无反例时必须使用 `--no-counterexample`，不能省略审校声明。导出后 JSON 带 `selfCheck`（文档、页脚、页码、引擎版本、`planHash`、媒体哈希）；页脚含页码、引擎版本和哈希前 12 位；缺图会写「图片缺失」占位并在 `warnings` 中提示。
 
 CLI 错误契约：成功只写 stdout；失败只写 stderr，格式为 `{"ok": false, "error": {"code": "...", "message": "...", "hint": "..."}}`；退出码 0 成功、1 输入或业务失败、2 参数用法错误。
 

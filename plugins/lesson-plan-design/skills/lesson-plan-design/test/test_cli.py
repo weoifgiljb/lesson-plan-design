@@ -11,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 from support import PLUGIN_ROOT, SCRIPTS_DIR, utf8_env
-from export_docx import export_docx
+from export_docx import ENGINE_VERSION, export_docx
 from lib import (
     adversarial_review,
     default_review_path,
@@ -54,6 +54,9 @@ class TestCli(unittest.TestCase):
             )
             self.assertEqual(exported.returncode, 0, exported.stderr)
             self.assertTrue((root / "教案_第1周第1次.docx").is_file())
+            payload = json.loads(exported.stdout)
+            self.assertEqual(payload["engineVersion"], ENGINE_VERSION)
+            self.assertTrue(payload["selfCheck"]["ok"], payload["selfCheck"])
 
     def test_review_cli_persists_current_report_for_export(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
