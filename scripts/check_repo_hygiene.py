@@ -10,8 +10,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WINDOWS_USER = re.compile(r"(?i)\b[A-Z]:[\\/]Users[\\/](?![<\s])")
-POSIX_USER = re.compile(r"/home/(?![<\s])[^/\s]+/")
+WINDOWS_USER = re.compile(r"(?i)\b[A-Z]:[\\/]Users[\\/](?=[A-Za-z0-9_\u4e00-\u9fff])")
+POSIX_USER = re.compile(r"/home/(?=[A-Za-z0-9_\u4e00-\u9fff])")
 TEXT_SUFFIXES = {".py", ".md", ".json", ".toml", ".ps1", ".yaml", ".yml", ".txt", ".mdc"}
 
 
