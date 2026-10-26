@@ -7,4 +7,4 @@
 3. 启用后应看到技能 `lesson-plan-design` 与 hooks。
 4. 对话或 `/写教案`：第 2 周第 1 次、一级考证辅导 2。
 
-Python 需在 PATH 中，hooks 调用 `python "${PLUGIN_ROOT}/scripts/..."`.
+Python 需在 PATH 中，hooks 调用 `py -3 "${PLUGIN_ROOT}/scripts/..."`.
