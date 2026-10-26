@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from test_architecture import TestArchitecture  # noqa: F401
 from test_cli import TestCli  # noqa: F401
 from test_cli_errors import TestCliErrors  # noqa: F401
 from test_contracts import TestContracts  # noqa: F401
