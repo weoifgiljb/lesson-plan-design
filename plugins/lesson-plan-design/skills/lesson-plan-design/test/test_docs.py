@@ -38,3 +38,10 @@ class TestDocs(unittest.TestCase):
         for term in ("strict", "分钟", "warnings", "ruleVersion"):
             self.assertIn(term, validation_text)
         self.assertIn("分钟", schema_text)
+
+    def test_gate_docs_mention_minor_acceptance(self) -> None:
+        skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        readme_text = (PLUGIN_ROOT / "README.md").read_text(encoding="utf-8")
+        for text in (skill_text, readme_text):
+            self.assertIn("minor", text)
+            self.assertIn("接受", text)

@@ -737,25 +737,40 @@ def record_teacher_override(
     finding = next((item for item in findings if isinstance(item, dict) and item.get("id") == finding_id), None)
     if not finding:
         raise ValueError(f"未找到审查问题：{finding_id}")
-    if finding.get("severity") not in BLOCKING_SEVERITIES:
-        raise ValueError("仅 blocker 或 major 问题需要教师放行")
+    severity = finding.get("severity")
+    if severity not in {"blocker", "major", "minor"}:
+        raise ValueError("审查问题严重级别无效")
+    kind = "minor_acceptance" if severity == "minor" else "teacher_override"
     override = {
         "findingId": finding_id,
+        "kind": kind,
         "teacher": teacher.strip(),
         "reason": reason.strip(),
         "planHash": report.get("planHash"),
         "approvedAt": datetime.now(timezone.utc).isoformat(),
     }
     overrides.append(override)
-    finding["status"] = "waived"
-    open_blocking = [
+    finding["status"] = "accepted" if severity == "minor" else "waived"
+    open_findings = [
         item for item in findings
-        if isinstance(item, dict)
-        and item.get("severity") in BLOCKING_SEVERITIES
-        and item.get("status") == "open"
+        if isinstance(item, dict) and item.get("status") == "open"
     ]
-    if not open_blocking:
+    if open_findings:
+        report["status"] = "needs_repair"
+    elif any(
+        isinstance(item, dict)
+        and item.get("severity") in BLOCKING_SEVERITIES
+        and item.get("status") == "waived"
+        for item in findings
+    ):
         report["status"] = "passed_with_override"
+    elif any(
+        isinstance(item, dict)
+        and item.get("severity") == "minor"
+        and item.get("status") == "accepted"
+        for item in findings
+    ):
+        report["status"] = "passed_with_accepted_minor"
     return override
 
 
@@ -786,34 +801,27 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):
         reasons.append("审查报告显示结构校验未通过")
     report_status = report.get("status")
-    if report_status not in {"passed", "needs_repair", "structure_invalid", "pending_reviewer", "passed_with_override"}:
+    allowed_statuses = {
+        "passed",
+        "needs_repair",
+        "structure_invalid",
+        "pending_reviewer",
+        "passed_with_override",
+        "passed_with_accepted_minor",
+    }
+    if report_status not in allowed_statuses:
         reasons.append("审查报告状态无效")
     findings = report.get("findings") if isinstance(report.get("findings"), list) else []
+    valid_findings: list[dict[str, Any]] = []
     for item in findings:
         if not isinstance(item, dict):
             reasons.append("审查问题格式无效")
             continue
-        severity = item.get("severity")
-        status = item.get("status")
-        if severity not in {"blocker", "major", "minor"}:
-            reasons.append("审查问题严重级别无效")
-        if status not in {"open", "waived"}:
-            reasons.append("审查问题状态无效")
-    if report_status == "pending_reviewer":
-        reasons.append("审查尚未完成：缺少审校员反例或无反例声明")
-    if report_status == "passed" and findings:
-        reasons.append("通过的审查报告不能包含问题")
-    if report_status == "passed" and report.get("attestation") != "no_counterexample":
-        reasons.append("通过的审查报告必须包含无反例声明")
-    if report_status == "needs_repair" and not findings:
-        reasons.append("待修复的审查报告必须包含审查问题")
-    if report_status == "passed_with_override" and not findings:
-        reasons.append("教师放行的审查报告必须包含审查问题")
-    if report_status == "structure_invalid" and not reasons:
-        reasons.append("审查报告状态显示结构校验未通过")
+        valid_findings.append(item)
+    findings = valid_findings
     current_hash = plan_hash(plan)
-    approved_ids: set[str] = set()
     overrides = report.get("overrides") if isinstance(report.get("overrides"), list) else []
+    override_records: dict[str, str] = {}
     for item in overrides:
         if not isinstance(item, dict):
             reasons.append("审查放行记录格式无效")
@@ -827,17 +835,59 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         ):
             reasons.append("审查放行记录格式无效")
             continue
+        kind = item.get("kind") or "teacher_override"
+        if kind not in {"teacher_override", "minor_acceptance"}:
+            reasons.append("审查放行记录类型无效")
+            continue
         if item.get("planHash") == current_hash:
-            approved_ids.add(str(item["findingId"]))
+            override_records[str(item["findingId"])] = kind
     for item in findings:
-        if not isinstance(item, dict):
+        severity = item.get("severity")
+        status = item.get("status")
+        if severity not in {"blocker", "major", "minor"}:
+            reasons.append("审查问题严重级别无效")
+        if status not in {"open", "waived", "accepted"}:
+            reasons.append("审查问题状态无效")
             continue
-        if item.get("severity") not in BLOCKING_SEVERITIES:
-            continue
-        if item.get("status") == "open" and str(item.get("id")) not in approved_ids:
-            reasons.append(f"存在未关闭的 {item.get('severity')} 问题：{item.get('id')}")
-        elif item.get("status") == "waived" and str(item.get("id")) not in approved_ids:
-            reasons.append(f"缺少与 waived 问题匹配的教师放行记录：{item.get('id')}")
+        finding_id = str(item.get("id"))
+        record_kind = override_records.get(finding_id)
+        if status == "accepted" and severity != "minor":
+            reasons.append("仅轻微问题可以标记为已接受")
+        if status == "waived" and severity == "minor":
+            reasons.append("轻微问题须由教师接受，不能按放行处理")
+        if status == "open":
+            reasons.append(f"存在未闭环的 {severity} 问题：{finding_id}")
+        if status == "waived" and record_kind != "teacher_override":
+            reasons.append(f"缺少与 waived 问题匹配的教师放行记录：{finding_id}")
+        if status == "accepted" and record_kind != "minor_acceptance":
+            reasons.append(f"缺少与 accepted 问题匹配的教师接受记录：{finding_id}")
+    open_findings = [item for item in findings if item.get("status") == "open"]
+    waived_blocking = [
+        item for item in findings
+        if item.get("severity") in BLOCKING_SEVERITIES and item.get("status") == "waived"
+    ]
+    accepted_minor = [
+        item for item in findings
+        if item.get("severity") == "minor" and item.get("status") == "accepted"
+    ]
+    if report_status == "pending_reviewer":
+        reasons.append("审查尚未完成：缺少审校员反例或无反例声明")
+    if report_status == "passed":
+        if findings:
+            reasons.append("通过的审查报告不能包含问题")
+        if report.get("attestation") != "no_counterexample":
+            reasons.append("通过的审查报告必须包含无反例声明")
+    if report_status == "needs_repair" and not open_findings:
+        reasons.append("待修复的审查报告必须包含未闭环问题")
+    if report_status == "passed_with_override" and not waived_blocking:
+        reasons.append("教师放行的审查报告必须包含已放行的 blocker 或 major 问题")
+    if report_status == "passed_with_accepted_minor":
+        if not accepted_minor:
+            reasons.append("接受轻微问题的审查报告必须包含已接受的轻微问题")
+        if waived_blocking:
+            reasons.append("存在已放行的 blocker/major 时状态应为 passed_with_override")
+    if report_status == "structure_invalid" and structural["ok"]:
+        reasons.append("审查报告状态与结构校验结论不一致")
     return {"ok": not reasons, "reasons": reasons, "structuralValidation": structural}
 
 
