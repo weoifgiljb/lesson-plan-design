@@ -21,6 +21,8 @@ VALIDATE = SKILL / "scripts" / "validate.py"
 LAYOUT = ROOT / "scripts" / "check_layout.py"
 HYGIENE = ROOT / "scripts" / "check_repo_hygiene.py"
 ARCHITECTURE = ROOT / "scripts" / "check_architecture.py"
+GATE_SELF_TEST = ROOT / "tests" / "gate" / "index.py"
+BACKEND_GATE = ROOT / "scripts" / "run_backend_gate.py"
 RAN_RE = re.compile(r"Ran (\d+) tests?")
 
 
@@ -41,6 +43,10 @@ def commands() -> list[dict]:
         items.append({"name": "repo hygiene", "cmd": [sys.executable, str(HYGIENE)]})
     if ARCHITECTURE.is_file():
         items.append({"name": "architecture", "cmd": [sys.executable, str(ARCHITECTURE)]})
+    if GATE_SELF_TEST.is_file():
+        items.append({"name": "gate self-test", "cmd": [sys.executable, str(GATE_SELF_TEST)]})
+    if BACKEND_GATE.is_file():
+        items.append({"name": "backend gate", "cmd": [sys.executable, str(BACKEND_GATE)]})
     return items
 
 

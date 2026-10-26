@@ -98,10 +98,11 @@ git merge --no-ff feature/fr-03-gate
 联调测试顺序：
 
 1. 插件端单元与回归：`py -3 plugins/lesson-plan-design/skills/lesson-plan-design/test/index.py`。
-2. 契约与样例：`py -3 tests/fixtures/dual-end/run_plugin_fixtures.py`，要求全部通过；FR-01 未合入前的 4 项基线失败视为已知，进入联调前必须清零。
+2. 契约与样例：`py -3 tests/fixtures/dual-end/run_plugin_fixtures.py`，要求 12/12 全部通过。
 3. 测试用例抽取：`py -3 scripts/extract_test_schema.py`。
-4. 平台端接口与端到端：待平台端实现后执行 `测试用例_markmap.md` 第 6—12 章。
-5. 手工冒烟：按 TC 编号抽取 P0 用例执行。
+4. 后端闸门：`py -3 scripts/run_backend_gate.py`，要求无 block；评审报告见 `.qa/reviews/`。
+5. 平台端接口与端到端：执行 `测试用例_markmap.md` 第 6—12 章（平台端未实现前标"待实现"）。
+6. 手工冒烟：按 TC 编号抽取 P0 用例执行。
 
 联调中发现的缺陷：
 
@@ -129,7 +130,8 @@ git push origin develop --tags
 | 阶段 | 必须通过 | 说明 |
 |---|---|---|
 | feature → develop | 该需求对应用例 + 插件端测试套件 | 失败不得合并 |
-| develop → test/integration | 全量插件端用例 + fixtures 脚本 | 4 项 FR-01 基线失败必须清零 |
+| feature → develop（平台端） | 该需求用例 + `py -3 scripts/run_backend_gate.py` 无 block + `py -3 scripts/run_all_tests.py` 全绿 | 另需 `skills/backend-review-gate` 出的独立评审报告，结论为通过/有条件通过 |
+| develop → test/integration | 全量插件端用例 + fixtures 脚本 12/12 + 后端闸门 | 失败不得进入联调 |
 | test/integration → develop | 全部 P0/P1 用例 + 契约包校验 + 冒烟 | 平台端实现后加接口与端到端 |
 | develop → main | 联调报告 + 演示通过 + 导师确认 | 打标签后发布 |
 

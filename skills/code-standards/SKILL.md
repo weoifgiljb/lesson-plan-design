@@ -30,6 +30,7 @@ description: >
 py -3 scripts/run_all_tests.py
 py -3 tests/fixtures/dual-end/run_plugin_fixtures.py
 py -3 scripts/check_repo_hygiene.py
+py -3 scripts/run_backend_gate.py      # 涉及平台端时
 git diff --check
 ```
 
@@ -44,6 +45,18 @@ adapters:     mcp_lesson/*、mcp_server.py、CLI、hooks
 compat:       lib.py 仅 re-export
 ```
 
+## 后端组件地图（src/backend）
+
+```text
+domain:       app/domain/{errors,roles,security,versions,manifest,hashing,ingest,evidence,versions_diff,stats}.py
+application:  app/application/*_service.py（事务与编排）
+adapters:     app/adapters/{db,archive,storage,engine,clock}（SQL 只在 db/repo.py）
+api:          app/api/{deps,errors,schemas,routers}（只做协议适配）
+gate:         scripts/check_backend_*.py + scripts/run_backend_gate.py
+```
+
+后端分层与闸门规则见 `docs/backend-review-gate.md`；写后端代码时按该文档的 8 组清单自查，合并前跑 `py -3 scripts/run_backend_gate.py`。
+
 ## 检查清单
 
 - [ ] 没有本机绝对路径；
@@ -53,7 +66,8 @@ compat:       lib.py 仅 re-export
 - [ ] 状态只由 `derive_review_status` 推导；
 - [ ] 重复 3 次以上的测试搭建已抽夹具；
 - [ ] 新测试已加入 `test/index.py`，全量 runner 通过；
-- [ ] CLI/MCP/导出契约未变。
+- [ ] CLI/MCP/导出契约未变；
+- [ ] 后端改动已跑 `scripts/run_backend_gate.py`，无 block（warning 已说明）。
 
 ## 反模式
 
