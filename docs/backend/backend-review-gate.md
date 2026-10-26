@@ -78,7 +78,7 @@ py -3 scripts/run_backend_gate.py --update-contract   # 仅刷新 OpenAPI 快照
 | BA-06 | `adapters/**` 禁止 import `app.api`、`app.application` | block | `db/repo.py` 调用 `ingest_service` |
 | BA-07 | 模块行数：`domain`/`application` ≤300；`api/routers/*` ≤200；`main.py` ≤150 | warn（超 1.2 倍转 block） | 单个 `plans.py` 800 行 |
 | BA-08 | 单函数 ≤50 行、嵌套 ≤3 层 | warn | `ingest.__init__` 120 行 |
-| BA-09 | `except` 只允许出现在 `api/errors.py`、`main.py`、`adapters/db/repo.py`、`adapters/engine.py`；禁止裸 `except:` | block | service 里又包一层 `try/except` |
+| BA-09 | `except` 只允许出现在 `api/errors.py`、`main.py`、`adapters/archive.py`、`adapters/db/repo.py`、`adapters/engine.py`；禁止裸 `except:` | block | service 里又包一层 `try/except` |
 | BA-10 | `AppError(...)` 的第一个字符串参数必须是 `domain/errors.py::ERROR_CODES` 的键 | block | `raise AppError("BAD_THING")` |
 | BA-11 | `sys.path` 与 `plugins/.../scripts` 只允许出现在 `adapters/engine.py` | block | 在 `api/plans.py` 里改 `sys.path` |
 | BA-12 | 后端与前端源码不含本机绝对路径 | block | `C:\Users\...` 写进配置 |

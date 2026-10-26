@@ -69,6 +69,30 @@ class TestArchitectureGate(unittest.TestCase):
         with stack:
             self.assertIn("BA-03", rules(arch.scan(backend, frontend)))
 
+    def test_archive_except_is_allowed(self) -> None:
+        code = (
+            "def read(data: bytes) -> bytes:\n"
+            "    try:\n"
+            "        return data\n"
+            "    except ValueError:\n"
+            "        return b''\n"
+        )
+        stack, backend, frontend = project_with({"app/adapters/archive.py": code})
+        with stack:
+            self.assertNotIn("BA-09", rules(arch.scan(backend, frontend)))
+
+    def test_except_outside_whitelist_is_blocked(self) -> None:
+        code = (
+            "def read(data: bytes) -> bytes:\n"
+            "    try:\n"
+            "        return data\n"
+            "    except ValueError:\n"
+            "        return b''\n"
+        )
+        stack, backend, frontend = project_with({"app/adapters/storage.py": code})
+        with stack:
+            self.assertIn("BA-09", rules(arch.scan(backend, frontend)))
+
     def test_module_too_large_is_blocked(self) -> None:
         stack, backend, frontend = project_with({"app/domain/big.py": "X = 1\n" * 400})
         with stack:
