@@ -77,6 +77,8 @@ python skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出
 python skills/lesson-plan-design/scripts/score.py <教案.json>
 ```
 
+评分维度：目标可测 25、任务对应 25、考核闭环 20、流程完整 20、证据可查 10；输出每个维度的得分、扣分原因与改进建议，≥85 优秀、≥70 合格。
+
 修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告会因教案内容哈希不匹配而自动失效。飞书没有 Hooks 时，这些步骤仍由技能强制执行。
 
 ---
