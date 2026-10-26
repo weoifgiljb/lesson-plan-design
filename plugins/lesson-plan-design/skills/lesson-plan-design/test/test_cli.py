@@ -140,3 +140,43 @@ class TestCli(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("no-counterexample", proc.stdout)
+
+    def test_cli_validate_strict_catalog_conflict(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第1、2套")
+        script = SCRIPTS_DIR / "validate.py"
+        payload = json.dumps(plan, ensure_ascii=False)
+        default = subprocess.run(
+            [sys.executable, str(script), "--stdin"],
+            input=payload,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env=utf8_env(),
+        )
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertIn("warnings", default.stdout)
+        strict = subprocess.run(
+            [sys.executable, str(script), "--stdin", "--strict"],
+            input=payload,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env=utf8_env(),
+        )
+        self.assertNotEqual(strict.returncode, 0)
+
+    def test_cli_validate_minutes_tolerance(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["introduction"] = [{"mainContent": "导入", "minutes": 95}]
+        script = SCRIPTS_DIR / "validate.py"
+        payload = json.dumps(plan, ensure_ascii=False)
+        denied = subprocess.run(
+            [sys.executable, str(script), "--stdin"],
+            input=payload,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env=utf8_env(),
+        )
+        self.assertNotEqual(denied.returncode, 0)
+        allowed = subprocess.run(
+            [sys.executable, str(script), "--stdin", "--minutes-tolerance", "5"],
+            input=payload,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            env=utf8_env(),
+        )
+        self.assertEqual(allowed.returncode, 0, allowed.stdout + allowed.stderr)

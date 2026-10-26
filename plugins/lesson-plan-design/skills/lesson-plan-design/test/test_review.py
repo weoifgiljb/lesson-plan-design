@@ -82,7 +82,7 @@ class TestReview(unittest.TestCase):
         plan = draft_plan(1, 1, "测试课题")
         plan["activityFlow"]["taskImplementation"] = [
             {
-                "mainContent": "完成练习",
+                "mainContent": "必须完成：完成练习",
                 "teacherActivity": "演示步骤",
                 "studentActivity": "编写并运行程序",
                 "evidence": "C01.c",

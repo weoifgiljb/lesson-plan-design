@@ -49,11 +49,15 @@ TOOLS = [
     },
     {
         "name": "validate_lesson_plan",
-        "description": "校验教案是否满足校标结构",
+        "description": "校验教案是否满足校标结构；strict 时目录课题/套别冲突按错误处理",
         "inputSchema": {
             "type": "object",
             "required": ["plan"],
-            "properties": {"plan": {"type": "object"}},
+            "properties": {
+                "plan": {"type": "object"},
+                "strict": {"type": "boolean"},
+                "minutesTolerance": {"type": "number"},
+            },
         },
     },
     {
@@ -124,6 +128,13 @@ def _result(text: str) -> dict:
     return {"content": [{"type": "text", "text": text}]}
 
 
+def _as_float(value, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def call_tool(name: str, args: dict) -> dict:
     if not isinstance(args, dict):
         return _result(dump({"ok": False, "error": "工具参数必须是 JSON 对象"}))
@@ -141,7 +152,15 @@ def call_tool(name: str, args: dict) -> dict:
         )
         return _result(dump({"plan": plan, "validation": validate_plan(plan)}))
     if name == "validate_lesson_plan":
-        return _result(dump(validate_plan(args.get("plan") or args)))
+        return _result(
+            dump(
+                validate_plan(
+                    args.get("plan") or args,
+                    strict=bool(args.get("strict")),
+                    minutes_tolerance=_as_float(args.get("minutesTolerance")),
+                )
+            )
+        )
     if name == "start_adversarial_review":
         plan = args.get("plan") or args
         try:

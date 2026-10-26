@@ -147,3 +147,16 @@ class TestMcp(unittest.TestCase):
         self.assertIn("教案", missing_plan["error"])
         self.assertFalse(mismatched["ok"])
         self.assertIn("不匹配", mismatched["error"])
+
+    def test_mcp_validate_strict_catalog_conflict(self) -> None:
+        module = load_mcp("lesson_plan_mcp_validate_strict")
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第1、2套")
+        default = json.loads(
+            module.call_tool("validate_lesson_plan", {"plan": plan})["content"][0]["text"]
+        )
+        strict = json.loads(
+            module.call_tool("validate_lesson_plan", {"plan": plan, "strict": True})["content"][0]["text"]
+        )
+        self.assertTrue(default["ok"], default)
+        self.assertFalse(strict["ok"])
+        self.assertEqual(strict["ruleVersion"], "1.1.0")
