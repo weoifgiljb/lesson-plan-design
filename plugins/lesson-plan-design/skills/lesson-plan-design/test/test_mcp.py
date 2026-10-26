@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
-from support import load_mcp
+from support import PLUGIN_ROOT, load_mcp, utf8_env
 from lib import adversarial_review, draft_plan
 
 
@@ -186,3 +188,98 @@ class TestMcp(unittest.TestCase):
         self.assertTrue(response["ok"])
         self.assertEqual(response["reviewReport"]["status"], "passed_with_accepted_minor")
         self.assertEqual(response["reviewReport"]["overrides"][0]["kind"], "minor_acceptance")
+
+    def test_mcp_handle_rejects_missing_required_argument(self) -> None:
+        module = load_mcp("lesson_plan_mcp_missing_arg")
+        reply = module.handle({
+            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+            "params": {"name": "draft_lesson_plan", "arguments": {}},
+        })
+        self.assertEqual(reply["error"]["code"], -32602)
+        self.assertEqual(reply["error"]["data"]["code"], "INVALID_PARAMS")
+        self.assertTrue(
+            any(item["path"] == "week" for item in reply["error"]["data"]["details"])
+        )
+
+    def test_mcp_handle_rejects_wrong_argument_type(self) -> None:
+        module = load_mcp("lesson_plan_mcp_wrong_type")
+        reply = module.handle({
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": {
+                "name": "draft_lesson_plan",
+                "arguments": {"week": "abc", "session": 1, "contentTitle": "测试课题"},
+            },
+        })
+        self.assertEqual(reply["error"]["code"], -32602)
+        details = reply["error"]["data"]["details"]
+        self.assertTrue(any(item["path"] == "week" for item in details))
+
+    def test_mcp_handle_unknown_tool(self) -> None:
+        module = load_mcp("lesson_plan_mcp_unknown_tool")
+        reply = module.handle({
+            "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "not_a_tool", "arguments": {}},
+        })
+        self.assertEqual(reply["error"]["code"], -32601)
+        self.assertEqual(reply["error"]["data"]["code"], "METHOD_NOT_FOUND")
+
+    def test_mcp_handle_contains_tool_exception(self) -> None:
+        module = load_mcp("lesson_plan_mcp_tool_exception")
+        original = module._dispatch_tool
+
+        def boom(name, args):
+            raise RuntimeError("boom")
+
+        module._dispatch_tool = boom
+        try:
+            reply = module.handle({
+                "jsonrpc": "2.0", "id": 4, "method": "tools/call",
+                "params": {
+                    "name": "draft_lesson_plan",
+                    "arguments": {"week": 1, "session": 1, "contentTitle": "测试课题"},
+                },
+            })
+        finally:
+            module._dispatch_tool = original
+        self.assertEqual(reply["error"]["code"], -32603)
+        self.assertEqual(reply["error"]["data"]["code"], "TOOL_ERROR")
+
+    def test_mcp_handle_valid_call_and_continues_after_error(self) -> None:
+        module = load_mcp("lesson_plan_mcp_handle_valid")
+        bad = module.handle({
+            "jsonrpc": "2.0", "id": 5, "method": "tools/call",
+            "params": {"name": "draft_lesson_plan", "arguments": {}},
+        })
+        good = module.handle({
+            "jsonrpc": "2.0", "id": 6, "method": "tools/call",
+            "params": {
+                "name": "draft_lesson_plan",
+                "arguments": {"week": 1, "session": 1, "contentTitle": "测试课题"},
+            },
+        })
+        ping = module.handle({"jsonrpc": "2.0", "id": 7, "method": "ping"})
+        self.assertEqual(bad["error"]["code"], -32602)
+        self.assertIn("result", good)
+        payload = json.loads(good["result"]["content"][0]["text"])
+        self.assertEqual(payload["plan"]["week"], 1)
+        self.assertEqual(ping["result"], {})
+
+    def test_mcp_main_reports_parse_error_and_keeps_running(self) -> None:
+        script = PLUGIN_ROOT / "scripts" / "mcp_server.py"
+        payload = "{bad\n" + json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n"
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            input=payload,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=utf8_env(),
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        lines = [json.loads(line) for line in proc.stdout.splitlines() if line.strip()]
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0]["error"]["code"], -32700)
+        self.assertEqual(lines[0]["error"]["data"]["code"], "PARSE_ERROR")
+        self.assertEqual(lines[1]["id"], 1)
+        self.assertEqual(lines[1]["result"], {})

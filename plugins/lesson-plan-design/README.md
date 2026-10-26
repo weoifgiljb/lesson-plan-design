@@ -142,6 +142,8 @@ py -3 plugins/lesson-plan-design/skills/capturing-ebook-pages/test/index.py
 
 MCP 工具包括：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`start_adversarial_review`、`read_lesson_review`、`record_teacher_override`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
 
+工具调用按 `inputSchema` 校验：参数缺失或类型错误返回 `-32602`，未知工具 `-32601`，坏 JSON 行 `-32700`，工具内部异常 `-32603`；错误不会终止 stdio 服务，后续请求继续处理。
+
 ---
 
 ## 分层（给改插件的人）
