@@ -6,3 +6,6 @@ work-plan.docx
 /output/
 /.cursor/
 /.qa/
+/.dsh/
+/.codex_audio_tmp/
+*.wav
