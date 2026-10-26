@@ -35,7 +35,7 @@ py -3 scripts/adversarial_review.py <教案.json> --no-counterexample --reviewer
 py -3 scripts/export_docx.py <教案.json> -o <输出.docx>
 ```
 
-加 `--strict-metadata` 时，任课教师、教学对象或授课日期为空会拒绝导出；不加则用 `____` 占位。
+加 `--strict-metadata` 时，任课教师、教学对象或授课日期为空会拒绝导出；不加则用 `____` 占位。CLI 失败只写 stderr，统一为 `{"ok": false, "error": {"code": "...", "message": "...", "hint": "..."}}`；退出码 0 成功、1 输入或业务失败、2 参数用法错误。
 
 长文本可用 Markdown 子集（`**粗体**`、`1. ` 列表、围栏代码、`![说明](相对路径)`），由 `formatting-lesson-docx` 渲成 Word 原生样式。可选 `mediaAssets` 嵌教材截图；截图先走 `capturing-ebook-pages`。金标准里的 `1、` 仍按普通段落导出。
 

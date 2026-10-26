@@ -7,11 +7,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _cli import JsonArgumentParser, run_cli
 from lib import draft_plan, dump, validate_plan
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="草稿校标教案")
+    p = JsonArgumentParser(description="草稿校标教案")
     p.add_argument("--week", type=int, required=True)
     p.add_argument("--session", type=int, required=True)
     p.add_argument("--title", required=True, help="教学内容标题")
@@ -45,4 +46,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_cli(main))

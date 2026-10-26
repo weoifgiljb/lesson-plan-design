@@ -11,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "formatting-lesson-docx" / "scripts"))
+from _cli import CliError, JsonArgumentParser, run_cli
 from lib import (
     ACTIVITY_FLOW_LABELS,
     default_review_path,
@@ -355,7 +356,7 @@ def export_docx(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="导出教案 DOCX")
+    parser = JsonArgumentParser(description="导出教案 DOCX")
     parser.add_argument("path", help="教案 JSON")
     parser.add_argument("-o", "--out", help="输出 docx 路径")
     parser.add_argument("--review", help="对抗审查报告路径；默认读取教案同目录 .review.json")
@@ -378,33 +379,31 @@ def main() -> int:
     else:
         try:
             report = load_review_report(review_path)
-        except (OSError, ValueError, json.JSONDecodeError):
-            print(dump({"ok": False, "reasons": [f"审查报告无法解析：{review_path.as_posix()}"]}), file=sys.stderr)
-            return 1
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise CliError(
+                "INVALID_JSON",
+                f"审查报告无法解析：{review_path.as_posix()}",
+                "检查报告 JSON 语法与编码",
+            ) from exc
     gate = export_gate(plan, report, strict_independence=args.strict_independence)
     if not gate["ok"]:
-        print(dump({"ok": False, "reasons": gate["reasons"]}), file=sys.stderr)
-        return 1
+        raise CliError("GATE_REJECTED", "导出被门禁拒绝", "；".join(gate["reasons"]))
     week = plan.get("week")
     session = plan.get("session")
     out = Path(args.out) if args.out else plan_path.parent / f"教案_第{week}周第{session}次.docx"
     independence = None
     if isinstance(report, dict):
         independence = report.get("independence") or report.get("reviewer")
-    try:
-        saved = export_docx(
-            plan,
-            out,
-            base_dir=plan_path.parent,
-            independence=independence,
-            strict_metadata=args.strict_metadata,
-        )
-    except ValueError as exc:
-        print(dump({"ok": False, "reasons": [str(exc)]}), file=sys.stderr)
-        return 1
-    print(f'{{"ok": true, "path": "{saved.as_posix()}", "bytes": {saved.stat().st_size}}}')
+    saved = export_docx(
+        plan,
+        out,
+        base_dir=plan_path.parent,
+        independence=independence,
+        strict_metadata=args.strict_metadata,
+    )
+    print(dump({"ok": True, "path": str(saved), "bytes": saved.stat().st_size}))
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_cli(main))
