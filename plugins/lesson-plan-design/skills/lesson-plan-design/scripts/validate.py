@@ -8,11 +8,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _cli import JsonArgumentParser, run_cli
 from lib import dump, load_examples, load_json, validate_plan
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="校验校标教案 JSON")
+    parser = JsonArgumentParser(description="校验校标教案 JSON")
     parser.add_argument("path", nargs="?", help="教案 JSON 路径")
     parser.add_argument("--examples", action="store_true", help="校验 examples/ 全部金标准")
     parser.add_argument("--stdin", action="store_true", help="从标准输入读 JSON")
@@ -47,4 +48,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_cli(main))

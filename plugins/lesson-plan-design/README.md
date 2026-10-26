@@ -140,6 +140,8 @@ py -3 plugins/lesson-plan-design/skills/capturing-ebook-pages/test/index.py
 
 故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`。无反例时必须使用 `--no-counterexample`，不能省略审校声明。
 
+CLI 错误契约：成功只写 stdout；失败只写 stderr，格式为 `{"ok": false, "error": {"code": "...", "message": "...", "hint": "..."}}`；退出码 0 成功、1 输入或业务失败、2 参数用法错误。
+
 MCP 工具包括：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`start_adversarial_review`、`read_lesson_review`、`record_teacher_override`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
 
 ---
