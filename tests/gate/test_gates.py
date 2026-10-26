@@ -307,6 +307,10 @@ class TestSecurityGate(unittest.TestCase):
 
 class TestGateRunner(unittest.TestCase):
     def test_runner_skips_when_backend_absent(self) -> None:
+        import os
+
+        env = os.environ.copy()
+        env["LPP_BACKEND_ROOT"] = str(ROOT / "output" / "gate-absent-backend")
         proc = subprocess.run(
             [sys.executable, str(ROOT / "scripts" / "run_backend_gate.py"), "--json"],
             capture_output=True,
@@ -314,6 +318,7 @@ class TestGateRunner(unittest.TestCase):
             encoding="utf-8",
             errors="replace",
             cwd=ROOT,
+            env=env,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)

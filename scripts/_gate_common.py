@@ -8,13 +8,15 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BACKEND = ROOT / "src" / "backend"
-FRONTEND = ROOT / "src" / "frontend"
+# LPP_BACKEND_ROOT 供测试与临时验证覆盖"后端是否存在"，默认取仓库内路径。
+BACKEND = Path(os.environ.get("LPP_BACKEND_ROOT", str(ROOT / "src" / "backend")))
+FRONTEND = Path(os.environ.get("LPP_FRONTEND_ROOT", str(ROOT / "src" / "frontend")))
 APP = BACKEND / "app"
 CONTRACT = ROOT / "docs" / "api" / "contract.v1.json"
 OPENAPI = ROOT / "docs" / "api" / "openapi.v1.json"
