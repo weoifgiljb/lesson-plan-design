@@ -2,7 +2,7 @@
 """G1 后端架构闸门：分层、体量、错误边界与单一接入点。
 
 只用 AST 与源码文本，不 import 被检查代码；每次调用 ``scan()`` 返回问题列表。
-规则编号见 docs/backend-review-gate.md §3。
+规则编号见 docs/backend/backend-review-gate.md §3。
 """
 from __future__ import annotations
 

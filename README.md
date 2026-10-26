@@ -5,11 +5,11 @@
 教师在 Cursor / Claude Code / 飞书里用自然语言说「写第 2 周第 1 次课教案」，Agent 会按校标生成带三维目标、八步流程的教案，经过结构校验与对抗性教学闭环审查后再导出 Word。
 
 - 插件（含技能）：[`plugins/lesson-plan-design`](plugins/lesson-plan-design) — **用法见该目录 [README](plugins/lesson-plan-design/README.md)**
-- B/S 平台端开发计划：[`docs/bs-dev-plan.md`](docs/bs-dev-plan.md) — 前后端分离、闸门与排期
-- 后端评审闸门：[`docs/backend-review-gate.md`](docs/backend-review-gate.md) — 机器规则 + 独立评审
-- 开发/测试/后端技能包（24 个）：[`docs/skills.md`](docs/skills.md)
+- B/S 平台端开发计划：[`docs/backend/bs-dev-plan.md`](docs/backend/bs-dev-plan.md) — 前后端分离、闸门与排期
+- 后端评审闸门：[`docs/backend/backend-review-gate.md`](docs/backend/backend-review-gate.md) — 机器规则 + 独立评审
+- 开发/测试/后端技能包（24 个）：[`docs/dev/skills.md`](docs/dev/skills.md)
 - 飞书工作空间样例：[`workspace-feishu`](workspace-feishu)
-- 各宿主安装：[`docs/`](docs)
+- 各宿主安装：[`docs/`](docs/README.md)
 
 ---
 
@@ -39,4 +39,4 @@ Agent 内部固定走：**读字段表 → 对照金标准 → 填 JSON → `val
 
 除业务技能 `lesson-plan-design` 外，`.dsh/skills/` 另装了 24 个过程技能：**5 个产品经理技能**（PRD、用户故事、需求拆分、优先级、风险预演）、**13 个测试技能**（需求分析、测试策略、用例编写/评审、E2E、接口测试、回归、缺陷分析、flaky 治理、QA 知识库）和 **6 个后端开发技能**（后端需求交接、TDD、发起/接收评审、系统化排错、完成前验证）。
 
-说中文即可触发，例如「用 create-prd 写一份 PRD」「用 qa 完整测这个需求」「用 backend-api-brief 把入库接口写成后端交接」。技能清单、中文话术、脚本用法、来源许可与升级方式见 [docs/skills.md](docs/skills.md)。
+说中文即可触发，例如「用 create-prd 写一份 PRD」「用 qa 完整测这个需求」「用 backend-api-brief 把入库接口写成后端交接」。技能清单、中文话术、脚本用法、来源许可与升级方式见 [docs/dev/skills.md](docs/dev/skills.md)。

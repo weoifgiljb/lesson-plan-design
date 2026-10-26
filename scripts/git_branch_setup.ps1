@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 <#
-按 docs/git-workflow.md 创建 develop 与 P0 feature 分支。
+按 docs/dev/git-workflow.md 创建 develop 与 P0 feature 分支。
 
 用法：
   pwsh -File scripts/git_branch_setup.ps1

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """G3 后端安全闸门：上传、SQL、会话、口令、密钥、PII、日志与路径。
 
-只读源码文本与 AST；不执行被检查代码。规则编号见 docs/backend-review-gate.md §5。
+只读源码文本与 AST；不执行被检查代码。规则编号见 docs/backend/backend-review-gate.md §5。
 """
 from __future__ import annotations
 

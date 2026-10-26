@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Git 分支协作（常驻）
 
-完整规范见 `docs/git-workflow.md`；可执行技能见 `skills/git-workflow/SKILL.md`。
+完整规范见 `docs/dev/git-workflow.md`；可执行技能见 `skills/git-workflow/SKILL.md`。
 
 1. `main` 只发布，只接受 `develop` 的 PR；`develop` 只集成，只接受 `feature/*`、`docs/*`、`fix/*` 的 PR。
 2. 一个需求一个分支：从 `develop` 切 `feature/<id>-<slug>`，禁止一个分支混做多个需求。

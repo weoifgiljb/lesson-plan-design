@@ -6,9 +6,9 @@
 | 文档版本 | v1.0 |
 | 编制日期 | 2026-10-26 |
 | 关联需求 | 《功能优化需求-BS平台端》v1.1（LPP-BS-001） |
-| 关联规范 | `AGENTS.md`、`docs/git-workflow.md`、`skills/code-standards/SKILL.md` |
+| 关联规范 | `AGENTS.md`、`docs/dev/git-workflow.md`、`skills/code-standards/SKILL.md` |
 | 关联契约 | `docs/api/contract.v1.json`、`tests/fixtures/dual-end/` |
-| 关联闸门 | `docs/backend-review-gate.md`、`scripts/run_backend_gate.py` |
+| 关联闸门 | `docs/backend/backend-review-gate.md`、`scripts/run_backend_gate.py` |
 | 适用基线 | `develop`（2026-10-26） |
 | 目标读者 | 作者、指导教师、测试与答辩评审组 |
 
@@ -249,7 +249,7 @@ src/
 
 ## 8 后端评审闸门
 
-完整规则见 `docs/backend-review-gate.md`。摘要：
+完整规则见 `docs/backend/backend-review-gate.md`。摘要：
 
 | 闸门 | 命令 | 失败含义 |
 |---|---|---|

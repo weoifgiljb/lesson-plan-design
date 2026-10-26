@@ -365,8 +365,8 @@ def build(markdown_path: Path, output_path: Path) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="把需求文档 Markdown 渲染为 DOCX")
-    parser.add_argument("--src", default=str(ROOT / "功能优化需求-校标教案生成平台.md"))
-    parser.add_argument("--out", default=str(ROOT / "功能优化需求-校标教案生成平台.docx"))
+    parser.add_argument("--src", default=str(ROOT / "docs" / "requirements" / "功能优化需求-校标教案生成平台.md"))
+    parser.add_argument("--out", default=str(ROOT / "docs" / "requirements" / "功能优化需求-校标教案生成平台.docx"))
     args = parser.parse_args()
     saved = build(Path(args.src), Path(args.out))
     print(f"saved {saved} ({saved.stat().st_size} bytes)")

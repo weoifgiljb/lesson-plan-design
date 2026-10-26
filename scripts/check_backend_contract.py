@@ -2,7 +2,7 @@
 """G2 契约闸门：contract ⇔ OpenAPI 快照 ⇔ 前端调用 ⇔ 错误码 ⇔ 版本白名单。
 
 不 import 后端应用；`--update-contract` 才需要 FastAPI 环境生成快照。
-规则编号见 docs/backend-review-gate.md §4。
+规则编号见 docs/backend/backend-review-gate.md §4。
 """
 from __future__ import annotations
 
