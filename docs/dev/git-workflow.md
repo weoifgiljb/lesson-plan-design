@@ -30,13 +30,13 @@ main                         发布分支，只接受来自 develop 的合并
 
 | 分支 | 基点 | 说明 |
 |---|---|---|
-| `main` | `9bc7fbb` | 远端发布分支，暂未包含本轮需求与测试文档 |
-| `docs/dual-end-specs` | `ecbdf49` + 文档提交 | 本轮需求、分工、测试用例与样例 |
-| `develop` | `docs/dual-end-specs` | 后续功能集成的基线 |
+| `main` | `d6cd45b`（`v1.0.0`） | 发布分支；本轮由 `develop` 合入后打 `v1.1.0` |
+| `develop` | v1.1.0 集成基线 | 已含后端评审闸门与文档目录迁移 |
+| `docs/dual-end-specs` | 已合入 `develop` | 本轮需求、分工、测试用例与样例 |
 | `feature/fr-01-rules` 等 9 条 | `develop` | 已建分支，等待开工 |
 | `test/integration` | 联调时创建 | 不在开工阶段创建 |
 
-说明：`develop` 从 `docs/dual-end-specs` 切出，是因为插件端基线停在 `codex/lesson-plan-quality` 的 `ecbdf49`，而 `main` 尚未合并该分支；这是引导期的例外。发布时 `develop` 一次性回合 `main`，之后恢复"main ← develop"的常规路径。
+说明：引导期（`develop` 从 `docs/dual-end-specs` 切出）已在 `v1.0.0` 发布时结束，`main` 与 `develop` 已恢复"main ← develop"的常规路径；此后每次发布由 `develop` 一次性合入 `main` 并打标签。
 
 ## 3 分支命名
 
@@ -101,7 +101,7 @@ git merge --no-ff feature/fr-03-gate
 2. 契约与样例：`py -3 tests/fixtures/dual-end/run_plugin_fixtures.py`，要求 12/12 全部通过。
 3. 测试用例抽取：`py -3 scripts/extract_test_schema.py`。
 4. 后端闸门：`py -3 scripts/run_backend_gate.py`，要求无 block；评审报告见 `.qa/reviews/`。
-5. 平台端接口与端到端：执行 `测试用例_markmap.md` 第 6—12 章（平台端未实现前标"待实现"）。
+5. 平台端接口与端到端：执行 `docs/testing/测试用例_markmap.md` 第 6—12 章（平台端未实现前标"待实现"）。
 6. 手工冒烟：按 TC 编号抽取 P0 用例执行。
 
 联调中发现的缺陷：

@@ -8,7 +8,7 @@ description: >
 
 # 后端评审闸门
 
-规范全文见 `docs/backend-review-gate.md`；开发计划见 `docs/bs-dev-plan.md`；硬约束见 `AGENTS.md` 第 16–17 条。
+规范全文见 `docs/backend/backend-review-gate.md`；开发计划见 `docs/backend/bs-dev-plan.md`；硬约束见 `AGENTS.md` 第 16–17 条。
 
 ## 何时使用
 
@@ -48,7 +48,7 @@ py -3 scripts/check_repo_hygiene.py
 ```text
 你是独立后端评审者，只依据下面的 diff、闸门输出与契约评审，不要相信作者结论。
 项目：校标教案双端平台（FastAPI + SQLite + Vue3）。
-规范：docs/backend-review-gate.md 的 8 组清单与判定规则。
+规范：docs/backend/backend-review-gate.md 的 8 组清单与判定规则。
 输出：每条 finding 含 文件:行 / 证据 / 严重度(blocker|major|minor) / 修复建议 / 复验命令；
       最后给三档结论（通过 / 有条件通过 / 拒绝），并写「给非后端读者的三句话结论」。
 <贴 diff、闸门 JSON、契约、BS/TC 编号>
@@ -114,7 +114,7 @@ py -3 scripts/check_repo_hygiene.py
 - 需要发起独立评审批次时用 `requesting-code-review`；收到意见后按 `receiving-code-review` 逐条处理。
 - 后端实现阶段用 `test-driven-development`（先红后绿）与 `verification-before-completion`（先跑命令再声称完成）。
 - 联调排错用 `systematic-debugging`。
-- 与仓库规范冲突时，以 `AGENTS.md` 与 `docs/backend-review-gate.md` 为准。
+- 与仓库规范冲突时，以 `AGENTS.md` 与 `docs/backend/backend-review-gate.md` 为准。
 
 ## 中文话术
 

@@ -82,7 +82,7 @@
 verification-before-completion：把这条命令的输出贴出来再告诉我通过。
 ```
 
-**与项目闸门的关系**：这 6 个技能是通用方法；本项目的强制闸门是 `skills/backend-review-gate/SKILL.md` + `scripts/run_backend_gate.py`。方法技能服从闸门规则：`AGENTS.md` 与 `docs/backend-review-gate.md` 优先，技能里的"删掉重写""跳过测试"等建议不得越过本仓库门禁。
+**与项目闸门的关系**：这 6 个技能是通用方法；本项目的强制闸门是 `skills/backend-review-gate/SKILL.md` + `scripts/run_backend_gate.py`。方法技能服从闸门规则：`AGENTS.md` 与 `docs/backend/backend-review-gate.md` 优先，技能里的"删掉重写""跳过测试"等建议不得越过本仓库门禁。
 
 ## 四、测试产出落在哪
 
@@ -130,18 +130,18 @@ py -3 .dsh/skills/pre-mortem/scripts/risk_categorizer.py risks.json
 | `requesting-code-review`、`receiving-code-review`、`test-driven-development`、`systematic-debugging`、`verification-before-completion` | [obra/superpowers](https://github.com/obra/superpowers) | v7.0.1 @ `2ce8aa1` | MIT |
 | `backend-api-brief` | [datawhalechina/ai-skills-for-everyone](https://github.com/datawhalechina/ai-skills-for-everyone) | `247ffdf` | CC BY-NC-SA 4.0（内容；非商用毕设可用，需署名） |
 
-`Commons Clause` 只限制「转售该软件」，个人/团队内部使用不受影响。除下列适配外，原始技能内容未改动，仅做目录扁平化（原路径记录在 `docs/skills.lock.json`）。
+`Commons Clause` 只限制「转售该软件」，个人/团队内部使用不受影响。除下列适配外，原始技能内容未改动，仅做目录扁平化（原路径记录在 `docs/dev/skills.lock.json`）。
 
 **接入适配（仅本地 `.dsh/skills/`，不入库）**
 
 1. `backend-api-brief` 原文件 `description` 单行内含未转义的 `: `，YAML 解析失败、技能清单不出现；改为折叠块 `description: >`，正文未改。
 2. `backend-api-brief` 默认把产物写到 `outputs/`；本仓库 `.gitignore` 不忽略该目录，使用时请改写到 `docs/api/` 或 `.qa/handoffs/`，避免误提交。
-3. `obra/superpowers` 的技能面向通用项目，部分建议（删掉重写、先跳过测试）与本仓库门禁冲突，**以 `AGENTS.md` 与 `docs/backend-review-gate.md` 为准**。
+3. `obra/superpowers` 的技能面向通用项目，部分建议（删掉重写、先跳过测试）与本仓库门禁冲突，**以 `AGENTS.md` 与 `docs/backend/backend-review-gate.md` 为准**。
 4. 技能正文为英文，输出仍按你的语言。
 
 ## 七、升级与卸载
 
-**升级**（重新拉取后覆盖，提交号以 `docs/skills.lock.json` 为准）：
+**升级**（重新拉取后覆盖，提交号以 `docs/dev/skills.lock.json` 为准）：
 
 ```powershell
 # 通用做法：下载固定提交的归档后覆盖对应目录

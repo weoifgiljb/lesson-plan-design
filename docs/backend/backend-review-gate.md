@@ -6,7 +6,7 @@
 | 文档版本 | v1.0 |
 | 编制日期 | 2026-10-26 |
 | 适用范围 | `src/backend`、`src/frontend`、`docs/api/`、后端相关 PR |
-| 关联文档 | `docs/bs-dev-plan.md`、`AGENTS.md`、`docs/api/contract.v1.json` |
+| 关联文档 | `docs/backend/bs-dev-plan.md`、`AGENTS.md`、`docs/api/contract.v1.json` |
 | 关联脚本 | `scripts/run_backend_gate.py`、`scripts/check_backend_architecture.py`、`scripts/check_backend_contract.py`、`scripts/check_backend_security.py` |
 | 关联技能 | `skills/backend-review-gate/SKILL.md` |
 
@@ -195,5 +195,5 @@ py -3 scripts/run_backend_gate.py --update-contract   # 仅刷新 OpenAPI 快照
 ## 11 与仓库既有规范的关系
 
 - 通用代码规范仍以 `skills/code-standards/SKILL.md` 与 `AGENTS.md` 为准；本规范只补充后端特有规则。
-- 分支、提交、PR 流程沿用 `docs/git-workflow.md`；本规范不新增分支类型。
+- 分支、提交、PR 流程沿用 `docs/dev/git-workflow.md`；本规范不新增分支类型。
 - 契约变更沿用 `AGENTS.md` 第 8 条：黄金样例、契约测试与需求文档同批更新。

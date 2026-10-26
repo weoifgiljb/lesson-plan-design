@@ -8,7 +8,7 @@ description: >
 
 # 组件化与代码规范
 
-硬约束见 `.cursor/rules/code-standards.mdc` 与根目录 `AGENTS.md`；完整方案与排期见 `docs/代码规范与重构计划.md`。
+硬约束见 `.cursor/rules/code-standards.mdc` 与根目录 `AGENTS.md`；完整方案与排期见 `docs/dev/代码规范与重构计划.md`。
 
 ## 何时使用
 
@@ -55,7 +55,7 @@ api:          app/api/{deps,errors,schemas,routers}（只做协议适配）
 gate:         scripts/check_backend_*.py + scripts/run_backend_gate.py
 ```
 
-后端分层与闸门规则见 `docs/backend-review-gate.md`；写后端代码时按该文档的 8 组清单自查，合并前跑 `py -3 scripts/run_backend_gate.py`。
+后端分层与闸门规则见 `docs/backend/backend-review-gate.md`；写后端代码时按该文档的 8 组清单自查，合并前跑 `py -3 scripts/run_backend_gate.py`。
 
 ## 检查清单
 

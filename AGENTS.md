@@ -1,6 +1,6 @@
 # 仓库协作硬约束（常驻）
 
-适用范围：本仓库全部代码、需求、测试与论文材料。完整流程见 `docs/git-workflow.md`，可执行技能见 `skills/git-workflow/SKILL.md`。
+适用范围：本仓库全部代码、需求、测试与论文材料。完整流程见 `docs/dev/git-workflow.md`，可执行技能见 `skills/git-workflow/SKILL.md`。
 
 1. **main 只发布**：`main` 只接受来自 `develop` 的 PR，禁止直接提交；发布必须打标签。
 2. **develop 只集成**：`develop` 只接受 `feature/*`、`docs/*`、`fix/*` 的 PR，禁止直接提交业务代码。
@@ -15,7 +15,7 @@
 
 ## 代码组织硬约束
 
-完整规范见 `skills/code-standards/SKILL.md` 与 `docs/代码规范与重构计划.md`。
+完整规范见 `skills/code-standards/SKILL.md` 与 `docs/dev/代码规范与重构计划.md`。
 
 11. **路径**：已跟踪文件不写本机绝对路径；用 `${PLUGIN_ROOT}`、`Path(__file__).resolve().parents[n]` 或 `<仓库根目录>` 占位。
 12. **映射**：类型、状态、错误码、severity 等封闭集合用常量表/映射，不写长 `if` 链。
@@ -27,9 +27,9 @@
 
 ## 当前分支基线（2026-10-26）
 
-- `main`：`d6cd45b`（PR #17 把 `develop` 合入后的发布分支）
-- `docs/dual-end-specs`：本轮需求、分工、测试用例与样例
-- `develop`：`c76422c`，后续集成基线
+- `main`：`d6cd45b`，`v1.0.0` 发布点；本轮由 `develop` 合入后打 `v1.1.0`
+- `develop`：`v1.1.0` 集成基线，已含后端评审闸门与文档目录迁移
+- `docs/dual-end-specs`：本轮需求、分工、测试用例与样例（已合入 `develop`）
 - P0 feature 分支：`feature/fr-01-rules`、`feature/fr-03-gate`、`feature/fr-05-evidence`、`feature/fr-07-mcp`、`feature/fr-08-runtime`、`feature/bs-01-ingest`、`feature/bs-04-sync`、`feature/bs-05-auth`、`feature/bs-06-audit`
 - `test/integration`：联调时创建，不在开工阶段创建
 

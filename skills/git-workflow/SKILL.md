@@ -8,7 +8,7 @@ description: >
 
 # 双端 Git 分支协作
 
-硬约束见根目录 `AGENTS.md` 与 `.cursor/rules/git-workflow.mdc`；完整说明见 `docs/git-workflow.md`。
+硬约束见根目录 `AGENTS.md` 与 `.cursor/rules/git-workflow.mdc`；完整说明见 `docs/dev/git-workflow.md`。
 
 ## 分支模型
 
@@ -56,7 +56,7 @@ git merge --no-ff feature/<id>-<slug>   # 逐个合并全部待发 feature
 1. `py -3 plugins/lesson-plan-design/skills/lesson-plan-design/test/index.py`
 2. `py -3 tests/fixtures/dual-end/run_plugin_fixtures.py`（必须全绿；FR-01 未合入前的 4 项基线失败不得带入联调）
 3. `py -3 scripts/extract_test_schema.py`
-4. 平台端实现后执行 `测试用例_markmap.md` 第 6—12 章与 P0 冒烟
+4. 平台端实现后执行 `docs/testing/测试用例_markmap.md` 第 6—12 章与 P0 冒烟
 
 缺陷处理：属于某个 feature 的回该分支修复，再回合 `develop` 并入 `test/integration`；只在集成分支出现的，切 `fix/integration-<slug>`，同时回 `test/integration` 与 `develop`。
 
