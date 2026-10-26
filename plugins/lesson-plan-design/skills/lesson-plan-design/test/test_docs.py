@@ -31,3 +31,10 @@ class TestDocs(unittest.TestCase):
         write_text = (PLUGIN_ROOT / "commands" / "write-lesson-plan.md").read_text(encoding="utf-8")
         self.assertIn("mediaAssets", write_text)
         self.assertIn("Markdown", write_text)
+
+    def test_gate_docs_mention_minor_acceptance(self) -> None:
+        skill_text = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+        readme_text = (PLUGIN_ROOT / "README.md").read_text(encoding="utf-8")
+        for text in (skill_text, readme_text):
+            self.assertIn("minor", text)
+            self.assertIn("接受", text)

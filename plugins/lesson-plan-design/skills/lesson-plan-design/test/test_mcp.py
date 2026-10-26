@@ -147,3 +147,29 @@ class TestMcp(unittest.TestCase):
         self.assertIn("教案", missing_plan["error"])
         self.assertFalse(mismatched["ok"])
         self.assertIn("不匹配", mismatched["error"])
+
+    def test_mcp_accepts_minor_finding(self) -> None:
+        module = load_mcp("lesson_plan_mcp_minor")
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(
+            plan,
+            reviewer="native_subagent",
+            finding={
+                "severity": "minor",
+                "hypothesis": "flow_pseudo_loop",
+                "evidence": ["课堂小结可以补充更具体的提问。"],
+                "affectedPaths": ["activityFlow.summary"],
+                "whyItBreaksTheLoop": "反馈证据较弱。",
+                "minimalRepair": "补充一项回顾问题。",
+            },
+        )
+        response = json.loads(module.call_tool("record_teacher_override", {
+            "plan": plan,
+            "reviewReport": report,
+            "issueId": report["findings"][0]["id"],
+            "teacher": "张老师",
+            "reason": "接受该轻微问题",
+        })["content"][0]["text"])
+        self.assertTrue(response["ok"])
+        self.assertEqual(response["reviewReport"]["status"], "passed_with_accepted_minor")
+        self.assertEqual(response["reviewReport"]["overrides"][0]["kind"], "minor_acceptance")

@@ -22,7 +22,7 @@ modules:
       - "平台端已上线入库与教案库（TODO：待 2027.03）；已完成 TC-01-01 入库。"
   - module: "7. 平台端：审查中心"
     shared_preconditions:
-      - "库中已有五种状态的审查报告（可由样例包构造）。"
+      - "库中已有六种状态的审查报告（可由样例包构造）。"
   - module: "8. 平台端：同步与冲突"
     shared_preconditions:
       - "插件端同步客户端已具备（FR-16 完成）；平台端同步接口可用。"
@@ -876,13 +876,13 @@ cases:
       framework: "manual"
     status: "active"
   - id: "TC-07-01"
-    title: "五种审查状态展示"
+    title: "六种审查状态展示"
     module: "7. 平台端：审查中心"
     priority: "P0"
     type: "state"
     execution_model: "ui"
     preconditions:
-      - "报告状态分别为结构失败、待审、待修复、通过、放行通过"
+      - "报告状态分别为结构失败、待审、待修复、通过、放行通过、接受轻微问题"
     steps:
       - "1. 进入「审查中心」 2. 按状态筛选"
     expected:

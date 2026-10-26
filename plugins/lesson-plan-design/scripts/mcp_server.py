@@ -83,7 +83,7 @@ TOOLS = [
     },
     {
         "name": "record_teacher_override",
-        "description": "记录教师对当前 blocker 或 major 问题的实名放行",
+        "description": "记录教师对 blocker/major 的实名放行，或对 minor 的实名接受",
         "inputSchema": {
             "type": "object",
             "required": ["plan", "reviewReport", "issueId", "teacher", "reason"],

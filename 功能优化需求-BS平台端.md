@@ -151,7 +151,7 @@
 
 报告字段：`schemaVersion`、`rubricVersion`、`planHash`、`round`、`reviewer`、`reviewedAt`、`structuralValidation`、`findings`、`overrides`、`repairHistory`、`attestation`、`status`、`conclusion`。
 
-状态集合：`structure_invalid`、`pending_reviewer`、`needs_repair`、`passed`、`passed_with_override`。一轮最多一条 finding；`blocker` 与 `major` 未关闭时必须修复或教师实名放行；`passed` 必须带 `no_counterexample` 声明。
+状态集合：`structure_invalid`、`pending_reviewer`、`needs_repair`、`passed`、`passed_with_override`、`passed_with_accepted_minor`。一轮最多一条 finding；`blocker` 与 `major` 未关闭时必须修复或教师实名放行；`minor` 未接受时阻断导出，接受记录写入 `overrides`（`kind=minor_acceptance`）；`passed` 必须带 `no_counterexample` 声明。
 
 平台端只读报告，不修改报告；需要放行时，教师在插件端完成并重新上传报告，平台端以新版本接收。
 
@@ -265,14 +265,14 @@
 
 **验收标准**
 
-- 五种报告状态都能正确展示，状态与报告内容一致。
+- 六种报告状态都能正确展示，状态与报告内容一致。
 - 证据链完整率可在列表与详情同时看到；不完整记录可导出问题清单。
 - 平台端没有修改报告或补录放行的入口；需要补证据时只能回插件端操作后重新上传。
 - 同一教案同一轮次出现两条报告时拒绝入库并提示冲突。
 
 **功能测试要点**
 
-- 状态矩阵：`passed`、`passed_with_override`、`needs_repair`、`pending_reviewer`、`structure_invalid`。
+- 状态矩阵：`passed`、`passed_with_override`、`passed_with_accepted_minor`、`needs_repair`、`pending_reviewer`、`structure_invalid`。
 - 证据缺失：无快照、轮次跳号、waived 无放行、`role_simulation` 未标注。
 - 篡改报告：改状态、改哈希、删 findings。
 
@@ -570,7 +570,7 @@
 | plan | id、task_id、owner_id、current_version_id、deleted_at | 软删除；归属校验 |
 | plan_version | id、plan_id、version_no、content_json、plan_hash、schema_version、rubric_version、source | plan_id + version_no 唯一；不可修改 |
 | review | id、plan_version_id、round、report_json、report_sha256、status、reviewer_mode | plan_version_id + round 唯一 |
-| finding | id、review_id、finding_id、severity、status、hypothesis | severity 三值；status 两值 |
+| finding | id、review_id、finding_id、severity、status、hypothesis | severity 三值；status 三值（open/waived/accepted） |
 | override | id、finding_id、teacher_id、reason、approved_at、plan_hash | finding_id 唯一 |
 | export_job | id、plan_version_id、engine_version、status、docx_path、docx_sha256、operator_id | 记录引擎版本 |
 | sample | id、course、week、session、title、json_path、plan_hash、valid | 课题 + 周次 + 课次唯一 |
