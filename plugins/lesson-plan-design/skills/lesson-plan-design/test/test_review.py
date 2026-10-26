@@ -160,6 +160,14 @@ class TestReview(unittest.TestCase):
         second_id = adversarial_review(second)["findings"][0]["id"]
         self.assertNotEqual(first_id, second_id)
 
+    def test_report_records_independence(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        for mode in ("native_subagent", "role_simulation", "human"):
+            report = adversarial_review(plan, reviewer=mode, no_counterexample=True)
+            self.assertEqual(report["independence"], mode)
+        with self.assertRaises(ValueError):
+            adversarial_review(plan, reviewer="unknown")
+
     def test_report_is_saved_next_to_plan_and_keeps_previous_round_history(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         with tempfile.TemporaryDirectory() as tmp:

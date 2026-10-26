@@ -138,15 +138,20 @@ def _split_key_points(text: str) -> tuple[str, str]:
     return _KEY_PREFIX_RE.sub("", raw).strip(), ""
 
 
-def _meta_line(plan: dict) -> str:
+def _meta_line(plan: dict, independence: str | None = None) -> str:
     teacher = plan.get("teacher") or "____"
     teaching_object = plan.get("teachingObject") or "____"
+    suffix = ""
+    if independence == "role_simulation":
+        suffix = "  审校方式：角色模拟"
+    elif independence == "human":
+        suffix = "  审校方式：人工审校"
     return (
         f"{plan.get('academicYear', '')}学年 第{plan.get('semester', '')}学期  "
         f"课程：{plan.get('course', '')}  教研组：{plan.get('teachingGroup', '')}  "
         f"任课教师：{teacher}  教学对象：{teaching_object}  "
         f"第{plan.get('week')}周第{plan.get('session')}次"
-    )
+    ) + suffix
 
 
 def _student_with_evidence(item: dict) -> str:
@@ -188,7 +193,7 @@ def _collect_step(
     return mains, [], assets
 
 
-def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
+def build_document_xml(plan: dict, pkg: DocxPackage, *, independence: str | None = None) -> str:
     """Build the reference-style single table used by the supplied teaching design."""
     content = "\n".join(x for x in [plan.get("contentTitle") or "", plan.get("contentDetail") or ""] if x)
     widths = COL_WIDTHS
@@ -289,7 +294,7 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
 
     table = _table_xml(rows, widths)
     title = pkg.title_paragraph(f"《{plan.get('contentTitle') or '未命名课题'}》")
-    body = title + pkg.render_markdown(_meta_line(plan)) + table
+    body = title + pkg.render_markdown(_meta_line(plan, independence)) + table
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         f'<w:document xmlns:w="{NS_W}"><w:body>{body}'
@@ -299,10 +304,16 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
     )
 
 
-def export_docx(plan: dict, output: Path, *, base_dir: Path | None = None) -> Path:
+def export_docx(
+    plan: dict,
+    output: Path,
+    *,
+    base_dir: Path | None = None,
+    independence: str | None = None,
+) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
     pkg = DocxPackage(base_dir=base_dir)
-    document_xml = build_document_xml(plan, pkg)
+    document_xml = build_document_xml(plan, pkg, independence=independence)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in pkg.zip_parts(document_xml).items():
             zf.writestr(name, data)
@@ -314,6 +325,11 @@ def main() -> int:
     parser.add_argument("path", help="教案 JSON")
     parser.add_argument("-o", "--out", help="输出 docx 路径")
     parser.add_argument("--review", help="对抗审查报告路径；默认读取教案同目录 .review.json")
+    parser.add_argument(
+        "--strict-independence",
+        action="store_true",
+        help="严格模式拒绝角色模拟审校，要求独立子代理或人工审校",
+    )
     args = parser.parse_args()
     plan_path = Path(args.path)
     plan = load_json(plan_path)
@@ -326,14 +342,17 @@ def main() -> int:
         except (OSError, ValueError, json.JSONDecodeError):
             print(dump({"ok": False, "reasons": [f"审查报告无法解析：{review_path.as_posix()}"]}), file=sys.stderr)
             return 1
-    gate = export_gate(plan, report)
+    gate = export_gate(plan, report, strict_independence=args.strict_independence)
     if not gate["ok"]:
         print(dump({"ok": False, "reasons": gate["reasons"]}), file=sys.stderr)
         return 1
     week = plan.get("week")
     session = plan.get("session")
     out = Path(args.out) if args.out else plan_path.parent / f"教案_第{week}周第{session}次.docx"
-    saved = export_docx(plan, out, base_dir=plan_path.parent)
+    independence = None
+    if isinstance(report, dict):
+        independence = report.get("independence") or report.get("reviewer")
+    saved = export_docx(plan, out, base_dir=plan_path.parent, independence=independence)
     print(f'{{"ok": true, "path": "{saved.as_posix()}", "bytes": {saved.stat().st_size}}}')
     return 0
 

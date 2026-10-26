@@ -22,7 +22,7 @@ python scripts/validate.py <教案.json>
 
 退出码非 0 则按 issues 修改后再跑，禁止跳过。
 
-5. 结构通过后，由独立审校 Agent 产出一个最强教学闭环反例并写入报告。Codex 使用独立子 Agent 审校；不支持子 Agent 的宿主使用 `role_simulation` 串行模拟同一量规。报告保存本轮教案快照与工具版本；复审轮次必须为上一轮加一，同一教案重复审校会标记 `duplicateReview`。出现 `blocker`/`major` 时交由修复 Agent 修改教案并复审；只有教师实名说明原因后可放行；`minor` 须由教师实名接受。放行/接受记录幂等，理由至少 6 字；放行者与任课教师不一致时，严格模式拒绝，宽松模式记 `warnings`。任一未闭环问题都会阻断导出。无反例时必须显式声明，禁止省略参数直接通过。
+5. 结构通过后，由独立审校 Agent 产出一个最强教学闭环反例并写入报告。Codex 使用独立子 Agent 审校；不支持子 Agent 的宿主使用 `role_simulation` 串行模拟同一量规。报告保存本轮教案快照与工具版本；复审轮次必须为上一轮加一，同一教案重复审校会标记 `duplicateReview`。报告记录 `independence`；严格模式拒绝角色模拟，宽松模式允许但在 Word 中标注。出现 `blocker`/`major` 时交由修复 Agent 修改教案并复审；只有教师实名说明原因后可放行；`minor` 须由教师实名接受。放行/接受记录幂等，理由至少 6 字；放行者与任课教师不一致时，严格模式拒绝，宽松模式记 `warnings`。任一未闭环问题都会阻断导出。无反例时必须显式声明，禁止省略参数直接通过。
 
 ```bash
 python scripts/adversarial_review.py <教案.json> --finding '<JSON>' --reviewer-mode native_subagent

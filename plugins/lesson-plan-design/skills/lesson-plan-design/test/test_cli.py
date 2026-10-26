@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from support import PLUGIN_ROOT, SCRIPTS_DIR, utf8_env
@@ -220,3 +221,44 @@ class TestCli(unittest.TestCase):
             env=utf8_env(),
         )
         self.assertEqual(allowed.returncode, 0, allowed.stdout + allowed.stderr)
+
+    def test_export_marks_role_simulation(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "marked.docx"
+            export_docx(plan, out, independence="role_simulation")
+            with zipfile.ZipFile(out) as archive:
+                xml = archive.read("word/document.xml").decode("utf-8")
+        self.assertIn("审校方式：角色模拟", xml)
+
+    def test_cli_export_strict_independence(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
+        script = SCRIPTS_DIR / "export_docx.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "教案.json"
+            out = root / "strict.docx"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            save_review_report(
+                default_review_path(plan_path),
+                adversarial_review(plan, reviewer="role_simulation", no_counterexample=True),
+            )
+            denied = subprocess.run(
+                [sys.executable, str(script), str(plan_path), "--strict-independence", "-o", str(out)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=utf8_env(),
+            )
+            self.assertNotEqual(denied.returncode, 0)
+            self.assertFalse(out.exists())
+            self.assertIn("严格模式要求独立子代理审校", denied.stderr + denied.stdout)
+            save_review_report(
+                default_review_path(plan_path),
+                adversarial_review(plan, reviewer="native_subagent", no_counterexample=True),
+            )
+            allowed = subprocess.run(
+                [sys.executable, str(script), str(plan_path), "--strict-independence", "-o", str(out)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=utf8_env(),
+            )
+            self.assertEqual(allowed.returncode, 0, allowed.stderr + allowed.stdout)
+            self.assertTrue(out.exists())

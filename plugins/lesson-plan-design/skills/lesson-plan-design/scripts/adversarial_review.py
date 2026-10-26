@@ -37,7 +37,7 @@ def main() -> int:
     parser.add_argument("--round", type=int, help="复审轮次；必须等于上一轮+1，首轮为 1")
     parser.add_argument("--finding", help="审校 Agent 产出的单条 finding JSON 或其文件路径")
     parser.add_argument("--no-counterexample", action="store_true", help="审校员确认本轮无可证实反例")
-    parser.add_argument("--reviewer-mode", choices=["native_subagent", "role_simulation"], default="role_simulation")
+    parser.add_argument("--reviewer-mode", choices=["native_subagent", "role_simulation", "human"], default="role_simulation")
     parser.add_argument("--override", metavar="ISSUE_ID", help="教师放行 blocker/major 或接受 minor 的问题 ID")
     parser.add_argument("--teacher", help="教师姓名；与 --override 同用")
     parser.add_argument("--reason", help="放行原因；与 --override 同用")
