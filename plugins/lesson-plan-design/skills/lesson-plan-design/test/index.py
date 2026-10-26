@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""导入本技能全部测试。运行：python test/index.py"""
+"""导入本技能全部测试。运行：py -3 test/index.py"""
 from __future__ import annotations
 
 import sys
@@ -14,6 +14,7 @@ from test_hooks import TestHooks  # noqa: F401
 from test_mcp import TestMcp  # noqa: F401
 from test_override import TestOverrideAudit  # noqa: F401
 from test_review import TestReview  # noqa: F401
+from test_runtime import TestRuntime  # noqa: F401
 from test_validate import TestValidate  # noqa: F401
 
 if __name__ == "__main__":

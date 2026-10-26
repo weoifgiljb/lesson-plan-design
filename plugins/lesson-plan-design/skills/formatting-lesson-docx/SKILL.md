@@ -20,7 +20,7 @@ description: >
 4. 结构校验与当前审查报告通过后导出（该脚本会加载本技能的 `scripts/markdown_ooxml.py`）：
 
 ```bash
-python ../lesson-plan-design/scripts/export_docx.py <plan.json> -o <out.docx>
+py -3 ../lesson-plan-design/scripts/export_docx.py <plan.json> -o <out.docx>
 ```
 
 5. 可选字段 `mediaAssets`（不是结构校验必填）：

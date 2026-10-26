@@ -36,6 +36,6 @@ codex --plugin-dir ./plugins/lesson-plan-design
 
 ```toml
 [mcp_servers.lesson-plan]
-command = "python"
-args = ["C:/Users/17841/Desktop/毕业设计/plugins/lesson-plan-design/scripts/mcp_server.py"]
+command = "py"
+args = ["-3", "C:/Users/17841/Desktop/毕业设计/plugins/lesson-plan-design/scripts/mcp_server.py"]
 ```

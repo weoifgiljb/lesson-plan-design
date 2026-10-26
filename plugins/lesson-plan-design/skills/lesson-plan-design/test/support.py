@@ -11,9 +11,12 @@ TEST_DIR = Path(__file__).resolve().parent
 SKILL_DIR = TEST_DIR.parent
 SCRIPTS_DIR = SKILL_DIR / "scripts"
 PLUGIN_ROOT = SKILL_DIR.parents[1]
+PLUGIN_SCRIPTS_DIR = PLUGIN_ROOT / "scripts"
 
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+if str(PLUGIN_SCRIPTS_DIR) not in sys.path:
+    sys.path.append(str(PLUGIN_SCRIPTS_DIR))
 
 
 def utf8_env() -> dict[str, str]:
