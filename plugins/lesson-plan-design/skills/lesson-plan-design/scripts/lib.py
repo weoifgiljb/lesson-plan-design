@@ -511,6 +511,8 @@ def adversarial_review(
     """Build one immutable review round; no mutation of the lesson plan occurs here."""
     if previous_report is not None and not isinstance(previous_report, dict):
         raise ValueError("previousReport 必须是 JSON 对象")
+    if reviewer not in {"native_subagent", "role_simulation", "human"}:
+        raise ValueError("审校方式无效")
     if finding and no_counterexample:
         raise ValueError("不能同时提交反例并声明无反例")
     structural = validate_plan(plan)
@@ -520,6 +522,7 @@ def adversarial_review(
         "planHash": plan_hash(plan),
         "round": round_number,
         "reviewer": reviewer,
+        "independence": reviewer,
         "reviewedAt": datetime.now(timezone.utc).isoformat(),
         "structuralValidation": {key: value for key, value in structural.items() if key != "plan"},
         "findings": [],
@@ -616,7 +619,12 @@ def record_teacher_override(
     return override
 
 
-def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str, Any]:
+def export_gate(
+    plan: dict[str, Any],
+    report: dict[str, Any] | None,
+    *,
+    strict_independence: bool = False,
+) -> dict[str, Any]:
     structural = validate_plan(plan)
     reasons: list[str] = []
     if not structural["ok"]:
@@ -640,6 +648,11 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         reasons.append("审查量规版本不受支持")
     if report.get("planHash") != plan_hash(plan):
         reasons.append("审查报告与当前教案内容不匹配")
+    independence = report.get("independence") or report.get("reviewer")
+    if independence not in {"native_subagent", "role_simulation", "human"}:
+        reasons.append("审查报告审校方式无效")
+    elif strict_independence and independence == "role_simulation":
+        reasons.append("严格模式要求独立子代理审校")
     if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):
         reasons.append("审查报告显示结构校验未通过")
     report_status = report.get("status")

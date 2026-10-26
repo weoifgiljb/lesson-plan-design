@@ -101,9 +101,27 @@ class TestExportGate(unittest.TestCase):
         )
         self.assertTrue(export_gate(plan, report)["ok"])
 
-    def test_role_simulation_report_can_open_export_gate(self) -> None:
+    def test_role_simulation_report_is_marked_and_lenient_only(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        result = export_gate(plan, adversarial_review(plan, reviewer="role_simulation", no_counterexample=True))
+        report = adversarial_review(plan, reviewer="role_simulation", no_counterexample=True)
+        self.assertEqual(report["independence"], "role_simulation")
+        lenient = export_gate(plan, report)
+        self.assertTrue(lenient["ok"], lenient["reasons"])
+        strict = export_gate(plan, report, strict_independence=True)
+        self.assertFalse(strict["ok"])
+        self.assertIn("严格模式要求独立子代理审校", strict["reasons"])
+
+    def test_strict_independence_allows_native_report(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        result = export_gate(plan, report, strict_independence=True)
+        self.assertTrue(result["ok"], result["reasons"])
+
+    def test_old_report_without_independence_falls_back_to_reviewer(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        report.pop("independence", None)
+        result = export_gate(plan, report, strict_independence=True)
         self.assertTrue(result["ok"], result["reasons"])
 
     def test_report_with_wrong_rubric_version_cannot_open_export_gate(self) -> None:
