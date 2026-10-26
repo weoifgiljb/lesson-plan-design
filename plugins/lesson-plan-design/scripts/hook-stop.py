@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _paths import skill_scripts
+from _runtime import run_python
 
 sys.path.insert(0, str(skill_scripts()))
 from lib import default_review_path, export_gate, load_json, load_review_report  # type: ignore
@@ -58,12 +58,7 @@ def main() -> int:
     failed = False
     reports = []
     for path in plans[:8]:
-        proc = subprocess.run(
-            [sys.executable, str(script), str(path)],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
+        proc = run_python(script, [str(path)])
         reports.append({
             "file": str(path),
             "code": proc.returncode,

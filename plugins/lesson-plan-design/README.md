@@ -55,7 +55,7 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 4. **导出前必须**运行校验（失败先改，禁止带错导出）：
 
 ```bash
-python skills/lesson-plan-design/scripts/validate.py <教案.json>
+py -3 skills/lesson-plan-design/scripts/validate.py <教案.json>
 ```
 
 5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例，或显式声明无反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行。
@@ -68,13 +68,13 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_r
 6. 当前审查报告哈希匹配且门禁通过后再导出：
 
 ```bash
-python skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出.docx>
+py -3 skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出.docx>
 ```
 
 对照样例打分（可选）：
 
 ```bash
-python skills/lesson-plan-design/scripts/score.py <教案.json>
+py -3 skills/lesson-plan-design/scripts/score.py <教案.json>
 ```
 
 修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告会因教案内容哈希不匹配而自动失效。飞书没有 Hooks 时，这些步骤仍由技能强制执行。
@@ -116,7 +116,7 @@ python skills/lesson-plan-design/scripts/score.py <教案.json>
 
 ## 不经过对话、自己跑脚本
 
-在仓库根目录（Windows 可用 `py -3` 代替 `python`）：
+在仓库根目录（命令统一使用 `py -3`；若本机只有 `python`，把 `py -3` 换成 `python`）：
 
 ```bash
 # 按周次课次出一份草稿 JSON

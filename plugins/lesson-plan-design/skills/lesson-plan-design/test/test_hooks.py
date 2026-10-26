@@ -39,3 +39,25 @@ class TestHooks(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertTrue(any(item.get("review") for item in payload["reports"]))
+
+    def test_post_write_hook_reports_chinese_issues(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["knowledgeGoals"] = ""
+        script = PLUGIN_ROOT / "scripts" / "hook-post-write.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "教案.json"
+            target.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            payload = json.dumps({"tool_input": {"file_path": str(target)}}, ensure_ascii=False)
+            proc = subprocess.run(
+                [sys.executable, str(script)],
+                input=payload,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=utf8_env(),
+            )
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("knowledgeGoals", proc.stdout)
+        self.assertIn("不能为空", proc.stdout)
+        self.assertNotIn("UnicodeDecodeError", proc.stderr)
