@@ -1,348 +1,44 @@
 # -*- coding: utf-8 -*-
-"""校标教案共享逻辑：schema、草稿、校验、评分。仅标准库。"""
+"""兼容门面：域实现见 lesson_plan，旧调用保持 from lib import ... 不变。"""
 from __future__ import annotations
 
-import json
 import hashlib
-import re
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-SKILL_DIR = Path(__file__).resolve().parent.parent
-EXAMPLES_DIR = SKILL_DIR / "examples"
-EXAMPLES_INDEX = EXAMPLES_DIR / "index.json"
-TEMPLATES_DIR = SKILL_DIR / "templates"
-C_LANGUAGE_TEMPLATES_PATH = TEMPLATES_DIR / "c-language-topics.json"
-REVIEW_SCHEMA_VERSION = 1
-RUBRIC_VERSION = "1.0"
-RULES_VERSION = "1.1.0"
-TOOL_VERSION = "1.0.0"
-MIN_OVERRIDE_REASON = 6
-BLOCKING_SEVERITIES = {"blocker", "major"}
-
-ACTIVITY_FLOW_LABELS = {
-    "introduction": "一、复习与导入新课",
-    "learningGoals": "二、明确学习目标",
-    "knowledgeLearning": "三、知识学习",
-    "taskImplementation": "四、工作任务实施",
-    "assessment": "五、课程考核",
-    "summary": "六、课堂小结",
-    "homework": "七、布置作业",
-    "reflection": "八、教学反思",
-}
-
-REQUIRED_TOP = [
-    "school",
-    "academicYear",
-    "semester",
-    "course",
-    "teachingGroup",
-    "week",
-    "session",
-    "contentTitle",
-    "plannedHours",
-    "teachingPurpose",
-    "knowledgeGoals",
-    "abilityGoals",
-    "qualityGoals",
-    "keyPoints",
-    "teachingMethods",
-    "teachingResources",
-    "activityFlow",
-]
-
-REQUIRED_FLOW = [
-    "introduction",
-    "learningGoals",
-    "knowledgeLearning",
-    "taskImplementation",
-    "assessment",
-    "summary",
-    "homework",
-]
-
-SCHOOL_DEFAULTS = {
-    "school": "东莞经贸学校",
-    "course": "信息技术",
-    "teachingGroup": "计算机",
-    "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
-    "teachingResources": "机房、课堂练习一份",
-    "teachingPurpose": "通过一级模拟软件练习，巩固知识，解决知识难点，熟悉考试环境。",
-    "knowledgeGoals": "1、计算机基础知识理论题 2、文件或文件夹的管理 3、上网（电子邮件收发）4、字处理 5、电子表格 6、演示文稿",
-    "abilityGoals": "1、Win 10基本操作 2、上网，按要求完成操作 3、字处理的基本操作 4、电子表格的基本操作 5、演示文稿的基本操作",
-    "qualityGoals": "1、培养学生细心解题的科学态度。2、培养学生探索知识的精神。",
-    "keyPoints": "1、字处理的基本操作 2、电子表格的基本操作 3、演示文稿的基本操作",
-}
-
-KNOWLEDGE_A = """1、选择题（计算机基础知识和网络的基本知识）（20分）
-2、Windows操作系统的使用。（10分）
-3、浏览器（IE）的简单使用和电子邮件收发（10分）
-4、字处理 Word操作（25分）：查找替换、格式替换、文字水印、文字边框渐变、字符格式、段落格式、分栏、超链接、插入表格、表格对齐、行高、表框RGB、表标题、边框、重复标题行
-5、电子表格 Excel操作（20分）：合并单元格、公式计算、百分比格式、IF函数、图表、重命名工作表、自动筛选
-6、演示文稿 PowerPoint操作（15分）：应用主题、幻灯片切换、放映方式、版式、插入图片、动画、插入表格、移动/删除幻灯片"""
-
-KNOWLEDGE_B = """1、选择题（计算机基础知识和网络的基本知识）（20分）
-2、Windows操作系统的使用。（10分）
-3、浏览器（IE）的简单使用和电子邮件收发（10分）
-4、字处理 Word操作（25分）：查找替换、页面设置、文字效果映像、双波浪下划线、段落格式、分栏、页面颜色、文字转表格、排序、脚注、行高列宽、表格样式、边框底纹
-5、电子表格 Excel操作（20分）：重命名、智能填充、合并单元格、对齐、货币格式、边框底纹、IF函数、SUM、公式、图表、多关键字排序、高级筛选
-6、演示文稿 PowerPoint操作（15分）：插入新幻灯片、动画、设计模板、插入图片、字体颜色与行距、背景、移动幻灯片、更换版式、SmartArt、幻灯片切换"""
-
-
-def empty_flow() -> dict[str, str]:
-    return {k: "" for k in list(ACTIVITY_FLOW_LABELS)}
-
-
-def empty_plan() -> dict[str, Any]:
-    return {
-        "school": SCHOOL_DEFAULTS["school"],
-        "academicYear": "2024-2025",
-        "semester": 2,
-        "course": SCHOOL_DEFAULTS["course"],
-        "planNumber": "",
-        "teachingGroup": SCHOOL_DEFAULTS["teachingGroup"],
-        "teacher": "",
-        "teachingObject": "",
-        "teachDate": "",
-        "week": 1,
-        "session": 1,
-        "contentTitle": "",
-        "contentDetail": "",
-        "plannedHours": 2,
-        "teachingPurpose": "",
-        "knowledgeGoals": "",
-        "abilityGoals": "",
-        "qualityGoals": "",
-        "keyPoints": "",
-        "teachingMethods": SCHOOL_DEFAULTS["teachingMethods"],
-        "teachingResources": SCHOOL_DEFAULTS["teachingResources"],
-        "activityFlow": empty_flow(),
-    }
-
-
-def _nonempty(value: Any) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, (int, float)):
-        return True
-    if isinstance(value, (list, tuple, dict)):
-        return bool(value)
-    return str(value).strip() != ""
-
-
-def _structured_activities(value: Any) -> list[dict[str, Any]] | None:
-    """Return structured activity rows, accepting a single object or list."""
-    if isinstance(value, dict):
-        return [value]
-    if isinstance(value, list) and all(isinstance(item, dict) for item in value):
-        return value
-    return None
-
-
-def _normalise_text(value: Any) -> str:
-    return re.sub(r"\s+", "", str(value or ""))
-
-
-def _finalize_findings(items: list[dict[str, str]]) -> list[dict[str, str]]:
-    seen: set[tuple[str, str]] = set()
-    unique: list[dict[str, str]] = []
-    for item in items:
-        key = (str(item.get("path", "")), str(item.get("message", "")))
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(item)
-    return sorted(unique, key=lambda item: (item.get("path", ""), item.get("message", "")))
-
-
-def _structured_task_text(rows: list[dict[str, Any]]) -> str:
-    parts: list[str] = []
-    for row in rows:
-        for key in ("mainContent", "teacherActivity", "studentActivity", "evidence"):
-            value = row.get(key)
-            if value:
-                parts.append(str(value))
-    return "\n".join(parts)
-
-
-def _activity_minutes(flow: dict[str, Any]) -> tuple[float, bool, bool]:
-    total = 0.0
-    found = False
-    missing = False
-    for value in flow.values():
-        rows = _structured_activities(value)
-        if rows is None:
-            continue
-        for row in rows:
-            minutes = row.get("minutes")
-            if minutes is None:
-                missing = True
-                continue
-            if isinstance(minutes, bool) or not isinstance(minutes, (int, float)):
-                continue
-            total += float(minutes)
-            found = True
-    return total, found, missing
-
-
-def _catalog_conflicts(data: dict[str, Any]) -> list[dict[str, str]]:
-    course = _normalise_text(data.get("course"))
-    week = data.get("week")
-    session = data.get("session")
-    if not course or type(week) is not int or type(session) is not int:
-        return []
-    if week <= 0 or session <= 0:
-        return []
-    try:
-        samples = load_examples()
-    except (OSError, json.JSONDecodeError):
-        return []
-    entry: dict[str, Any] | None = None
-    for _path, sample in samples:
-        if _normalise_text(sample.get("course")) != course:
-            continue
-        if sample.get("week") == week and sample.get("session") == session:
-            entry = sample
-            break
-    if entry is None:
-        return []
-    findings: list[dict[str, str]] = []
-    title = _normalise_text(data.get("contentTitle"))
-    catalog_title = _normalise_text(entry.get("contentTitle"))
-    if title and catalog_title and title != catalog_title:
-        findings.append(
-            {
-                "path": "contentTitle",
-                "message": f"与样例目录第 {week} 周第 {session} 次的课题不一致（目录：{entry.get('contentTitle')}）",
-            }
-        )
-    detail = _normalise_text(data.get("contentDetail"))
-    catalog_detail = _normalise_text(entry.get("contentDetail"))
-    if detail and catalog_detail and detail != catalog_detail:
-        findings.append(
-            {
-                "path": "contentDetail",
-                "message": f"与样例目录第 {week} 周第 {session} 次的练习套别不一致（目录：{entry.get('contentDetail')}）",
-            }
-        )
-    return findings
-
-
-def _validate_activity_rows(value: Any, path: str, issues: list[dict[str, str]]) -> None:
-    rows = _structured_activities(value)
-    if rows is None:
-        return
-    if not rows:
-        issues.append({"path": path, "message": "结构化活动列表不能为空"})
-        return
-    for idx, row in enumerate(rows):
-        row_path = f"{path}[{idx}]"
-        if not _nonempty(row.get("mainContent")):
-            issues.append({"path": f"{row_path}.mainContent", "message": "主要内容不能为空"})
-        minutes = row.get("minutes")
-        if minutes is not None and (
-            isinstance(minutes, bool) or not isinstance(minutes, (int, float)) or minutes < 0
-        ):
-            issues.append({"path": f"{row_path}.minutes", "message": "分钟数须为非负数字"})
-        # Teacher/student/evidence are optional individually for compatibility;
-        # at least one learner-facing action or verifiable output is recommended.
-
-
-def validate_plan(
-    data: Any,
-    *,
-    strict: bool = False,
-    minutes_tolerance: float = 0.0,
-) -> dict[str, Any]:
-    warnings: list[dict[str, str]] = []
-    if not isinstance(data, dict):
-        return {
-            "ok": False,
-            "issues": [{"path": "(root)", "message": "教案必须是 JSON 对象"}],
-            "warnings": [],
-            "ruleVersion": RULES_VERSION,
-        }
-
-    issues: list[dict[str, str]] = []
-    for key in REQUIRED_TOP:
-        if key not in data or not _nonempty(data.get(key)):
-            issues.append({"path": key, "message": f"{key} 不能为空"})
-
-    week = data.get("week")
-    session = data.get("session")
-    if "week" in data and _nonempty(week):
-        if type(week) is not int or week <= 0:
-            issues.append({"path": "week", "message": "周次须为正整数"})
-    if "session" in data and _nonempty(session):
-        if type(session) is not int or session <= 0:
-            issues.append({"path": "session", "message": "课次须为正整数"})
-
-    sem = data.get("semester")
-    if "semester" in data and _nonempty(sem):
-        if type(sem) is not int or sem not in (1, 2):
-            issues.append({"path": "semester", "message": "学期须为 1 或 2"})
-
-    hours = data.get("plannedHours")
-    if "plannedHours" in data and _nonempty(hours):
-        if isinstance(hours, bool) or not isinstance(hours, (int, float)) or hours <= 0:
-            issues.append({"path": "plannedHours", "message": "计划学时须为正数"})
-
-    flow = data.get("activityFlow")
-    if not isinstance(flow, dict):
-        issues.append({"path": "activityFlow", "message": "教学活动流程必须是对象"})
-    else:
-        for key in REQUIRED_FLOW:
-            if not _nonempty(flow.get(key)):
-                label = ACTIVITY_FLOW_LABELS.get(key, key)
-                issues.append({"path": f"activityFlow.{key}", "message": f"{label} 不能为空"})
-            _validate_activity_rows(flow.get(key), f"activityFlow.{key}", issues)
-        task_value = flow.get("taskImplementation")
-        task_rows = _structured_activities(task_value)
-        task_text = _structured_task_text(task_rows) if task_rows is not None else str(task_value or "")
-        if task_text and ("必须完成" not in task_text and "必做" not in task_text):
-            issues.append(
-                {
-                    "path": "activityFlow.taskImplementation",
-                    "message": "工作任务实施须包含「必须完成」或「必做」任务说明",
-                }
-            )
-
-    try:
-        tolerance = max(0.0, float(minutes_tolerance))
-    except (TypeError, ValueError):
-        tolerance = 0.0
-    if isinstance(flow, dict) and isinstance(hours, (int, float)) and not isinstance(hours, bool) and hours > 0:
-        total, found, missing = _activity_minutes(flow)
-        if missing:
-            warnings.append(
-                {"path": "activityFlow", "message": "部分活动未填写分钟数，无法核对合计"}
-            )
-        if found:
-            expected = float(hours) * 45
-            if abs(total - expected) > tolerance + 1e-9:
-                issues.append(
-                    {
-                        "path": "activityFlow",
-                        "message": f"活动分钟合计 {total:g} 与计划学时 {hours:g}（{expected:g} 分钟）不一致",
-                    }
-                )
-
-    conflicts = _catalog_conflicts(data)
-    if strict:
-        issues.extend(conflicts)
-    else:
-        warnings.extend(conflicts)
-
-    issues = _finalize_findings(issues)
-    warnings = _finalize_findings(warnings)
-    return {
-        "ok": len(issues) == 0,
-        "issues": issues,
-        "warnings": warnings,
-        "ruleVersion": RULES_VERSION,
-        "plan": data if not issues else None,
-    }
+from lesson_plan.examples import check_examples, example_entries, load_examples
+from lesson_plan.jsonio import dump, load_json
+from lesson_plan.model import (
+    ACTIVITY_FLOW_LABELS,
+    BLOCKING_SEVERITIES,
+    C_LANGUAGE_TEMPLATES_PATH,
+    EXAMPLES_DIR,
+    EXAMPLES_INDEX,
+    KNOWLEDGE_A,
+    KNOWLEDGE_B,
+    MIN_OVERRIDE_REASON,
+    REQUIRED_FLOW,
+    REQUIRED_TOP,
+    REVIEW_SCHEMA_VERSION,
+    RUBRIC_VERSION,
+    RULES_VERSION,
+    SCHOOL_DEFAULTS,
+    SKILL_DIR,
+    TEMPLATES_DIR,
+    TOOL_VERSION,
+    _activity_minutes,
+    _finalize_findings,
+    _nonempty,
+    _normalise_text,
+    _structured_activities,
+    _structured_task_text,
+    empty_flow,
+    empty_plan,
+    plan_hash,
+)
+from lesson_plan.validation import validate_plan
 
 
 def draft_plan(
@@ -437,78 +133,6 @@ def _match_c_language_template(title: str) -> dict[str, Any] | None:
         if score > best_score:
             best, best_score = template, score
     return best
-
-
-def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def load_examples() -> list[tuple[Path, dict[str, Any]]]:
-    items: list[tuple[Path, dict[str, Any]]] = []
-    if not EXAMPLES_DIR.is_dir():
-        return items
-    for path in sorted(EXAMPLES_DIR.glob("*.json")):
-        if path.name == "index.json":
-            continue
-        items.append((path, load_json(path)))
-    return items
-
-
-def example_entries(directory: Path | None = None) -> tuple[list[dict[str, Any]], list[str]]:
-    root = Path(directory) if directory is not None else EXAMPLES_DIR
-    index_path = root / "index.json"
-    index = load_json(index_path) if index_path.is_file() else {"examples": []}
-    indexed = {
-        str(item.get("file")): item
-        for item in index.get("examples", [])
-        if isinstance(item, dict) and item.get("file")
-    }
-    entries: list[dict[str, Any]] = []
-    files: set[str] = set()
-    for path in sorted(root.glob("*.json")):
-        if path.name == "index.json":
-            continue
-        plan = load_json(path)
-        expected = indexed.get(path.name)
-        entries.append({
-            "file": path.name,
-            "plan": plan,
-            "index": expected,
-            "stale": expected is None or expected.get("planHash") != plan_hash(plan),
-        })
-        files.add(path.name)
-    return entries, sorted(set(indexed) - files)
-
-
-def check_examples(directory: Path | None = None) -> dict[str, Any]:
-    entries, extra = example_entries(directory)
-    errors: list[str] = []
-    stale: list[str] = []
-    missing: list[str] = []
-    fields = ("course", "week", "session", "contentTitle")
-    for entry in entries:
-        name = entry["file"]
-        if entry["index"] is None:
-            missing.append(name)
-            errors.append(f"index.json 缺少样例：{name}")
-            continue
-        if entry["stale"]:
-            stale.append(name)
-            errors.append(f"样例哈希已过期：{name}")
-            continue
-        for field in fields:
-            if entry["index"].get(field) != entry["plan"].get(field):
-                errors.append(f"样例元信息不一致：{name} 的 {field}")
-    for name in extra:
-        errors.append(f"index.json 引用了不存在的样例：{name}")
-    return {
-        "ok": not errors,
-        "count": len(entries),
-        "errors": errors,
-        "stale": stale,
-        "missing": missing,
-        "extra": extra,
-    }
 
 
 def tokenize(text: str) -> set[str]:
@@ -689,12 +313,6 @@ def score_against_examples(plan: dict[str, Any]) -> dict[str, Any]:
         "dimensions": dimensions,
         "nearestSample": _nearest_sample(plan),
     }
-
-
-def plan_hash(plan: dict[str, Any]) -> str:
-    """Return a stable content hash used to invalidate stale review evidence."""
-    encoded = json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _finding(
@@ -1162,6 +780,3 @@ def save_review_report(path: Path, report: dict[str, Any]) -> Path:
     temporary.replace(path)
     return path
 
-
-def dump(obj: Any) -> str:
-    return json.dumps(obj, ensure_ascii=False, indent=2)
