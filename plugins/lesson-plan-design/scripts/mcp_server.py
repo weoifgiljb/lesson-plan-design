@@ -91,6 +91,7 @@ TOOLS = [
                 "plan": {"type": "object"},
                 "reviewReport": {"type": "object"}, "issueId": {"type": "string"},
                 "teacher": {"type": "string"}, "reason": {"type": "string"},
+                "strictTeacher": {"type": "boolean"},
             },
         },
     },
@@ -169,6 +170,7 @@ def call_tool(name: str, args: dict) -> dict:
                 teacher=str(args.get("teacher") or ""),
                 reason=str(args.get("reason") or ""),
                 plan=args.get("plan") or {},
+                strict_teacher=bool(args.get("strictTeacher")),
             )
         except (TypeError, ValueError, AttributeError) as exc:
             return _result(dump({"ok": False, "error": str(exc)}))

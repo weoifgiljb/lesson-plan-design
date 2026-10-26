@@ -14,6 +14,8 @@ TEMPLATES_DIR = SKILL_DIR / "templates"
 C_LANGUAGE_TEMPLATES_PATH = TEMPLATES_DIR / "c-language-topics.json"
 REVIEW_SCHEMA_VERSION = 1
 RUBRIC_VERSION = "1.0"
+TOOL_VERSION = "1.0.0"
+MIN_OVERRIDE_REASON = 6
 BLOCKING_SEVERITIES = {"blocker", "major"}
 
 ACTIVITY_FLOW_LABELS = {
@@ -562,6 +564,26 @@ def adversarial_review(
     return report
 
 
+def _refresh_report_status(report: dict[str, Any]) -> None:
+    findings = [
+        item for item in report.get("findings", [])
+        if isinstance(item, dict)
+    ]
+    open_findings = [item for item in findings if item.get("status") == "open"]
+    if open_findings:
+        report["status"] = "needs_repair"
+    elif any(
+        item.get("severity") in BLOCKING_SEVERITIES and item.get("status") == "waived"
+        for item in findings
+    ):
+        report["status"] = "passed_with_override"
+    elif any(
+        item.get("severity") == "minor" and item.get("status") == "accepted"
+        for item in findings
+    ):
+        report["status"] = "passed_with_accepted_minor"
+
+
 def record_teacher_override(
     report: dict[str, Any],
     finding_id: str,
@@ -569,6 +591,7 @@ def record_teacher_override(
     teacher: str,
     reason: str,
     plan: dict[str, Any],
+    strict_teacher: bool = False,
 ) -> dict[str, Any]:
     if not isinstance(plan, dict) or not plan:
         raise ValueError("教师放行需要当前教案")
@@ -582,8 +605,18 @@ def record_teacher_override(
     )
     if any(key not in report for key in required_report):
         raise ValueError("审查报告缺少必要字段")
-    if not teacher.strip() or not reason.strip():
+    teacher_name = teacher.strip()
+    reason_text = reason.strip()
+    if not teacher_name or not reason_text:
         raise ValueError("教师姓名和放行原因不能为空")
+    if len(reason_text) < MIN_OVERRIDE_REASON:
+        raise ValueError(f"放行理由至少 {MIN_OVERRIDE_REASON} 个字")
+    plan_teacher = str(plan.get("teacher") or "").strip()
+    warning = ""
+    if plan_teacher and teacher_name != plan_teacher:
+        if strict_teacher:
+            raise ValueError("放行者与教案任课教师不一致")
+        warning = f"放行者 {teacher_name} 与任课教师 {plan_teacher} 不一致"
     findings = report.get("findings", [])
     if not isinstance(findings, list):
         raise ValueError("审查问题格式无效")
@@ -598,36 +631,42 @@ def record_teacher_override(
     if severity not in {"blocker", "major", "minor"}:
         raise ValueError("审查问题严重级别无效")
     kind = "minor_acceptance" if severity == "minor" else "teacher_override"
+    existing = next(
+        (
+            item for item in overrides
+            if isinstance(item, dict)
+            and item.get("findingId") == finding_id
+            and item.get("planHash") == report.get("planHash")
+        ),
+        None,
+    )
+    if existing:
+        if (
+            existing.get("teacher") != teacher_name
+            or existing.get("reason") != reason_text
+            or (existing.get("kind") or "teacher_override") != kind
+        ):
+            raise ValueError("该问题已有放行或接受记录，不能重复提交")
+        finding["status"] = "accepted" if severity == "minor" else "waived"
+        _refresh_report_status(report)
+        return existing
     override = {
         "findingId": finding_id,
         "kind": kind,
-        "teacher": teacher.strip(),
-        "reason": reason.strip(),
+        "teacher": teacher_name,
+        "reason": reason_text,
         "planHash": report.get("planHash"),
+        "toolVersion": TOOL_VERSION,
         "approvedAt": datetime.now(timezone.utc).isoformat(),
     }
+    if warning:
+        override["warnings"] = [warning]
+        report.setdefault("warnings", [])
+        if warning not in report["warnings"]:
+            report["warnings"].append(warning)
     overrides.append(override)
     finding["status"] = "accepted" if severity == "minor" else "waived"
-    open_findings = [
-        item for item in findings
-        if isinstance(item, dict) and item.get("status") == "open"
-    ]
-    if open_findings:
-        report["status"] = "needs_repair"
-    elif any(
-        isinstance(item, dict)
-        and item.get("severity") in BLOCKING_SEVERITIES
-        and item.get("status") == "waived"
-        for item in findings
-    ):
-        report["status"] = "passed_with_override"
-    elif any(
-        isinstance(item, dict)
-        and item.get("severity") == "minor"
-        and item.get("status") == "accepted"
-        for item in findings
-    ):
-        report["status"] = "passed_with_accepted_minor"
+    _refresh_report_status(report)
     return override
 
 
@@ -677,8 +716,10 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         valid_findings.append(item)
     findings = valid_findings
     current_hash = plan_hash(plan)
+    finding_ids = {str(item.get("id")) for item in findings}
     overrides = report.get("overrides") if isinstance(report.get("overrides"), list) else []
     override_records: dict[str, str] = {}
+    seen_override_ids: set[str] = set()
     for item in overrides:
         if not isinstance(item, dict):
             reasons.append("审查放行记录格式无效")
@@ -692,12 +733,21 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         ):
             reasons.append("审查放行记录格式无效")
             continue
+        if len(item["reason"].strip()) < MIN_OVERRIDE_REASON:
+            reasons.append("审查放行理由过短")
         kind = item.get("kind") or "teacher_override"
         if kind not in {"teacher_override", "minor_acceptance"}:
             reasons.append("审查放行记录类型无效")
             continue
         if item.get("planHash") == current_hash:
-            override_records[str(item["findingId"])] = kind
+            override_id = str(item["findingId"])
+            if override_id in seen_override_ids:
+                reasons.append("同一问题存在多条放行记录")
+            seen_override_ids.add(override_id)
+            override_records[override_id] = kind
+    for override_id in override_records:
+        if override_id not in finding_ids:
+            reasons.append("放行记录引用了不存在的问题")
     for item in findings:
         severity = item.get("severity")
         status = item.get("status")
