@@ -50,7 +50,7 @@ class TestValidate(unittest.TestCase):
                 "mainContent": "必须完成：完成个人名片程序",
                 "teacherActivity": "演示调试",
                 "studentActivity": "编写并运行",
-                "minutes": 90,
+                "minutes": plan["plannedHours"] * 45,
                 "evidence": "提交 C01_学号.c",
             }
         ]
@@ -84,13 +84,17 @@ class TestValidate(unittest.TestCase):
 
     def test_minutes_total_mismatch_fails(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        plan["activityFlow"]["introduction"] = [{"mainContent": "导入", "minutes": 95}]
+        tolerance = 5
+        expected = plan["plannedHours"] * 45
+        plan["activityFlow"]["introduction"] = [
+            {"mainContent": "导入", "minutes": expected + tolerance}
+        ]
         result = validate_plan(plan)
         self.assertFalse(result["ok"])
         self.assertTrue(
             any(item["path"] == "activityFlow" and "分钟" in item["message"] for item in result["issues"])
         )
-        tolerated = validate_plan(plan, minutes_tolerance=5)
+        tolerated = validate_plan(plan, minutes_tolerance=tolerance)
         self.assertTrue(tolerated["ok"], tolerated["issues"])
 
     def test_missing_minutes_is_warning_only(self) -> None:

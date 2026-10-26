@@ -163,7 +163,11 @@ class TestCli(unittest.TestCase):
 
     def test_cli_validate_minutes_tolerance(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        plan["activityFlow"]["introduction"] = [{"mainContent": "导入", "minutes": 95}]
+        tolerance = 5
+        expected = plan["plannedHours"] * 45
+        plan["activityFlow"]["introduction"] = [
+            {"mainContent": "导入", "minutes": expected + tolerance}
+        ]
         script = SCRIPTS_DIR / "validate.py"
         payload = json.dumps(plan, ensure_ascii=False)
         denied = subprocess.run(
@@ -174,7 +178,7 @@ class TestCli(unittest.TestCase):
         )
         self.assertNotEqual(denied.returncode, 0)
         allowed = subprocess.run(
-            [sys.executable, str(script), "--stdin", "--minutes-tolerance", "5"],
+            [sys.executable, str(script), "--stdin", "--minutes-tolerance", str(tolerance)],
             input=payload,
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             env=utf8_env(),
