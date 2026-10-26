@@ -35,7 +35,7 @@ python scripts/adversarial_review.py <教案.json> --no-counterexample --reviewe
 python scripts/export_docx.py <教案.json> -o <输出.docx>
 ```
 
-长文本可用 Markdown 子集（`**粗体**`、`1. ` 列表、围栏代码、`![说明](相对路径)`），由 `formatting-lesson-docx` 渲成 Word 原生样式。可选 `mediaAssets` 嵌教材截图；截图先走 `capturing-ebook-pages`。金标准里的 `1、` 仍按普通段落导出。
+长文本可用 Markdown 子集（`**粗体**`、`1. ` 列表、围栏代码、`![说明](相对路径)`），由 `formatting-lesson-docx` 渲成 Word 原生样式。可选 `mediaAssets` 嵌教材截图；截图先走 `capturing-ebook-pages`。金标准里的 `1、` 仍按普通段落导出。页脚含页码、引擎版本与 `planHash` 前 12 位；缺图写「图片缺失」占位并给 `warnings`；导出后返回 `selfCheck` 校验文档、页脚、页码、媒体哈希。
 
 修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告因内容哈希不匹配自动失效。
 

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _paths import skill_scripts
 
 sys.path.insert(0, str(skill_scripts()))
-from export_docx import export_docx  # type: ignore
+from export_docx import export_docx_result, self_check  # type: ignore
 from lib import (  # type: ignore
     adversarial_review,
     draft_plan,
@@ -180,8 +180,18 @@ def call_tool(name: str, args: dict) -> dict:
             return _result(dump({"ok": False, "reasons": gate["reasons"]}))
         out = Path(args.get("outputPath") or f"教案_第{plan.get('week')}周第{plan.get('session')}次.docx")
         base_dir = Path(str(args["baseDir"])) if args.get("baseDir") else out.parent
-        saved = export_docx(plan, out, base_dir=base_dir)
-        return _result(dump({"ok": True, "path": str(saved), "bytes": saved.stat().st_size}))
+        result = export_docx_result(plan, out, base_dir=base_dir)
+        check = self_check(Path(result["path"]), plan, result["media"])
+        if not check["ok"]:
+            return _result(dump({"ok": False, "reasons": ["导出后自检未通过"], "selfCheck": check}))
+        return _result(dump({
+            "ok": True,
+            "path": str(result["path"]),
+            "bytes": Path(result["path"]).stat().st_size,
+            "engineVersion": result["engineVersion"],
+            "selfCheck": check,
+            "warnings": result["warnings"],
+        }))
     if name == "score_against_samples":
         return _result(dump(score_against_examples(args.get("plan") or args)))
     return _result(json.dumps({"error": f"unknown tool {name}"}))

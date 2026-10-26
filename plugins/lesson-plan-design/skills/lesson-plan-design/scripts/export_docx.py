@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -18,9 +19,11 @@ from lib import (
     export_gate,
     load_json,
     load_review_report,
+    plan_hash,
 )
 from markdown_ooxml import DocxPackage, NS_W
 
+ENGINE_VERSION = "1.0.0"
 LABEL_SHADE = "E7E7E7"
 HEADER_SHADE = "D9D9D9"
 COL_WIDTHS = [827, 274, 1275, 1985, 2551, 664, 1001, 711]
@@ -146,6 +149,19 @@ def _meta_line(plan: dict) -> str:
         f"课程：{plan.get('course', '')}  教研组：{plan.get('teachingGroup', '')}  "
         f"任课教师：{teacher}  教学对象：{teaching_object}  "
         f"第{plan.get('week')}周第{plan.get('session')}次"
+    )
+
+
+def _footer_xml(plan: dict) -> str:
+    digest = plan_hash(plan)[:12]
+    return (
+        f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<w:ftr xmlns:w="{NS_W}"><w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
+        f'<w:r><w:rPr><w:sz w:val="16"/></w:rPr><w:t>'
+        f"校标教案 · 引擎 {ENGINE_VERSION} · 版本 {ENGINE_VERSION} · {digest} · 第 "
+        f'</w:t></w:r>'
+        '<w:fldSimple w:instr=" PAGE "><w:r><w:t>1</w:t></w:r></w:fldSimple>'
+        '<w:r><w:t> 页</w:t></w:r></w:p></w:ftr>'
     )
 
 
@@ -290,23 +306,88 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
     table = _table_xml(rows, widths)
     title = pkg.title_paragraph(f"《{plan.get('contentTitle') or '未命名课题'}》")
     body = title + pkg.render_markdown(_meta_line(plan)) + table
+    footer_ref = (
+        '<w:footerReference w:type="default" r:id="rIdFooter"/>'
+        if pkg.footer_xml is not None
+        else ""
+    )
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        f'<w:document xmlns:w="{NS_W}"><w:body>{body}'
-        '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
+        f'<w:document xmlns:w="{NS_W}" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f'<w:body>{body}'
+        f'<w:sectPr>{footer_ref}<w:pgSz w:w="11906" w:h="16838"/>'
         '<w:pgMar w:top="1440" w:right="1800" w:bottom="1440" w:left="1800"/>'
         "</w:sectPr></w:body></w:document>"
     )
 
 
-def export_docx(plan: dict, output: Path, *, base_dir: Path | None = None) -> Path:
+def export_docx_result(
+    plan: dict,
+    output: Path,
+    *,
+    base_dir: Path | None = None,
+) -> dict:
     output.parent.mkdir(parents=True, exist_ok=True)
     pkg = DocxPackage(base_dir=base_dir)
+    pkg.footer_xml = _footer_xml(plan)
     document_xml = build_document_xml(plan, pkg)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in pkg.zip_parts(document_xml).items():
             zf.writestr(name, data)
-    return output
+    media = []
+    for _rid, dest, path in pkg._images:
+        data = path.read_bytes()
+        media.append({
+            "dest": dest,
+            "source": str(path),
+            "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        })
+    warnings = [
+        f"图片缺失：{src}" for src in dict.fromkeys(pkg.missing_images)
+    ]
+    return {
+        "path": output,
+        "warnings": warnings,
+        "media": media,
+        "engineVersion": ENGINE_VERSION,
+    }
+
+
+def export_docx(plan: dict, output: Path, *, base_dir: Path | None = None) -> Path:
+    return export_docx_result(plan, output, base_dir=base_dir)["path"]
+
+
+def self_check(output: Path, plan: dict, media: list[dict] | None = None) -> dict:
+    media = media or []
+    with zipfile.ZipFile(output) as zf:
+        names = set(zf.namelist())
+        document = zf.read("word/document.xml").decode("utf-8") if "word/document.xml" in names else ""
+        footer = zf.read("word/footer1.xml").decode("utf-8") if "word/footer1.xml" in names else ""
+        title = str(plan.get("contentTitle") or "未命名课题")
+        checks = {
+            "document": bool(document),
+            "footer": bool(footer),
+            "pageField": 'w:instr=" PAGE "' in footer,
+            "engine": ENGINE_VERSION in footer,
+            "planHash": plan_hash(plan)[:12] in footer,
+            "title": title in document or title.replace("&", "&amp;") in document,
+            "media": True,
+        }
+        media_details = []
+        for item in media:
+            dest = item["dest"]
+            if dest not in names:
+                media_details.append({"dest": dest, "ok": False, "reason": "missing"})
+                checks["media"] = False
+                continue
+            digest = hashlib.sha256(zf.read(dest)).hexdigest()
+            ok = digest == item.get("sha256")
+            media_details.append({"dest": dest, "ok": ok, "sha256": digest})
+            if not ok:
+                checks["media"] = False
+    return {"ok": all(checks.values()), "checks": checks, "media": media_details}
 
 
 def main() -> int:
@@ -333,8 +414,22 @@ def main() -> int:
     week = plan.get("week")
     session = plan.get("session")
     out = Path(args.out) if args.out else plan_path.parent / f"教案_第{week}周第{session}次.docx"
-    saved = export_docx(plan, out, base_dir=plan_path.parent)
-    print(f'{{"ok": true, "path": "{saved.as_posix()}", "bytes": {saved.stat().st_size}}}')
+    result = export_docx_result(plan, out, base_dir=plan_path.parent)
+    check = self_check(Path(result["path"]), plan, result["media"])
+    if not check["ok"]:
+        print(
+            dump({"ok": False, "reasons": ["导出后自检未通过"], "selfCheck": check}),
+            file=sys.stderr,
+        )
+        return 1
+    print(dump({
+        "ok": True,
+        "path": str(result["path"]),
+        "bytes": Path(result["path"]).stat().st_size,
+        "engineVersion": result["engineVersion"],
+        "selfCheck": check,
+        "warnings": result["warnings"],
+    }))
     return 0
 
 
