@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_cli import TestCli  # noqa: F401
 from test_cli_errors import TestCliErrors  # noqa: F401
 from test_docs import TestDocs  # noqa: F401
+from test_examples import TestExamplesIndex  # noqa: F401
 from test_export_gate import TestExportGate  # noqa: F401
 from test_hooks import TestHooks  # noqa: F401
 from test_mcp import TestMcp  # noqa: F401
