@@ -72,12 +72,15 @@ def _check_domain_calls(files):
         if tree is None:
             continue
         for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and common.call_name_of_expr(node) == "os.environ":
+                problems.append(common.problem("BA-03", path, node.lineno, "domain 不得读取 os.environ"))
+                continue
             if not isinstance(node, ast.Call):
                 continue
             name = common.call_name(node)
             if name in {"print", "open"} or name.endswith((".write_text", ".write_bytes")):
                 problems.append(common.problem("BA-03", path, node.lineno, f"domain 不得调用 {name}"))
-            elif name in {"sys.exit", "os.environ"}:
+            elif name in {"sys.exit"} or name.startswith("os.environ."):
                 problems.append(common.problem("BA-03", path, node.lineno, f"domain 不得调用 {name}"))
     return problems
 

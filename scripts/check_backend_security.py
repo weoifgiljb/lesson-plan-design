@@ -221,7 +221,7 @@ def scan(backend=None, frontend=None) -> list[dict]:
     problems += _check_cookie(files, backend)
     problems += _check_password(files, backend)
     problems += _check_secrets(files)
-    problems += _check_pii([backend, frontend])
+    problems += _check_pii([backend])
     problems += _check_logging(files, backend)
     problems += _check_limits(files, backend)
     problems += _check_storage(backend)

@@ -157,15 +157,19 @@ def _versions_from_ast(path: Path, names: tuple[str, ...]) -> dict[str, object]:
         return {}
     found: dict[str, object] = {}
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign):
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id in names:
+            value = node.value
+        elif isinstance(node, ast.Assign):
+            targets = [item.id for item in node.targets if isinstance(item, ast.Name)]
+            if not set(targets) & set(names):
+                continue
+            value = node.value
+        else:
             continue
-        targets = [item.id for item in node.targets if isinstance(item, ast.Name)]
-        if not set(targets) & set(names):
-            continue
-        if isinstance(node.value, ast.Dict):
-            for key, value in zip(node.value.keys, node.value.values):
-                if isinstance(key, ast.Constant) and isinstance(value, ast.Constant):
-                    found[str(key.value)] = value.value
+        if isinstance(value, ast.Dict):
+            for key, item in zip(value.keys, value.values):
+                if isinstance(key, ast.Constant) and isinstance(item, ast.Constant):
+                    found[str(key.value)] = item.value
     return found
 
 

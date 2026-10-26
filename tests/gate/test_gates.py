@@ -63,6 +63,12 @@ class TestArchitectureGate(unittest.TestCase):
         with stack:
             self.assertIn("BA-03", rules(arch.scan(backend, frontend)))
 
+    def test_domain_environ_is_blocked(self) -> None:
+        code = "import os\n\n\ndef f() -> str:\n    return os.environ.get('X', '')\n"
+        stack, backend, frontend = project_with({"app/domain/bad.py": code})
+        with stack:
+            self.assertIn("BA-03", rules(arch.scan(backend, frontend)))
+
     def test_module_too_large_is_blocked(self) -> None:
         stack, backend, frontend = project_with({"app/domain/big.py": "X = 1\n" * 400})
         with stack:
@@ -139,6 +145,16 @@ class TestContractGate(unittest.TestCase):
             versions = "VERSIONS = {'schemaVersion': 2, 'rubricVersion': '1.0', 'rulesVersion': '1.1.0', 'engineVersion': '1.0.0'}\n"
             (backend / "app" / "domain" / "versions.py").write_text(versions, encoding="utf-8")
             self.assertIn("BC-06", rules(contract_gate.scan(backend, frontend, contract_file, openapi_file)))
+
+    def test_annotated_versions_are_accepted(self) -> None:
+        stack, backend, frontend, contract_file, openapi_file = contract_project()
+        with stack:
+            versions = (
+                "VERSIONS: dict[str, object] = {'schemaVersion': 1, 'rubricVersion': '1.0', "
+                "'rulesVersion': '1.1.0', 'engineVersion': '1.0.0'}\n"
+            )
+            (backend / "app" / "domain" / "versions.py").write_text(versions, encoding="utf-8")
+            self.assertEqual(blocks(contract_gate.scan(backend, frontend, contract_file, openapi_file)), [])
 
     def test_frontend_unknown_call_is_blocked(self) -> None:
         extra = {"src/api/extra.ts": "export const x = client.get('/api/v1/nope')\n"}

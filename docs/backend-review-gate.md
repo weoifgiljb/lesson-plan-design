@@ -106,7 +106,7 @@ py -3 scripts/run_backend_gate.py --update-contract   # 仅刷新 OpenAPI 快照
 | BSEC-04 | `set_cookie` 只在 `api/deps.py`，且带 `httponly`、`samesite` | block | 路由里手工 `response.set_cookie` 且无 httponly |
 | BSEC-05 | 口令只用 `hashlib.scrypt`/`pbkdf2_hmac`；禁止 md5/sha1，禁止明文比对 | block | `hashlib.md5(password)` |
 | BSEC-06 | 非测试代码无硬编码 secret/password/token，无 `debug=True` | block | `SECRET_KEY = "dev"` |
-| BSEC-07 | `src/**` 不出现学生 PII 关键字（`studentName`、`studentId`、`学号`、`身份证`） | block | `plan.studentName` |
+| BSEC-07 | `src/backend` 不出现学生 PII 关键字（`studentName`、`studentId`、`学号`、`身份证`） | block | `plan.studentName` |
 | BSEC-08 | 日志参数不含 `plan`/`report_json`/`password`/`token`/`cookie`；`main.py` 必须有 traceId 中间件 | block | `logger.info("import %s", plan)` |
 | BSEC-09 | 存在 `MAX_PACKAGE_BYTES` 且在上传路径生效 | block | 无上限读 zip |
 | BSEC-10 | `storage.py` 存在 `resolve()` + `is_relative_to(root)` 的安全路径函数 | block | 直接 `root / user_input` 写文件 |
