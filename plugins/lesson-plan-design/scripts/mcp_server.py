@@ -181,6 +181,7 @@ TOOLS = [
                 "reviewReport": {"type": "object"},
                 "baseDir": {"type": "string"},
                 "strictIndependence": {"type": "boolean"},
+                "strictMetadata": {"type": "boolean"},
             },
         },
     },
@@ -280,7 +281,16 @@ def _dispatch_tool(name: str, args: dict) -> dict:
         independence = None
         if isinstance(report, dict):
             independence = report.get("independence") or report.get("reviewer")
-        saved = export_docx(plan, out, base_dir=base_dir, independence=independence)
+        try:
+            saved = export_docx(
+                plan,
+                out,
+                base_dir=base_dir,
+                independence=independence,
+                strict_metadata=bool(args.get("strictMetadata")),
+            )
+        except ValueError as exc:
+            return _result(dump({"ok": False, "reasons": [str(exc)]}))
         return _result(dump({"ok": True, "path": str(saved), "bytes": saved.stat().st_size}))
     if name == "score_against_samples":
         return _result(dump(score_against_examples(args.get("plan") or args)))
