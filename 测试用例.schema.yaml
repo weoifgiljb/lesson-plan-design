@@ -1,0 +1,1380 @@
+meta:
+  source_markmap: "测试用例_markmap.md"
+  extracted_at: "2026-10-26"
+modules:
+  - module: "1. 契约与契约包"
+    shared_preconditions:
+      - "平台端已实现 BS-01 入库管道（TODO：待 2027.03 上线）；契约包位于 `tests/fixtures/dual-end/platform/packages/`。"
+  - module: "2. 插件端：结构校验与评分"
+    shared_preconditions:
+      - "仓库根可运行 `py -3`，插件脚本路径为 `plugins/lesson-plan-design/skills/lesson-plan-design/scripts/`。"
+  - module: "3. 插件端：审查与门禁"
+    shared_preconditions:
+      - "已有一份通过结构校验的教案及对应审查报告。"
+  - module: "4. 插件端：运行时与命令行"
+    shared_preconditions:
+      - "MCP 服务可启动；hook 可在测试宿主触发。"
+  - module: "5. 插件端：导出与资产"
+    shared_preconditions:
+      - "教案与通过报告哈希匹配。"
+  - module: "6. 平台端：教案库与版本"
+    shared_preconditions:
+      - "平台端已上线入库与教案库（TODO：待 2027.03）；已完成 TC-01-01 入库。"
+  - module: "7. 平台端：审查中心"
+    shared_preconditions:
+      - "库中已有五种状态的审查报告（可由样例包构造）。"
+  - module: "8. 平台端：同步与冲突"
+    shared_preconditions:
+      - "插件端同步客户端已具备（FR-16 完成）；平台端同步接口可用。"
+  - module: "9. 平台端：权限与审计"
+    shared_preconditions:
+      - "三个角色账号可用；教案归属已配置。"
+  - module: "10. 平台端：导出与统计"
+    shared_preconditions:
+      - "库中已有合规与不合规教案各 1 份。"
+  - module: "11. 平台端：任务、样例与运维"
+    shared_preconditions:
+      - "平台端任务与样例功能可用。"
+  - module: "12. 双端端到端"
+    shared_preconditions:
+      - "插件端与平台端均可用；教师账号已登录。"
+cases:
+  - id: "TC-01-01"
+    title: "合法契约包入库成功"
+    module: "1. 契约与契约包"
+    priority: "P0"
+    type: "data"
+    execution_model: "ui"
+    smoke: "SMOKE-1"
+    preconditions:
+      - "`valid-0201.zip` 已生成，教案为第 2 周第 1 次「一级考证辅导2」"
+    steps:
+      - "1. 用教师账号登录平台 2. 进入「教案库 → 上传契约包」 3. 选择 `valid-0201.zip` 4. 提交"
+    expected:
+      - "上传成功并生成第 1 版；页面显示课题、第 2 周第 1 次、任课教师张老师；平台重算的教案哈希与包内声明一致"
+      - "验证方式：查教案版本表 1 条记录、审计表 1 条入库记录"
+    code_refs:
+      - "lib.py:381-384"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-01-02"
+    title: "篡改教案字段后入库被拒"
+    module: "1. 契约与契约包"
+    priority: "P0"
+    type: "data"
+    execution_model: "ui"
+    preconditions:
+      - "`tampered-title.zip` 中课题被改为「篡改课题」，包内哈希仍为原值"
+    steps:
+      - "1. 进入上传契约包 2. 选择 `tampered-title.zip` 3. 提交"
+    expected:
+      - "入库失败，提示「教案内容哈希不符」；教案库不新增记录"
+      - "验证方式：查教案表无新增；审计表记录一次拒绝及原因"
+    code_refs:
+      - "lib.py:381-384"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-01-03"
+    title: "规范化等价输入哈希不变"
+    module: "1. 契约与契约包"
+    priority: "P1"
+    type: "data"
+    execution_model: "ui"
+    preconditions:
+      - "同一教案两份文件：A 为原文件，B 打乱字段顺序并把中文写成转义形式"
+    steps:
+      - "1. 分别用平台的哈希校验入口计算 2. 分别尝试入库"
+    expected:
+      - "两份哈希完全相同；B 按重复包处理，不产生新版本"
+      - "验证方式：两次响应中的哈希值一致"
+    code_refs:
+      - "lib.py:381-384"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-01-04"
+    title: "包内文件哈希不符"
+    module: "1. 契约与契约包"
+    priority: "P1"
+    type: "data"
+    execution_model: "ui"
+    preconditions:
+      - "`media-hash-mismatch.zip` 中媒体文件哈希被改为全 0，文件仍在"
+    steps:
+      - "1. 上传该包 2. 提交"
+    expected:
+      - "入库失败，提示「媒体文件哈希不符」；无落库"
+      - "验证方式：审计表拒绝记录含文件名"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-01-05"
+    title: "未知契约版本"
+    module: "1. 契约与契约包"
+    priority: "P1"
+    type: "data"
+    execution_model: "ui"
+    preconditions:
+      - "`bad-schema.zip` 的教案结构版本为 99"
+    steps:
+      - "1. 上传该包 2. 提交"
+    expected:
+      - "入库失败，提示「结构版本不支持」，并列出当前支持版本 1"
+      - "验证方式：响应与审计一致"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-01-06"
+    title: "重复包幂等"
+    module: "1. 契约与契约包"
+    priority: "P1"
+    type: "data"
+    execution_model: "ui"
+    preconditions:
+      - "`valid-0201.zip` 已成功入库为第 1 版"
+    steps:
+      - "1. 再次上传同一 zip 2. 提交"
+    expected:
+      - "返回成功但标记为重复；版本数仍为 1"
+      - "验证方式：教案版本表仍 1 条；审计新增一条「重复提交」"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-01-07"
+    title: "压缩包路径穿越被拒"
+    module: "1. 契约与契约包"
+    priority: "P1"
+    type: "security"
+    execution_model: "ui"
+    preconditions:
+      - "`zip-slip.zip` 中含名为 `../../evil.txt` 的条目"
+    steps:
+      - "1. 上传 `zip-slip.zip` 2. 提交"
+    expected:
+      - "入库失败，提示「包内路径非法」；服务器工作目录不出现 `evil.txt`"
+      - "验证方式：查上传临时目录与平台文件存储目录"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags:
+      - "安全"
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-02-01"
+    title: "7 份金标准全部通过"
+    module: "2. 插件端：结构校验与评分"
+    priority: "P0"
+    type: "boundary"
+    execution_model: "dev-collab"
+    smoke: "SMOKE-2"
+    preconditions:
+      - "`examples/` 下 7 份信息技术金标准完整"
+    steps:
+      - "运行 `py -3 .../validate.py --examples`"
+    expected:
+      - "退出码 0，7 份 `ok` 全为真，无 issue"
+      - "验证方式：反馈命令输出中的 reports 列表"
+    code_refs:
+      - "lib.py:156-199"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-02-02"
+    title: "结构化任务缺「必须完成」被拒"
+    module: "2. 插件端：结构校验与评分"
+    priority: "P0"
+    type: "boundary"
+    execution_model: "dev-collab"
+    preconditions:
+      - "测试样例 `structured-task-missing-mustdo.json`（任务实施为结构化活动，未写必须完成）"
+    steps:
+      - "运行 `py -3 .../validate.py tests/fixtures/dual-end/plugin/structured-task-missing-mustdo.json`"
+    expected:
+      - "退出码 1，问题定位在任务实施环节，提示缺少「必须完成/必做」"
+      - "验证方式：反馈输出的问题路径与提示文案"
+    code_refs:
+      - "lib.py:189-197"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-02-03"
+    title: "活动分钟合计与学时不一致"
+    module: "2. 插件端：结构校验与评分"
+    priority: "P1"
+    type: "boundary"
+    execution_model: "dev-collab"
+    preconditions:
+      - "测试样例 `minutes-95.json`（活动合计 95 分钟，计划学时 2）"
+    steps:
+      - "运行校验命令"
+    expected:
+      - "退出码 1，提示「活动分钟合计 95 与计划学时 90 分钟不一致」"
+      - "验证方式：反馈问题路径指向活动流"
+    code_refs:
+      - "lib.py:149-151"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-02-04"
+    title: "周次为布尔值被拒"
+    module: "2. 插件端：结构校验与评分"
+    priority: "P1"
+    type: "boundary"
+    execution_model: "dev-collab"
+    preconditions:
+      - "测试样例 `bool-week.json`（week 为 true）"
+    steps:
+      - "运行校验命令"
+    expected:
+      - "退出码 1，只报一条「周次须为正整数」，不出现「不能为空」"
+      - "验证方式：统计问题列表中 week 路径的条数"
+    code_refs:
+      - "lib.py:167-170"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-02-05"
+    title: "缺周次只报一条"
+    module: "2. 插件端：结构校验与评分"
+    priority: "P2"
+    type: "boundary"
+    execution_model: "dev-collab"
+    preconditions:
+      - "测试样例 `missing-week.json`（删除 week 字段）"
+    steps:
+      - "运行校验命令"
+    expected:
+      - "退出码 1，week 路径的问题恰好 1 条"
+      - "验证方式：反馈问题列表"
+    code_refs:
+      - "lib.py:161-178"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-02-06"
+    title: "周次课次与套别冲突"
+    module: "2. 插件端：结构校验与评分"
+    priority: "P1"
+    type: "boundary"
+    execution_model: "dev-collab"
+    preconditions:
+      - "第 2 周第 1 次但练习套别写「第1、2套」（目录为第3、4套）"
+    steps:
+      - "以严格模式运行校验"
+    expected:
+      - "退出码 1，提示套别与样例目录不一致"
+      - "验证方式：反馈问题路径与目录对照结果"
+    code_refs:
+      - "lib.py:219-221"
+      - "CATALOG.md:3-13"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-02-07"
+    title: "评分区分度"
+    module: "2. 插件端：结构校验与评分"
+    priority: "P1"
+    type: "boundary"
+    execution_model: "dev-collab"
+    preconditions:
+      - "金标准 `信息技术0201.json` 与弱教案 `work-plan.json`"
+    steps:
+      - "分别运行评分命令"
+    expected:
+      - "金标准不低于 90 分，弱教案不高于 60 分，差值不低于 15"
+      - "验证方式：反馈两次评分结果及分项"
+    code_refs:
+      - "lib.py:331-378"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-03-01"
+    title: "仅含轻微问题的未闭环报告不可导出"
+    module: "3. 插件端：审查与门禁"
+    priority: "P0"
+    type: "state"
+    execution_model: "dev-collab"
+    preconditions:
+      - "报告状态为「待修复」，仅 1 条轻微问题，未放行"
+    steps:
+      - "用该报告导出 Word"
+    expected:
+      - "导出失败，提示审查未闭环；输出目录无 docx"
+      - "验证方式：查导出目录与命令输出"
+    code_refs:
+      - "lib.py:659-697"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-03-02"
+    title: "教案修改后旧报告失效"
+    module: "3. 插件端：审查与门禁"
+    priority: "P0"
+    type: "state"
+    execution_model: "dev-collab"
+    preconditions:
+      - "`plugin/stale-plan.json` 与 `plugin/stale-plan.review.json`；报告基于修改前的教案生成"
+    steps:
+      - "用该报告直接导出 `stale-plan.json`"
+    expected:
+      - "导出失败，提示报告与当前教案内容不匹配"
+      - "验证方式：反馈命令输出"
+    code_refs:
+      - "lib.py:641-642"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-03-03"
+    title: "轮次回退被拒"
+    module: "3. 插件端：审查与门禁"
+    priority: "P1"
+    type: "state"
+    execution_model: "dev-collab"
+    preconditions:
+      - "已有第 2 轮报告"
+    steps:
+      - "提交第 1 轮报告"
+    expected:
+      - "写入失败，提示轮次必须递增"
+      - "验证方式：反馈报告文件轮次仍为 2"
+    code_refs:
+      - "lib.py:502-562"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-03-04"
+    title: "教师放行幂等"
+    module: "3. 插件端：审查与门禁"
+    priority: "P1"
+    type: "state"
+    execution_model: "dev-collab"
+    preconditions:
+      - "报告有 1 条严重问题，教师已放行一次"
+    steps:
+      - "对同一问题再次执行放行"
+    expected:
+      - "放行记录仍为 1 条，返回既有记录或明确提示已放行"
+      - "验证方式：查报告放行数组长度"
+    code_refs:
+      - "lib.py:565-616"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-03-05"
+    title: "角色模拟审校的独立性标记"
+    module: "3. 插件端：审查与门禁"
+    priority: "P1"
+    type: "state"
+    execution_model: "dev-collab"
+    preconditions:
+      - "报告审校方式为角色模拟且结论为通过"
+    steps:
+      - "以严格模式导出"
+    expected:
+      - "导出被拒或产物标注「角色模拟」；统计中与独立子代理分开计数"
+      - "验证方式：反馈导出结论与统计口径"
+    code_refs:
+      - "lib.py:522"
+      - "test_export_gate.py:104-107"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-04-01"
+    title: "MCP 缺参数不退出"
+    module: "4. 插件端：运行时与命令行"
+    priority: "P0"
+    type: "exception"
+    execution_model: "dev-collab"
+    preconditions:
+      - "MCP 服务已启动"
+    steps:
+      - "1. 调用起草工具但不传周次 2. 再调用健康检查"
+    expected:
+      - "第一次返回结构化错误；第二次正常响应，进程未退出"
+      - "验证方式：反馈两次响应与进程状态"
+    code_refs:
+      - "mcp_server.py:127-142"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-04-02"
+    title: "坏 JSON 后服务继续"
+    module: "4. 插件端：运行时与命令行"
+    priority: "P1"
+    type: "exception"
+    execution_model: "dev-collab"
+    preconditions:
+      - "服务已启动"
+    steps:
+      - "1. 发送 `{bad` 2. 再发送健康检查"
+    expected:
+      - "第一次返回解析错误码；第二次正常响应"
+      - "验证方式：反馈响应"
+    code_refs:
+      - "mcp_server.py:219-231"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-04-03"
+    title: "中文 Windows 下 hook 不崩溃"
+    module: "4. 插件端：运行时与命令行"
+    priority: "P0"
+    type: "exception"
+    execution_model: "dev-collab"
+    preconditions:
+      - "中文 Windows，未显式设置 UTF-8 环境变量，教案不合格"
+    steps:
+      - "1. 保存不合格教案触发写回 hook 2. 观察输出"
+    expected:
+      - "返回结构化校验结果并显示中文问题，不出现解码异常"
+      - "验证方式：反馈 hook 输出与退出码"
+    code_refs:
+      - "需中文 Windows | 使用中文 Windows 11 测试机；暂无则用模拟器并标注 P2 | 待确认"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-04-04"
+    title: "命令行非法输入无堆栈"
+    module: "4. 插件端：运行时与命令行"
+    priority: "P1"
+    type: "exception"
+    execution_model: "dev-collab"
+    preconditions:
+      - "存在内容为 `{bad` 的 `bad.json`"
+    steps:
+      - "运行 `validate.py bad.json`"
+    expected:
+      - "退出码 3，输出结构化错误与修复建议，不含 `Traceback`"
+      - "验证方式：反馈完整输出"
+    code_refs:
+      - "validate.py:37"
+      - "export_docx.py:319"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-05-01"
+    title: "导出元信息完整"
+    module: "5. 插件端：导出与资产"
+    priority: "P0"
+    type: "data"
+    execution_model: "dev-collab"
+    preconditions:
+      - "教案含学校「东莞经贸学校」、编号「IT-0201」、授课日期「2026-10-26」"
+    steps:
+      - "导出为 Word 并打开"
+    expected:
+      - "文档出现学校、编号、授课日期；页脚有版本标识"
+      - "验证方式：反馈文档正文与页脚截图"
+    code_refs:
+      - "export_docx.py:141-149"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-05-02"
+    title: "课时显示为整数"
+    module: "5. 插件端：导出与资产"
+    priority: "P1"
+    type: "data"
+    execution_model: "dev-collab"
+    preconditions:
+      - "计划学时为 2.0"
+    steps:
+      - "导出并查看课时单元格"
+    expected:
+      - "显示「2」，不出现「2.0」"
+      - "验证方式：反馈课时单元格文本"
+    code_refs:
+      - "export_docx.py:203"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-05-03"
+    title: "缺图告警"
+    module: "5. 插件端：导出与资产"
+    priority: "P1"
+    type: "data"
+    execution_model: "dev-collab"
+    preconditions:
+      - "媒体资产路径指向不存在的图片"
+    steps:
+      - "以宽松模式导出"
+    expected:
+      - "返回警告并列出缺失文件；文档中没有裸文件路径"
+      - "验证方式：反馈警告列表与文档内容"
+    code_refs:
+      - "markdown_ooxml.py:410-414"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-05-04"
+    title: "二次导出不覆盖"
+    module: "5. 插件端：导出与资产"
+    priority: "P1"
+    type: "data"
+    execution_model: "dev-collab"
+    preconditions:
+      - "同一教案已导出一次"
+    steps:
+      - "1. 再次导出同名文件 2. 加覆盖参数导出"
+    expected:
+      - "第一次不覆盖并提示；第二次覆盖前生成备份"
+      - "验证方式：查导出目录文件数与备份"
+    code_refs:
+      - "export_docx.py:306-309"
+      - "335"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "插件端源码与本地实测（commit ecbdf49）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "api"
+    status: "active"
+  - id: "TC-06-01"
+    title: "教案库展示与筛选"
+    module: "6. 平台端：教案库与版本"
+    priority: "P0"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "库中已有 2 份教案（第 2 周第 1 次、第 3 周第 1 次）"
+    steps:
+      - "1. 进入「教案库」 2. 筛选第 2 周 3. 查看列表"
+    expected:
+      - "列表只显示第 2 周 1 条，含课题、教师、状态「已通过」、版本 1"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-06-02"
+    title: "入库失败不产生记录"
+    module: "6. 平台端：教案库与版本"
+    priority: "P0"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "已用 `tampered-title.zip` 尝试入库"
+    steps:
+      - "1. 进入教案库 2. 搜索「篡改课题」"
+    expected:
+      - "列表无结果；审计中可查到一次拒绝"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-06-03"
+    title: "版本链与差异查看"
+    module: "6. 平台端：教案库与版本"
+    priority: "P1"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "同一教案已上传第 2 版，课堂小结有改动"
+    steps:
+      - "1. 打开教案详情 2. 进入版本链 3. 对比第 1、2 版"
+    expected:
+      - "两版并列显示；差异定位到课堂小结字段，前后值可读；旧版无编辑入口"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-06-04"
+    title: "软删除与恢复"
+    module: "6. 平台端：教案库与版本"
+    priority: "P2"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "教师本人教案 1 份"
+    steps:
+      - "1. 删除教案 2. 在教案库查看 3. 由管理员恢复"
+    expected:
+      - "删除后列表不可见；审计保留；恢复后重新可见且版本不变"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-06-05"
+    title: "教案检索"
+    module: "6. 平台端：教案库与版本"
+    priority: "P1"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "库中课题含「一级考证辅导2」与「数据类型」"
+    steps:
+      - "1. 在搜索框输入「考证」 2. 回车"
+    expected:
+      - "只返回含「考证」的教案；空关键词恢复全量"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-06-06"
+    title: "教案详情四区块"
+    module: "6. 平台端：教案库与版本"
+    priority: "P1"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "教案已有版本、审查与导出记录"
+    steps:
+      - "1. 打开教案详情 2. 依次查看内容、版本、审查、导出"
+    expected:
+      - "四区块均有数据；审查区块显示轮次与状态；导出区块显示引擎版本与产物哈希"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-07-01"
+    title: "五种审查状态展示"
+    module: "7. 平台端：审查中心"
+    priority: "P0"
+    type: "state"
+    execution_model: "ui"
+    preconditions:
+      - "报告状态分别为结构失败、待审、待修复、通过、放行通过"
+    steps:
+      - "1. 进入「审查中心」 2. 按状态筛选"
+    expected:
+      - "每种状态筛选结果与报告一致；状态标签可读"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-07-02"
+    title: "证据链缺项标红"
+    module: "7. 平台端：审查中心"
+    priority: "P0"
+    type: "state"
+    execution_model: "ui"
+    preconditions:
+      - "一份报告轮次从 1 跳到 3，且无放行记录"
+    steps:
+      - "1. 打开审查详情 2. 查看证据链面板"
+    expected:
+      - "轮次连续与放行完整两项标红并给出原因；完整率显示为不完整"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-07-03"
+    title: "平台不提供改报告入口"
+    module: "7. 平台端：审查中心"
+    priority: "P1"
+    type: "state"
+    execution_model: "ui"
+    preconditions:
+      - "任意审查详情"
+    steps:
+      - "1. 检查页面操作按钮 2. 尝试直接调用修改接口"
+    expected:
+      - "页面无编辑/补录放行按钮；接口返回无权限或不存在"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-08-01"
+    title: "基于旧版本的推送被拒"
+    module: "8. 平台端：同步与冲突"
+    priority: "P0"
+    type: "concurrency"
+    execution_model: "ui"
+    preconditions:
+      - "平台头版本为第 2 版；客户端基于第 1 版修改后推送"
+    steps:
+      - "1. 推送带上第 1 版哈希 2. 提交"
+    expected:
+      - "返回冲突并附服务端头版本与差异摘要；平台不新增版本"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-08-02"
+    title: "同包重试幂等"
+    module: "8. 平台端：同步与冲突"
+    priority: "P1"
+    type: "concurrency"
+    execution_model: "ui"
+    preconditions:
+      - "一次推送已成功"
+    steps:
+      - "断网重连后重试同一推送"
+    expected:
+      - "返回成功或重复标记；版本数不变"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-08-03"
+    title: "增量拉取游标"
+    module: "8. 平台端：同步与冲突"
+    priority: "P1"
+    type: "concurrency"
+    execution_model: "ui"
+    preconditions:
+      - "平台已有 3 次更新"
+    steps:
+      - "1. 以游标 0 拉取 2. 以返回游标再次拉取"
+    expected:
+      - "第一次返回全部；第二次只返回新增；游标可续传"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-08-04"
+    title: "并发同包只生成一版"
+    module: "8. 平台端：同步与冲突"
+    priority: "P1"
+    type: "concurrency"
+    execution_model: "ui"
+    preconditions:
+      - "同一契约包被两个客户端同时推送"
+    steps:
+      - "同时提交两次"
+    expected:
+      - "只产生 1 个版本；另一次按重复处理；无重复审计"
+      - "验证方式：查版本表与审计表"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags:
+      - "并发"
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-09-01"
+    title: "教师越权读取被拒"
+    module: "9. 平台端：权限与审计"
+    priority: "P0"
+    type: "permission"
+    execution_model: "ui"
+    preconditions:
+      - "教师 A 登录，教师 B 有一份教案"
+    steps:
+      - "1. 用 A 登录 2. 直接访问 B 的教案详情地址"
+    expected:
+      - "返回无权限；页面不显示 B 的教案内容；审计记录一次越权尝试"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-09-02"
+    title: "管理员不能修改教案内容"
+    module: "9. 平台端：权限与审计"
+    priority: "P0"
+    type: "permission"
+    execution_model: "ui"
+    preconditions:
+      - "管理员登录"
+    steps:
+      - "1. 打开任意教案详情 2. 查找编辑入口 3. 尝试调用内容修改接口"
+    expected:
+      - "无编辑入口；接口拒绝；教案内容与哈希不变"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-09-03"
+    title: "审计覆盖写操作"
+    module: "9. 平台端：权限与审计"
+    priority: "P0"
+    type: "permission"
+    execution_model: "ui"
+    preconditions:
+      - "完成 1 次入库、1 次导出、1 次放行查看"
+    steps:
+      - "1. 进入审计页 2. 按动作筛选"
+    expected:
+      - "三次操作各有 1 条审计，含操作者、对象、时间；无删除或修改入口"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-09-04"
+    title: "登录失败锁定"
+    module: "9. 平台端：权限与审计"
+    priority: "P1"
+    type: "permission"
+    execution_model: "ui"
+    preconditions:
+      - "教师账号存在"
+    steps:
+      - "1. 连续输错密码 5 次 2. 第 6 次使用正确密码"
+    expected:
+      - "第 6 次仍被拒并提示锁定 10 分钟；审计记录锁定事件"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-10-01"
+    title: "门禁失败不入导出队列"
+    module: "10. 平台端：导出与统计"
+    priority: "P0"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "选择 1 份审查未闭环的教案发起导出"
+    steps:
+      - "1. 进入导出中心 2. 勾选该教案 3. 提交"
+    expected:
+      - "该教案不进入队列，页面给出未闭环原因；不产生 docx"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-10-02"
+    title: "批量导出逐项结果与引擎记录"
+    module: "10. 平台端：导出与统计"
+    priority: "P1"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "选择 2 份合规教案、1 份不合规教案"
+    steps:
+      - "1. 批量导出 2. 查看任务详情 3. 下载打包文件"
+    expected:
+      - "2 份成功、1 份失败并给原因；成功项记录引擎版本与产物哈希；压缩包可解压"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-10-03"
+    title: "统计口径与分母"
+    module: "10. 平台端：导出与统计"
+    priority: "P0"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "20 份教案，其中 19 份通过结构校验"
+    steps:
+      - "1. 进入统计看板 2. 查看结构合规率"
+    expected:
+      - "显示 95%，同时显示分子 19、分母 20；可下钻到记录"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-11-01"
+    title: "任务包可被插件导入"
+    module: "11. 平台端：任务、样例与运维"
+    priority: "P1"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "已创建第 2 周第 1 次任务并下载任务包"
+    steps:
+      - "1. 用插件端打开任务包 2. 运行结构校验"
+    expected:
+      - "校验通过，字段与任务一致，不需要手工补字段"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-11-02"
+    title: "不合格样例被拒"
+    module: "11. 平台端：任务、样例与运维"
+    priority: "P1"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "管理员上传一份缺少知识目标的样例"
+    steps:
+      - "1. 进入样例库 2. 上传样例 3. 提交"
+    expected:
+      - "上传失败并列出结构问题；样例库不新增"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-11-03"
+    title: "备份恢复与健康检查"
+    module: "11. 平台端：任务、样例与运维"
+    priority: "P2"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "已执行一次每日备份"
+    steps:
+      - "1. 查看健康检查 2. 用备份恢复到测试库 3. 抽查教案与审计"
+    expected:
+      - "健康检查显示数据库、磁盘、引擎版本正常；恢复后哈希与审计一致"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-12-01"
+    title: "教师主链路"
+    module: "12. 双端端到端"
+    priority: "P0"
+    type: "functional"
+    execution_model: "ui"
+    smoke: "SMOKE-3"
+    preconditions:
+      - "无"
+    steps:
+      - "1. 平台创建第 2 周第 1 次任务 2. 插件端生成教案并校验 3. 审校通过并导出 4. 上传契约包 5. 平台查看审查 6. 平台导出"
+    expected:
+      - "每步成功；平台最终显示状态「已导出」；统计计入 1 份合规教案"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-12-02"
+    title: "离线生成后联网同步"
+    module: "12. 双端端到端"
+    priority: "P0"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "断开网络，插件端完成一份教案与通过报告"
+    steps:
+      - "1. 恢复网络 2. 触发同步 3. 平台查看"
+    expected:
+      - "同步成功，平台显示教案、报告与哈希均与本地一致"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-12-03"
+    title: "冲突后二选一留痕"
+    module: "12. 双端端到端"
+    priority: "P1"
+    type: "functional"
+    execution_model: "ui"
+    preconditions:
+      - "本地与平台各修改同一教案"
+    steps:
+      - "1. 本地推送 2. 出现冲突 3. 选择「以本地为准上传为新版本」"
+    expected:
+      - "生成新版本；冲突记录与选择动作写入审计；平台头版本更新"
+    code_refs:
+      - "平台端未实现"
+      - "无代码位置"
+    tags: []
+    test_data: {}
+    evidence:
+      level: "E1"
+      source: "平台端需求文档（功能优化需求-BS平台端 v1.0，尚未实现）"
+      confidence: "medium"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"

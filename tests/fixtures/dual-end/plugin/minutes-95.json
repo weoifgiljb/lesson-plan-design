@@ -1,0 +1,104 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2026-2027",
+  "semester": 1,
+  "course": "C语言程序设计",
+  "planNumber": "C01",
+  "teachingGroup": "计算机教研组",
+  "teacher": "",
+  "teachingObject": "计算机专业一年级（零基础）",
+  "teachDate": "",
+  "week": 1,
+  "session": 1,
+  "contentTitle": "认识C语言与Dev-C++开发环境",
+  "contentDetail": "项目一：C语言概述、Dev-C++开发环境",
+  "plannedHours": 2.0,
+  "teachingPurpose": "帮助零基础学生建立编程和C语言的初步认识，学会使用Dev-C++创建、保存、编译和运行C源程序。",
+  "knowledgeGoals": "1. 说出C语言可用于解决重复计算和信息处理问题。\n2. 区分源文件、编译和运行。\n3. 认识Dev-C++编辑区、编译运行按钮和输出窗口。",
+  "abilityGoals": "1. 能检查开发环境。\n2. 能新建并保存.c源文件。\n3. 能编译运行给定程序并提交运行证据。",
+  "qualityGoals": "1. 养成规范命名、及时保存和检查结果的习惯。\n2. 在同伴互助中耐心排错。\n3. 遵守机房6S和软件使用规范。",
+  "keyPoints": "重点：编辑—保存—编译—运行流程。难点：区分编译报错与运行结果。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "从生活中的重复计算和信息处理场景导入编程",
+        "teacherActivity": "展示自动计算案例，演示一个已运行的C程序并检查设备",
+        "studentActivity": "观察案例，回答计算机需要哪些步骤才能得到结果",
+        "minutes": 10,
+        "evidence": "口头说出一个可编程解决的问题"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "明确本课产出：成功运行一个.c文件",
+        "teacherActivity": "说明编辑、编译、运行三个环节和提交要求",
+        "studentActivity": "在任务单上勾选目标并确认文件命名规则",
+        "minutes": 5,
+        "evidence": "完成目标确认单"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "Dev-C++界面、源文件和编译运行流程",
+        "teacherActivity": "逐步演示新建、保存C01_学号.c、编译、运行；故意展示扩展名和中文标点错误\n\n**教师演示代码：**\n```c\n编辑 -> 保存 .c -> 编译 -> 运行\n```",
+        "studentActivity": "跟随操作并记录错误提示位置",
+        "minutes": 25,
+        "evidence": "打开自己的.c文件并看到编译结果"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "完成开发环境检查和第一个源文件",
+        "teacherActivity": "巡回检查保存路径，针对报错提示学生先读错误行再求助",
+        "studentActivity": "新建C01_学号.c，完成编译运行并与同伴互查",
+        "minutes": 35,
+        "evidence": "提交C01_学号.c及运行截图"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "按过程和结果评价",
+        "teacherActivity": "依据命名、编译、运行和说明流程四项记录评分",
+        "studentActivity": "现场展示文件和输出，说明一次排错过程",
+        "minutes": 10,
+        "evidence": "文件、截图或现场演示"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "回顾编辑—保存—编译—运行四步",
+        "teacherActivity": "请学生复述四步并归纳常见故障",
+        "studentActivity": "说出一个故障和解决办法",
+        "minutes": 5,
+        "evidence": "完成出口问答"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "巩固程序运行流程",
+        "teacherActivity": "布置流程图和环境问题记录",
+        "studentActivity": "绘制四步流程图并记录未解决问题",
+        "minutes": 5,
+        "evidence": "提交学习任务单"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "记录环境配置和典型报错",
+        "teacherActivity": "课后统计环境完成率并调整下节课示例",
+        "studentActivity": "反馈安装或编译困难",
+        "minutes": 0,
+        "evidence": "教师反思记录"
+      }
+    ]
+  },
+  "mediaAssets": [
+    {
+      "path": "../ebook-captures/selected/项目一-dev环境.png",
+      "caption": "教材项目页：项目一-dev环境（项目一课件第32页）",
+      "attachTo": "knowledgeLearning"
+    }
+  ]
+}

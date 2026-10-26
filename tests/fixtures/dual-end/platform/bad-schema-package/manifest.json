@@ -1,0 +1,25 @@
+{
+  "contractVersion": "1",
+  "planHash": "56f8d1d118a1fa3f8ac11645c810b0864128a6f1aba4db41066225b8ff12c675",
+  "reportHash": "9541960fb21a7ae08e92dac46ad4c2631815c1dbb2a429f4360d569f5172c2e5",
+  "schemaVersion": 99,
+  "rubricVersion": "1.0",
+  "createdAt": "2026-10-26T05:06:54.916179+00:00",
+  "files": [
+    {
+      "path": "media/page-003.png",
+      "sha256": "ebf4f635a17d10d6eb46ba680b70142419aa3220f228001a036d311a22ee9d2a",
+      "size": 67
+    },
+    {
+      "path": "plan.json",
+      "sha256": "73ba1979ceb0cf625431641087b703ae4d31488784b5a5aba24a686f3f6425e0",
+      "size": 2698
+    },
+    {
+      "path": "plan.review.json",
+      "sha256": "9541960fb21a7ae08e92dac46ad4c2631815c1dbb2a429f4360d569f5172c2e5",
+      "size": 511
+    }
+  ]
+}
