@@ -113,7 +113,7 @@
         429
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "POST",
@@ -132,7 +132,7 @@
         401
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -151,7 +151,7 @@
         401
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",

@@ -67,6 +67,9 @@ class Repo:
     def user_by_username(self, username: str) -> dict[str, Any] | None:
         return _row(self.conn.execute("SELECT * FROM user WHERE username = ?", (username,)).fetchone())
 
+    def user_by_id(self, user_id: int) -> dict[str, Any] | None:
+        return _row(self.conn.execute("SELECT * FROM user WHERE id = ?", (user_id,)).fetchone())
+
     def user_by_display_name(self, display_name: str) -> dict[str, Any] | None:
         return _row(
             self.conn.execute("SELECT * FROM user WHERE display_name = ? AND active = 1", (display_name,)).fetchone()
