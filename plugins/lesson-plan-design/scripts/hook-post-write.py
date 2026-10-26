@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _paths import skill_scripts
+from _runtime import run_python
 
 
 def _extract_path(payload: dict) -> str | None:
@@ -48,12 +48,7 @@ def main() -> int:
     if not isinstance(data, dict) or "activityFlow" not in data:
         return 0
     script = skill_scripts() / "validate.py"
-    proc = subprocess.run(
-        [sys.executable, str(script), str(target)],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-    )
+    proc = run_python(script, [str(target)])
     sys.stdout.write(proc.stdout)
     if proc.returncode != 0:
         sys.stderr.write(proc.stderr)

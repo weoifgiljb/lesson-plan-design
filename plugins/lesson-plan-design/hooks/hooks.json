@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${PLUGIN_ROOT}/scripts/session-start.py\"",
+            "command": "py -3 \"${PLUGIN_ROOT}/scripts/session-start.py\"",
             "statusMessage": "加载校标教案闸门",
             "timeout": 20
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${PLUGIN_ROOT}/scripts/hook-post-write.py\"",
+            "command": "py -3 \"${PLUGIN_ROOT}/scripts/hook-post-write.py\"",
             "statusMessage": "写回后校验教案 JSON",
             "timeout": 30
           }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"${PLUGIN_ROOT}/scripts/hook-stop.py\"",
+            "command": "py -3 \"${PLUGIN_ROOT}/scripts/hook-stop.py\"",
             "statusMessage": "校标结构质量门",
             "timeout": 30
           }

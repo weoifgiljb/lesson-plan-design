@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "count": 7,
+  "examples": [
+    {
+      "file": "信息技术0102.json",
+      "course": "信息技术",
+      "week": 1,
+      "session": 2,
+      "contentTitle": "一级考证辅导1",
+      "academicYear": "2024-2025",
+      "semester": 2,
+      "planHash": "3536af36771d9698e1760b56dd672936f5f7b3df6d7c46274f61f02630a3104c",
+      "version": "1.0"
+    },
+    {
+      "file": "信息技术0201.json",
+      "course": "信息技术",
+      "week": 2,
+      "session": 1,
+      "contentTitle": "一级考证辅导2",
+      "academicYear": "2024-2025",
+      "semester": 2,
+      "planHash": "6f917bd0227b315339d2b1ba1dcdf0586db74c3f183dd764b17f17bcee7a0731",
+      "version": "1.0"
+    },
+    {
+      "file": "信息技术0202.json",
+      "course": "信息技术",
+      "week": 2,
+      "session": 2,
+      "contentTitle": "一级考证辅导3",
+      "academicYear": "2024-2025",
+      "semester": 2,
+      "planHash": "75a3c69c3dbe73a97a6ecfcb0475fe65acc57398fecb22c195267722d3e198cf",
+      "version": "1.0"
+    },
+    {
+      "file": "信息技术0301.json",
+      "course": "信息技术",
+      "week": 3,
+      "session": 1,
+      "contentTitle": "一级考证辅导4",
+      "academicYear": "2024-2025",
+      "semester": 2,
+      "planHash": "d09857b11c778a84da8d4f7e8a79ae6447e0879dccb74417c77d17ed44779376",
+      "version": "1.0"
+    },
+    {
+      "file": "信息技术0302.json",
+      "course": "信息技术",
+      "week": 3,
+      "session": 2,
+      "contentTitle": "一级考证辅导5",
+      "academicYear": "2024-2025",
+      "semester": 2,
+      "planHash": "ee664499ad4c5cba52111ee25001f27eeaeb8198963b55ac92c9f1bb7483a339",
+      "version": "1.0"
+    },
+    {
+      "file": "信息技术0401.json",
+      "course": "信息技术",
+      "week": 4,
+      "session": 1,
+      "contentTitle": "一级考证辅导6",
+      "academicYear": "2024-2025",
+      "semester": 2,
+      "planHash": "1bcab74f76ad2bc23afe56463f7c1bcba629564068150918728a199b878a4d98",
+      "version": "1.0"
+    },
+    {
+      "file": "信息技术0402.json",
+      "course": "信息技术",
+      "week": 4,
+      "session": 2,
+      "contentTitle": "一级考证辅导7",
+      "academicYear": "2024-2025",
+      "semester": 2,
+      "planHash": "ffcf080a43d99064737a2deea7e4b8d4bcd6cb3ef299e1c4b63cc781d36c10e2",
+      "version": "1.0"
+    }
+  ]
+}

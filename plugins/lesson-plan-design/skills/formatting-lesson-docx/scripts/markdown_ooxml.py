@@ -383,6 +383,8 @@ class DocxPackage:
         self._ordered_ids: list[int] = []
         self._next_num_id = 10
         self._docpr_id = 1
+        self.footer_xml: str | None = None
+        self.missing_images: list[str] = []
 
     def new_ordered_num(self) -> int:
         num_id = self._next_num_id
@@ -411,7 +413,8 @@ class DocxPackage:
         path = self._resolve(src)
         rid = self.register_image(src)
         if rid is None or path is None:
-            return _run(alt or src)
+            self.missing_images.append(src)
+            return _run(f"【图片缺失：{alt or src}】")
         doc_id = self._docpr_id
         self._docpr_id += 1
         cx, cy = _image_extent(path)
@@ -529,6 +532,10 @@ class DocxPackage:
             rels.append(
                 f'<Relationship Id="{rid}" Type="{NS_R}/image" Target="{target}"/>'
             )
+        if self.footer_xml is not None:
+            rels.append(
+                f'<Relationship Id="rIdFooter" Type="{NS_R}/footer" Target="footer1.xml"/>'
+            )
         return (
             f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             f'<Relationships xmlns="{NS_REL}">'
@@ -550,6 +557,10 @@ class DocxPackage:
             '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>',
             '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>',
         ]
+        if self.footer_xml is not None:
+            overrides.append(
+                '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
+            )
         return (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -574,4 +585,6 @@ class DocxPackage:
         }
         for _rid, dest, path in self._images:
             parts[dest] = path.read_bytes()
+        if self.footer_xml is not None:
+            parts["word/footer1.xml"] = self.footer_xml.encode("utf-8")
         return parts

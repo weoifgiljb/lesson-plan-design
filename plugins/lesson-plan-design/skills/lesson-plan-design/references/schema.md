@@ -60,7 +60,7 @@
 }
 ```
 
-`mainContent` 必填；`teacherActivity`、`studentActivity`、`minutes`、`evidence` 为可选字段。工作任务实施中的结构化活动应提供学生操作和可核验产出，便于课堂考核与导出排版。
+`mainContent` 必填；`teacherActivity`、`studentActivity`、`minutes`、`evidence` 为可选字段。工作任务实施中的结构化活动应提供学生操作和可核验产出，便于课堂考核与导出排版。结构化活动的 `minutes`（分钟数）合计须与 `plannedHours × 45` 一致（默认容差 0），详见 `references/validation.md`。
 
 ## 可选配图 `mediaAssets`
 

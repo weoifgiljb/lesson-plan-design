@@ -11,6 +11,7 @@ from support import SKILL_DIR  # noqa: F401
 from lib import (
     REVIEW_SCHEMA_VERSION,
     RUBRIC_VERSION,
+    TOOL_VERSION,
     adversarial_review,
     default_review_path,
     draft_plan,
@@ -43,9 +44,9 @@ class TestReview(unittest.TestCase):
     def test_adversarial_review_exposes_assessment_that_cannot_prove_learning(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
-        report = adversarial_review(plan, round_number=2)
+        report = adversarial_review(plan, round_number=1)
         self.assertEqual(report["schemaVersion"], REVIEW_SCHEMA_VERSION)
-        self.assertEqual(report["round"], 2)
+        self.assertEqual(report["round"], 1)
         self.assertEqual(report["planHash"], plan_hash(plan))
         self.assertEqual(len(report["findings"]), 1)
         finding = report["findings"][0]
@@ -82,7 +83,7 @@ class TestReview(unittest.TestCase):
         plan = draft_plan(1, 1, "测试课题")
         plan["activityFlow"]["taskImplementation"] = [
             {
-                "mainContent": "完成练习",
+                "mainContent": "必须完成：完成练习",
                 "teacherActivity": "演示步骤",
                 "studentActivity": "编写并运行程序",
                 "evidence": "C01.c",
@@ -159,6 +160,14 @@ class TestReview(unittest.TestCase):
         second_id = adversarial_review(second)["findings"][0]["id"]
         self.assertNotEqual(first_id, second_id)
 
+    def test_report_records_independence(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        for mode in ("native_subagent", "role_simulation", "human"):
+            report = adversarial_review(plan, reviewer=mode, no_counterexample=True)
+            self.assertEqual(report["independence"], mode)
+        with self.assertRaises(ValueError):
+            adversarial_review(plan, reviewer="unknown")
+
     def test_report_is_saved_next_to_plan_and_keeps_previous_round_history(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         with tempfile.TemporaryDirectory() as tmp:
@@ -175,3 +184,56 @@ class TestReview(unittest.TestCase):
             self.assertEqual(stored["rubricVersion"], RUBRIC_VERSION)
             self.assertEqual(stored["repairHistory"][0]["round"], 1)
             self.assertEqual(stored["planHash"], plan_hash(plan))
+
+    def test_report_contains_snapshot_and_tool_version(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan)
+        self.assertEqual(report["toolVersion"], TOOL_VERSION)
+        self.assertEqual(report["planSnapshot"], plan)
+        self.assertFalse(report["duplicateReview"])
+
+    def test_snapshot_survives_plan_mutation(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        original_title = plan["contentTitle"]
+        report = adversarial_review(plan, no_counterexample=True)
+        plan["contentTitle"] = "改后课题"
+        self.assertEqual(report["planSnapshot"]["contentTitle"], original_title)
+
+    def test_round_must_increment(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        first = adversarial_review(plan, no_counterexample=True)
+        with self.assertRaises(ValueError):
+            adversarial_review(plan, round_number=3, previous_report=first)
+        second = adversarial_review(plan, round_number=2, previous_report=first)
+        self.assertEqual(second["round"], 2)
+
+    def test_first_round_must_be_one(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        with self.assertRaises(ValueError):
+            adversarial_review(plan, round_number=2)
+
+    def test_duplicate_review_flagged(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        first = adversarial_review(plan, no_counterexample=True)
+        second = adversarial_review(plan, round_number=2, previous_report=first)
+        self.assertTrue(second["duplicateReview"])
+        plan["activityFlow"]["summary"] = "已修改课堂小结"
+        third = adversarial_review(plan, round_number=3, previous_report=second)
+        self.assertFalse(third["duplicateReview"])
+
+    def test_old_report_without_snapshot_still_exports(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        report.pop("planSnapshot", None)
+        report.pop("toolVersion", None)
+        report.pop("duplicateReview", None)
+        result = export_gate(plan, report)
+        self.assertTrue(result["ok"], result["reasons"])
+
+    def test_snapshot_hash_mismatch_blocks_gate(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        report["planSnapshot"]["contentTitle"] = "篡改"
+        result = export_gate(plan, report)
+        self.assertFalse(result["ok"])
+        self.assertIn("审查报告快照与教案哈希不匹配", result["reasons"])

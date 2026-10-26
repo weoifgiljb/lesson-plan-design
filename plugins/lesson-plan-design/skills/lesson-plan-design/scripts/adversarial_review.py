@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _cli import CliError, JsonArgumentParser, run_cli
 from lib import (
     adversarial_review,
     default_review_path,
@@ -31,16 +32,17 @@ def _finding(value: str | None) -> dict | None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="生成校标教案的对抗审查报告")
+    parser = JsonArgumentParser(description="生成校标教案的对抗审查报告")
     parser.add_argument("path", help="教案 JSON 路径")
     parser.add_argument("--review", help="审查报告路径；默认与教案同目录")
-    parser.add_argument("--round", type=int, help="复审轮次；默认在现有报告基础上加一")
+    parser.add_argument("--round", type=int, help="复审轮次；必须等于上一轮+1，首轮为 1")
     parser.add_argument("--finding", help="审校 Agent 产出的单条 finding JSON 或其文件路径")
     parser.add_argument("--no-counterexample", action="store_true", help="审校员确认本轮无可证实反例")
-    parser.add_argument("--reviewer-mode", choices=["native_subagent", "role_simulation"], default="role_simulation")
-    parser.add_argument("--override", metavar="ISSUE_ID", help="教师放行的问题 ID")
+    parser.add_argument("--reviewer-mode", choices=["native_subagent", "role_simulation", "human"], default="role_simulation")
+    parser.add_argument("--override", metavar="ISSUE_ID", help="教师放行 blocker/major 或接受 minor 的问题 ID")
     parser.add_argument("--teacher", help="教师姓名；与 --override 同用")
     parser.add_argument("--reason", help="放行原因；与 --override 同用")
+    parser.add_argument("--strict-teacher", action="store_true", help="放行者必须与教案任课教师一致")
     args = parser.parse_args()
 
     plan_path = Path(args.path)
@@ -50,19 +52,24 @@ def main() -> int:
 
     if args.override:
         if not previous:
-            parser.error("教师放行需要现有审查报告")
+            raise CliError("NO_REVIEW", "教师放行需要现有审查报告", "先运行审校生成报告")
         try:
             override = record_teacher_override(
-                previous, args.override, teacher=args.teacher or "", reason=args.reason or "", plan=plan,
+                previous,
+                args.override,
+                teacher=args.teacher or "",
+                reason=args.reason or "",
+                plan=plan,
+                strict_teacher=args.strict_teacher,
             )
         except ValueError as exc:
-            parser.error(str(exc))
+            raise CliError("OVERRIDE_REJECTED", str(exc), "检查问题 ID、教师姓名与放行原因") from exc
         save_review_report(report_path, previous)
         print(dump({"ok": True, "path": str(report_path), "override": override, "reviewReport": previous}))
         return 0
 
     if args.finding and args.no_counterexample:
-        parser.error("不能同时使用 --finding 与 --no-counterexample")
+        raise CliError("USAGE", "不能同时使用 --finding 与 --no-counterexample", "二选一", 2)
 
     round_number = args.round if args.round is not None else (int(previous.get("round", 0)) + 1 if previous else 1)
     try:
@@ -75,7 +82,7 @@ def main() -> int:
             no_counterexample=args.no_counterexample,
         )
     except (ValueError, json.JSONDecodeError) as exc:
-        parser.error(str(exc))
+        raise CliError("REVIEW_REJECTED", str(exc), "检查轮次、finding 或审校方式") from exc
     save_review_report(report_path, report)
     passed = report["status"] in {"passed", "passed_with_override"}
     print(dump({"ok": passed, "path": str(report_path), "reviewReport": report}))
@@ -83,4 +90,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run_cli(main))
