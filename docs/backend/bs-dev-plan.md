@@ -212,6 +212,23 @@ src/
    `plugins/lesson-plan-design/skills/lesson-plan-design/scripts`，并记录 `engineVersion`。
 9. **日志脱敏**：不记录教案全文、口令、会话令牌；每请求 `traceId` 由 `main.py` 中间件生成并回写响应头。
 
+### 4.1 数据库与数据目录
+
+| 项目 | 决定 |
+|---|---|
+| 引擎 | SQLite 3（随 Python 3.12 提供），标准库 `sqlite3`，不用 ORM、不装数据库服务 |
+| 文件 | 默认 `<仓库根目录>/data/app.db`；`LPP_DATA_DIR` 可改目录；`data/` 已 gitignore |
+| 连接参数 | `journal_mode=WAL`、`foreign_keys=ON`、`busy_timeout=5000`、`synchronous=NORMAL`；写事务 `BEGIN IMMEDIATE` |
+| 并发 | 进程内单写锁（`app.state.db_lock`）串行化写事务，`SQLITE_BUSY` 重试 3 次；单实例部署 |
+| 结构 | `app/adapters/db/schema.sql` 是 v1 全量 DDL；`PRAGMA user_version` 记录版本，后续 `migrations/000N_*.sql` 顺次升级 |
+| 文件存储 | `data/files/plans/<planId>/<version>/`、`files/reviews/...`、`files/media/...`；库内只存相对路径与 SHA-256 |
+| 测试隔离 | 每个测试用临时目录下的文件库（保留 WAL 与触发器语义），不用 `:memory:` |
+| 备份（BS-14） | 停写后整目录复制 `data/`；不依赖外部工具 |
+
+新增 1 张实现表 `user_session`（可撤销会话，满足"退出后重放必须失效"），其余 12 张表按需求 §5.4。
+
+**首批落地范围（本批）**：`health`、入库管道（domain + application + 适配层）、数据库与不可变触发器、zip 安全解包、插件引擎对照；`auth/login`、`auth/logout`、`me` 与 `plans/import` 在后续两个 PR 内完成，`implemented` 随实现同批翻转。
+
 ## 5 前端分层与页面
 
 | 层 | 职责 | 约定 |
