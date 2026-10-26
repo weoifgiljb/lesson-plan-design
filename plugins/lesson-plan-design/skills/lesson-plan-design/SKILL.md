@@ -39,7 +39,7 @@ python scripts/export_docx.py <教案.json> -o <输出.docx>
 
 修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告因内容哈希不匹配自动失效。
 
-对照样例打分（可选）：`python scripts/score.py <教案.json>`
+对照样例打分（可选）：`python scripts/score.py <教案.json>`。样例库索引由 `sync_examples.py --write` 生成，`--check` 校验哈希与元信息。
 
 ## 输出
 
