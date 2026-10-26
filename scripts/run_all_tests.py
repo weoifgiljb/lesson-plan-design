@@ -18,6 +18,7 @@ FIXTURES = ROOT / "tests" / "fixtures" / "dual-end" / "run_plugin_fixtures.py"
 SYNC = SKILL / "scripts" / "sync_examples.py"
 VALIDATE = SKILL / "scripts" / "validate.py"
 LAYOUT = ROOT / "scripts" / "check_layout.py"
+HYGIENE = ROOT / "scripts" / "check_repo_hygiene.py"
 RAN_RE = re.compile(r"Ran (\d+) tests?")
 
 
@@ -34,6 +35,8 @@ def commands() -> list[dict]:
         items.append({"name": "dual-end fixtures", "cmd": [sys.executable, str(FIXTURES)]})
     if LAYOUT.is_file():
         items.append({"name": "docx layout", "cmd": [sys.executable, str(LAYOUT)]})
+    if HYGIENE.is_file():
+        items.append({"name": "repo hygiene", "cmd": [sys.executable, str(HYGIENE)]})
     return items
 
 

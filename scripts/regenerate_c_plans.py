@@ -3,7 +3,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\17841\Desktop\毕业设计")
+ROOT = Path(__file__).resolve().parents[1]
 PLAN_DIR = ROOT / "output" / "c-language-plans"
 
 sys.path.insert(0, str(ROOT / "plugins" / "lesson-plan-design" / "skills" / "lesson-plan-design" / "scripts"))

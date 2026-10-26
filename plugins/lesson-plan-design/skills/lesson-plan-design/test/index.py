@@ -14,6 +14,7 @@ from test_docs import TestDocs  # noqa: F401
 from test_examples import TestExamplesIndex  # noqa: F401
 from test_export_gate import TestExportGate  # noqa: F401
 from test_hooks import TestHooks  # noqa: F401
+from test_hygiene import TestHygiene  # noqa: F401
 from test_manifest import TestManifest  # noqa: F401
 from test_mcp import TestMcp  # noqa: F401
 from test_override import TestOverrideAudit  # noqa: F401

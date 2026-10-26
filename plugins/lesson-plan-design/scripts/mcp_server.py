@@ -50,22 +50,61 @@ def _jsonrpc_error(mid, code: int, message: str, data: dict | None = None) -> di
     return {"jsonrpc": "2.0", "id": mid, "error": error}
 
 
-def _type_ok(value, expected: str | None) -> bool:
-    if expected is None:
-        return True
-    if expected == "object":
-        return isinstance(value, dict)
-    if expected == "integer":
-        return isinstance(value, int) and not isinstance(value, bool)
-    if expected == "number":
-        return isinstance(value, (int, float)) and not isinstance(value, bool)
-    if expected == "string":
-        return isinstance(value, str)
-    if expected == "boolean":
-        return isinstance(value, bool)
-    if expected == "array":
-        return isinstance(value, list)
+def _always_true(value) -> bool:
     return True
+
+
+def _is_object(value) -> bool:
+    return isinstance(value, dict)
+
+
+def _is_integer(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _is_string(value) -> bool:
+    return isinstance(value, str)
+
+
+def _is_boolean(value) -> bool:
+    return isinstance(value, bool)
+
+
+def _is_array(value) -> bool:
+    return isinstance(value, list)
+
+
+TYPE_CHECKS = {
+    "object": _is_object,
+    "integer": _is_integer,
+    "number": _is_number,
+    "string": _is_string,
+    "boolean": _is_boolean,
+    "array": _is_array,
+}
+
+
+class ToolError(Exception):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        hint: str = "",
+        details: dict | None = None,
+    ):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.hint = hint
+        self.details = details or {}
+
+
+def _type_ok(value, expected: str | None) -> bool:
+    return TYPE_CHECKS.get(expected, _always_true)(value)
 
 
 def _validate_tool_arguments(tool: dict, args: dict) -> list[dict[str, str]]:
@@ -210,7 +249,7 @@ def _as_float(value, default: float = 0.0) -> float:
 
 def _dispatch_tool(name: str, args: dict) -> dict:
     if not isinstance(args, dict):
-        return _result(dump({"ok": False, "error": "工具参数必须是 JSON 对象"}))
+        raise ToolError("INVALID_PARAMS", "工具参数必须是 JSON 对象", "检查 arguments")
     if name == "get_lesson_template":
         return _result(dump({"skeleton": empty_plan()}))
     if name == "draft_lesson_plan":
@@ -246,7 +285,7 @@ def _dispatch_tool(name: str, args: dict) -> dict:
                 no_counterexample=bool(args.get("noCounterexample")),
             )
         except (TypeError, ValueError) as exc:
-            return _result(dump({"ok": False, "error": str(exc)}))
+            raise ToolError("REVIEW_REJECTED", str(exc), "检查轮次、finding 或审校方式") from exc
         return _result(dump(report))
     if name == "read_lesson_review":
         plan = args.get("plan") or {}
@@ -264,7 +303,7 @@ def _dispatch_tool(name: str, args: dict) -> dict:
                 strict_teacher=bool(args.get("strictTeacher")),
             )
         except (TypeError, ValueError, AttributeError) as exc:
-            return _result(dump({"ok": False, "error": str(exc)}))
+            raise ToolError("OVERRIDE_REJECTED", str(exc), "检查问题 ID、教师姓名与放行原因") from exc
         return _result(dump({"ok": True, "override": override, "reviewReport": report}))
     if name == "export_lesson_docx":
         plan = args.get("plan") or args
@@ -275,7 +314,12 @@ def _dispatch_tool(name: str, args: dict) -> dict:
             strict_independence=bool(args.get("strictIndependence")),
         )
         if not gate["ok"]:
-            return _result(dump({"ok": False, "reasons": gate["reasons"]}))
+            raise ToolError(
+                "GATE_REJECTED",
+                "导出被门禁拒绝",
+                "；".join(gate["reasons"]),
+                {"reasons": gate["reasons"]},
+            )
         out = Path(args.get("outputPath") or f"教案_第{plan.get('week')}周第{plan.get('session')}次.docx")
         base_dir = Path(str(args["baseDir"])) if args.get("baseDir") else out.parent
         independence = None
@@ -290,10 +334,15 @@ def _dispatch_tool(name: str, args: dict) -> dict:
                 strict_metadata=bool(args.get("strictMetadata")),
             )
         except ValueError as exc:
-            return _result(dump({"ok": False, "reasons": [str(exc)]}))
+            raise ToolError("INVALID_INPUT", str(exc), "检查导出参数", {"reasons": [str(exc)]}) from exc
         check = self_check(Path(result["path"]), plan, result["media"])
         if not check["ok"]:
-            return _result(dump({"ok": False, "reasons": ["导出后自检未通过"], "selfCheck": check}))
+            raise ToolError(
+                "EXPORT_SELF_CHECK_FAILED",
+                "导出后自检未通过",
+                "检查页脚与媒体文件",
+                {"selfCheck": check},
+            )
         return _result(dump({
             "ok": True,
             "path": str(result["path"]),
@@ -304,12 +353,21 @@ def _dispatch_tool(name: str, args: dict) -> dict:
         }))
     if name == "score_against_samples":
         return _result(dump(score_against_examples(args.get("plan") or args)))
-    return _result(json.dumps({"error": f"unknown tool {name}"}))
+    raise ToolError("METHOD_NOT_FOUND", f"未知工具：{name}", "检查 tools/list")
 
 
 def call_tool(name: str, args: dict) -> dict:
     try:
         return _dispatch_tool(name, args)
+    except ToolError as exc:
+        payload = {
+            "ok": False,
+            "error": exc.message,
+            "code": exc.code,
+            "hint": exc.hint,
+        }
+        payload.update(exc.details)
+        return _result(dump(payload))
     except Exception as exc:  # noqa: BLE001 - 工具边界必须兜底，服务不能退出
         return _result(
             dump({"ok": False, "error": {"code": "TOOL_ERROR", "message": str(exc)}})
@@ -372,6 +430,17 @@ def handle(msg: dict) -> dict | None:
             )
         try:
             result = _dispatch_tool(name, args)
+        except ToolError as exc:
+            code = {
+                "METHOD_NOT_FOUND": METHOD_NOT_FOUND,
+                "INVALID_PARAMS": INVALID_PARAMS,
+            }.get(exc.code, INTERNAL_ERROR)
+            return _jsonrpc_error(
+                mid,
+                code,
+                "工具执行失败",
+                {"code": exc.code, "message": exc.message, "hint": exc.hint},
+            )
         except Exception as exc:  # noqa: BLE001 - 单个工具失败不得终止 stdio 服务
             return _jsonrpc_error(
                 mid,

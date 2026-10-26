@@ -189,6 +189,28 @@ class TestMcp(unittest.TestCase):
         self.assertEqual(response["reviewReport"]["status"], "passed_with_accepted_minor")
         self.assertEqual(response["reviewReport"]["overrides"][0]["kind"], "minor_acceptance")
 
+    def test_mcp_type_checks_are_table_driven(self) -> None:
+        module = load_mcp("lesson_plan_mcp_type_checks")
+        cases = [
+            ("object", {}, True),
+            ("object", [], False),
+            ("integer", 2, True),
+            ("integer", True, False),
+            ("number", 2.0, True),
+            ("number", False, False),
+            ("string", "x", True),
+            ("string", 1, False),
+            ("boolean", True, True),
+            ("boolean", 1, False),
+            ("array", [], True),
+            ("array", {}, False),
+        ]
+        for expected, value, wanted in cases:
+            with self.subTest(expected=expected, value=value):
+                self.assertEqual(module._type_ok(value, expected), wanted)
+        self.assertTrue(module._type_ok("anything", None))
+        self.assertTrue(module._type_ok("anything", "unknown"))
+
     def test_mcp_handle_rejects_missing_required_argument(self) -> None:
         module = load_mcp("lesson_plan_mcp_missing_arg")
         reply = module.handle({

@@ -37,5 +37,6 @@ codex --plugin-dir ./plugins/lesson-plan-design
 ```toml
 [mcp_servers.lesson-plan]
 command = "py"
-args = ["-3", "C:/Users/17841/Desktop/毕业设计/plugins/lesson-plan-design/scripts/mcp_server.py"]
+# Codex TOML 不展开 ${PLUGIN_ROOT}，复制后把 <仓库绝对路径> 换成你的仓库路径
+args = ["-3", "<仓库绝对路径>/plugins/lesson-plan-design/scripts/mcp_server.py"]
 ```
