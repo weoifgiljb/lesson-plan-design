@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""教案 MCP：stdio JSON-RPC，工具实现复用技能 scripts/lib.py。"""
+"""教案 MCP：stdio JSON-RPC，工具实现复用技能 scripts/lib.py。
+
+工具边界：参数按 inputSchema 校验，单个请求失败只返回结构化错误，不终止服务。
+"""
 from __future__ import annotations
 
 import json
@@ -23,6 +26,73 @@ from lib import (  # type: ignore
 )
 
 SERVER_INFO = {"name": "lesson-plan-design", "version": "1.0.0"}
+
+PARSE_ERROR = -32700
+INVALID_REQUEST = -32600
+METHOD_NOT_FOUND = -32601
+INVALID_PARAMS = -32602
+INTERNAL_ERROR = -32603
+
+TYPE_LABELS = {
+    "object": "对象",
+    "integer": "整数",
+    "number": "数字",
+    "string": "字符串",
+    "boolean": "布尔值",
+    "array": "数组",
+}
+
+
+def _jsonrpc_error(mid, code: int, message: str, data: dict | None = None) -> dict:
+    error: dict = {"code": code, "message": message}
+    if data is not None:
+        error["data"] = data
+    return {"jsonrpc": "2.0", "id": mid, "error": error}
+
+
+def _type_ok(value, expected: str | None) -> bool:
+    if expected is None:
+        return True
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "boolean":
+        return isinstance(value, bool)
+    if expected == "array":
+        return isinstance(value, list)
+    return True
+
+
+def _validate_tool_arguments(tool: dict, args: dict) -> list[dict[str, str]]:
+    schema = tool.get("inputSchema") or {}
+    errors: list[dict[str, str]] = []
+    if not isinstance(args, dict):
+        return [{"path": "arguments", "message": "工具参数必须是 JSON 对象"}]
+    for name in schema.get("required", []):
+        if name not in args:
+            errors.append({"path": name, "message": f"缺少必填参数：{name}"})
+    for name, spec in (schema.get("properties") or {}).items():
+        if name not in args or not isinstance(spec, dict):
+            continue
+        expected = spec.get("type")
+        if not _type_ok(args[name], expected):
+            errors.append(
+                {
+                    "path": name,
+                    "message": f"参数 {name} 须为{TYPE_LABELS.get(expected, expected)}",
+                }
+            )
+        enum = spec.get("enum")
+        if enum and args[name] not in enum:
+            options = "、".join(str(item) for item in enum)
+            errors.append({"path": name, "message": f"参数 {name} 须为 {options}"})
+    return errors
+
 
 TOOLS = [
     {
@@ -124,7 +194,7 @@ def _result(text: str) -> dict:
     return {"content": [{"type": "text", "text": text}]}
 
 
-def call_tool(name: str, args: dict) -> dict:
+def _dispatch_tool(name: str, args: dict) -> dict:
     if not isinstance(args, dict):
         return _result(dump({"ok": False, "error": "工具参数必须是 JSON 对象"}))
     if name == "get_lesson_template":
@@ -187,33 +257,92 @@ def call_tool(name: str, args: dict) -> dict:
     return _result(json.dumps({"error": f"unknown tool {name}"}))
 
 
+def call_tool(name: str, args: dict) -> dict:
+    try:
+        return _dispatch_tool(name, args)
+    except Exception as exc:  # noqa: BLE001 - 工具边界必须兜底，服务不能退出
+        return _result(
+            dump({"ok": False, "error": {"code": "TOOL_ERROR", "message": str(exc)}})
+        )
+
+
 def handle(msg: dict) -> dict | None:
+    if not isinstance(msg, dict):
+        return _jsonrpc_error(
+            None,
+            INVALID_REQUEST,
+            "请求必须是 JSON 对象",
+            {"code": "INVALID_REQUEST", "message": "请求必须是 JSON 对象"},
+        )
     mid = msg.get("id")
     method = msg.get("method")
+    if not isinstance(method, str) or not method:
+        return _jsonrpc_error(
+            mid,
+            INVALID_REQUEST,
+            "缺少 method",
+            {"code": "INVALID_REQUEST", "message": "缺少 method"},
+        )
     if method == "initialize":
+        params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
         return {
             "jsonrpc": "2.0",
             "id": mid,
             "result": {
-                "protocolVersion": msg.get("params", {}).get("protocolVersion", "2024-11-05"),
+                "protocolVersion": params.get("protocolVersion", "2024-11-05"),
                 "capabilities": {"tools": {}},
                 "serverInfo": SERVER_INFO,
             },
         }
     if method == "notifications/initialized" or method == "initialized":
         return None
+    if method.startswith("notifications/"):
+        return None
     if method == "tools/list":
         return {"jsonrpc": "2.0", "id": mid, "result": {"tools": TOOLS}}
     if method == "tools/call":
-        params = msg.get("params") or {}
+        params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
         name = params.get("name")
         args = params.get("arguments") or {}
-        return {"jsonrpc": "2.0", "id": mid, "result": call_tool(name, args)}
+        tool = next((item for item in TOOLS if item.get("name") == name), None)
+        if tool is None:
+            return _jsonrpc_error(
+                mid,
+                METHOD_NOT_FOUND,
+                "未知工具",
+                {"code": "METHOD_NOT_FOUND", "message": f"未知工具：{name}"},
+            )
+        errors = _validate_tool_arguments(tool, args)
+        if errors:
+            return _jsonrpc_error(
+                mid,
+                INVALID_PARAMS,
+                "工具参数不合法",
+                {"code": "INVALID_PARAMS", "message": "工具参数不合法", "details": errors},
+            )
+        try:
+            result = _dispatch_tool(name, args)
+        except Exception as exc:  # noqa: BLE001 - 单个工具失败不得终止 stdio 服务
+            return _jsonrpc_error(
+                mid,
+                INTERNAL_ERROR,
+                "工具执行失败",
+                {"code": "TOOL_ERROR", "message": str(exc)},
+            )
+        return {"jsonrpc": "2.0", "id": mid, "result": result}
     if method == "ping":
         return {"jsonrpc": "2.0", "id": mid, "result": {}}
-    if mid is not None:
-        return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": method}}
-    return None
+    return _jsonrpc_error(
+        mid,
+        METHOD_NOT_FOUND,
+        "未知方法",
+        {"code": "METHOD_NOT_FOUND", "message": f"未知方法：{method}"},
+    )
+
+
+def _write(reply: dict) -> None:
+    sys.stdout.write(json.dumps(reply, ensure_ascii=False) + "\n")
+    sys.stdout.flush()
 
 
 def main() -> None:
@@ -223,12 +352,28 @@ def main() -> None:
             continue
         try:
             msg = json.loads(line)
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
+            _write(
+                _jsonrpc_error(
+                    None,
+                    PARSE_ERROR,
+                    "JSON 解析失败",
+                    {"code": "PARSE_ERROR", "message": str(exc)},
+                )
+            )
             continue
-        reply = handle(msg)
+        try:
+            reply = handle(msg)
+        except Exception as exc:  # noqa: BLE001 - 保持 stdio 服务存活
+            mid = msg.get("id") if isinstance(msg, dict) else None
+            reply = _jsonrpc_error(
+                mid,
+                INTERNAL_ERROR,
+                "内部错误",
+                {"code": "TOOL_ERROR", "message": str(exc)},
+            )
         if reply is not None:
-            sys.stdout.write(json.dumps(reply, ensure_ascii=False) + "\n")
-            sys.stdout.flush()
+            _write(reply)
 
 
 if __name__ == "__main__":
