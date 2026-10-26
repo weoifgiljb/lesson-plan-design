@@ -6,12 +6,11 @@ import json
 import os
 import re
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from support import PLUGIN_ROOT  # noqa: F401  # 先把 scripts 加入 sys.path
+from support import PLUGIN_ROOT, tempdir  # noqa: F401  # 先把 scripts 加入 sys.path
 from _runtime import resolve_python, run_python, utf8_env
 
 
@@ -40,7 +39,7 @@ class TestRuntime(unittest.TestCase):
         )
 
     def test_run_python_decodes_chinese(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             script = Path(tmp) / "say.py"
             script.write_text("import sys\nsys.stdout.write('中文')\n", encoding="utf-8")
             proc = run_python(script)
@@ -48,7 +47,7 @@ class TestRuntime(unittest.TestCase):
         self.assertIn("中文", proc.stdout)
 
     def test_run_python_replaces_undecodable_output(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             script = Path(tmp) / "bad.py"
             script.write_text(
                 "import sys\nsys.stdout.buffer.write(b'\\xb2')\n",

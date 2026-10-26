@@ -185,7 +185,7 @@ Codex harness：**Rules 常驻、Skill 按需、Examples 金标准、Hooks 确�
 
 ## 安装
 
-- Cursor / Claude Code / Codex：[docs/ide-setup.md](../../docs/ide-setup.md)
-- 飞书：[docs/feishu-miaoda-setup.md](../../docs/feishu-miaoda-setup.md)
-- Qoder：[docs/qoder-setup.md](../../docs/qoder-setup.md)
-- CodeBuddy：[docs/codebuddy-setup.md](../../docs/codebuddy-setup.md)
+- Cursor / Claude Code / Codex：[docs/setup/ide-setup.md](../../docs/setup/ide-setup.md)
+- 飞书：[docs/setup/feishu-miaoda-setup.md](../../docs/setup/feishu-miaoda-setup.md)
+- Qoder：[docs/setup/qoder-setup.md](../../docs/setup/qoder-setup.md)
+- CodeBuddy：[docs/setup/codebuddy-setup.md](../../docs/setup/codebuddy-setup.md)

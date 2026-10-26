@@ -5,12 +5,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
-from support import PLUGIN_ROOT, load_mcp, utf8_env
+from support import PLUGIN_ROOT, load_mcp, tempdir, utf8_env
 from lib import adversarial_review, draft_plan
 
 
@@ -81,7 +80,7 @@ class TestMcp(unittest.TestCase):
             "reviewerMode": "native_subagent",
             "noCounterexample": True,
         })["content"][0]["text"])
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             output_path = Path(tmp) / "exported.docx"
             exported = json.loads(module.call_tool("export_lesson_docx", {
                 "plan": plan,
@@ -107,7 +106,7 @@ class TestMcp(unittest.TestCase):
             "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
             "0000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082"
         )
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             lesson_dir = Path(tmp)
             (lesson_dir / "page-003.png").write_bytes(png_bytes)
             output_path = lesson_dir / "exported.docx"

@@ -6,11 +6,10 @@ import json
 import shutil
 import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
-from support import SCRIPTS_DIR, utf8_env
+from support import SCRIPTS_DIR, tempdir, utf8_env
 from lib import EXAMPLES_DIR, check_examples, load_examples, plan_hash
 
 
@@ -36,7 +35,7 @@ class TestExamplesIndex(unittest.TestCase):
             self.assertEqual(item["session"], plan.get("session"))
 
     def test_stale_hash_is_reported(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             for path in EXAMPLES_DIR.glob("*.json"):
                 shutil.copy2(path, root / path.name)
@@ -49,7 +48,7 @@ class TestExamplesIndex(unittest.TestCase):
         self.assertIn(target.name, result["stale"])
 
     def test_missing_index_is_reported(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             for path in EXAMPLES_DIR.glob("*.json"):
                 if path.name != "index.json":
@@ -60,7 +59,7 @@ class TestExamplesIndex(unittest.TestCase):
 
     def test_sync_write_then_check(self) -> None:
         script = SCRIPTS_DIR / "sync_examples.py"
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             for path in EXAMPLES_DIR.glob("*.json"):
                 if path.name != "index.json":

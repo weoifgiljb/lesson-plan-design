@@ -2,12 +2,11 @@
 """格式探测、LibreOffice 降级与 PDF 页数。"""
 from __future__ import annotations
 
-import tempfile
 import unittest
 import zlib
 from pathlib import Path
 
-from support import write_flate_pages_pdf, write_pages_pdf, write_pdf
+from support import tempdir, write_flate_pages_pdf, write_pages_pdf, write_pdf
 from capture_ebook import (
     CaptureError,
     PDF_INFLATE_MAX_BYTES,
@@ -30,7 +29,7 @@ class TestAdapters(unittest.TestCase):
             detect_kind(Path("a.txt"))
 
     def test_ppt_without_libreoffice_fails(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             ppt = Path(tmp) / "old.ppt"
             ppt.write_bytes(b"fake")
             with self.assertRaises(CaptureError) as ctx:
@@ -38,25 +37,25 @@ class TestAdapters(unittest.TestCase):
             self.assertIn("LibreOffice", str(ctx.exception))
 
     def test_pdf_page_count(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             pdf = Path(tmp) / "one.pdf"
             write_minimal_pdf(pdf, "Hello ebook")
             self.assertEqual(pdf_page_count(pdf), 1)
 
     def test_pdf_page_count_when_count_precedes_type(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             pdf = Path(tmp) / "count-first.pdf"
             write_pages_pdf(pdf, page_count=3, count_before_type=True)
             self.assertEqual(pdf_page_count(pdf), 3)
 
     def test_pdf_page_count_reads_flate_pages_dict(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             pdf = Path(tmp) / "flate.pdf"
             write_flate_pages_pdf(pdf, page_count=4)
             self.assertEqual(pdf_page_count(pdf), 4)
 
     def test_pdf_page_count_skips_image_streams(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             pdf = Path(tmp) / "image-count.pdf"
             fake = zlib.compress(b"<< /Type /Pages /Count 99 /Kids [] >>")
             image_stream = (
@@ -78,7 +77,7 @@ class TestAdapters(unittest.TestCase):
             self.assertEqual(pdf_page_count(pdf), 3)
 
     def test_pdf_page_count_skips_large_streams(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             pdf = Path(tmp) / "large-stream.pdf"
             payload = zlib.compress(b"<< /Type /Pages /Count 88 /Kids [] >>")
             pad = PDF_INFLATE_MAX_BYTES + 1 - len(payload)

@@ -1,0 +1,357 @@
+{
+  "contractVersion": "1",
+  "source": "功能优化需求-BS平台端.md v1.1 §5.2、§5.3、§5.5",
+  "updatedAt": "2026-10-26",
+  "versions": {
+    "schemaVersion": 1,
+    "rubricVersion": "1.0",
+    "rulesVersion": "1.1.0",
+    "engineVersion": "1.0.0"
+  },
+  "roles": [
+    "teacher",
+    "lead",
+    "admin"
+  ],
+  "roleLabels": {
+    "teacher": "任课教师",
+    "lead": "教研组长",
+    "admin": "系统管理员"
+  },
+  "errorCodes": [
+    { "code": "AUTH_REQUIRED", "http": 401, "zh": "未登录", "scene": "无会话访问业务接口" },
+    { "code": "FORBIDDEN", "http": 403, "zh": "无权限", "scene": "越权访问他人资源或管理员接口" },
+    { "code": "NOT_FOUND", "http": 404, "zh": "不存在", "scene": "id 无效或已软删除" },
+    { "code": "CONFLICT_STALE", "http": 409, "zh": "版本冲突", "scene": "baseHash 与服务端头版本不一致" },
+    { "code": "HASH_MISMATCH", "http": 422, "zh": "哈希不符", "scene": "教案内容被篡改或传输损坏" },
+    { "code": "SCHEMA_UNSUPPORTED", "http": 422, "zh": "版本不支持", "scene": "未知 schemaVersion 或 rubricVersion" },
+    { "code": "STRUCTURE_INVALID", "http": 422, "zh": "结构校验失败", "scene": "复校未通过，附 issue 列表" },
+    { "code": "REPORT_INCONSISTENT", "http": 422, "zh": "报告不一致", "scene": "报告哈希、轮次、状态、放行与教案不符" },
+    { "code": "MEDIA_MISSING", "http": 422, "zh": "媒体缺失", "scene": "媒体文件缺失或哈希不符" },
+    { "code": "PAYLOAD_REJECTED", "http": 422, "zh": "包内容被拒", "scene": "zip 条目含 ..、绝对路径、符号链接或非白名单文件" },
+    { "code": "PAYLOAD_TOO_LARGE", "http": 413, "zh": "请求过大", "scene": "单包超过 50 MB" },
+    { "code": "RATE_LIMITED", "http": 429, "zh": "触发限流", "scene": "登录或导入过于频繁" },
+    { "code": "INTERNAL", "http": 500, "zh": "服务端错误", "scene": "未预期异常，附 traceId" }
+  ],
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "summary": "登录",
+      "auth": false,
+      "roles": [],
+      "csrf": false,
+      "idempotent": false,
+      "status": [200, 401, 429],
+      "client": "ui"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "summary": "退出",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": true,
+      "idempotent": true,
+      "status": [200, 401],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/me",
+      "summary": "当前用户与角色",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks",
+      "summary": "任务列表",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "ui"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks",
+      "summary": "创建任务",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": true,
+      "idempotent": false,
+      "status": [201, 401, 403, 409, 422],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tasks/{id}/package",
+      "summary": "下载任务包",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/import",
+      "summary": "契约包入库",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": true,
+      "idempotent": true,
+      "status": [201, 200, 401, 403, 409, 413, 415, 422, 429],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans",
+      "summary": "教案列表与筛选",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{id}",
+      "summary": "教案详情",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{id}/versions",
+      "summary": "版本链",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{id}/diff",
+      "summary": "两版差异",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/plans/{id}",
+      "summary": "软删除",
+      "auth": true,
+      "roles": ["teacher", "admin"],
+      "csrf": true,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/reviews",
+      "summary": "审查列表",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/reviews/{id}",
+      "summary": "审查详情与证据链",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/sync/head",
+      "summary": "服务端头版本",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "plugin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/sync/pull",
+      "summary": "增量拉取",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "plugin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/sync/push",
+      "summary": "推送契约包",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": true,
+      "idempotent": true,
+      "status": [201, 200, 401, 403, 409, 413, 415, 422, 429],
+      "client": "plugin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/exports",
+      "summary": "创建批量导出",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": true,
+      "idempotent": true,
+      "status": [201, 200, 401, 403, 422],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exports/{id}",
+      "summary": "导出状态",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/exports/{id}/download",
+      "summary": "下载产物",
+      "auth": true,
+      "roles": ["teacher", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403, 404],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/stats/summary",
+      "summary": "指标汇总",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/samples",
+      "summary": "样例列表",
+      "auth": true,
+      "roles": ["teacher", "lead", "admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401],
+      "client": "ui"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/samples",
+      "summary": "上传样例并校验",
+      "auth": true,
+      "roles": ["admin"],
+      "csrf": true,
+      "idempotent": false,
+      "status": [201, 401, 403, 409, 422],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/audit",
+      "summary": "审计查询",
+      "auth": true,
+      "roles": ["admin", "lead"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users",
+      "summary": "用户列表",
+      "auth": true,
+      "roles": ["admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "ui"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/users",
+      "summary": "新建用户与角色",
+      "auth": true,
+      "roles": ["admin"],
+      "csrf": true,
+      "idempotent": false,
+      "status": [201, 401, 403, 409, 422],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/settings/engine",
+      "summary": "引擎与模板版本",
+      "auth": true,
+      "roles": ["admin"],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 401, 403],
+      "client": "ui"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/settings/engine",
+      "summary": "切换引擎版本",
+      "auth": true,
+      "roles": ["admin"],
+      "csrf": true,
+      "idempotent": false,
+      "status": [200, 401, 403, 422],
+      "client": "ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "summary": "健康检查",
+      "auth": false,
+      "roles": [],
+      "csrf": false,
+      "idempotent": true,
+      "status": [200, 503],
+      "client": "internal"
+    }
+  ]
+}

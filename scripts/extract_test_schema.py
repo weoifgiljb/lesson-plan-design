@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""从 测试用例_markmap.md 抽取 测试用例.schema.yaml。
+"""从 docs/testing/测试用例_markmap.md 抽取 docs/testing/测试用例.schema.yaml。
 
 按 .dsh/skills/core/schema-extraction.md 的三层形态输出：meta / modules / cases。
 不依赖 PyYAML；字符串统一用 JSON 双引号形式（合法 YAML 标量）。
@@ -216,8 +216,8 @@ def emit(modules: list[dict], cases: list[dict], source: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="抽取测试用例 schema")
-    parser.add_argument("--markmap", default=str(ROOT / "测试用例_markmap.md"))
-    parser.add_argument("--out", default=str(ROOT / "测试用例.schema.yaml"))
+    parser.add_argument("--markmap", default=str(ROOT / "docs" / "testing" / "测试用例_markmap.md"))
+    parser.add_argument("--out", default=str(ROOT / "docs" / "testing" / "测试用例.schema.yaml"))
     args = parser.parse_args()
     source = Path(args.markmap)
     modules, raw_cases, refs = parse(source)
