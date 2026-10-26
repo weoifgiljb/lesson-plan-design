@@ -13,6 +13,7 @@ from test_export_gate import TestExportGate  # noqa: F401
 from test_hooks import TestHooks  # noqa: F401
 from test_mcp import TestMcp  # noqa: F401
 from test_review import TestReview  # noqa: F401
+from test_standards import TestStandards  # noqa: F401
 from test_validate import TestValidate  # noqa: F401
 
 if __name__ == "__main__":

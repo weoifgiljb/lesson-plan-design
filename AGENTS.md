@@ -13,6 +13,16 @@
 9. **冲突不整体丢弃**：解决合并冲突时逐个文件确认，禁止用 `--ours`/`--theirs` 覆盖对方改动。
 10. **不提交**：`node_modules/`、`output/`、`.dsh/`、`.codex_audio_tmp/`、个人临时文件与含学生信息的材料；生成物与源文件同批提交，保证可复现。
 
+## 代码组织硬约束
+
+完整规范见 `skills/code-standards/SKILL.md` 与 `docs/代码规范与重构计划.md`。
+
+11. **路径**：已跟踪文件不写本机绝对路径；用 `${PLUGIN_ROOT}`、`Path(__file__).resolve().parents[n]` 或 `<仓库根目录>` 占位。
+12. **映射**：类型、状态、错误码、severity 等封闭集合用常量表/映射，不写长 `if` 链。
+13. **分层**：domain（模型/校验/评分/审查/门禁）不 import CLI/MCP/DOCX；adapters 只做协议适配。
+14. **单一边界**：业务函数只抛异常；CLI/MCP 各保留一个错误适配层；审查状态只由 `derive_review_status(findings)` 推导。
+15. **拆分纪律**：先补测试再搬代码，保留 `lib.py`/`export_docx.py`/`mcp_server.py` 兼容入口；单函数建议 ≤50 行、单模块建议 ≤400 行，超出在 PR 说明。
+
 ## 当前分支基线（2026-10-26）
 
 - `main`：`9bc7fbb`（发布分支）
