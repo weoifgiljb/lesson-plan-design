@@ -232,6 +232,7 @@ src/
 - 生成快照：`docs/api/openapi.v1.json`，由 `py -3 scripts/run_backend_gate.py --update-contract` 生成；只允许随契约变更一起更新。
 - 前端类型：`src/frontend/src/api/types.gen.ts`，首行写快照哈希，闸门比对。
 - 版本白名单：`schemaVersion=1`、`rubricVersion=1.0`、`rulesVersion=1.1.0`、`engineVersion=1.0.0`；未知版本一律 422 `SCHEMA_UNSUPPORTED` 并列出支持版本。
+- 当前状态：`openapi.v1.json` 与 `types.gen.ts` 尚未生成（后端/前端未开工），契约闸门在 `src/backend` 出现前整组 skip；首个后端 PR 完成 `--update-contract` 后，快照与前端类型必须同批提交。
 - 错误码单一来源：`app/domain/errors.py::ERROR_CODES` ⇔ `contract.v1.json` ⇔ `src/frontend/src/api/errors.ts`，三处集合必须相等（闸门 BC-05）。
 
 ## 7 开发流程（前后端分开）

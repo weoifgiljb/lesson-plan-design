@@ -63,7 +63,7 @@ py -3 scripts/run_backend_gate.py --update-contract   # 仅刷新 OpenAPI 快照
 
 - `src/backend` 不存在 → `skipped: true, ok: true`，退出码 0（后端未开工时门禁不空转）。
 - 退出码只看 `blocks`；`warns` 需要 PR 说明，不阻塞。
-- `--update-contract` 只允许更新 `docs/api/openapi.v1.json` 快照；它不能修改 `contract.v1.json`（契约变更必须手改并评审）。
+- `--update-contract` 只允许更新 `docs/api/openapi.v1.json` 快照；它不能修改 `contract.v1.json`（契约变更必须手改并评审）。该快照在首个后端 PR 生成并提交，此前契约闸门整组 skip。
 - 所有脚本只读源码，不修改被检查文件（`--update-contract` 除外），可以被 CI 或本地随手跑。
 
 ## 3 G1 架构闸门（BA）
