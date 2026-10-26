@@ -149,9 +149,9 @@
 
 ### 3.2 审查报告
 
-报告字段：`schemaVersion`、`rubricVersion`、`planHash`、`round`、`reviewer`、`reviewedAt`、`structuralValidation`、`findings`、`overrides`、`repairHistory`、`attestation`、`status`、`conclusion`。
+报告字段：`schemaVersion`、`rubricVersion`、`toolVersion`、`planHash`、`planSnapshot`、`round`、`duplicateReview`、`reviewer`、`reviewedAt`、`structuralValidation`、`findings`、`overrides`、`repairHistory`、`attestation`、`status`、`conclusion`。
 
-状态集合：`structure_invalid`、`pending_reviewer`、`needs_repair`、`passed`、`passed_with_override`、`passed_with_accepted_minor`。一轮最多一条 finding；`blocker` 与 `major` 未关闭时必须修复或教师实名放行；`minor` 未接受时阻断导出，接受记录写入 `overrides`（`kind=minor_acceptance`）；`passed` 必须带 `no_counterexample` 声明。
+状态集合：`structure_invalid`、`pending_reviewer`、`needs_repair`、`passed`、`passed_with_override`、`passed_with_accepted_minor`。一轮最多一条 finding；`blocker` 与 `major` 未关闭时必须修复或教师实名放行；`minor` 未接受时阻断导出，接受记录写入 `overrides`（`kind=minor_acceptance`）；`passed` 必须带 `no_counterexample` 声明。`round` 必须等于上一轮加一，首轮为 1；同一 `planHash` 的重复审校写入 `duplicateReview=true`；`planSnapshot` 保存被审教案，供离线复核。
 
 平台端只读报告，不修改报告；需要放行时，教师在插件端完成并重新上传报告，平台端以新版本接收。
 

@@ -658,12 +658,28 @@ def adversarial_review(
         raise ValueError("previousReport 必须是 JSON 对象")
     if finding and no_counterexample:
         raise ValueError("不能同时提交反例并声明无反例")
+    if previous_report is not None:
+        previous_round = previous_report.get("round")
+        if not isinstance(previous_round, int) or previous_round < 1:
+            raise ValueError("上一轮报告缺少有效轮次")
+        expected_round = previous_round + 1
+    else:
+        expected_round = 1
+    if round_number != expected_round:
+        raise ValueError(f"轮次必须为 {expected_round}，收到 {round_number}")
+    plan_snapshot = json.loads(json.dumps(plan, ensure_ascii=False))
+    duplicate_review = bool(
+        previous_report is not None and previous_report.get("planHash") == plan_hash(plan)
+    )
     structural = validate_plan(plan)
     report: dict[str, Any] = {
         "schemaVersion": REVIEW_SCHEMA_VERSION,
         "rubricVersion": RUBRIC_VERSION,
+        "toolVersion": TOOL_VERSION,
         "planHash": plan_hash(plan),
+        "planSnapshot": plan_snapshot,
         "round": round_number,
+        "duplicateReview": duplicate_review,
         "reviewer": reviewer,
         "reviewedAt": datetime.now(timezone.utc).isoformat(),
         "structuralValidation": {key: value for key, value in structural.items() if key != "plan"},
@@ -672,7 +688,7 @@ def adversarial_review(
         "repairHistory": [],
         "attestation": None,
     }
-    if previous_report:
+    if previous_report is not None:
         report["repairHistory"] = list(previous_report.get("repairHistory", [])) + [
             {
                 "round": previous_report.get("round"),
@@ -837,6 +853,12 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
         reasons.append("审查量规版本不受支持")
     if report.get("planHash") != plan_hash(plan):
         reasons.append("审查报告与当前教案内容不匹配")
+    snapshot = report.get("planSnapshot")
+    if snapshot is not None:
+        if not isinstance(snapshot, dict):
+            reasons.append("审查报告快照格式无效")
+        elif plan_hash(snapshot) != report.get("planHash"):
+            reasons.append("审查报告快照与教案哈希不匹配")
     if not isinstance(report.get("structuralValidation"), dict) or not report["structuralValidation"].get("ok"):
         reasons.append("审查报告显示结构校验未通过")
     report_status = report.get("status")
