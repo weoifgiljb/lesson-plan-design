@@ -47,10 +47,10 @@ class TestValidate(unittest.TestCase):
         plan = draft_plan(1, 1, "测试课题")
         plan["activityFlow"]["taskImplementation"] = [
             {
-                "mainContent": "完成个人名片程序",
+                "mainContent": "必须完成：完成个人名片程序",
                 "teacherActivity": "演示调试",
                 "studentActivity": "编写并运行",
-                "minutes": 20,
+                "minutes": plan["plannedHours"] * 45,
                 "evidence": "提交 C01_学号.c",
             }
         ]
@@ -64,3 +64,79 @@ class TestValidate(unittest.TestCase):
         self.assertTrue(flow["knowledgeLearning"][0]["mainContent"])
         self.assertTrue(flow["taskImplementation"][0]["studentActivity"])
         self.assertTrue(flow["taskImplementation"][0]["evidence"])
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+
+    def test_structured_task_without_must_do_fails(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["taskImplementation"] = [
+            {
+                "mainContent": "完成练习",
+                "studentActivity": "编写并运行程序",
+                "evidence": "提交结果文件",
+            }
+        ]
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any(item["path"] == "activityFlow.taskImplementation" for item in result["issues"])
+        )
+
+    def test_minutes_total_mismatch_fails(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        tolerance = 5
+        expected = plan["plannedHours"] * 45
+        plan["activityFlow"]["introduction"] = [
+            {"mainContent": "导入", "minutes": expected + tolerance}
+        ]
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any(item["path"] == "activityFlow" and "分钟" in item["message"] for item in result["issues"])
+        )
+        tolerated = validate_plan(plan, minutes_tolerance=tolerance)
+        self.assertTrue(tolerated["ok"], tolerated["issues"])
+
+    def test_missing_minutes_is_warning_only(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["introduction"] = [{"mainContent": "导入"}]
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+        self.assertTrue(any("分钟" in item["message"] for item in result["warnings"]))
+
+    def test_missing_week_reports_single_issue(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        del plan["week"]
+        result = validate_plan(plan)
+        hits = [item for item in result["issues"] if item["path"] == "week"]
+        self.assertEqual(len(hits), 1)
+
+    def test_bool_week_rejected(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["week"] = True
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        hits = [item for item in result["issues"] if item["path"] == "week"]
+        self.assertEqual(len(hits), 1)
+        self.assertFalse(any("不能为空" in item["message"] for item in hits))
+
+    def test_catalog_detail_conflict_warns_by_default(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第1、2套")
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+        self.assertTrue(any(item["path"] == "contentDetail" for item in result["warnings"]))
+        strict = validate_plan(plan, strict=True)
+        self.assertFalse(strict["ok"])
+        self.assertTrue(any(item["path"] == "contentDetail" for item in strict["issues"]))
+
+    def test_rule_version_and_warnings_are_exposed(self) -> None:
+        result = validate_plan(draft_plan(1, 1, "测试课题"))
+        self.assertEqual(result["ruleVersion"], "1.1.0")
+        self.assertIsInstance(result["warnings"], list)
+
+    def test_issue_order_is_stable(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        del plan["abilityGoals"]
+        del plan["knowledgeGoals"]
+        paths = [item["path"] for item in validate_plan(plan)["issues"]]
+        self.assertEqual(paths, sorted(paths))

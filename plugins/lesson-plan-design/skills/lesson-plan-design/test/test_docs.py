@@ -31,3 +31,10 @@ class TestDocs(unittest.TestCase):
         write_text = (PLUGIN_ROOT / "commands" / "write-lesson-plan.md").read_text(encoding="utf-8")
         self.assertIn("mediaAssets", write_text)
         self.assertIn("Markdown", write_text)
+
+    def test_validation_docs_mention_new_rules(self) -> None:
+        validation_text = (SKILL_DIR / "references" / "validation.md").read_text(encoding="utf-8")
+        schema_text = (SKILL_DIR / "references" / "schema.md").read_text(encoding="utf-8")
+        for term in ("strict", "分钟", "warnings", "ruleVersion"):
+            self.assertIn(term, validation_text)
+        self.assertIn("分钟", schema_text)
