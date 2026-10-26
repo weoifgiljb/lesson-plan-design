@@ -175,6 +175,9 @@ Codex harness：**Rules 常驻、Skill 按需、Examples 金标准、Hooks 确�
 | 技能 | `skills/lesson-plan-design/SKILL.md` |
 | 金标准 | `skills/lesson-plan-design/examples/*.json`（7 份） |
 | 校验/导出 | `skills/lesson-plan-design/scripts/` |
+| 领域组件 | `scripts/lesson_plan/`（model/validation/scoring/review/gate/examples/draft） |
+| DOCX 组件 | `scripts/docx_export/`（layout/content/metadata/footer/selfcheck/build） |
+| MCP 组件 | `scripts/mcp_lesson/`（schema/errors/tools/transport） |
 | 清单 | `.codex-plugin` / `.qoder-plugin` / `.codebuddy-plugin` / `.claude-plugin` / `.cursor-plugin` |
 | MCP | `.mcp.json` → `scripts/mcp_server.py` |
 
