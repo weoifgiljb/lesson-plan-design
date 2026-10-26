@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
-from support import PLUGIN_ROOT
+from support import PLUGIN_ROOT, tempdir
 from export_docx import ENGINE_VERSION, export_docx
 from lib import default_review_path, load_review_report, plan_hash
 from factories import make_plan, read_docx_xml, run_cli, write_plan, write_report
@@ -17,9 +16,9 @@ from factories import make_plan, read_docx_xml, run_cli, write_plan, write_repor
 
 class TestCli(unittest.TestCase):
     def setUp(self) -> None:
-        self._tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self._tmp.cleanup)
-        self.root = Path(self._tmp.name)
+        self._tmp = tempdir()
+        self.root = Path(self._tmp.__enter__())
+        self.addCleanup(self._tmp.__exit__, None, None, None)
 
     def _plan_file(self, plan: dict, name: str = "教案.json") -> Path:
         return write_plan(self.root, plan, name)

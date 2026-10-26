@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -20,6 +21,8 @@ VALIDATE = SKILL / "scripts" / "validate.py"
 LAYOUT = ROOT / "scripts" / "check_layout.py"
 HYGIENE = ROOT / "scripts" / "check_repo_hygiene.py"
 ARCHITECTURE = ROOT / "scripts" / "check_architecture.py"
+GATE_SELF_TEST = ROOT / "tests" / "gate" / "index.py"
+BACKEND_GATE = ROOT / "scripts" / "run_backend_gate.py"
 RAN_RE = re.compile(r"Ran (\d+) tests?")
 
 
@@ -40,7 +43,19 @@ def commands() -> list[dict]:
         items.append({"name": "repo hygiene", "cmd": [sys.executable, str(HYGIENE)]})
     if ARCHITECTURE.is_file():
         items.append({"name": "architecture", "cmd": [sys.executable, str(ARCHITECTURE)]})
+    if GATE_SELF_TEST.is_file():
+        items.append({"name": "gate self-test", "cmd": [sys.executable, str(GATE_SELF_TEST)]})
+    if BACKEND_GATE.is_file():
+        items.append({"name": "backend gate", "cmd": [sys.executable, str(BACKEND_GATE)]})
     return items
+
+
+def child_env() -> dict[str, str]:
+    """子进程统一 UTF-8，避免中文/GKB 控制台下输出被替换成乱码。"""
+    env = os.environ.copy()
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
 
 
 def run_one(item: dict) -> dict:
@@ -53,6 +68,7 @@ def run_one(item: dict) -> dict:
             encoding="utf-8",
             errors="replace",
             timeout=600,
+            env=child_env(),
         )
         output = proc.stdout + proc.stderr
         match = RAN_RE.search(output)
@@ -74,6 +90,12 @@ def run_one(item: dict) -> dict:
 
 
 def main() -> int:
+    # U+FFFD 等替换字符在 GBK 控制台不可编码，直接 print 会抛 UnicodeEncodeError；
+    # 统一用 replace 兜底，失败信息永远能打印出来。
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="replace")
     parser = argparse.ArgumentParser(description="一键运行插件端测试与 fixtures")
     parser.add_argument("--list", action="store_true", help="只列出将要运行的命令")
     parser.add_argument("--json", action="store_true", help="以 JSON 输出汇总")

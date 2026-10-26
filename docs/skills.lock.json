@@ -1,0 +1,88 @@
+{
+  "installedAt": "2026-10-25",
+  "updatedAt": "2026-10-26",
+  "target": ".dsh/skills",
+  "totalSkills": 24,
+  "sources": [
+    {
+      "repo": "https://github.com/fishzjp/qa-skills.git",
+      "commit": "f34e82d9342d9e4299dbd5abd5b388ada65f2fd3",
+      "version": "0.9.0",
+      "license": "MIT",
+      "sourcePath": "skills/",
+      "skills": [
+        "api-testing",
+        "automated-e2e-testing",
+        "bug-analysis",
+        "core",
+        "exploratory-testing",
+        "qa",
+        "qa-memory",
+        "regression-testing",
+        "requirement-analysis",
+        "test-case-review",
+        "test-case-writing",
+        "test-reliability",
+        "test-strategy"
+      ]
+    },
+    {
+      "repo": "https://github.com/borghei/Claude-Skills.git",
+      "commit": "2c12c7efaad13a70bdea6e205698a6c4f93a0682",
+      "license": "MIT + Commons Clause",
+      "sourcePath": "project-management/",
+      "skills": [
+        "create-prd",
+        "job-stories",
+        "pre-mortem",
+        "prioritization-frameworks",
+        "story-splitting"
+      ],
+      "originalPaths": {
+        "create-prd": "project-management/execution/create-prd",
+        "job-stories": "project-management/execution/job-stories",
+        "pre-mortem": "project-management/discovery/pre-mortem",
+        "prioritization-frameworks": "project-management/execution/prioritization-frameworks",
+        "story-splitting": "project-management/execution/story-splitting"
+      }
+    },
+    {
+      "repo": "https://github.com/obra/superpowers.git",
+      "commit": "2ce8aa15d05bd57213e6f746f953aafb7ded7a8b",
+      "version": "7.0.1",
+      "license": "MIT",
+      "sourcePath": "skills/",
+      "skills": [
+        "receiving-code-review",
+        "requesting-code-review",
+        "systematic-debugging",
+        "test-driven-development",
+        "verification-before-completion"
+      ],
+      "originalPaths": {
+        "receiving-code-review": "skills/receiving-code-review",
+        "requesting-code-review": "skills/requesting-code-review",
+        "systematic-debugging": "skills/systematic-debugging",
+        "test-driven-development": "skills/test-driven-development",
+        "verification-before-completion": "skills/verification-before-completion"
+      },
+      "adaptations": []
+    },
+    {
+      "repo": "https://github.com/datawhalechina/ai-skills-for-everyone.git",
+      "commit": "247ffdf08114c73c44c89aa56cc1eb0f65bc2271",
+      "license": "CC BY-NC-SA 4.0（内容）/ MIT（代码）",
+      "sourcePath": "skills/",
+      "skills": [
+        "backend-api-brief"
+      ],
+      "originalPaths": {
+        "backend-api-brief": "skills/backend-api-brief"
+      },
+      "adaptations": [
+        "SKILL.md front-matter 的 description 由单行改为折叠块（原值含未转义的 ': '，YAML 解析失败导致技能不出现）；正文未改",
+        "使用时把默认 outputs/ 目录改为 docs/api/ 或 .qa/handoffs/，避免误提交"
+      ]
+    }
+  ]
+}

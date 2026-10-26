@@ -15,3 +15,5 @@ alwaysApply: true
 6. **去重但不提前抽象**：同一行为出现 3 次以上抽组件/测试夹具；两行以内的薄包装不算重复；`export_docx` 兼容包装保留并注明。
 7. **体量约束**：单函数建议 ≤50 行、嵌套 ≤3 层；单模块建议 ≤400 行；超出在 PR 说明理由，禁止继续堆叠。
 8. **测试与契约**：新功能/重构必须补正常、边界、错误用例；提交前跑 `py -3 scripts/run_all_tests.py` 与双端 fixtures；契约变更同批更新样例、测试和需求文档。
+9. **后端分层**：`src/backend/app/domain` 不 import FastAPI/SQLite/文件系统；`application` 只编排；`api` 只做协议适配；插件脚本只在 `adapters/engine.py` 通过一次 `sys.path` 接入并记录 `engineVersion`。
+10. **后端闸门**：改动 `src/backend`、`src/frontend/src/api` 或 `docs/api/` 时，必须 `py -3 scripts/run_backend_gate.py` 无 block，并按 `skills/backend-review-gate/SKILL.md` 出独立评审报告；契约同批更新 `docs/api/contract.v1.json`、OpenAPI 快照与前端类型。

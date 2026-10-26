@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
-from support import PLUGIN_ROOT, utf8_env
+from support import PLUGIN_ROOT, tempdir, utf8_env
 from lib import draft_plan
 
 
@@ -28,7 +27,7 @@ class TestHooks(unittest.TestCase):
     def test_stop_hook_notes_missing_review_report(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         script = PLUGIN_ROOT / "scripts" / "hook-stop.py"
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             Path(tmp, "教案.json").write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
             proc = subprocess.run(
                 [sys.executable, str(script)],
@@ -44,7 +43,7 @@ class TestHooks(unittest.TestCase):
         plan = draft_plan(1, 1, "测试课题")
         plan["knowledgeGoals"] = ""
         script = PLUGIN_ROOT / "scripts" / "hook-post-write.py"
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             target = Path(tmp) / "教案.json"
             target.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
             payload = json.dumps({"tool_input": {"file_path": str(target)}}, ensure_ascii=False)

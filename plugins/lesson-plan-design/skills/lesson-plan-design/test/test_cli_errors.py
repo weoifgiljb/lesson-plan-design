@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from support import SCRIPTS_DIR, utf8_env
+from support import SCRIPTS_DIR, tempdir, utf8_env
 from lib import draft_plan
 
 
@@ -42,7 +42,7 @@ class TestCliErrors(unittest.TestCase):
             self.assertTrue(payload["error"]["hint"], script)
 
     def test_invalid_json_returns_invalid_json_error(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             bad = Path(tmp) / "bad.json"
             bad.write_text("{bad", encoding="utf-8")
             for script in ("validate.py", "score.py", "adversarial_review.py", "export_docx.py"):
@@ -62,7 +62,7 @@ class TestCliErrors(unittest.TestCase):
 
     def test_success_writes_result_to_stdout_only(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             path = Path(tmp) / "教案.json"
             path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
             proc = _run("validate.py", str(path))
@@ -73,7 +73,7 @@ class TestCliErrors(unittest.TestCase):
 
     def test_gate_rejection_has_code_and_hint(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             path = root / "教案.json"
             out = root / "教案.docx"
@@ -94,7 +94,7 @@ class TestCliErrors(unittest.TestCase):
 
     def test_ten_failures_then_success(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             bad = root / "bad.json"
             bad.write_text("{bad", encoding="utf-8")
