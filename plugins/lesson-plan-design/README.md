@@ -58,7 +58,7 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 python skills/lesson-plan-design/scripts/validate.py <教案.json>
 ```
 
-5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例，或显式声明无反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行；`minor` 须由教师实名接受后才能导出。
+5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例，或显式声明无反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行；`minor` 须由教师实名接受后才能导出。放行/接受记录幂等，重复提交不会追加；理由至少 6 字；放行者与任课教师不一致时，严格模式拒绝，宽松模式记 `warnings`。
 
 ```bash
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --finding finding.json --reviewer-mode native_subagent

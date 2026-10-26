@@ -41,6 +41,7 @@ def main() -> int:
     parser.add_argument("--override", metavar="ISSUE_ID", help="教师放行 blocker/major 或接受 minor 的问题 ID")
     parser.add_argument("--teacher", help="教师姓名；与 --override 同用")
     parser.add_argument("--reason", help="放行原因；与 --override 同用")
+    parser.add_argument("--strict-teacher", action="store_true", help="放行者必须与教案任课教师一致")
     args = parser.parse_args()
 
     plan_path = Path(args.path)
@@ -53,7 +54,12 @@ def main() -> int:
             parser.error("教师放行需要现有审查报告")
         try:
             override = record_teacher_override(
-                previous, args.override, teacher=args.teacher or "", reason=args.reason or "", plan=plan,
+                previous,
+                args.override,
+                teacher=args.teacher or "",
+                reason=args.reason or "",
+                plan=plan,
+                strict_teacher=args.strict_teacher,
             )
         except ValueError as exc:
             parser.error(str(exc))

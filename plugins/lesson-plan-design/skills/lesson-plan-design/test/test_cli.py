@@ -113,6 +113,42 @@ class TestCli(unittest.TestCase):
             self.assertNotEqual(overridden.returncode, 0)
             self.assertIn("不匹配", combined)
 
+    def test_cli_override_strict_teacher(self) -> None:
+        plan = draft_plan(1, 1, "教师一致", teacher="张老师")
+        plan["activityFlow"]["assessment"] = "过程考核：30\n结果考核：70"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "教案.json"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            report = adversarial_review(plan, reviewer="native_subagent")
+            save_review_report(default_review_path(plan_path), report)
+            script = SCRIPTS_DIR / "adversarial_review.py"
+            denied = subprocess.run(
+                [
+                    sys.executable, str(script), str(plan_path),
+                    "--override", report["findings"][0]["id"],
+                    "--teacher", "李老师", "--reason", "本课先保留评分量表",
+                    "--strict-teacher",
+                ],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=utf8_env(),
+            )
+            self.assertNotEqual(denied.returncode, 0)
+            self.assertIn("不一致", denied.stderr + denied.stdout)
+            allowed = subprocess.run(
+                [
+                    sys.executable, str(script), str(plan_path),
+                    "--override", report["findings"][0]["id"],
+                    "--teacher", "张老师", "--reason", "本课先保留评分量表",
+                    "--strict-teacher",
+                ],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=utf8_env(),
+            )
+            self.assertEqual(allowed.returncode, 0, allowed.stderr + allowed.stdout)
+            stored = load_review_report(default_review_path(plan_path))
+            self.assertEqual(len(stored["overrides"]), 1)
+
     def test_cli_export_reports_unreadable_review_file(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         with tempfile.TemporaryDirectory() as tmp:
