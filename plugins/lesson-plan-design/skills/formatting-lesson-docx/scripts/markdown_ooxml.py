@@ -47,9 +47,55 @@ def _png_pixel_size(data: bytes) -> tuple[int, int] | None:
     return width, height
 
 
+def _gif_pixel_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 10 or data[:6] not in (b"GIF87a", b"GIF89a"):
+        return None
+    width, height = struct.unpack("<HH", data[6:10])
+    return (width, height) if width > 0 and height > 0 else None
+
+
+def _bmp_pixel_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 26 or data[:2] != b"BM":
+        return None
+    width, height = struct.unpack("<ii", data[18:26])
+    width, height = abs(width), abs(height)
+    return (width, height) if width > 0 and height > 0 else None
+
+
+def _jpeg_pixel_size(data: bytes) -> tuple[int, int] | None:
+    if len(data) < 4 or data[:2] != b"\xff\xd8":
+        return None
+    index = 2
+    while index + 9 < len(data):
+        if data[index] != 0xFF:
+            index += 1
+            continue
+        marker = data[index + 1]
+        index += 2
+        if marker in (0xD8, 0xD9):
+            continue
+        if index + 2 > len(data):
+            break
+        length = struct.unpack(">H", data[index:index + 2])[0]
+        if length < 2 or index + length > len(data):
+            break
+        if marker in range(0xC0, 0xC4) or marker in range(0xC5, 0xC8) or marker in range(0xC9, 0xCC) or marker in range(0xCD, 0xD0):
+            if length >= 7:
+                height, width = struct.unpack(">HH", data[index + 3:index + 7])
+                return (width, height) if width > 0 and height > 0 else None
+        index += length
+    return None
+
+
 def _image_extent(path: Path) -> tuple[int, int]:
     try:
-        size = _png_pixel_size(path.read_bytes())
+        data = path.read_bytes()
+        size = (
+            _png_pixel_size(data)
+            or _gif_pixel_size(data)
+            or _bmp_pixel_size(data)
+            or _jpeg_pixel_size(data)
+        )
     except OSError:
         size = None
     if size is None:
@@ -201,11 +247,22 @@ def parse_markdown(source: str | None) -> list[Block]:
     return blocks
 
 
-def _run(text: str, *, bold: bool = False, italic: bool = False, code: bool = False) -> str:
+def _run(
+    text: str,
+    *,
+    bold: bool = False,
+    italic: bool = False,
+    code: bool = False,
+    font_family: str | None = None,
+) -> str:
     fonts = (
         '<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:eastAsia="宋体"/>'
         if code
-        else '<w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>'
+        else (
+            f'<w:rFonts w:ascii="{font_family}" w:eastAsia="{font_family}" w:hAnsi="{font_family}"/>'
+            if font_family
+            else '<w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>'
+        )
     )
     extras = ""
     if bold:
@@ -244,8 +301,8 @@ STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:rPrDefault>
       <w:rPr>
         <w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/>
-        <w:sz w:val="24"/>
-        <w:szCs w:val="24"/>
+        <w:sz w:val="21"/>
+        <w:szCs w:val="21"/>
       </w:rPr>
     </w:rPrDefault>
     <w:pPrDefault>
@@ -262,7 +319,7 @@ STYLES_XML = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
     <w:name w:val="heading 1"/>
     <w:basedOn w:val="Normal"/>
     <w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr>
-    <w:rPr><w:b/><w:sz w:val="32"/><w:rFonts w:ascii="黑体" w:eastAsia="黑体"/></w:rPr>
+    <w:rPr><w:b/><w:sz w:val="36"/><w:rFonts w:ascii="黑体" w:eastAsia="黑体"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading2">
     <w:name w:val="heading 2"/>
@@ -326,6 +383,8 @@ class DocxPackage:
         self._ordered_ids: list[int] = []
         self._next_num_id = 10
         self._docpr_id = 1
+        self.footer_xml: str | None = None
+        self.missing_images: list[str] = []
 
     def new_ordered_num(self) -> int:
         num_id = self._next_num_id
@@ -354,7 +413,8 @@ class DocxPackage:
         path = self._resolve(src)
         rid = self.register_image(src)
         if rid is None or path is None:
-            return _run(alt or src)
+            self.missing_images.append(src)
+            return _run(f"【图片缺失：{alt or src}】")
         doc_id = self._docpr_id
         self._docpr_id += 1
         cx, cy = _image_extent(path)
@@ -404,6 +464,13 @@ class DocxPackage:
             f"<w:p><w:pPr>{align}</w:pPr>"
             f"{_run(text, bold=True)}"
             "</w:p>"
+        )
+
+    def title_paragraph(self, text: str) -> str:
+        """Render a centered, larger black title using the built-in heading style."""
+        return (
+            '<w:p><w:pPr><w:pStyle w:val="Heading1"/><w:jc w:val="center"/></w:pPr>'
+            f"{_run(text, bold=True, font_family='黑体')}</w:p>"
         )
 
     def render_markdown(self, source: str | None) -> str:
@@ -465,6 +532,10 @@ class DocxPackage:
             rels.append(
                 f'<Relationship Id="{rid}" Type="{NS_R}/image" Target="{target}"/>'
             )
+        if self.footer_xml is not None:
+            rels.append(
+                f'<Relationship Id="rIdFooter" Type="{NS_R}/footer" Target="footer1.xml"/>'
+            )
         return (
             f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             f'<Relationships xmlns="{NS_REL}">'
@@ -486,6 +557,10 @@ class DocxPackage:
             '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>',
             '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>',
         ]
+        if self.footer_xml is not None:
+            overrides.append(
+                '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
+            )
         return (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -510,4 +585,6 @@ class DocxPackage:
         }
         for _rid, dest, path in self._images:
             parts[dest] = path.read_bytes()
+        if self.footer_xml is not None:
+            parts["word/footer1.xml"] = self.footer_xml.encode("utf-8")
         return parts

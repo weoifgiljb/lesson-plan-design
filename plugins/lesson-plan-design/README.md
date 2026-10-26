@@ -33,6 +33,8 @@
 
 Agent 应先给出：课题、周次课次、三维目标要点、八步是否齐全、校验结果、docx 路径。完整 JSON 会落成文件，不会用一篇散文代替教案。
 
+课堂流程字段兼容原有 Markdown 字符串，也支持结构化活动数组；每行可填写 `mainContent`、`teacherActivity`、`studentActivity`、`minutes` 和 `evidence`，导出 Word 时排成“教学环节 / 主要内容 / 教师活动 / 学生活动”四栏。
+
 ### 3. 斜杠命令（可选）
 
 | 命令 | 作用 |
@@ -53,10 +55,10 @@ Agent 应先给出：课题、周次课次、三维目标要点、八步是否�
 4. **导出前必须**运行校验（失败先改，禁止带错导出）：
 
 ```bash
-python skills/lesson-plan-design/scripts/validate.py <教案.json>
+py -3 skills/lesson-plan-design/scripts/validate.py <教案.json>
 ```
 
-5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例，或显式声明无反例。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行。
+5. 结构通过后，由独立审校 Agent 生成同目录 `教案.review.json`；它每轮只提交一个最强反例，或显式声明无反例。报告保存本轮教案快照与工具版本；复审轮次必须为上一轮加一，同一教案重复审校会标记 `duplicateReview`。报告记录 `independence`（`native_subagent`、`role_simulation`、`human`）；严格模式拒绝角色模拟，宽松模式允许但在 Word 中标注。`blocker`/`major` 必须修复并复审，或由教师实名说明原因放行；`minor` 须由教师实名接受后才能导出。放行/接受记录幂等，重复提交不会追加；理由至少 6 字；放行者与任课教师不一致时，严格模式拒绝，宽松模式记 `warnings`。
 
 ```bash
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_review.py plan.json --finding finding.json --reviewer-mode native_subagent
@@ -66,13 +68,22 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_r
 6. 当前审查报告哈希匹配且门禁通过后再导出：
 
 ```bash
-python skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出.docx>
+py -3 skills/lesson-plan-design/scripts/export_docx.py <教案.json> -o <输出.docx>
 ```
 
 对照样例打分（可选）：
 
 ```bash
-python skills/lesson-plan-design/scripts/score.py <教案.json>
+py -3 skills/lesson-plan-design/scripts/score.py <教案.json>
+```
+
+评分维度：目标可测 25、任务对应 25、考核闭环 20、流程完整 20、证据可查 10；输出每个维度的得分、扣分原因与改进建议，≥85 优秀、≥70 合格。
+
+样例库索引 `examples/index.json` 由脚本生成；`--check` 校验 7 份样例的 `planHash` 与元信息，过期、缺失或多余样例都会报错：
+
+```bash
+py -3 skills/lesson-plan-design/scripts/sync_examples.py --check
+py -3 skills/lesson-plan-design/scripts/sync_examples.py --write
 ```
 
 修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告会因教案内容哈希不匹配而自动失效。飞书没有 Hooks 时，这些步骤仍由技能强制执行。
@@ -114,7 +125,7 @@ python skills/lesson-plan-design/scripts/score.py <教案.json>
 
 ## 不经过对话、自己跑脚本
 
-在仓库根目录（Windows 可用 `py -3` 代替 `python`）：
+在仓库根目录（命令统一使用 `py -3`；若本机只有 `python`，把 `py -3` 换成 `python`）：
 
 ```bash
 # 按周次课次出一份草稿 JSON
@@ -129,6 +140,9 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_r
 # 门禁通过后导出 Word
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx
 
+# 严格模式：任课教师、教学对象、授课日期为空时拒绝导出
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx --strict-metadata
+
 # 校验全部金标准 / 跑各技能单元测试
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py --examples
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/test/index.py
@@ -136,9 +150,15 @@ py -3 plugins/lesson-plan-design/skills/formatting-lesson-docx/test/index.py
 py -3 plugins/lesson-plan-design/skills/capturing-ebook-pages/test/index.py
 ```
 
-故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`。无反例时必须使用 `--no-counterexample`，不能省略审校声明。
+一键全量（单元 + 金标准 + fixtures + 布局）：`py -3 scripts/run_all_tests.py`；任一失败返回非 0，`--json` 输出机器可读汇总，`--only` 可只跑单个套件。
+
+故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`/`minor`；`blocker`/`major` 由教师实名放行，`minor` 由教师实名接受。无反例时必须使用 `--no-counterexample`，不能省略审校声明。导出后 JSON 带 `selfCheck`（文档、页脚、页码、引擎版本、`planHash`、媒体哈希）；页脚含页码、引擎版本和哈希前 12 位；缺图会写「图片缺失」占位并在 `warnings` 中提示。
+
+CLI 错误契约：成功只写 stdout；失败只写 stderr，格式为 `{"ok": false, "error": {"code": "...", "message": "...", "hint": "..."}}`；退出码 0 成功、1 输入或业务失败、2 参数用法错误。
 
 MCP 工具包括：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`start_adversarial_review`、`read_lesson_review`、`record_teacher_override`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
+
+工具调用按 `inputSchema` 校验：参数缺失或类型错误返回 `-32602`，未知工具 `-32601`，坏 JSON 行 `-32700`，工具内部异常 `-32603`；错误不会终止 stdio 服务，后续请求继续处理。
 
 ---
 
@@ -155,6 +175,9 @@ Codex harness：**Rules 常驻、Skill 按需、Examples 金标准、Hooks 确�
 | 技能 | `skills/lesson-plan-design/SKILL.md` |
 | 金标准 | `skills/lesson-plan-design/examples/*.json`（7 份） |
 | 校验/导出 | `skills/lesson-plan-design/scripts/` |
+| 领域组件 | `scripts/lesson_plan/`（model/validation/scoring/review/gate/examples/draft） |
+| DOCX 组件 | `scripts/docx_export/`（layout/content/metadata/footer/selfcheck/build） |
+| MCP 组件 | `scripts/mcp_lesson/`（schema/errors/tools/transport） |
 | 清单 | `.codex-plugin` / `.qoder-plugin` / `.codebuddy-plugin` / `.claude-plugin` / `.cursor-plugin` |
 | MCP | `.mcp.json` → `scripts/mcp_server.py` |
 

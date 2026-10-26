@@ -18,6 +18,20 @@ from lib import (
 
 
 class TestExportGate(unittest.TestCase):
+    def _minor_report(self, plan: dict) -> dict:
+        return adversarial_review(
+            plan,
+            reviewer="native_subagent",
+            finding={
+                "severity": "minor",
+                "hypothesis": "flow_pseudo_loop",
+                "evidence": ["课堂小结可以补充更具体的提问。"],
+                "affectedPaths": ["activityFlow.summary"],
+                "whyItBreaksTheLoop": "反馈证据较弱。",
+                "minimalRepair": "补充一项回顾问题。",
+            },
+        )
+
     def test_export_gate_rejects_report_for_changed_plan(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         report = adversarial_review(plan)
@@ -84,26 +98,108 @@ class TestExportGate(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertIn("审查放行记录格式无效", result["reasons"])
 
-    def test_minor_finding_does_not_block_export(self) -> None:
+    def test_minor_finding_blocks_export_until_accepted(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        report = adversarial_review(
-            plan,
-            reviewer="native_subagent",
-            finding={
-                "id": "minor-1",
-                "severity": "minor",
-                "hypothesis": "flow_pseudo_loop",
-                "evidence": ["课堂小结可以补充更具体的提问。"],
-                "affectedPaths": ["activityFlow.summary"],
-                "whyItBreaksTheLoop": "反馈证据较弱。",
-                "minimalRepair": "补充一项回顾问题。",
-            },
+        report = self._minor_report(plan)
+        self.assertEqual(report["status"], "needs_repair")
+        blocked = export_gate(plan, report)
+        self.assertFalse(blocked["ok"])
+        self.assertTrue(any("未闭环" in reason for reason in blocked["reasons"]))
+        finding_id = report["findings"][0]["id"]
+        record_teacher_override(
+            report, finding_id, teacher="张老师", reason="接受该轻微问题", plan=plan,
         )
-        self.assertTrue(export_gate(plan, report)["ok"])
+        self.assertEqual(report["findings"][0]["status"], "accepted")
+        self.assertEqual(report["status"], "passed_with_accepted_minor")
+        self.assertEqual(report["overrides"][0]["kind"], "minor_acceptance")
+        result = export_gate(plan, report)
+        self.assertTrue(result["ok"], result["reasons"])
 
-    def test_role_simulation_report_can_open_export_gate(self) -> None:
+    def test_accepted_minor_without_record_is_rejected(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        result = export_gate(plan, adversarial_review(plan, reviewer="role_simulation", no_counterexample=True))
+        report = self._minor_report(plan)
+        report["findings"][0]["status"] = "accepted"
+        report["status"] = "passed_with_accepted_minor"
+        result = export_gate(plan, report)
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any("accepted 问题匹配的教师接受记录" in reason for reason in result["reasons"])
+        )
+
+    def test_waived_minor_is_rejected(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = self._minor_report(plan)
+        finding = report["findings"][0]
+        finding["status"] = "waived"
+        report["status"] = "passed_with_override"
+        report["overrides"] = [{
+            "findingId": finding["id"],
+            "kind": "teacher_override",
+            "teacher": "张老师",
+            "reason": "放行",
+            "planHash": plan_hash(plan),
+        }]
+        result = export_gate(plan, report)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("轻微问题须由教师接受" in reason for reason in result["reasons"]))
+
+    def test_needs_repair_requires_open_finding(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = self._minor_report(plan)
+        finding = report["findings"][0]
+        finding["status"] = "accepted"
+        report["status"] = "needs_repair"
+        report["overrides"] = [{
+            "findingId": finding["id"],
+            "kind": "minor_acceptance",
+            "teacher": "张老师",
+            "reason": "接受",
+            "planHash": plan_hash(plan),
+        }]
+        result = export_gate(plan, report)
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any("待修复的审查报告必须包含未闭环问题" in reason for reason in result["reasons"])
+        )
+
+    def test_passed_with_override_requires_waived_blocking(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = self._minor_report(plan)
+        finding = report["findings"][0]
+        finding["status"] = "accepted"
+        report["status"] = "passed_with_override"
+        report["overrides"] = [{
+            "findingId": finding["id"],
+            "kind": "minor_acceptance",
+            "teacher": "张老师",
+            "reason": "接受",
+            "planHash": plan_hash(plan),
+        }]
+        result = export_gate(plan, report)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("已放行的 blocker 或 major" in reason for reason in result["reasons"]))
+
+    def test_role_simulation_report_is_marked_and_lenient_only(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="role_simulation", no_counterexample=True)
+        self.assertEqual(report["independence"], "role_simulation")
+        lenient = export_gate(plan, report)
+        self.assertTrue(lenient["ok"], lenient["reasons"])
+        strict = export_gate(plan, report, strict_independence=True)
+        self.assertFalse(strict["ok"])
+        self.assertIn("严格模式要求独立子代理审校", strict["reasons"])
+
+    def test_strict_independence_allows_native_report(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        result = export_gate(plan, report, strict_independence=True)
+        self.assertTrue(result["ok"], result["reasons"])
+
+    def test_old_report_without_independence_falls_back_to_reviewer(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        report.pop("independence", None)
+        result = export_gate(plan, report, strict_independence=True)
         self.assertTrue(result["ok"], result["reasons"])
 
     def test_report_with_wrong_rubric_version_cannot_open_export_gate(self) -> None:

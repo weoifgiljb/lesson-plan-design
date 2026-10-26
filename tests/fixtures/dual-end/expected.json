@@ -1,0 +1,56 @@
+{
+  "plugin": {
+    "valid-0201.json": {
+      "target_ok": true
+    },
+    "structured-task-missing-mustdo.json": {
+      "target_ok": false,
+      "issue_path": "activityFlow.taskImplementation",
+      "requirement": "FR-01"
+    },
+    "minutes-95.json": {
+      "target_ok": false,
+      "requirement": "FR-01"
+    },
+    "bool-week.json": {
+      "target_ok": false,
+      "issue_path": "week",
+      "requirement": "FR-01"
+    },
+    "missing-week.json": {
+      "target_ok": false,
+      "issue_path": "week",
+      "issue_count": 1,
+      "requirement": "FR-01"
+    }
+  },
+  "stale_report": {
+    "target_gate_ok": false,
+    "requirement": "FR-05"
+  },
+  "platform": {
+    "valid-0201.zip": {
+      "target_status": 201
+    },
+    "tampered-title.zip": {
+      "target_status": 422,
+      "code": "HASH_MISMATCH"
+    },
+    "bad-schema.zip": {
+      "target_status": 422,
+      "code": "SCHEMA_UNSUPPORTED"
+    },
+    "media-hash-mismatch.zip": {
+      "target_status": 422,
+      "code": "MEDIA_MISSING"
+    },
+    "missing-media.zip": {
+      "target_status": 422,
+      "code": "MEDIA_MISSING"
+    },
+    "zip-slip.zip": {
+      "target_status": 422,
+      "code": "PAYLOAD_REJECTED"
+    }
+  }
+}

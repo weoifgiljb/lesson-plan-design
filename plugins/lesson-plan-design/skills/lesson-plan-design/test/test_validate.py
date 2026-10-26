@@ -33,3 +33,138 @@ class TestValidate(unittest.TestCase):
         items = load_examples()
         score = score_against_examples(items[0][1])
         self.assertGreaterEqual(score["ratio"], 0.95)
+
+    def test_score_dimensions_cover_five_areas(self) -> None:
+        score = score_against_examples(load_examples()[0][1])
+        self.assertEqual(score["score"], 100)
+        self.assertEqual(score["level"], "优秀")
+        ids = [item["id"] for item in score["dimensions"]]
+        self.assertEqual(ids, ["goal", "task", "assessment", "flow", "evidence"])
+        self.assertEqual(sum(item["weight"] for item in score["dimensions"]), 100)
+
+    def test_score_missing_plan_has_zero_and_reasons(self) -> None:
+        score = score_against_examples({})
+        self.assertEqual(score["score"], 0)
+        self.assertEqual(score["level"], "待改进")
+        for dimension in score["dimensions"]:
+            self.assertTrue(dimension["reasons"], dimension["id"])
+
+    def test_score_is_deterministic(self) -> None:
+        plan = draft_plan(1, 1, "确定性课题")
+        self.assertEqual(score_against_examples(plan), score_against_examples(plan))
+
+    def test_score_explains_deduction(self) -> None:
+        plan = draft_plan(1, 1, "扣分说明")
+        plan["activityFlow"]["assessment"] = "过程考核：30"
+        score = score_against_examples(plan)
+        self.assertLess(score["score"], 100)
+        assessment = next(item for item in score["dimensions"] if item["id"] == "assessment")
+        self.assertTrue(assessment["reasons"])
+        self.assertTrue(assessment["suggestions"])
+
+    def test_structured_activity_requires_main_content(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["knowledgeLearning"] = [
+            {"teacherActivity": "演示", "studentActivity": "跟做"}
+        ]
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any(i["path"] == "activityFlow.knowledgeLearning[0].mainContent" for i in result["issues"]))
+
+    def test_structured_activity_is_valid_with_evidence(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["taskImplementation"] = [
+            {
+                "mainContent": "必须完成：完成个人名片程序",
+                "teacherActivity": "演示调试",
+                "studentActivity": "编写并运行",
+                "minutes": plan["plannedHours"] * 45,
+                "evidence": "提交 C01_学号.c",
+            }
+        ]
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+
+    def test_c_language_draft_uses_structured_topic_template(self) -> None:
+        plan = draft_plan(1, 1, "认识C语言与Dev-C++开发环境")
+        flow = plan["activityFlow"]
+        self.assertIsInstance(flow["knowledgeLearning"], list)
+        self.assertTrue(flow["knowledgeLearning"][0]["mainContent"])
+        self.assertTrue(flow["taskImplementation"][0]["studentActivity"])
+        self.assertTrue(flow["taskImplementation"][0]["evidence"])
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+
+    def test_structured_task_without_must_do_fails(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["taskImplementation"] = [
+            {
+                "mainContent": "完成练习",
+                "studentActivity": "编写并运行程序",
+                "evidence": "提交结果文件",
+            }
+        ]
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any(item["path"] == "activityFlow.taskImplementation" for item in result["issues"])
+        )
+
+    def test_minutes_total_mismatch_fails(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        tolerance = 5
+        expected = plan["plannedHours"] * 45
+        plan["activityFlow"]["introduction"] = [
+            {"mainContent": "导入", "minutes": expected + tolerance}
+        ]
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any(item["path"] == "activityFlow" and "分钟" in item["message"] for item in result["issues"])
+        )
+        tolerated = validate_plan(plan, minutes_tolerance=tolerance)
+        self.assertTrue(tolerated["ok"], tolerated["issues"])
+
+    def test_missing_minutes_is_warning_only(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["activityFlow"]["introduction"] = [{"mainContent": "导入"}]
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+        self.assertTrue(any("分钟" in item["message"] for item in result["warnings"]))
+
+    def test_missing_week_reports_single_issue(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        del plan["week"]
+        result = validate_plan(plan)
+        hits = [item for item in result["issues"] if item["path"] == "week"]
+        self.assertEqual(len(hits), 1)
+
+    def test_bool_week_rejected(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["week"] = True
+        result = validate_plan(plan)
+        self.assertFalse(result["ok"])
+        hits = [item for item in result["issues"] if item["path"] == "week"]
+        self.assertEqual(len(hits), 1)
+        self.assertFalse(any("不能为空" in item["message"] for item in hits))
+
+    def test_catalog_detail_conflict_warns_by_default(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第1、2套")
+        result = validate_plan(plan)
+        self.assertTrue(result["ok"], result["issues"])
+        self.assertTrue(any(item["path"] == "contentDetail" for item in result["warnings"]))
+        strict = validate_plan(plan, strict=True)
+        self.assertFalse(strict["ok"])
+        self.assertTrue(any(item["path"] == "contentDetail" for item in strict["issues"]))
+
+    def test_rule_version_and_warnings_are_exposed(self) -> None:
+        result = validate_plan(draft_plan(1, 1, "测试课题"))
+        self.assertEqual(result["ruleVersion"], "1.1.0")
+        self.assertIsInstance(result["warnings"], list)
+
+    def test_issue_order_is_stable(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        del plan["abilityGoals"]
+        del plan["knowledgeGoals"]
+        paths = [item["path"] for item in validate_plan(plan)["issues"]]
+        self.assertEqual(paths, sorted(paths))

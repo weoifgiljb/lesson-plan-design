@@ -1,0 +1,154 @@
+[
+  {
+    "match": ["认识C语言", "Dev-C++", "开发环境"],
+    "contentDetail": "项目一：C语言概述、Dev-C++开发环境",
+    "teachingPurpose": "帮助零基础学生建立编程和C语言的初步认识，学会使用Dev-C++创建、保存、编译和运行C源程序。",
+    "knowledgeGoals": "1. 说出C语言可用于解决重复计算和信息处理问题。\n2. 区分源文件、编译和运行。\n3. 认识Dev-C++编辑区、编译运行按钮和输出窗口。",
+    "abilityGoals": "1. 能检查开发环境。\n2. 能新建并保存.c源文件。\n3. 能编译运行给定程序并提交运行证据。",
+    "qualityGoals": "1. 养成规范命名、及时保存和检查结果的习惯。\n2. 在同伴互助中耐心排错。\n3. 遵守机房6S和软件使用规范。",
+    "keyPoints": "重点：编辑—保存—编译—运行流程。难点：区分编译报错与运行结果。",
+    "flow": {
+      "introduction": [{"mainContent":"从生活中的重复计算和信息处理场景导入编程","teacherActivity":"展示自动计算案例，演示一个已运行的C程序并检查设备","studentActivity":"观察案例，回答计算机需要哪些步骤才能得到结果","minutes":10,"evidence":"口头说出一个可编程解决的问题"}],
+      "learningGoals": [{"mainContent":"明确本课产出：成功运行一个.c文件","teacherActivity":"说明编辑、编译、运行三个环节和提交要求","studentActivity":"在任务单上勾选目标并确认文件命名规则","minutes":5,"evidence":"完成目标确认单"}],
+      "knowledgeLearning": [{"mainContent":"Dev-C++界面、源文件和编译运行流程","teacherActivity":"逐步演示新建、保存C01_学号.c、编译、运行；故意展示扩展名和中文标点错误","studentActivity":"跟随操作并记录错误提示位置","minutes":25,"evidence":"打开自己的.c文件并看到编译结果"}],
+      "taskImplementation": [{"mainContent":"必须完成：完成开发环境检查和第一个源文件","teacherActivity":"巡回检查保存路径，针对报错提示学生先读错误行再求助","studentActivity":"新建C01_学号.c，完成编译运行并与同伴互查","minutes":30,"evidence":"提交C01_学号.c及运行截图"}],
+      "assessment": [{"mainContent":"按过程和结果评价","teacherActivity":"依据命名、编译、运行和说明流程四项记录评分","studentActivity":"现场展示文件和输出，说明一次排错过程","minutes":10,"evidence":"文件、截图或现场演示"}],
+      "summary": [{"mainContent":"回顾编辑—保存—编译—运行四步","teacherActivity":"请学生复述四步并归纳常见故障","studentActivity":"说出一个故障和解决办法","minutes":5,"evidence":"完成出口问答"}],
+      "homework": [{"mainContent":"巩固程序运行流程","teacherActivity":"布置流程图和环境问题记录","studentActivity":"绘制四步流程图并记录未解决问题","minutes":5,"evidence":"提交学习任务单"}],
+      "reflection": [{"mainContent":"记录环境配置和典型报错","teacherActivity":"课后统计环境完成率并调整下节课示例","studentActivity":"反馈安装或编译困难","minutes":0,"evidence":"教师反思记录"}]
+    }
+  },
+  {
+    "match": ["第一个C程序", "输出", "程序结构"],
+    "contentDetail": "项目一：我的第一个C程序",
+    "teachingPurpose": "通过可见的文字输出认识C程序基本骨架和printf函数，建立准确书写英文符号的意识。",
+    "knowledgeGoals": "1. 认识#include、main、大括号、分号和printf的作用。\n2. 知道字符串使用英文双引号，\\n实现换行。",
+    "abilityGoals": "1. 能运行Hello World。\n2. 能修改printf完成三行个人名片。\n3. 能根据报错检查分号、双引号和大括号。",
+    "qualityGoals": "1. 养成逐字符核对代码的习惯。\n2. 敢于展示作品并倾听建议。",
+    "keyPoints": "重点：程序结构和printf输出。难点：英文标点、分号、大括号。",
+    "flow": {
+      "introduction": [{"mainContent":"复习上节课流程，预测Hello World输出","teacherActivity":"抽查.c文件并展示示例","studentActivity":"预测输出并指出程序从哪里开始执行","minutes":10,"evidence":"说出main函数作用"}],
+      "learningGoals": [{"mainContent":"独立运行Hello World并完成个人名片","teacherActivity":"明确五个关键结构和提交标准","studentActivity":"在任务单标记个人目标","minutes":5,"evidence":"目标单"}],
+      "knowledgeLearning": [{"mainContent":"头文件、main、函数体、printf和\\n","teacherActivity":"标注代码骨架，演示漏分号、中文引号、漏大括号错误","studentActivity":"跟做并根据编译提示定位错误","minutes":25,"evidence":"修复3类语法错误"}],
+      "taskImplementation": [{"mainContent":"必须完成：编写三行个人名片输出程序","teacherActivity":"巡回检查符号并指导调试","studentActivity":"创建C02_学号.c，使用printf输出姓名、专业、欢迎语","minutes":30,"evidence":"提交源文件和运行截图"}],
+      "assessment": [{"mainContent":"检查结构完整性和输出结果","teacherActivity":"按结构、输出、排错说明评分","studentActivity":"展示程序并指出一个错误修复方法","minutes":10,"evidence":"程序、截图、口头说明"}],
+      "summary": [{"mainContent":"用五个关键词回顾程序骨架","teacherActivity":"组织快速问答","studentActivity":"复述头文件、main、花括号、printf、分号","minutes":5,"evidence":"出口问答"}],
+      "homework": [{"mainContent":"改写校园文明提示语","teacherActivity":"布置一条printf和三条printf两种写法","studentActivity":"完成并标注关键结构","minutes":5,"evidence":"作业代码"}],
+      "reflection": [{"mainContent":"统计英文标点和报错定位困难","teacherActivity":"整理错例","studentActivity":"反馈最易错符号","minutes":0,"evidence":"错题记录"}]
+    }
+  },
+  {
+    "match": ["数据类型", "变量", "常量"],
+    "contentDetail": "项目二：数据、变量与常量",
+    "teachingPurpose": "通过成绩和商品价格案例理解数据类型、变量和常量，能声明并使用基本变量。",
+    "knowledgeGoals": "1. 区分int、float、char。\n2. 了解变量声明、赋值和初始化。\n3. 知道常量与变量的区别。",
+    "abilityGoals": "1. 能根据数据选择类型。\n2. 能编写变量声明和赋值代码并输出结果。\n3. 能发现类型不匹配问题。",
+    "qualityGoals": "形成先分析数据再编码、规范命名和检查类型的习惯。",
+    "keyPoints": "重点：类型选择、变量声明赋值。难点：字符与字符串、整数与小数。",
+    "flow": {
+      "introduction": [{"mainContent":"比较年龄、价格和姓名拼音的数据表示","teacherActivity":"展示不同数据案例并提问类型","studentActivity":"给案例分类并说明理由","minutes":10,"evidence":"完成数据分类表"}],
+      "learningGoals": [{"mainContent":"声明三类变量并输出","teacherActivity":"明确命名和提交要求","studentActivity":"记录本课变量清单","minutes":5,"evidence":"变量清单"}],
+      "knowledgeLearning": [{"mainContent":"int、float、char及声明赋值","teacherActivity":"演示初始化、修改值和格式化输出，展示类型错误","studentActivity":"跟做代码并观察输出差异","minutes":25,"evidence":"运行无报错"}],
+      "taskImplementation": [{"mainContent":"必须完成：制作学生信息和商品小票变量程序","teacherActivity":"提供任务单并指导类型选择","studentActivity":"创建C03_学号.c，声明姓名首字母、年龄、身高和价格并输出","minutes":30,"evidence":"提交源文件及运行截图"}],
+      "assessment": [{"mainContent":"按类型选择、命名、输出评分","teacherActivity":"检查变量类型和结果","studentActivity":"解释一个变量为何选该类型","minutes":10,"evidence":"代码和口头说明"}],
+      "summary": [{"mainContent":"回顾类型—变量—常量关系","teacherActivity":"用错例提问","studentActivity":"完成判断题","minutes":5,"evidence":"判断题答案"}],
+      "homework": [{"mainContent":"补充三条生活数据变量","teacherActivity":"布置类型选择练习","studentActivity":"写出声明、初值和理由","minutes":5,"evidence":"练习单"}],
+      "reflection": [{"mainContent":"记录类型混淆错例","teacherActivity":"整理下节课复习清单","studentActivity":"反馈最难理解的数据类型","minutes":0,"evidence":"教师反思"}]
+    }
+  },
+  {
+    "match": ["运算符", "表达式", "输入输出", "键盘"],
+    "contentDetail": "项目二：运算符、表达式与键盘输入输出",
+    "teachingPurpose": "通过计算器任务掌握算术表达式、scanf输入和printf输出，形成按步骤验证结果的习惯。",
+    "knowledgeGoals": "1. 认识算术、关系和赋值运算符。\n2. 理解整数除法和表达式优先级。\n3. 掌握scanf和printf基本格式。",
+    "abilityGoals": "能编写两个数四则运算程序，正确读取输入并检查结果。",
+    "qualityGoals": "养成输入前提示、运算后验算、发现异常及时排查的习惯。",
+    "keyPoints": "重点：表达式和输入输出格式。难点：整数除法、取余和地址符号。",
+    "flow": {
+      "introduction": [{"mainContent":"从口算计算器引出程序表达式","teacherActivity":"展示两个数加减乘除需求","studentActivity":"手算并预测程序结果","minutes":10,"evidence":"预测表"}],
+      "learningGoals": [{"mainContent":"完成可交互四则运算程序","teacherActivity":"说明输入提示和测试数据","studentActivity":"记录测试用例","minutes":5,"evidence":"测试用例表"}],
+      "knowledgeLearning": [{"mainContent":"算术运算符、优先级、scanf/printf","teacherActivity":"演示取余、整数除法和&变量地址，展示错误格式","studentActivity":"输入测试数据并核对结果","minutes":25,"evidence":"三组测试结果"}],
+      "taskImplementation": [{"mainContent":"必须完成：编写两数运算计算器","teacherActivity":"指导设置边界数据并巡回调试","studentActivity":"创建C04_学号.c，读取两个整数输出和差积商余","minutes":30,"evidence":"提交源文件和三组运行结果"}],
+      "assessment": [{"mainContent":"检查输入、表达式和测试覆盖","teacherActivity":"按功能和测试证据评分","studentActivity":"演示一组正常和一组边界数据","minutes":10,"evidence":"运行记录"}],
+      "summary": [{"mainContent":"总结输入—计算—输出流程","teacherActivity":"追问整数除法和取余","studentActivity":"回答并改正错题","minutes":5,"evidence":"口答"}],
+      "homework": [{"mainContent":"扩展圆面积计算","teacherActivity":"布置常量PI和小数输入练习","studentActivity":"完成程序并自测","minutes":5,"evidence":"作业代码"}],
+      "reflection": [{"mainContent":"分析格式符和整数除法错误","teacherActivity":"整理典型编译/运行现象","studentActivity":"提交疑难点","minutes":0,"evidence":"错例表"}]
+    }
+  },
+  {
+    "match": ["if", "单分支", "双分支"],
+    "contentDetail": "项目三：if单分支与双分支",
+    "teachingPurpose": "用成绩判定和温度提醒任务理解条件表达式，能够使用if完成单分支和双分支判断。",
+    "knowledgeGoals": "1. 理解条件为真/假。\n2. 掌握if、else语法和关系运算符。\n3. 识别=与==的区别。",
+    "abilityGoals": "能编写及格判定、奇偶判断程序并用边界数据测试。",
+    "qualityGoals": "形成先列条件、再编码、覆盖边界的严谨习惯。",
+    "keyPoints": "重点：if/else结构。难点：条件边界和==。",
+    "flow": {
+      "introduction": [{"mainContent":"用及格与否的规则导入条件判断","teacherActivity":"展示成绩规则并让学生列出两种结果","studentActivity":"写出条件和输出","minutes":10,"evidence":"条件草稿"}],
+      "learningGoals": [{"mainContent":"完成成绩判定和奇偶判断","teacherActivity":"明确边界测试要求","studentActivity":"记录测试值60、59和0","minutes":5,"evidence":"测试清单"}],
+      "knowledgeLearning": [{"mainContent":"if、else和关系运算符","teacherActivity":"演示单/双分支及=误写为==的错误","studentActivity":"跟做并修改条件","minutes":25,"evidence":"通过编译"}],
+      "taskImplementation": [{"mainContent":"必须完成：实现成绩等级前的及格判定和奇偶判断","teacherActivity":"巡回检查条件完整性","studentActivity":"创建C05_学号.c，输入分数输出及格/不及格，再判断奇偶","minutes":30,"evidence":"提交源文件和边界运行截图"}],
+      "assessment": [{"mainContent":"评价条件准确性和边界覆盖","teacherActivity":"检查==、边界和输出","studentActivity":"解释一个边界值结果","minutes":10,"evidence":"代码及测试记录"}],
+      "summary": [{"mainContent":"回顾条件—分支—结果","teacherActivity":"组织错例判断","studentActivity":"指出=和==区别","minutes":5,"evidence":"快问快答"}],
+      "homework": [{"mainContent":"编写温度提醒程序","teacherActivity":"给出两种温度规则","studentActivity":"完成并测试边界","minutes":5,"evidence":"作业代码"}],
+      "reflection": [{"mainContent":"统计边界和比较符号错误","teacherActivity":"准备下节多分支案例","studentActivity":"反馈困难","minutes":0,"evidence":"反思记录"}]
+    }
+  },
+  {
+    "match": ["多分支", "switch", "选择结构"],
+    "contentDetail": "项目三：多分支与switch选择结构",
+    "teachingPurpose": "通过菜单和等级判定任务掌握多分支if和switch，能根据需求选择合适结构。",
+    "knowledgeGoals": "1. 掌握else if和switch/case/default。\n2. 理解break作用和穿透现象。\n3. 知道switch适用整数/字符离散选项。",
+    "abilityGoals": "能编写菜单选择程序并覆盖非法选项。",
+    "qualityGoals": "形成先画分支表、再编码并测试每个出口的习惯。",
+    "keyPoints": "重点：多分支和break。难点：条件覆盖、case穿透。",
+    "flow": {
+      "introduction": [{"mainContent":"从自助点餐菜单引出多个结果","teacherActivity":"展示选项和对应处理","studentActivity":"绘制分支表","minutes":10,"evidence":"分支表"}],
+      "learningGoals": [{"mainContent":"完成菜单和等级选择程序","teacherActivity":"说明if与switch选择依据","studentActivity":"列出正常和非法输入","minutes":5,"evidence":"测试清单"}],
+      "knowledgeLearning": [{"mainContent":"else if、switch、case、break、default","teacherActivity":"演示缺少break的穿透现象并修正","studentActivity":"跟做并观察每个分支输出","minutes":25,"evidence":"覆盖所有case"}],
+      "taskImplementation": [{"mainContent":"必须完成：制作数字菜单选择程序","teacherActivity":"指导设计选项和非法输入处理","studentActivity":"创建C06_学号.c，根据1-4选择服务并用default提示错误","minutes":30,"evidence":"提交代码及5组测试结果"}],
+      "assessment": [{"mainContent":"检查分支覆盖和break使用","teacherActivity":"按功能、结构和测试评分","studentActivity":"演示非法选项并解释default","minutes":10,"evidence":"运行记录"}],
+      "summary": [{"mainContent":"比较if多分支和switch","teacherActivity":"组织适用场景判断","studentActivity":"说出break和default作用","minutes":5,"evidence":"出口问答"}],
+      "homework": [{"mainContent":"扩展成绩等级菜单","teacherActivity":"布置等级映射练习","studentActivity":"完成并测试边界","minutes":5,"evidence":"作业代码"}],
+      "reflection": [{"mainContent":"记录分支遗漏和穿透错误","teacherActivity":"整理分支测试模板","studentActivity":"反馈调试问题","minutes":0,"evidence":"反思记录"}]
+    }
+  },
+  {
+    "match": ["while", "do_while", "do while", "循环"],
+    "contentDetail": "项目四：while与do-while循环",
+    "teachingPurpose": "通过重复输入和累加任务理解循环三要素，掌握while与do-while的执行特点。",
+    "knowledgeGoals": "1. 认识初始化、条件、更新三要素。\n2. 掌握while和do-while语法。\n3. 理解死循环和至少执行一次的差异。",
+    "abilityGoals": "能编写累加、计数和菜单重复程序，主动设置终止条件。",
+    "qualityGoals": "养成先画流程、设置终止条件和用小数据验证的习惯。",
+    "keyPoints": "重点：循环三要素。难点：更新遗漏、while/do-while差异。",
+    "flow": {
+      "introduction": [{"mainContent":"从重复输入直到输入0导入循环","teacherActivity":"手工演示重复步骤并提问规律","studentActivity":"找出重复部分和停止条件","minutes":10,"evidence":"循环要素表"}],
+      "learningGoals": [{"mainContent":"完成累加和重复菜单程序","teacherActivity":"明确终止条件及测试数据","studentActivity":"填写流程图","minutes":5,"evidence":"流程图"}],
+      "knowledgeLearning": [{"mainContent":"while/do-while结构和循环三要素","teacherActivity":"演示更新遗漏造成死循环、输入0时两结构差异","studentActivity":"跟做并修复循环","minutes":25,"evidence":"程序正常终止"}],
+      "taskImplementation": [{"mainContent":"必须完成：编写输入累加和重复菜单程序","teacherActivity":"巡回检查初始化、条件、更新","studentActivity":"创建C07_学号.c，输入若干正数直到0并输出总和","minutes":30,"evidence":"提交源文件和含0/空输入测试记录"}],
+      "assessment": [{"mainContent":"评价循环结构和终止条件","teacherActivity":"检查三要素、结果和边界","studentActivity":"演示输入0时的结果并解释原因","minutes":10,"evidence":"代码及测试记录"}],
+      "summary": [{"mainContent":"回顾三要素和两种循环差异","teacherActivity":"用流程图提问","studentActivity":"指出do-while至少执行一次","minutes":5,"evidence":"口答"}],
+      "homework": [{"mainContent":"完成1到100累加","teacherActivity":"要求分别用while和do-while实现","studentActivity":"提交两份代码并比较","minutes":5,"evidence":"作业代码"}],
+      "reflection": [{"mainContent":"统计死循环和边界错误","teacherActivity":"准备for循环迁移示例","studentActivity":"反馈最难理解的要素","minutes":0,"evidence":"反思记录"}]
+    }
+  },
+  {
+    "match": ["for循环", "for", "重复计算", "规律程序"],
+    "contentDetail": "项目四：for循环，从重复计算到规律程序",
+    "teachingPurpose": "通过规律输出和累加任务掌握for循环结构，能够将重复计算转化为简洁程序。",
+    "knowledgeGoals": "1. 掌握for初始化、条件、更新。\n2. 理解循环变量变化和执行次数。\n3. 认识嵌套循环基本形式。",
+    "abilityGoals": "能用for完成累加、乘法表或图形输出，并通过表格核对次数。",
+    "qualityGoals": "养成分析规律、控制变量和逐步验证的编程习惯。",
+    "keyPoints": "重点：for三段式结构。难点：边界、执行次数和嵌套循环。",
+    "flow": {
+      "introduction": [{"mainContent":"观察1到10重复计算和规律输出","teacherActivity":"展示手写步骤，提问如何压缩重复代码","studentActivity":"找出变化量和重复次数","minutes":10,"evidence":"规律表"}],
+      "learningGoals": [{"mainContent":"完成累加和九九表局部输出","teacherActivity":"明确循环次数和验算要求","studentActivity":"记录起止值和步长","minutes":5,"evidence":"循环参数表"}],
+      "knowledgeLearning": [{"mainContent":"for三段式、循环变量和嵌套循环","teacherActivity":"逐步演示执行轨迹，展示<=与<边界差异","studentActivity":"跟做并填写每轮变量值","minutes":25,"evidence":"执行轨迹表"}],
+      "taskImplementation": [{"mainContent":"必须完成：用for完成1到100累加和规律输出","teacherActivity":"指导设置边界并检查循环次数","studentActivity":"创建C08_学号.c，输出1-10及累加结果，选做乘法表","minutes":30,"evidence":"提交源文件、运行截图和验算记录"}],
+      "assessment": [{"mainContent":"评价循环参数、结果和代码简洁性","teacherActivity":"按正确性、边界和说明评分","studentActivity":"演示循环变量变化并解释次数","minutes":10,"evidence":"代码及执行轨迹"}],
+      "summary": [{"mainContent":"总结for三段式和边界写法","teacherActivity":"组织参数改写题","studentActivity":"回答改为倒序循环的方法","minutes":5,"evidence":"出口题"}],
+      "homework": [{"mainContent":"用for输出指定图案","teacherActivity":"布置单层循环图案练习","studentActivity":"完成并标注循环变量","minutes":5,"evidence":"作业代码"}],
+      "reflection": [{"mainContent":"记录边界和循环次数错误","teacherActivity":"整理迁移到嵌套循环的支架","studentActivity":"反馈调试过程","minutes":0,"evidence":"反思记录"}]
+    }
+  }
+]

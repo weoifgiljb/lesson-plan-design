@@ -3,216 +3,97 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import zipfile
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "formatting-lesson-docx" / "scripts"))
-from lib import (
-    ACTIVITY_FLOW_LABELS,
-    default_review_path,
-    dump,
-    export_gate,
-    load_json,
-    load_review_report,
-)
-from markdown_ooxml import DocxPackage, NS_W
+from _cli import CliError, JsonArgumentParser, run_cli
+from lib import default_review_path, dump, export_gate, load_json, load_review_report
+from markdown_ooxml import DocxPackage
 
-LABEL_SHADE = "D6E3F8"
-FLOW_KEYS = list(ACTIVITY_FLOW_LABELS.keys())
+from docx_export.build import build_document_xml
+from docx_export.content import _split_key_points
+from docx_export.footer import ENGINE_VERSION, _footer_xml
+from docx_export.metadata import _missing_metadata
+from docx_export.selfcheck import self_check
 
 
-def _borders() -> str:
-    return (
-        "<w:tcBorders>"
-        '<w:top w:val="single" w:sz="4" w:color="000000"/>'
-        '<w:left w:val="single" w:sz="4" w:color="000000"/>'
-        '<w:bottom w:val="single" w:sz="4" w:color="000000"/>'
-        '<w:right w:val="single" w:sz="4" w:color="000000"/>'
-        "</w:tcBorders>"
-    )
-
-
-def _cell_xml(paras: str, *, span: int = 1, shade: str | None = None, width: int | None = None) -> str:
-    grid = f'<w:gridSpan w:val="{span}"/>' if span > 1 else ""
-    fill = f'<w:shd w:val="clear" w:fill="{shade}"/>' if shade else ""
-    cell_width = f'<w:tcW w:w="{width}" w:type="dxa"/>' if width else ""
-    body = paras or "<w:p></w:p>"
-    return f"<w:tc><w:tcPr>{cell_width}{grid}{_borders()}{fill}</w:tcPr>{body}</w:tc>"
-
-
-def _row(cells: list[str]) -> str:
-    return "<w:tr>" + "".join(cells) + "</w:tr>"
-
-
-def _assets_for(plan: dict, field: str) -> list[dict]:
-    items = plan.get("mediaAssets") or []
-    if not isinstance(items, list):
-        return []
-    matched = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("attachTo") or "") == field:
-            matched.append(item)
-    return matched
-
-
-def _field_paras(pkg: DocxPackage, plan: dict, field: str, text: str) -> str:
-    xml = pkg.render_markdown(text)
-    for asset in _assets_for(plan, field):
-        xml += pkg.render_image_asset(asset)
-    return xml
-
-
-def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
-    flow = plan.get("activityFlow") or {}
-    content = "\n".join(x for x in [plan.get("contentTitle") or "", plan.get("contentDetail") or ""] if x)
-    header = (
-        f"{plan.get('academicYear', '')}学年  第 {plan.get('semester', '')} 学期  "
-        f"课程 {plan.get('course', '')}  编号 {plan.get('planNumber') or '____'}  "
-        f"教研组 {plan.get('teachingGroup', '')}  任课教师 {plan.get('teacher') or '____'}  "
-        f"教学对象 {plan.get('teachingObject') or '____'}"
-    )
-    date_cell = plan.get("teachDate") or f"第{plan.get('week')}周第{plan.get('session')}次"
-    label_w, value_w = 1600, 7400
-    rows = [
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("授课日期"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(pkg.render_markdown(str(date_cell)), width=2100),
-                _cell_xml(pkg.label_paragraph("计划学时"), shade=LABEL_SHADE, width=1600),
-                _cell_xml(pkg.render_markdown(str(plan.get("plannedHours", ""))), width=3700),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("教学内容"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(_field_paras(pkg, plan, "contentTitle", content), span=3, width=value_w),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("教学目的"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(
-                    _field_paras(pkg, plan, "teachingPurpose", str(plan.get("teachingPurpose") or "")),
-                    span=3,
-                    width=value_w,
-                ),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("知识目标"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(
-                    _field_paras(pkg, plan, "knowledgeGoals", str(plan.get("knowledgeGoals") or "")),
-                    span=3,
-                    width=value_w,
-                ),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("能力目标"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(
-                    _field_paras(pkg, plan, "abilityGoals", str(plan.get("abilityGoals") or "")),
-                    span=3,
-                    width=value_w,
-                ),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("素质目标"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(
-                    _field_paras(pkg, plan, "qualityGoals", str(plan.get("qualityGoals") or "")),
-                    span=3,
-                    width=value_w,
-                ),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("重点与难点"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(
-                    _field_paras(pkg, plan, "keyPoints", str(plan.get("keyPoints") or "")),
-                    span=3,
-                    width=value_w,
-                ),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("教学方法"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(
-                    _field_paras(pkg, plan, "teachingMethods", str(plan.get("teachingMethods") or "")),
-                    span=3,
-                    width=value_w,
-                ),
-            ]
-        ),
-        _row(
-            [
-                _cell_xml(pkg.label_paragraph("教学资源"), shade=LABEL_SHADE, width=label_w),
-                _cell_xml(
-                    _field_paras(pkg, plan, "teachingResources", str(plan.get("teachingResources") or "")),
-                    span=3,
-                    width=value_w,
-                ),
-            ]
-        ),
-    ]
-    for key in FLOW_KEYS:
-        text = str(flow.get(key) or "")
-        paras = pkg.render_markdown(text)
-        for asset in _assets_for(plan, f"activityFlow.{key}") + _assets_for(plan, key):
-            paras += pkg.render_image_asset(asset)
-        rows.append(
-            _row(
-                [
-                    _cell_xml(pkg.label_paragraph(ACTIVITY_FLOW_LABELS[key]), shade=LABEL_SHADE, width=label_w),
-                    _cell_xml(paras, span=3, width=value_w),
-                ]
-            )
-        )
-
-    table = (
-        '<w:tbl><w:tblPr><w:tblW w:w="9000" w:type="dxa"/>'
-        '<w:tblLayout w:type="fixed"/></w:tblPr>'
-        '<w:tblGrid><w:gridCol w:w="1600"/><w:gridCol w:w="2100"/><w:gridCol w:w="1600"/><w:gridCol w:w="3700"/></w:tblGrid>'
-        + "".join(rows)
-        + "</w:tbl>"
-    )
-    title = pkg.label_paragraph(f"{plan.get('school', '')}教案", center=True)
-    header_p = pkg.render_markdown(header)
-    body = title + header_p + table
-    return (
-        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        f'<w:document xmlns:w="{NS_W}">'
-        "<w:body>"
-        f"{body}"
-        '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/>'
-        '<w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080"/>'
-        "</w:sectPr></w:body></w:document>"
-    )
-
-
-def export_docx(plan: dict, output: Path, *, base_dir: Path | None = None) -> Path:
+def export_docx_result(
+    plan: dict,
+    output: Path,
+    *,
+    base_dir: Path | None = None,
+    independence: str | None = None,
+    strict_metadata: bool = False,
+) -> dict:
+    if strict_metadata:
+        missing = _missing_metadata(plan)
+        if missing:
+            raise ValueError("严格模式缺少元信息：" + "、".join(missing))
     output.parent.mkdir(parents=True, exist_ok=True)
     pkg = DocxPackage(base_dir=base_dir)
-    document_xml = build_document_xml(plan, pkg)
+    pkg.footer_xml = _footer_xml(plan)
+    document_xml = build_document_xml(plan, pkg, independence=independence)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in pkg.zip_parts(document_xml).items():
             zf.writestr(name, data)
-    return output
+    media = []
+    for _rid, dest, path in pkg._images:
+        data = path.read_bytes()
+        media.append({
+            "dest": dest,
+            "source": str(path),
+            "bytes": len(data),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        })
+    warnings = [
+        f"图片缺失：{src}" for src in dict.fromkeys(pkg.missing_images)
+    ]
+    return {
+        "path": output,
+        "warnings": warnings,
+        "media": media,
+        "engineVersion": ENGINE_VERSION,
+    }
+
+
+def export_docx(
+    plan: dict,
+    output: Path,
+    *,
+    base_dir: Path | None = None,
+    independence: str | None = None,
+    strict_metadata: bool = False,
+) -> Path:
+    return export_docx_result(
+        plan,
+        output,
+        base_dir=base_dir,
+        independence=independence,
+        strict_metadata=strict_metadata,
+    )["path"]
+
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="导出教案 DOCX")
+    parser = JsonArgumentParser(description="导出教案 DOCX")
     parser.add_argument("path", help="教案 JSON")
     parser.add_argument("-o", "--out", help="输出 docx 路径")
     parser.add_argument("--review", help="对抗审查报告路径；默认读取教案同目录 .review.json")
+    parser.add_argument(
+        "--strict-independence",
+        action="store_true",
+        help="严格模式拒绝角色模拟审校，要求独立子代理或人工审校",
+    )
+    parser.add_argument(
+        "--strict-metadata",
+        action="store_true",
+        help="导出前要求任课教师、教学对象、授课日期非空",
+    )
     args = parser.parse_args()
     plan_path = Path(args.path)
     plan = load_json(plan_path)
@@ -222,20 +103,41 @@ def main() -> int:
     else:
         try:
             report = load_review_report(review_path)
-        except (OSError, ValueError, json.JSONDecodeError):
-            print(dump({"ok": False, "reasons": [f"审查报告无法解析：{review_path.as_posix()}"]}), file=sys.stderr)
-            return 1
-    gate = export_gate(plan, report)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise CliError(
+                "INVALID_JSON",
+                f"审查报告无法解析：{review_path.as_posix()}",
+                "检查报告 JSON 语法与编码",
+            ) from exc
+    gate = export_gate(plan, report, strict_independence=args.strict_independence)
     if not gate["ok"]:
-        print(dump({"ok": False, "reasons": gate["reasons"]}), file=sys.stderr)
-        return 1
+        raise CliError("GATE_REJECTED", "导出被门禁拒绝", "；".join(gate["reasons"]))
     week = plan.get("week")
     session = plan.get("session")
     out = Path(args.out) if args.out else plan_path.parent / f"教案_第{week}周第{session}次.docx"
-    saved = export_docx(plan, out, base_dir=plan_path.parent)
-    print(f'{{"ok": true, "path": "{saved.as_posix()}", "bytes": {saved.stat().st_size}}}')
+    independence = None
+    if isinstance(report, dict):
+        independence = report.get("independence") or report.get("reviewer")
+    result = export_docx_result(
+        plan,
+        out,
+        base_dir=plan_path.parent,
+        independence=independence,
+        strict_metadata=args.strict_metadata,
+    )
+    check = self_check(Path(result["path"]), plan, result["media"])
+    if not check["ok"]:
+        raise CliError("EXPORT_SELF_CHECK_FAILED", "导出后自检未通过", "检查页脚与媒体文件")
+    print(dump({
+        "ok": True,
+        "path": str(result["path"]),
+        "bytes": Path(result["path"]).stat().st_size,
+        "engineVersion": result["engineVersion"],
+        "selfCheck": check,
+        "warnings": result["warnings"],
+    }))
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run_cli(main))
