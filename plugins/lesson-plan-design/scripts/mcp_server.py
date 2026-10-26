@@ -105,6 +105,7 @@ TOOLS = [
                 "outputPath": {"type": "string"},
                 "reviewReport": {"type": "object"},
                 "baseDir": {"type": "string"},
+                "strictMetadata": {"type": "boolean"},
             },
         },
     },
@@ -180,7 +181,15 @@ def call_tool(name: str, args: dict) -> dict:
             return _result(dump({"ok": False, "reasons": gate["reasons"]}))
         out = Path(args.get("outputPath") or f"教案_第{plan.get('week')}周第{plan.get('session')}次.docx")
         base_dir = Path(str(args["baseDir"])) if args.get("baseDir") else out.parent
-        saved = export_docx(plan, out, base_dir=base_dir)
+        try:
+            saved = export_docx(
+                plan,
+                out,
+                base_dir=base_dir,
+                strict_metadata=bool(args.get("strictMetadata")),
+            )
+        except ValueError as exc:
+            return _result(dump({"ok": False, "reasons": [str(exc)]}))
         return _result(dump({"ok": True, "path": str(saved), "bytes": saved.stat().st_size}))
     if name == "score_against_samples":
         return _result(dump(score_against_examples(args.get("plan") or args)))

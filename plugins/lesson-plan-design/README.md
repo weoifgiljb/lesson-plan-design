@@ -131,6 +131,9 @@ py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/adversarial_r
 # 门禁通过后导出 Word
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx
 
+# 严格模式：任课教师、教学对象、授课日期为空时拒绝导出
+py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/export_docx.py plan.json -o 教案.docx --strict-metadata
+
 # 校验全部金标准 / 跑各技能单元测试
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/scripts/validate.py --examples
 py -3 plugins/lesson-plan-design/skills/lesson-plan-design/test/index.py

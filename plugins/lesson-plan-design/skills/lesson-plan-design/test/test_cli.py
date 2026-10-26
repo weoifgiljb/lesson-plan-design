@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from support import PLUGIN_ROOT, SCRIPTS_DIR, utf8_env
@@ -140,3 +141,70 @@ class TestCli(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("no-counterexample", proc.stdout)
+
+    def test_export_includes_metadata_and_normalized_hours(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
+        plan.update({
+            "school": "东莞经贸学校",
+            "planNumber": "IT-0201",
+            "teachDate": "2026-10-26",
+            "teacher": "张老师",
+            "teachingObject": "计算机2301",
+            "plannedHours": 2.0,
+        })
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "meta.docx"
+            export_docx(plan, out)
+            with zipfile.ZipFile(out) as archive:
+                xml = archive.read("word/document.xml").decode("utf-8")
+        for value in ("东莞经贸学校", "IT-0201", "2026-10-26", "张老师", "计算机2301"):
+            self.assertIn(value, xml)
+        self.assertNotIn("2.0", xml)
+
+    def test_export_strict_metadata_rejects_empty_teacher(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
+        plan["teacher"] = ""
+        plan["teachingObject"] = "计算机2301"
+        plan["teachDate"] = "2026-10-26"
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "strict.docx"
+            with self.assertRaises(ValueError):
+                export_docx(plan, out, strict_metadata=True)
+            self.assertFalse(out.exists())
+
+    def test_cli_export_strict_metadata(self) -> None:
+        plan = draft_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
+        plan["teacher"] = ""
+        plan["teachingObject"] = "计算机2301"
+        plan["teachDate"] = "2026-10-26"
+        script = SCRIPTS_DIR / "export_docx.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan_path = root / "教案.json"
+            out = root / "strict.docx"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            save_review_report(
+                default_review_path(plan_path),
+                adversarial_review(plan, reviewer="native_subagent", no_counterexample=True),
+            )
+            denied = subprocess.run(
+                [sys.executable, str(script), str(plan_path), "--strict-metadata", "-o", str(out)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=utf8_env(),
+            )
+            self.assertNotEqual(denied.returncode, 0)
+            self.assertFalse(out.exists())
+            self.assertIn("严格模式缺少元信息", denied.stderr + denied.stdout)
+            plan["teacher"] = "张老师"
+            plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
+            save_review_report(
+                default_review_path(plan_path),
+                adversarial_review(plan, reviewer="native_subagent", no_counterexample=True),
+            )
+            allowed = subprocess.run(
+                [sys.executable, str(script), str(plan_path), "--strict-metadata", "-o", str(out)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                env=utf8_env(),
+            )
+            self.assertEqual(allowed.returncode, 0, allowed.stderr + allowed.stdout)
+            self.assertTrue(out.exists())

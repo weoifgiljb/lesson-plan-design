@@ -138,13 +138,42 @@ def _split_key_points(text: str) -> tuple[str, str]:
     return _KEY_PREFIX_RE.sub("", raw).strip(), ""
 
 
+def _meta_value(value, placeholder: str = "____") -> str:
+    text = str(value or "").strip()
+    return text or placeholder
+
+
+def _format_hours(value) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return _meta_value(value)
+    if number.is_integer():
+        return str(int(number))
+    return f"{number:g}"
+
+
+def _missing_metadata(plan: dict) -> list[str]:
+    missing: list[str] = []
+    for key, label in (
+        ("teacher", "任课教师"),
+        ("teachingObject", "教学对象"),
+        ("teachDate", "授课日期"),
+    ):
+        if not str(plan.get(key) or "").strip():
+            missing.append(label)
+    return missing
+
+
 def _meta_line(plan: dict) -> str:
-    teacher = plan.get("teacher") or "____"
-    teaching_object = plan.get("teachingObject") or "____"
     return (
+        f"学校：{_meta_value(plan.get('school'))}  "
+        f"编号：{_meta_value(plan.get('planNumber'))}  "
         f"{plan.get('academicYear', '')}学年 第{plan.get('semester', '')}学期  "
         f"课程：{plan.get('course', '')}  教研组：{plan.get('teachingGroup', '')}  "
-        f"任课教师：{teacher}  教学对象：{teaching_object}  "
+        f"任课教师：{_meta_value(plan.get('teacher'))}  "
+        f"教学对象：{_meta_value(plan.get('teachingObject'))}  "
+        f"授课日期：{_meta_value(plan.get('teachDate'))}  "
         f"第{plan.get('week')}周第{plan.get('session')}次"
     )
 
@@ -200,7 +229,7 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
         _cell_xml(pkg.label_paragraph("教学内容", center=True), shade=LABEL_SHADE, span=2, width=1101, valign="center"),
         _cell_xml(_field_paras(pkg, plan, "contentTitle", content), shade=LABEL_SHADE, span=4, width=6475),
         _cell_xml(pkg.label_paragraph("课时", center=True), shade=LABEL_SHADE, width=1001, valign="center"),
-        _cell_xml(pkg.render_markdown(str(plan.get("plannedHours", ""))), shade=LABEL_SHADE, width=711),
+        _cell_xml(pkg.render_markdown(_format_hours(plan.get("plannedHours"))), shade=LABEL_SHADE, width=711),
     ]))
     rows.append(_row([
         _cell_xml(pkg.label_paragraph("教学目的", center=True), shade=LABEL_SHADE, span=2, width=1101, valign="center"),
@@ -299,7 +328,17 @@ def build_document_xml(plan: dict, pkg: DocxPackage) -> str:
     )
 
 
-def export_docx(plan: dict, output: Path, *, base_dir: Path | None = None) -> Path:
+def export_docx(
+    plan: dict,
+    output: Path,
+    *,
+    base_dir: Path | None = None,
+    strict_metadata: bool = False,
+) -> Path:
+    if strict_metadata:
+        missing = _missing_metadata(plan)
+        if missing:
+            raise ValueError("严格模式缺少元信息：" + "、".join(missing))
     output.parent.mkdir(parents=True, exist_ok=True)
     pkg = DocxPackage(base_dir=base_dir)
     document_xml = build_document_xml(plan, pkg)
@@ -314,6 +353,11 @@ def main() -> int:
     parser.add_argument("path", help="教案 JSON")
     parser.add_argument("-o", "--out", help="输出 docx 路径")
     parser.add_argument("--review", help="对抗审查报告路径；默认读取教案同目录 .review.json")
+    parser.add_argument(
+        "--strict-metadata",
+        action="store_true",
+        help="导出前要求任课教师、教学对象、授课日期非空",
+    )
     args = parser.parse_args()
     plan_path = Path(args.path)
     plan = load_json(plan_path)
@@ -333,7 +377,16 @@ def main() -> int:
     week = plan.get("week")
     session = plan.get("session")
     out = Path(args.out) if args.out else plan_path.parent / f"教案_第{week}周第{session}次.docx"
-    saved = export_docx(plan, out, base_dir=plan_path.parent)
+    try:
+        saved = export_docx(
+            plan,
+            out,
+            base_dir=plan_path.parent,
+            strict_metadata=args.strict_metadata,
+        )
+    except ValueError as exc:
+        print(dump({"ok": False, "reasons": [str(exc)]}), file=sys.stderr)
+        return 1
     print(f'{{"ok": true, "path": "{saved.as_posix()}", "bytes": {saved.stat().st_size}}}')
     return 0
 
