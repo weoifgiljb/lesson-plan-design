@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import sys
-import tempfile
 import unittest
 import zipfile
 from pathlib import Path
 
-from support import PNG_1X1, SKILLS_DIR
+from support import PNG_1X1, SKILLS_DIR, tempdir
 
 sys.path.insert(0, str(SKILLS_DIR / "lesson-plan-design" / "scripts"))
 from export_docx import (
@@ -22,7 +21,7 @@ from lib import draft_plan
 
 
 def _document_xml(plan: dict) -> str:
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempdir() as tmp:
         out = Path(tmp) / "plan.docx"
         export_docx(plan, out, base_dir=Path(tmp))
         with zipfile.ZipFile(out) as zf:
@@ -32,7 +31,7 @@ def _document_xml(plan: dict) -> str:
 class TestExportDocxFormat(unittest.TestCase):
     def test_footer_has_page_number_and_engine(self) -> None:
         plan = draft_plan(1, 1, "页脚检查")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             out = Path(tmp) / "footer.docx"
             result = export_docx_result(plan, out)
             with zipfile.ZipFile(out) as zf:
@@ -57,7 +56,7 @@ class TestExportDocxFormat(unittest.TestCase):
             "caption": "教材第 3 页",
             "attachTo": "knowledgeLearning",
         }]
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             out = Path(tmp) / "missing.docx"
             result = export_docx_result(plan, out, base_dir=Path(tmp))
             with zipfile.ZipFile(out) as zf:
@@ -69,7 +68,7 @@ class TestExportDocxFormat(unittest.TestCase):
 
     def test_self_check_detects_tampered_media(self) -> None:
         plan = draft_plan(1, 1, "篡改检查")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             png = root / "page.png"
             png.write_bytes(PNG_1X1)
@@ -94,7 +93,7 @@ class TestExportDocxFormat(unittest.TestCase):
     def test_export_splits_flow_and_renders_markdown(self) -> None:
         plan = draft_plan(1, 1, "认识 C 语言")
         plan["knowledgeGoals"] = "1. 说出用途\n2. 区分编译\n\n常见错误：**未保存**。"
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             out = Path(tmp) / "demo.docx"
             png = Path(tmp) / "page-003.png"
             png.write_bytes(PNG_1X1)

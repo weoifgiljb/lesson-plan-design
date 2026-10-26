@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import re
-import tempfile
 import unittest
 from pathlib import Path
 
-from support import PNG_1X1, png_rgba
+from support import PNG_1X1, png_rgba, tempdir
 from markdown_ooxml import DocxPackage
 
 
@@ -45,7 +44,7 @@ class TestRenderOoxml(unittest.TestCase):
         self.assertNotIn("#include <stdio.h>", xml)
 
     def test_image_rel_and_media_part(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             png = root / "shot.png"
             png.write_bytes(PNG_1X1)
@@ -67,7 +66,7 @@ class TestRenderOoxml(unittest.TestCase):
             self.assertIn("/image", rels)
 
     def test_image_alt_quotes_are_xml_escaped(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             png = root / "shot.png"
             png.write_bytes(PNG_1X1)
@@ -77,7 +76,7 @@ class TestRenderOoxml(unittest.TestCase):
             self.assertNotIn('name="page"3"', xml)
 
     def test_png_keeps_pixel_aspect_ratio(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             png = root / "wide.png"
             png.write_bytes(png_rgba(2, 1))
@@ -87,7 +86,7 @@ class TestRenderOoxml(unittest.TestCase):
             self.assertIn('cy="2340000"', xml)
 
     def test_image_nv_ids_are_unique(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             (root / "a.png").write_bytes(PNG_1X1)
             (root / "b.png").write_bytes(PNG_1X1)

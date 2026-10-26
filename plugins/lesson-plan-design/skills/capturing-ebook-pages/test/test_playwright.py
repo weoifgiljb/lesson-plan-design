@@ -2,11 +2,10 @@
 """Playwright 截图。无 Chromium 时 skip。"""
 from __future__ import annotations
 
-import tempfile
 import unittest
 from pathlib import Path
 
-from support import SCRIPTS_DIR  # noqa: F401
+from support import SCRIPTS_DIR, tempdir  # noqa: F401
 from capture_ebook import write_minimal_pdf
 
 
@@ -18,7 +17,7 @@ class TestPlaywrightCapture(unittest.TestCase):
             self.skipTest(str(exc))
         if not chromium_available():
             self.skipTest("Playwright Chromium 未安装")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             root = Path(tmp)
             pdf = root / "sample.pdf"
             write_minimal_pdf(pdf, "Hello ebook")

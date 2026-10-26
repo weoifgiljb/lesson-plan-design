@@ -2,7 +2,11 @@
 """电子书截图技能测试共用路径与 PDF 夹具。"""
 from __future__ import annotations
 
+import contextlib
+import shutil
 import sys
+import tempfile
+import uuid
 import zlib
 from pathlib import Path
 
@@ -12,6 +16,22 @@ SCRIPTS_DIR = SKILL_DIR / "scripts"
 
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
+
+
+@contextlib.contextmanager
+def tempdir():
+    """创建可清理的临时目录，替代 ``tempfile.TemporaryDirectory``。
+
+    与 ``lesson-plan-design/test/support.py`` 保持同一实现：``TemporaryDirectory``
+    用 0700 建目录，在 Windows 沙箱与部分杀软环境下会被判为不可写，清理也会因
+    删除锁失败抛 ``PermissionError``；这里显式 0o777，清理失败只忽略。
+    """
+    root = Path(tempfile.gettempdir()) / f"lpp-test-{uuid.uuid4().hex}"
+    root.mkdir(mode=0o777)
+    try:
+        yield root
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
 
 
 def write_pdf(path: Path, objects: list[bytes]) -> Path:

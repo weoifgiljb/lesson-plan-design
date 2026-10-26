@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import json
-import tempfile
 import unittest
 from pathlib import Path
 
-from support import SKILL_DIR  # noqa: F401
+from support import SKILL_DIR, tempdir  # noqa: F401
 from lib import (
     REVIEW_SCHEMA_VERSION,
     RUBRIC_VERSION,
@@ -170,7 +169,7 @@ class TestReview(unittest.TestCase):
 
     def test_report_is_saved_next_to_plan_and_keeps_previous_round_history(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempdir() as tmp:
             plan_path = Path(tmp) / "教案.json"
             plan_path.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
             old_report = adversarial_review(plan, round_number=1)
