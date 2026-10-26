@@ -138,6 +138,8 @@ py -3 plugins/lesson-plan-design/skills/formatting-lesson-docx/test/index.py
 py -3 plugins/lesson-plan-design/skills/capturing-ebook-pages/test/index.py
 ```
 
+一键全量（单元 + 金标准 + fixtures + 布局）：`py -3 scripts/run_all_tests.py`；任一失败返回非 0，`--json` 输出机器可读汇总，`--only` 可只跑单个套件。
+
 故意缺「知识目标」应失败。导出前必须结构校验通过、审查报告与当前教案哈希匹配，并且没有未处理的 `blocker`/`major`。无反例时必须使用 `--no-counterexample`，不能省略审校声明。
 
 MCP 工具包括：`get_lesson_template`、`draft_lesson_plan`、`validate_lesson_plan`、`start_adversarial_review`、`read_lesson_review`、`record_teacher_override`、`export_lesson_docx`、`score_against_samples`。Agent 连上 `lesson-plan` 服务后可直接调，不必手敲命令。
