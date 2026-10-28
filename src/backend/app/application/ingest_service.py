@@ -232,7 +232,18 @@ def _write_version(
     repo.insert_overrides(list(report.get("overrides") or []))
     repo.set_current_version(plan_id, version_id)
     passed = str(report.get("status") or "").startswith("passed")
-    repo.attach_task_for_plan(plan_id, plan, "passed" if passed else "reviewing")
+    task_id = repo.attach_task_for_plan(plan_id, plan, "passed" if passed else "reviewing")
+    if task_id is not None:
+        audit_service.record(
+            repo,
+            actor_id=actor_id,
+            action="task.status",
+            target_type="task",
+            target_id=str(task_id),
+            detail={"status": "passed" if passed else "reviewing", "planId": plan_id},
+            ip=ip,
+            trace_id=trace_id,
+        )
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
     if sync is not None:

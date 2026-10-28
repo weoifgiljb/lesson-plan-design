@@ -8,7 +8,7 @@ from app.adapters import clock
 from app.adapters.db.repo import Repo
 from app.application import audit_service, session_service
 from app.config import LOGIN_LOCK_MINUTES, LOGIN_MAX_FAILURES
-from app.domain import auth, roles, security
+from app.domain import auth, roles, security, user_rules
 from app.domain.errors import AppError
 
 
@@ -21,19 +21,24 @@ def create_user(
     problem = security.password_problem(password)
     if problem:
         raise AppError("PAYLOAD_REJECTED", problem)
-    if repo.user_by_username(username) is not None:
-        raise AppError("CONFLICT_STALE", f"用户名已存在：{username}")
-    user_id = repo.insert_user(username, display_name, role, security.hash_password(password), group_name)
-    audit_service.record(
-        repo,
-        actor_id=actor_id,
-        action="user.create",
-        target_type="user",
-        target_id=str(user_id),
-        detail={"username": username, "role": role, "group": group_name},
-        ip=ip,
-        trace_id=trace_id,
-    )
+    data = user_rules.validate(username, display_name, group_name)
+    with repo.transaction():
+        if repo.user_by_username(data["username"]) is not None:
+            raise AppError("CONFLICT_STALE", f"用户名已存在：{data['username']}")
+        user_id = repo.insert_user(
+            data["username"], data["display_name"], role, security.hash_password(password),
+            data["group_name"],
+        )
+        audit_service.record(
+            repo,
+            actor_id=actor_id,
+            action="user.create",
+            target_type="user",
+            target_id=str(user_id),
+            detail={"username": data["username"], "role": role, "group": data["group_name"]},
+            ip=ip,
+            trace_id=trace_id,
+        )
     return user_id
 
 

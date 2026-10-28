@@ -10,6 +10,7 @@ import time
 from typing import Any, Iterator
 
 from app.adapters import clock
+from app.domain import task_rules
 from app.domain.errors import AppError
 
 
@@ -78,11 +79,14 @@ class Repo:
     def insert_user(
         self, username: str, display_name: str, role: str, password_hash: str, group_name: str = ""
     ) -> int:
-        cursor = self.conn.execute(
-            "INSERT INTO user (username, display_name, group_name, role, password_hash, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (username, display_name, group_name, role, password_hash, clock.now_iso()),
-        )
+        try:
+            cursor = self.conn.execute(
+                "INSERT INTO user (username, display_name, group_name, role, password_hash, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (username, display_name, group_name, role, password_hash, clock.now_iso()),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise AppError("CONFLICT_STALE", f"用户名已存在：{username}") from exc
         return int(cursor.lastrowid or 0)
 
     def record_login_failure(self, user_id: int, failed_count: int, locked_until: str | None) -> None:
@@ -283,11 +287,14 @@ class Repo:
         self, course: str, week: int, session: int, title: str, class_name: str,
         owner_id: int, due_date: str | None,
     ) -> int:
-        cursor = self.conn.execute(
-            "INSERT INTO task (course, week, session, title, class_name, owner_id, due_date, status, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)",
-            (course, int(week), int(session), title, class_name, owner_id, due_date, clock.now_iso()),
-        )
+        try:
+            cursor = self.conn.execute(
+                "INSERT INTO task (course, week, session, title, class_name, owner_id, due_date, status, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)",
+                (course, int(week), int(session), title, class_name, owner_id, due_date, clock.now_iso()),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise AppError("CONFLICT_STALE", "同一课程/周次/课次/班级的任务已存在") from exc
         return int(cursor.lastrowid or 0)
 
     def find_task(
@@ -345,19 +352,30 @@ class Repo:
                 params.append(value)
         return " AND ".join(where), params
 
-    def attach_task_for_plan(self, plan_id: int, plan: dict[str, Any], status: str) -> None:
-        task = self.find_task(
-            str(plan.get("course") or ""),
-            int(plan.get("week") or 0),
-            int(plan.get("session") or 0),
-            str(plan.get("className") or ""),
+    def attach_task_for_plan(self, plan_id: int, plan: dict[str, Any], status: str) -> int | None:
+        owner = self.conn.execute("SELECT owner_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        if owner is None:
+            return None
+        task = _row(
+            self.conn.execute(
+                "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
+                " AND title = ? ORDER BY id DESC LIMIT 1",
+                (
+                    int(owner["owner_id"]),
+                    str(plan.get("course") or ""),
+                    int(plan.get("week") or 0),
+                    int(plan.get("session") or 0),
+                    str(plan.get("contentTitle") or ""),
+                ),
+            ).fetchone()
         )
         if task is None:
-            return
+            return None
         self.conn.execute("UPDATE plan SET task_id = ? WHERE id = ? AND task_id IS NULL", (task["id"], plan_id))
-        rank = {"draft": 0, "reviewing": 1, "passed": 2, "exported": 3}
-        if rank.get(status, 0) > rank.get(str(task["status"]), 0):
+        if task_rules.TASK_RANK.get(status, 0) > task_rules.TASK_RANK.get(str(task["status"]), 0):
             self.conn.execute("UPDATE task SET status = ? WHERE id = ?", (status, task["id"]))
+            return int(task["id"])
+        return None
 
     def task_for_plan(self, plan_id: int) -> dict[str, Any] | None:
         row = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
@@ -365,12 +383,15 @@ class Repo:
             return None
         return self.get_task(int(row["task_id"]))
 
-    def mark_task_exported(self, plan_id: int) -> None:
-        self.conn.execute(
-            "UPDATE task SET status = 'exported' WHERE id = (SELECT task_id FROM plan WHERE id = ?)"
-            " AND status != 'exported'",
-            (plan_id,),
+    def mark_task_exported(self, plan_id: int) -> int | None:
+        row = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        if row is None or row["task_id"] is None:
+            return None
+        task_id = int(row["task_id"])
+        cursor = self.conn.execute(
+            "UPDATE task SET status = 'exported' WHERE id = ? AND status != 'exported'", (task_id,)
         )
+        return task_id if cursor.rowcount else None
 
     # ---------- 用户管理 ----------
     def list_users(

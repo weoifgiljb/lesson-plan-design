@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import threading
 import unittest
 import zipfile
 from datetime import date, timedelta
@@ -12,8 +13,12 @@ from fastapi.testclient import TestClient
 
 from support import isolated_data_dir, load_json_bytes, package_zip, read_package_dir, tempdir
 
+from app.adapters import engine
 from app.adapters.db.connection import open_database
+from app.adapters.db.repo import Repo
+from app.application import task_service
 from app.domain import security
+from app.domain.errors import AppError
 from app.main import create_app
 
 PASSWORD = "Lesson2026"
@@ -59,7 +64,7 @@ class TestTasksApi(unittest.TestCase):
             "week": 2,
             "session": 1,
             "title": "一级考证辅导2",
-            "className": "",
+            "className": "计算机1班",
             "dueDate": (date.today() + timedelta(days=3)).isoformat(),
         }
         payload.update(overrides)
@@ -97,10 +102,14 @@ class TestTasksApi(unittest.TestCase):
         with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
             names = set(archive.namelist())
             task_meta = json.loads(archive.read("task.json").decode("utf-8"))
-            template = json.loads(archive.read("plan.template.json").decode("utf-8"))
-        self.assertEqual(names, {"task.json", "plan.template.json", "README.md"})
+            template = json.loads(archive.read("plan.json").decode("utf-8"))
+        self.assertEqual(names, {"task.json", "plan.json", "README.md"})
         self.assertEqual(task_meta["taskId"], created["taskId"])
         self.assertEqual((template["course"], template["week"], template["session"]), ("信息技术", 2, 1))
+        self.assertEqual(template["contentTitle"], "一级考证辅导2")
+        self.assertEqual(template["teacher"], "")
+        self.assertEqual(template["planNumber"], "")
+        self.assertTrue(engine.validate_plan(template)["ok"])
 
     def test_package_permissions(self) -> None:
         created = self._create().json()
@@ -121,6 +130,36 @@ class TestTasksApi(unittest.TestCase):
         task = next(item for item in listing["items"] if item["taskId"] == created["taskId"])
         self.assertEqual(task["status"], "passed")
 
+    def test_concurrent_create_conflicts_not_500(self) -> None:
+        lock = threading.Lock()
+        user = {"id": 1, "role": "teacher"}
+        payload = {
+            "course": "信息技术", "week": 2, "session": 1, "title": "并发课",
+            "className": "计算机1班", "dueDate": None,
+        }
+        outcomes: list[str] = []
+
+        def create() -> None:
+            repo = Repo(open_database(self.db_file), lock)
+            try:
+                task_service.create(repo, user, payload)
+                outcomes.append("created")
+            except AppError as exc:
+                outcomes.append(exc.code)
+            finally:
+                repo.close()
+
+        threads = [threading.Thread(target=create) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15)
+        self.assertCountEqual(outcomes, ["created", "CONFLICT_STALE"])
+        connection = open_database(self.db_file)
+        try:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM task").fetchone()[0], 1)
+        finally:
+            connection.close()
     def _upload_sample(self) -> None:
         admin = self._login("admin1")
         plan = load_json_bytes(read_package_dir("valid-package")["plan.json"])

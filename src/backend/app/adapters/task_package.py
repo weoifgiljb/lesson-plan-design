@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""任务包内容：task.json + 教案模板 + 字段说明（ZIP 由 archive 适配层生成）。"""
+"""任务包内容：task.json + 插件草稿模板 + 字段说明（ZIP 由 archive 适配层生成）。"""
 from __future__ import annotations
 
 import json
@@ -8,8 +8,8 @@ from typing import Any
 from app.adapters import archive
 
 
-def build(task: dict[str, Any], sample_plan: dict[str, Any] | None, sample_id: int | None) -> bytes:
-    template = _template(task, sample_plan)
+def build(task: dict[str, Any], template: dict[str, Any], sample_id: int | None) -> bytes:
+    plan = _template(task, template)
     task_meta = {
         "taskId": int(task["id"]),
         "course": task["course"],
@@ -24,29 +24,22 @@ def build(task: dict[str, Any], sample_plan: dict[str, Any] | None, sample_id: i
     return archive.build_zip(
         {
             "task.json": json.dumps(task_meta, ensure_ascii=False, indent=2).encode("utf-8"),
-            "plan.template.json": json.dumps(template, ensure_ascii=False, indent=2).encode("utf-8"),
+            "plan.json": json.dumps(plan, ensure_ascii=False, indent=2).encode("utf-8"),
             "README.md": _readme(task, sample_id).encode("utf-8"),
         }
     )
 
 
-def _template(task: dict[str, Any], sample_plan: dict[str, Any] | None) -> dict[str, Any]:
-    if sample_plan:
-        template = json.loads(json.dumps(sample_plan))
-    else:
-        template = {
-            "schemaVersion": 1,
-            "course": "",
-            "week": 0,
-            "session": 0,
-            "contentTitle": "",
-            "activityFlow": {},
-        }
-    template["course"] = task["course"]
-    template["week"] = int(task["week"])
-    template["session"] = int(task["session"])
-    template["contentTitle"] = task["title"]
-    return template
+def _template(task: dict[str, Any], template: dict[str, Any]) -> dict[str, Any]:
+    plan = json.loads(json.dumps(template)) if template else {}
+    plan["course"] = task["course"]
+    plan["week"] = int(task["week"])
+    plan["session"] = int(task["session"])
+    plan["contentTitle"] = task["title"]
+    # 身份字段必须留在教师侧填写，不能夹带样例或上一个任务的信息。
+    for key in ("teacher", "planNumber", "teachingObject", "teachDate"):
+        plan[key] = ""
+    return plan
 
 
 def _readme(task: dict[str, Any], sample_id: int | None) -> str:
@@ -65,7 +58,7 @@ def _readme(task: dict[str, Any], sample_id: int | None) -> str:
             sample,
             "",
             "## 使用方式",
-            "1. 在插件端打开 plan.template.json，补齐教案字段并完成审查。",
+            "1. 在插件端打开 plan.json，补齐教师、班级与教学内容并完成审查。",
             "2. 用契约包（manifest.json + plan.json + plan.review.json）上传平台。",
             "3. 上传后任务状态会随入库、审查、导出自动推进。",
             "",

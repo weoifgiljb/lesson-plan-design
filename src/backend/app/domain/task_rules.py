@@ -8,6 +8,7 @@ from typing import Any
 from app.domain.errors import AppError
 
 STATUSES = {"draft", "reviewing", "passed", "exported"}
+TASK_RANK = {"draft": 0, "reviewing": 1, "passed": 2, "exported": 3}
 
 
 def validate(course: str, week: int, session: int, title: str, class_name: str) -> dict[str, Any]:
