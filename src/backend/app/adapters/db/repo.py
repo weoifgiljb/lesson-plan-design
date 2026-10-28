@@ -313,12 +313,12 @@ class Repo:
         if severity:
             where.append("EXISTS (SELECT 1 FROM finding f WHERE f.review_id = rv.id AND f.severity = ?)")
             params.append(severity)
-        if filters.get("date_from"):
+        if filters.get("created_from"):
             where.append("rv.created_at >= ?")
-            params.append(str(filters["date_from"]))
-        if filters.get("date_to"):
-            where.append("rv.created_at <= ?")
-            params.append(str(filters["date_to"]))
+            params.append(str(filters["created_from"]))
+        if filters.get("created_before"):
+            where.append("rv.created_at < ?")
+            params.append(str(filters["created_before"]))
         return " AND ".join(where), params
 
     def soft_delete_plan(self, plan_id: int) -> bool:

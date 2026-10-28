@@ -31,9 +31,11 @@ def can_view(
 ) -> bool:
     if role == "admin":
         return True
+    if int(user_id) == int(owner_id):
+        return True
     if role == "lead":
         return bool(user_group) and str(user_group) == str(owner_group)
-    return int(user_id) == int(owner_id)
+    return False
 
 
 def can_delete(role: str, user_id: int, owner_id: int) -> bool:

@@ -37,11 +37,12 @@ REQUIRED_REPORT = (
 
 
 def derive_status(findings: list[dict[str, Any]]) -> str:
-    if any(item.get("status") == "open" for item in findings):
+    items = [item for item in findings if isinstance(item, dict)]
+    if any(item.get("status") == "open" for item in items):
         return "needs_repair"
-    if any(item.get("severity") in BLOCKING and item.get("status") == "waived" for item in findings):
+    if any(item.get("severity") in BLOCKING and item.get("status") == "waived" for item in items):
         return "passed_with_override"
-    if any(item.get("severity") == "minor" and item.get("status") == "accepted" for item in findings):
+    if any(item.get("severity") == "minor" and item.get("status") == "accepted" for item in items):
         return "passed_with_accepted_minor"
     return "passed"
 

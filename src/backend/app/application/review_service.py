@@ -8,7 +8,7 @@ from typing import Any
 from app.adapters import engine
 from app.adapters.db.repo import Repo
 from app.application import audit_service
-from app.domain import evidence, library
+from app.domain import evidence, library, timerange
 from app.domain.errors import AppError
 
 
@@ -21,7 +21,10 @@ def list_reviews(
     page_size: int | None,
 ) -> dict[str, Any]:
     actual_page, actual_size, offset = library.page_params(page, page_size)
-    rows, total = repo.list_reviews(library.scope_for(user), filters, actual_size, offset)
+    window = dict(filters)
+    window["created_from"] = timerange.start_of(filters["date_from"]) if filters.get("date_from") else None
+    window["created_before"] = timerange.end_exclusive(filters["date_to"]) if filters.get("date_to") else None
+    rows, total = repo.list_reviews(library.scope_for(user), window, actual_size, offset)
     rounds_map = repo.plan_rounds_many(sorted({int(row["plan_id"]) for row in rows}))
     items = [_summary(repo, row, rounds_map.get(int(row["plan_id"]), [])) for row in rows]
     return {"items": items, "page": actual_page, "pageSize": actual_size, "total": total}

@@ -73,6 +73,9 @@ def _override_problem(report: dict[str, Any]) -> str | None:
     overrides = report.get("overrides") or []
     if not isinstance(findings, list) or not isinstance(overrides, list):
         return "问题或放行记录格式无效"
+    problem = _finding_shape_problem(findings)
+    if problem is not None:
+        return problem
     kinds = {}
     for item in overrides:
         if not isinstance(item, dict):
@@ -89,19 +92,34 @@ def _override_problem(report: dict[str, Any]) -> str | None:
         if finding_id in kinds:
             return f"同一问题存在多条放行记录：{finding_id}"
         kinds[finding_id] = item["kind"]
-    finding_ids = {str(item.get("id")) for item in findings if isinstance(item, dict)}
+    finding_ids = {str(item.get("id")) for item in findings}
     for finding_id in kinds:
         if finding_id not in finding_ids:
             return f"放行记录引用了不存在的问题：{finding_id}"
     for item in findings:
-        if not isinstance(item, dict):
-            return "问题格式无效"
         status = item.get("status")
         if status not in {"waived", "accepted"}:
             continue
         expected = "minor_acceptance" if status == "accepted" else "teacher_override"
         if kinds.get(str(item.get("id"))) != expected:
             return f"{status} 问题缺少对应放行记录：{item.get('id')}"
+    return None
+
+
+def _finding_shape_problem(findings: list[Any]) -> str | None:
+    for item in findings:
+        if not isinstance(item, dict):
+            return "问题格式无效（不是对象）"
+        severity = item.get("severity")
+        status = item.get("status")
+        if severity not in {"blocker", "major", "minor"}:
+            return f"问题严重级别无效：{item.get('id')}"
+        if status not in {"open", "waived", "accepted"}:
+            return f"问题状态无效：{item.get('id')}"
+        if status == "accepted" and severity != "minor":
+            return "仅轻微问题可以标记为已接受"
+        if status == "waived" and severity == "minor":
+            return "轻微问题须由教师接受，不能按放行处理"
     return None
 
 
@@ -118,7 +136,10 @@ def _status_problem(report: dict[str, Any]) -> str | None:
     status = report.get("status")
     if status not in ALLOWED_STATUS:
         return f"报告状态无效：{status}"
-    findings = report.get("findings") or []
+    raw_findings = report.get("findings") or []
+    if not isinstance(raw_findings, list) or any(not isinstance(item, dict) for item in raw_findings):
+        return "问题格式无效"
+    findings = raw_findings
     structural = report.get("structuralValidation")
     structural_ok = isinstance(structural, dict) and structural.get("ok") is True
     if not structural_ok:

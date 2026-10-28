@@ -74,6 +74,39 @@ class TestEvidenceChain(unittest.TestCase):
         result = chain(report(overrides=[override]))
         self.assertIn("overrides_complete", result["gaps"])
 
+    def test_accepted_without_override_is_flagged(self) -> None:
+        finding = {"id": "AR-2", "severity": "minor", "status": "accepted"}
+        result = chain(report(findings=[finding], status="passed_with_accepted_minor"))
+        self.assertIn("overrides_complete", result["gaps"])
+
+    def test_minor_cannot_be_waived(self) -> None:
+        finding = {"id": "AR-3", "severity": "minor", "status": "waived"}
+        override = {
+            "findingId": "AR-3",
+            "planHash": "hash-1",
+            "teacher": "张老师",
+            "reason": "同意放行处理",
+            "kind": "teacher_override",
+        }
+        result = chain(report(findings=[finding], overrides=[override], status="passed_with_override"))
+        self.assertIn("overrides_complete", result["gaps"])
+
+    def test_blocking_cannot_be_accepted(self) -> None:
+        finding = {"id": "AR-4", "severity": "major", "status": "accepted"}
+        override = {
+            "findingId": "AR-4",
+            "planHash": "hash-1",
+            "teacher": "张老师",
+            "reason": "接受该问题",
+            "kind": "minor_acceptance",
+        }
+        result = chain(report(findings=[finding], overrides=[override], status="passed_with_accepted_minor"))
+        self.assertIn("overrides_complete", result["gaps"])
+
+    def test_non_object_finding_does_not_crash(self) -> None:
+        result = chain(report(findings=["bad-item"], status="needs_repair"))
+        self.assertIn("status_consistent", result["gaps"])
+
     def test_bad_independence_is_flagged(self) -> None:
         result = chain(report(independence="robot", reviewer="robot"))
         self.assertIn("independence_valid", result["gaps"])

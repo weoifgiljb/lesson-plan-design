@@ -150,7 +150,7 @@ class TestReviewsApi(unittest.TestCase):
         self.reviews["hash_mismatch"] = self._review(plan_h, version_h, make_report("other-hash"))
 
         plan_i, version_i = self._plan(self.teacher2, "英语课")
-        self._review(plan_i, version_i, make_report("hash-英语课"))
+        self.reviews["other_group"] = self._review(plan_i, version_i, make_report("hash-英语课"))
 
     def _login(self, username: str) -> None:
         response = self.client.post("/api/v1/auth/login", json={"username": username, "password": PASSWORD})
@@ -195,6 +195,23 @@ class TestReviewsApi(unittest.TestCase):
         item = next(entry for entry in gap["evidence"]["items"] if entry["key"] == "round_continuous")
         self.assertFalse(item["ok"])
         self.assertIn("轮次不连续", item["reason"])
+
+    def test_date_filter_boundary(self) -> None:
+        self.connection.execute(
+            "UPDATE review SET created_at = '2026-10-27T23:59:59+00:00' WHERE id = ?",
+            (self.reviews["passed"],),
+        )
+        self._login("teacher1")
+        same_day = self.client.get("/api/v1/reviews?dateFrom=2026-10-27&dateTo=2026-10-27").json()
+        self.assertEqual([item["reviewId"] for item in same_day["items"]], [self.reviews["passed"]])
+        next_day = self.client.get("/api/v1/reviews?dateFrom=2026-10-28&dateTo=2026-10-28").json()
+        self.assertNotIn(self.reviews["passed"], [item["reviewId"] for item in next_day["items"]])
+        self.assertGreater(next_day["total"], 0)
+
+    def test_lead_cannot_read_other_group_detail(self) -> None:
+        self._login("lead1")
+        self.assertEqual(self.client.get(f"/api/v1/reviews/{self.reviews['passed']}").status_code, 200)
+        self.assertEqual(self.client.get(f"/api/v1/reviews/{self.reviews['other_group']}").status_code, 403)
 
     def test_detail_permissions(self) -> None:
         self._login("teacher2")

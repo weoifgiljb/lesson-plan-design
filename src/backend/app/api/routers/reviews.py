@@ -2,6 +2,7 @@
 """审查中心：只读列表与详情（含证据链），不提供修改报告接口。"""
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -18,8 +19,8 @@ def list_reviews(
     status: str | None = None,
     severity: str | None = None,
     teacher: str | None = None,
-    from_date: str | None = Query(None, alias="dateFrom"),
-    to_date: str | None = Query(None, alias="dateTo"),
+    from_date: date | None = Query(None, alias="dateFrom"),
+    to_date: date | None = Query(None, alias="dateTo"),
     page: int = 1,
     page_size: int = Query(20, alias="pageSize"),
 ) -> dict[str, Any]:
