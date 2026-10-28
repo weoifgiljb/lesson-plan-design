@@ -26,7 +26,8 @@ async def lifespan(app: FastAPI):
         logger.warning("database init failed; health check will report down")
         app.state.db = None
         app.state.db_lock = threading.Lock()
-    app.state.repo_factory = lambda: Repo(app.state.db, app.state.db_lock)
+    # 每请求独立连接（WAL 下多连接安全），写事务仍由同一把锁串行化
+    app.state.repo_factory = lambda: Repo(open_database(), app.state.db_lock)
     yield
     if app.state.db is not None:
         app.state.db.close()
