@@ -9,6 +9,7 @@ import { useUiStore } from '@/stores/ui'
 const router = useRouter()
 const session = useSessionStore()
 const ui = useUiStore()
+const isDev = import.meta.env.DEV
 
 const navItems = computed(() => [
   { label: '概览', path: '/', disabled: true },
@@ -52,7 +53,7 @@ async function signOut(): Promise<void> {
           {{ item.label }}
           <span v-if="item.disabled && !ui.sidebarCollapsed" class="nav-badge">待开发</span>
         </a>
-        <router-link class="nav-item" to="/styleguide">风格验收</router-link>
+        <router-link v-if="isDev" class="nav-item" to="/styleguide">风格验收</router-link>
       </nav>
       <div v-if="!ui.sidebarCollapsed" class="sidebar-foot">
         <span class="muted">契约 28/29 · 后端已联调</span>
@@ -69,7 +70,7 @@ async function signOut(): Promise<void> {
         >
           <el-icon><Expand v-if="ui.sidebarCollapsed" /><Fold v-else /></el-icon>
         </button>
-        <div class="crumb">平台端 / 风格验收</div>
+        <div class="crumb">平台端 / {{ isDev ? '风格验收' : '首页' }}</div>
         <div class="topbar-right">
           <button
             class="icon-button"

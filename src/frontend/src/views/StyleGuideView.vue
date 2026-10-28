@@ -10,8 +10,8 @@ import EvidenceChain from '@/components/EvidenceChain.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import { DEMO_DIFFS, DEMO_EVIDENCE, DEMO_METRICS, DEMO_PLANS } from '@/dev/styleguide-fixtures'
 import { useUiStore } from '@/stores/ui'
-import type { DiffChange, EvidenceItem, Metric } from '@/api/models'
 
 const ui = useUiStore()
 
@@ -80,14 +80,7 @@ function submitForm(): void {
 
 const loading = ref(false)
 const showEmpty = ref(false)
-const plans = [
-  { id: 1, title: '一级考证辅导2', course: '信息技术', week: 2, session: 1, teacher: '张老师', status: 'passed', version: 2 },
-  { id: 2, title: 'C 语言循环结构', course: '信息技术', week: 3, session: 2, teacher: '李老师', status: 'needs_repair', version: 1 },
-  { id: 3, title: '网络安全意识', course: '信息技术', week: 4, session: 1, teacher: '张老师', status: 'pending_reviewer', version: 1 },
-  { id: 4, title: 'Excel 数据透视表', course: '信息技术', week: 5, session: 2, teacher: '王组长', status: 'passed_with_override', version: 3 },
-  { id: 5, title: 'Python 字典应用', course: '信息技术', week: 6, session: 1, teacher: '张老师', status: 'structure_invalid', version: 1 },
-]
-
+const plans = DEMO_PLANS
 const dialogVisible = ref(false)
 
 const uploadFiles = ref<{ name: string; size: number }[]>([])
@@ -96,39 +89,9 @@ function onFileChange(file: { name: string; size?: number }): void {
   uploadFiles.value = [{ name: file.name, size: file.size ?? 0 }]
 }
 
-const evidence: EvidenceItem[] = [
-  { key: 'hash_match', label: '哈希匹配', ok: true, reason: '' },
-  { key: 'round_continuous', label: '轮次连续', ok: true, reason: '' },
-  { key: 'overrides_complete', label: '放行完整', ok: false, reason: 'waived 问题缺少对应放行记录：AR-2' },
-  { key: 'independence_valid', label: '审校方式合规', ok: true, reason: '' },
-  { key: 'status_consistent', label: '状态一致', ok: true, reason: '' },
-]
-
-const diffs: DiffChange[] = [
-  { path: 'activityFlow.summary', before: '旧的小结', after: '第二次修订后的课堂小结' },
-  { path: 'knowledgeGoals', before: '掌握基本操作', after: '掌握基本操作并能独立完成 2 个任务' },
-]
-
-const metrics: Metric[] = [
-  ['structure_rate', '结构合规率', 3, 4],
-  ['gold_standard', '金标准贴近分', 0, 0],
-  ['defect_density', '闭环缺陷密度', 1, 4],
-  ['evidence_rate', '证据链完整率', 4, 4],
-  ['sync_consistency', '双端数据一致率', 8, 9],
-  ['task_completion', '平台任务完成率', 12, 15],
-  ['expert_score', '专家评分', 0, 0],
-  ['export_seconds', '单份耗时', 62, 5],
-  ['availability', '平台可用性', 0, 0],
-].map(([key, label, numerator, denominator]) => ({
-  key: String(key),
-  label: String(label),
-  numerator: Number(numerator),
-  denominator: Number(denominator),
-  value: Number(denominator) ? Number(numerator) / Number(denominator) : null,
-  unit: key === 'export_seconds' ? '秒' : '',
-  available: Number(denominator) > 0,
-  filters: {},
-}))
+const evidence = DEMO_EVIDENCE
+const diffs = DEMO_DIFFS
+const metrics = DEMO_METRICS
 
 const chartOption = computed<EChartsOption>(() => ({
   grid: { left: 40, right: 16, top: 24, bottom: 32 },

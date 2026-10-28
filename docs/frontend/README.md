@@ -12,7 +12,7 @@
 
 ## 验收流程
 
-1. 本分支安装前端设计技能并提供 `/styleguide` 页面（A/B 主题 + 1440/1280/390）。
+1. 本分支安装前端设计技能并提供 `/styleguide` 页面（A/B 主题 + 1440/1280/390）。**该页只在 DEV 注册**，演示数据集中在 `src/frontend/src/dev/styleguide-fixtures.ts`，不进入业务页面和生产构建。
 2. 用户按 `component-acceptance.md` 检查，反馈写入 `review-notes.md`。
 3. 通过后填写 `ui-style-spec.md` 第 8 节，冻结 v1.0。
 4. 冻结后才创建 `docs/frontend/tasks.md`，按 FE-01…FE-09 开分支。
