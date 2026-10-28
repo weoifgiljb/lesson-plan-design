@@ -230,6 +230,7 @@ def _write_version(
     repo.insert_findings(review_id, list(report.get("findings") or []))
     repo.insert_overrides(review_id, list(report.get("overrides") or []))
     repo.set_current_version(plan_id, version_id)
+    repo.insert_sync_event("version", plan_id, version_id)
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
     return ImportResult(True, plan_id, version_no, review_id, plan_hash)
