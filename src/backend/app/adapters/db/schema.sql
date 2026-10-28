@@ -101,7 +101,6 @@ CREATE TABLE IF NOT EXISTS export_job (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     plan_version_id INTEGER NOT NULL REFERENCES plan_version (id),
     engine_version TEXT NOT NULL,
-    report_sha256 TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'pending',
     docx_path TEXT,
     docx_sha256 TEXT,
@@ -109,8 +108,7 @@ CREATE TABLE IF NOT EXISTS export_job (
     created_at TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_export_job_succeeded
-    ON export_job (plan_version_id, engine_version) WHERE status = 'succeeded';
+-- report_sha256 列与 ux_export_job_succeeded 索引由迁移 0005 添加（v1 结构不再回改）
 
 CREATE TABLE IF NOT EXISTS sample (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
