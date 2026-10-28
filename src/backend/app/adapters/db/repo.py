@@ -7,7 +7,7 @@ import json
 import sqlite3
 import threading
 import time
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from app.adapters import clock
 from app.domain.errors import AppError
@@ -22,9 +22,14 @@ class Repo:
         self.conn = conn
         self.lock = lock
 
+    def close(self) -> None:
+        self.conn.close()
+
     # ---------- 事务 ----------
     @contextlib.contextmanager
-    def transaction(self) -> Iterator["Repo"]:
+    def transaction(
+        self, on_rollback: Callable[[BaseException], None] | None = None
+    ) -> Iterator["Repo"]:
         if self.lock is not None:
             self.lock.acquire()
         try:
@@ -32,8 +37,11 @@ class Repo:
             try:
                 yield self
                 self.conn.execute("COMMIT")
-            except BaseException:
+            except BaseException as exc:
                 self.conn.execute("ROLLBACK")
+                if on_rollback is not None:
+                    # 事务已回滚，调用方在此处补写"被回滚的拒绝"审计（在事务外）
+                    on_rollback(exc)
                 raise
         finally:
             if self.lock is not None:
@@ -82,6 +90,9 @@ class Repo:
             (username, display_name, role, password_hash, clock.now_iso()),
         )
         return int(cursor.lastrowid or 0)
+
+    def set_password(self, user_id: int, password_hash: str) -> None:
+        self.conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))
 
     def record_login_failure(self, user_id: int, failed_count: int, locked_until: str | None) -> None:
         self.conn.execute(
@@ -196,32 +207,29 @@ class Repo:
 
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
-        schema_version: int, rubric_version: str, engine_version: str,
+        report_sha256: str, schema_version: int, rubric_version: str, engine_version: str,
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
-                "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, schema_version,"
-                " rubric_version, engine_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
+                " schema_version, rubric_version, engine_version, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    plan_id,
-                    version_no,
-                    content_json,
-                    plan_hash,
-                    schema_version,
-                    rubric_version,
-                    engine_version,
-                    clock.now_iso(),
+                    plan_id, version_no, content_json, plan_hash, report_sha256,
+                    schema_version, rubric_version, engine_version, clock.now_iso(),
                 ),
             )
             return int(cursor.lastrowid or 0), True
         except sqlite3.IntegrityError as exc:
-            latest = self.conn.execute(
-                "SELECT id FROM plan_version WHERE plan_id = ? AND plan_hash = ? ORDER BY version_no DESC LIMIT 1",
-                (plan_id, plan_hash),
+            # 唯一索引兜底：同一 (plan_id, plan_hash, report_sha256) 只允许一版
+            existing = self.conn.execute(
+                "SELECT id FROM plan_version WHERE plan_id = ? AND plan_hash = ? AND report_sha256 = ?"
+                " ORDER BY version_no DESC LIMIT 1",
+                (plan_id, plan_hash, report_sha256),
             ).fetchone()
-            if latest is None:
+            if existing is None:
                 raise AppError("CONFLICT_STALE", "版本冲突，请重试") from exc
-            return int(latest["id"]), False
+            return int(existing["id"]), False
 
     def close(self) -> None:
         self.conn.close()
@@ -252,20 +260,30 @@ class Repo:
                 ),
             )
 
-    def insert_overrides(self, overrides: list[dict[str, Any]]) -> None:
+    def insert_overrides(self, review_id: int, overrides: list[dict[str, Any]]) -> None:
         for item in overrides:
             teacher = self.user_by_display_name(str(item.get("teacher") or ""))
-            self.conn.execute(
-                "INSERT OR IGNORE INTO override (finding_id, teacher_id, reason, approved_at, plan_hash)"
-                " VALUES (?, ?, ?, ?, ?)",
+            if teacher is None:
+                # 放行必须能归属到真实教师，否则证据链失效：直接拒收而不是落 NULL
+                raise AppError(
+                    "REPORT_INCONSISTENT", f"放行记录中的教师不存在：{item.get('teacher') or ''}"
+                )
+            cursor = self.conn.execute(
+                "INSERT INTO override (review_id, finding_id, teacher_id, reason, approved_at, plan_hash)"
+                " VALUES (?, ?, ?, ?, ?, ?)"
+                " ON CONFLICT (review_id, finding_id) DO UPDATE SET"
+                " reason = excluded.reason, approved_at = excluded.approved_at",
                 (
+                    review_id,
                     str(item.get("findingId") or ""),
-                    int(teacher["id"]) if teacher else None,
+                    int(teacher["id"]),
                     str(item.get("reason") or ""),
                     str(item.get("approvedAt") or clock.now_iso()),
                     str(item.get("planHash") or ""),
                 ),
             )
+            if cursor.rowcount < 0:  # pragma: no cover - 防御
+                raise AppError("CONFLICT_STALE", "放行记录写入失败")
 
     # ---------- 审计 ----------
     def insert_audit(

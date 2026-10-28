@@ -41,7 +41,7 @@ def evaluate(
         report,
         plan_hash=plan_hash,
         snapshot_hash=snapshot_hash,
-        structural_ok=True,
+        structural_ok=validation.get("ok") is True,
         previous_round=previous_round,
     )
     return problem if problem is not None else PASS
