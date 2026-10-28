@@ -133,7 +133,7 @@ class TestAuditApi(unittest.TestCase):
                     "trace-boundary",
                     "",
                     "",
-                    "2026-10-27T23:59:59+00:00",
+                    "2026-10-27T15:59:59+00:00",
                 ),
             )
         finally:
