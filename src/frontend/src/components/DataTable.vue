@@ -16,6 +16,7 @@ const props = withDefaults(
     total?: number
     showPagination?: boolean
     selectable?: boolean
+    clickable?: boolean
     ariaLabel?: string
     emptyText?: string
   }>(),
@@ -28,6 +29,7 @@ const props = withDefaults(
     total: 0,
     showPagination: false,
     selectable: false,
+    clickable: false,
     ariaLabel: '数据表格',
     emptyText: '暂无数据，调整筛选条件或先创建一条记录',
   },
@@ -59,6 +61,10 @@ function onPage(page: number): void {
 function onSize(size: number): void {
   emit('update:pageSize', size)
 }
+
+function onRowClick(row: any): void {
+  if (props.clickable) emit('rowClick', row)
+}
 </script>
 
 <template>
@@ -76,7 +82,8 @@ function onSize(size: number): void {
             :row-key="rowKey"
             :aria-label="ariaLabel"
             size="default"
-            @row-click="(row: any) => emit('rowClick', row)"
+            :row-class-name="clickable ? 'data-table__row--clickable' : ''"
+            @row-click="onRowClick"
             @selection-change="(rows: any[]) => emit('selectionChange', rows)"
           >
             <el-table-column v-if="selectable" type="selection" width="42" />
@@ -101,7 +108,13 @@ function onSize(size: number): void {
         <p class="data-table__hint">窄屏可左右滑动表格查看全部列</p>
       </template>
 
-      <StatePanel v-else-if="visibleState === 'error'" state="error" :title="error?.code" :description="error?.message">
+      <StatePanel
+        v-else-if="visibleState === 'error'"
+        state="error"
+        :title="error?.code"
+        :description="error?.message"
+        :trace-id="error?.traceId"
+      >
         <template #action>
           <el-button type="primary" @click="emit('retry')">重试</el-button>
         </template>
@@ -182,11 +195,15 @@ function onSize(size: number): void {
   padding: 28px 12px;
 }
 
+.data-table__body :deep(.data-table__row--clickable) {
+  cursor: pointer;
+}
+
 .data-table__hint {
   display: none;
   padding: 6px 12px 0;
   color: var(--lpp-text-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .data-table__footer {

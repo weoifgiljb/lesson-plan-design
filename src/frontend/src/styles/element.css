@@ -1,4 +1,10 @@
+/*
+ * Element Plus 主题映射。
+ * 只允许在这里通过变量与全局类覆盖；页面/组件不写 !important，也不直接改 Element 内部结构。
+ */
+
 :root {
+  /* 主色 */
   --el-color-primary: var(--lpp-primary);
   --el-color-primary-light-3: color-mix(in srgb, var(--lpp-primary) 70%, white);
   --el-color-primary-light-5: color-mix(in srgb, var(--lpp-primary) 50%, white);
@@ -6,102 +12,531 @@
   --el-color-primary-light-8: color-mix(in srgb, var(--lpp-primary) 20%, white);
   --el-color-primary-light-9: color-mix(in srgb, var(--lpp-primary) 10%, white);
   --el-color-primary-dark-2: color-mix(in srgb, var(--lpp-primary) 80%, black);
+
+  /* 状态色 */
   --el-color-success: var(--lpp-success);
+  --el-color-success-light-3: color-mix(in srgb, var(--lpp-success) 70%, white);
+  --el-color-success-light-5: color-mix(in srgb, var(--lpp-success) 50%, white);
+  --el-color-success-light-7: color-mix(in srgb, var(--lpp-success) 30%, white);
+  --el-color-success-light-8: color-mix(in srgb, var(--lpp-success) 20%, white);
+  --el-color-success-light-9: var(--lpp-success-soft);
+  --el-color-success-dark-2: color-mix(in srgb, var(--lpp-success) 80%, black);
+
   --el-color-warning: var(--lpp-warning);
+  --el-color-warning-light-3: color-mix(in srgb, var(--lpp-warning) 70%, white);
+  --el-color-warning-light-5: color-mix(in srgb, var(--lpp-warning) 50%, white);
+  --el-color-warning-light-7: color-mix(in srgb, var(--lpp-warning) 30%, white);
+  --el-color-warning-light-8: color-mix(in srgb, var(--lpp-warning) 20%, white);
+  --el-color-warning-light-9: var(--lpp-warning-soft);
+  --el-color-warning-dark-2: color-mix(in srgb, var(--lpp-warning) 80%, black);
+
   --el-color-danger: var(--lpp-danger);
+  --el-color-danger-light-3: color-mix(in srgb, var(--lpp-danger) 70%, white);
+  --el-color-danger-light-5: color-mix(in srgb, var(--lpp-danger) 50%, white);
+  --el-color-danger-light-7: color-mix(in srgb, var(--lpp-danger) 30%, white);
+  --el-color-danger-light-8: color-mix(in srgb, var(--lpp-danger) 20%, white);
+  --el-color-danger-light-9: var(--lpp-danger-soft);
+  --el-color-danger-dark-2: color-mix(in srgb, var(--lpp-danger) 80%, black);
+
   --el-color-error: var(--lpp-danger);
+  --el-color-error-light-3: var(--el-color-danger-light-3);
+  --el-color-error-light-5: var(--el-color-danger-light-5);
+  --el-color-error-light-7: var(--el-color-danger-light-7);
+  --el-color-error-light-8: var(--el-color-danger-light-8);
+  --el-color-error-light-9: var(--el-color-danger-light-9);
+  --el-color-error-dark-2: var(--el-color-danger-dark-2);
+
+  --el-color-info: var(--lpp-text-muted);
+  --el-color-info-light-3: color-mix(in srgb, var(--lpp-text-muted) 70%, white);
+  --el-color-info-light-5: color-mix(in srgb, var(--lpp-text-muted) 50%, white);
+  --el-color-info-light-7: color-mix(in srgb, var(--lpp-text-muted) 30%, white);
+  --el-color-info-light-8: color-mix(in srgb, var(--lpp-text-muted) 20%, white);
+  --el-color-info-light-9: var(--lpp-layer);
+
+  /* 文字 */
   --el-text-color-primary: var(--lpp-text);
-  --el-text-color-regular: color-mix(in srgb, var(--lpp-text) 84%, white);
+  --el-text-color-regular: #3f4c45;
   --el-text-color-secondary: var(--lpp-text-muted);
+  --el-text-color-placeholder: #87948b;
+  --el-text-color-disabled: #a3aea6;
+
+  /* 描边与填充 */
   --el-border-color: var(--lpp-border);
-  --el-border-color-light: color-mix(in srgb, var(--lpp-border) 70%, white);
-  --el-fill-color-light: var(--lpp-row-hover);
+  --el-border-color-light: var(--lpp-border);
+  --el-border-color-lighter: #e8ece5;
+  --el-border-color-extra-light: #f0f3ed;
+  --el-border-color-dark: var(--lpp-border-strong);
+  --el-border-color-darker: #aeb9ae;
+  --el-fill-color: #f0f3ed;
+  --el-fill-color-light: var(--lpp-layer);
+  --el-fill-color-lighter: #f8f9f5;
+  --el-fill-color-extra-light: #fbfcf9;
+  --el-fill-color-dark: #e7ece3;
+  --el-fill-color-darker: #dfe6dc;
   --el-fill-color-blank: var(--lpp-surface);
   --el-bg-color: var(--lpp-surface);
   --el-bg-color-page: var(--lpp-canvas);
+  --el-bg-color-overlay: var(--lpp-surface);
+  --el-mask-color: rgba(23, 35, 30, 0.42);
+  --el-mask-color-extra-light: rgba(23, 35, 30, 0.16);
+
+  /* 形状与阴影 */
   --el-border-radius-base: var(--lpp-radius-control);
-  --el-border-radius-small: 2px;
-  --el-font-size-base: var(--lpp-font-base);
-  --el-font-family: var(--lpp-font-family);
-  --el-table-row-hover-bg-color: var(--lpp-row-hover);
-  --el-table-header-bg-color: transparent;
-  --el-table-border-color: var(--lpp-border);
+  --el-border-radius-small: var(--lpp-radius-tag);
+  --el-border-radius-round: 999px;
+  --el-box-shadow: var(--lpp-shadow-float);
   --el-box-shadow-light: var(--lpp-shadow-flyout);
+  --el-box-shadow-lighter: var(--lpp-shadow-flyout);
+  --el-box-shadow-dark: var(--lpp-shadow-float);
+
+  /* 字体 */
+  --el-font-family: var(--lpp-font-family);
+  --el-font-size-base: var(--lpp-font-base);
+  --el-font-size-small: var(--lpp-font-sm);
+  --el-font-size-extra-small: var(--lpp-font-xs);
+
+  /* 控件 */
+  --el-component-size: 32px;
+  --el-component-size-small: 28px;
+  --el-component-size-large: 36px;
+  --el-input-height: 34px;
+  --el-input-focus-border-color: var(--lpp-primary);
+  --el-disabled-bg-color: var(--lpp-layer);
+  --el-disabled-text-color: #a3aea6;
+  --el-disabled-border-color: var(--lpp-border);
+
+  /* 表格 */
+  --el-table-border-color: var(--lpp-border);
+  --el-table-header-bg-color: transparent;
+  --el-table-header-text-color: var(--lpp-text-muted);
+  --el-table-text-color: var(--lpp-text);
+  --el-table-row-hover-bg-color: var(--lpp-row-hover);
+  --el-table-current-row-bg-color: var(--lpp-primary-soft);
+  --el-table-bg-color: var(--lpp-surface);
+  --el-table-tr-bg-color: var(--lpp-surface);
+  --el-table-expanded-cell-bg-color: var(--lpp-surface);
+
+  /* 分页 */
+  --el-pagination-bg-color: transparent;
+  --el-pagination-button-bg-color: transparent;
+  --el-pagination-text-color: var(--lpp-text-muted);
+  --el-pagination-button-color: var(--lpp-text-muted);
+  --el-pagination-hover-color: var(--lpp-primary);
+  --el-pagination-font-size: var(--lpp-font-xs);
+
+  /* 弹层 */
+  --el-dialog-padding-primary: 24px;
+  --el-dialog-border-radius: var(--lpp-radius-window);
+  --el-popover-border-radius: var(--lpp-radius-card);
+  --el-popper-border-radius: var(--lpp-radius-card);
+
+  /* 消息 */
+  --el-message-bg-color: var(--lpp-surface);
+  --el-message-border-color: var(--lpp-border);
+  --el-message-text-color: var(--lpp-text);
+  --el-message-padding: 11px 16px;
+  --el-message-close-icon-color: var(--lpp-text-muted);
+
+  /* 开关 */
+  --el-switch-on-color: var(--lpp-primary);
+  --el-switch-off-color: var(--lpp-border-strong);
 }
 
 .el-button {
   height: 32px;
   padding: 0 14px;
+  border-radius: var(--lpp-radius-control);
+  font-size: var(--lpp-font-sm);
   font-weight: 500;
+  letter-spacing: 0;
+  box-shadow: none;
+}
+
+.el-button + .el-button {
+  margin-left: 0;
+}
+
+.el-button--small {
+  height: 28px;
+  padding: 0 11px;
+  font-size: var(--lpp-font-xs);
 }
 
 .el-button--large {
   height: 36px;
+  padding: 0 18px;
+  font-size: var(--lpp-font-base);
 }
 
 .el-button--primary {
   --el-button-hover-bg-color: var(--lpp-primary-hover);
+  --el-button-active-bg-color: color-mix(in srgb, var(--lpp-primary) 84%, black);
+}
+
+.el-button--default {
+  --el-button-bg-color: var(--lpp-surface);
+  --el-button-border-color: var(--lpp-border-strong);
+  --el-button-text-color: var(--lpp-text);
+  --el-button-hover-bg-color: var(--lpp-nav-hover);
+  --el-button-hover-border-color: var(--lpp-border-strong);
+  --el-button-hover-text-color: var(--lpp-text);
+}
+
+.el-button.is-text,
+.el-button.is-link {
+  padding: 0 4px;
+  height: auto;
+  min-height: 28px;
+}
+
+.el-button.is-link {
+  font-weight: 500;
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface);
+  box-shadow: 0 0 0 1px var(--lpp-border) inset;
+  font-size: var(--lpp-font-sm);
 }
 
 .el-input__wrapper,
 .el-select__wrapper {
-  border-radius: var(--lpp-radius-control);
+  min-height: 34px;
+  padding: 1px 10px;
 }
 
-.el-table {
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  box-shadow:
+    0 0 0 1px var(--lpp-primary) inset,
+    0 0 0 3px var(--lpp-focus-soft);
+}
+
+.el-input__inner,
+.el-select__placeholder {
   font-size: var(--lpp-font-sm);
 }
 
+.el-textarea__inner {
+  padding: 8px 10px;
+  line-height: 1.6;
+}
+
+.el-textarea__inner:focus {
+  box-shadow:
+    0 0 0 1px var(--lpp-primary) inset,
+    0 0 0 3px var(--lpp-focus-soft);
+}
+
+.el-form-item {
+  margin-bottom: 18px;
+}
+
+.el-form-item__label {
+  padding-bottom: 6px;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-xs);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.el-form-item__error {
+  padding-top: 4px;
+  font-size: var(--lpp-font-xs);
+  line-height: 1.4;
+}
+
+.el-table {
+  --el-table-border-color: var(--lpp-border);
+  background: var(--lpp-surface);
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  font-variant-numeric: tabular-nums;
+}
+
 .el-table::before,
-.el-table::after {
+.el-table::after,
+.el-table__inner-wrapper::before,
+.el-table__inner-wrapper::after {
   display: none;
 }
 
 .el-table th.el-table__cell {
-  font-weight: 600;
-  color: var(--lpp-text-muted);
-  background: transparent;
+  height: 40px;
+  padding: 0;
   border-bottom: 1px solid var(--lpp-border-strong);
+  background: transparent;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 600;
 }
 
 .el-table td.el-table__cell {
+  height: 44px;
+  padding: 0;
   border-bottom: 1px solid var(--lpp-border);
-}
-
-.el-table .cell {
-  line-height: var(--lpp-line-table);
-}
-
-.el-form-item__label {
-  font-weight: 500;
   color: var(--lpp-text);
 }
 
-.el-dialog {
-  border-radius: var(--lpp-radius-window);
+.el-table .cell {
+  padding: 0 12px;
+  line-height: var(--lpp-line-table);
 }
 
-.el-card {
+.el-table .el-table__row:last-child td.el-table__cell {
+  border-bottom: 0;
+}
+
+.el-table__row {
+  background: var(--lpp-surface);
+}
+
+.el-table__row:hover > td.el-table__cell {
+  background: var(--lpp-row-hover);
+}
+
+.el-table .is-right .cell {
+  font-family: var(--lpp-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.el-table__empty-block {
+  min-height: 180px;
+}
+
+.el-table .el-table__empty-text {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
+.el-table__fixed,
+.el-table__fixed-right {
+  background: var(--lpp-surface);
+}
+
+.el-pagination {
+  --el-pagination-font-size: var(--lpp-font-xs);
+  color: var(--lpp-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.el-pagination button,
+.el-pagination .el-pager li {
+  min-width: 26px;
+  height: 26px;
+  border-radius: var(--lpp-radius-tag);
+  background: transparent;
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+}
+
+.el-pagination.is-background .el-pager li {
+  background: transparent;
+}
+
+.el-pagination.is-background .el-pager li:not(.is-disabled):hover {
+  background: var(--lpp-nav-hover);
+  color: var(--lpp-primary);
+}
+
+.el-pagination.is-background .el-pager li.is-active {
+  background: var(--lpp-primary);
+  color: #fff;
+}
+
+.el-pagination .el-select__wrapper {
+  min-height: 28px;
+}
+
+.el-dialog {
+  padding: 0;
   border: 1px solid var(--lpp-border);
-  border-radius: var(--lpp-radius-card);
-  box-shadow: none;
+  border-radius: var(--lpp-radius-window);
+  box-shadow: var(--lpp-shadow-float);
+}
+
+.el-dialog__header {
+  padding: 20px 24px 0;
+}
+
+.el-dialog__title {
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-md);
+  font-weight: 600;
+}
+
+.el-dialog__body {
+  padding: 16px 24px 4px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+  line-height: 1.7;
+}
+
+.el-dialog__footer {
+  padding: 16px 24px 20px;
+}
+
+.el-dialog__headerbtn {
+  top: 16px;
+  right: 16px;
+}
+
+.command-dialog {
+  padding: 0;
+  overflow: hidden;
+}
+
+.command-dialog .el-dialog__header {
+  display: none;
+}
+
+.command-dialog .el-dialog__body {
+  padding: 0;
+}
+
+.el-drawer {
+  background: var(--lpp-surface);
+}
+
+.el-drawer__header {
+  margin-bottom: 0;
+  padding: 20px 20px 12px;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-md);
+  font-weight: 600;
+}
+
+.el-drawer__body {
+  padding: 12px 20px 20px;
+}
+
+.el-message {
+  border: 1px solid var(--lpp-border);
+  border-left: 3px solid var(--lpp-primary);
+  border-radius: var(--lpp-radius-control);
+  box-shadow: var(--lpp-shadow-flyout);
+  font-size: var(--lpp-font-sm);
+}
+
+.el-message--error {
+  border-left-color: var(--lpp-danger);
+}
+
+.el-message--warning {
+  border-left-color: var(--lpp-warning);
+}
+
+.el-message--success {
+  border-left-color: var(--lpp-success);
+}
+
+.el-message__content {
+  color: var(--lpp-text);
+  line-height: 1.5;
+}
+
+.el-alert {
+  border-radius: var(--lpp-radius-control);
+  padding: 10px 12px;
+}
+
+.el-alert__title {
+  font-size: var(--lpp-font-sm);
+}
+
+.el-alert__description {
+  font-size: var(--lpp-font-xs);
+  line-height: 1.6;
 }
 
 .el-tag {
   border-radius: var(--lpp-radius-tag);
+  font-size: var(--lpp-font-xs);
 }
 
-:focus-visible {
-  outline: 2px solid var(--lpp-focus);
-  outline-offset: 2px;
+.el-tooltip__popper.is-dark,
+.el-popper.is-dark {
+  max-width: 260px;
+  padding: 6px 9px;
+  border-radius: var(--lpp-radius-tag);
+  background: var(--lpp-nameplate);
+  color: var(--lpp-nameplate-text);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+.el-popper.is-light {
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-control);
+  box-shadow: var(--lpp-shadow-flyout);
+}
+
+.el-select-dropdown__item {
+  height: 32px;
+  line-height: 32px;
+  font-size: var(--lpp-font-sm);
+}
+
+.el-select-dropdown__item.is-selected {
+  color: var(--lpp-primary);
+  font-weight: 600;
+}
+
+.el-dropdown-menu__item {
+  font-size: var(--lpp-font-sm);
+}
+
+.el-upload-dragger {
+  padding: 22px 16px;
+  border: 1px dashed var(--lpp-border-strong);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-layer);
+}
+
+.el-upload-dragger:hover {
+  border-color: var(--lpp-primary);
+  background: var(--lpp-primary-soft);
+}
+
+.el-upload__tip {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.el-loading-mask {
+  background: color-mix(in srgb, var(--lpp-surface) 82%, transparent);
+}
+
+.el-loading-spinner .path {
+  stroke: var(--lpp-primary);
+}
+
+.el-skeleton__item {
+  background: linear-gradient(
+    90deg,
+    var(--lpp-layer) 25%,
+    #eef1ea 37%,
+    var(--lpp-layer) 63%
+  );
+}
+
+.el-switch {
+  --el-switch-on-color: var(--lpp-primary);
+}
+
+.el-checkbox__label,
+.el-radio__label {
+  font-size: var(--lpp-font-sm);
+}
+
+.el-result__title {
+  font-size: var(--lpp-font-md);
+}
+
+.el-result__subtitle {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
 }

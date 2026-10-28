@@ -1,69 +1,79 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { EChartsOption } from 'echarts'
 
 import ChartCard from '@/components/ChartCard.vue'
 import DataTable from '@/components/DataTable.vue'
-import type { TableColumn } from '@/components/table-types'
 import DiffViewer from '@/components/DiffViewer.vue'
 import EvidenceChain from '@/components/EvidenceChain.vue'
 import MetricCard from '@/components/MetricCard.vue'
+import MetricLedger from '@/components/MetricLedger.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import SectionHeader from '@/components/SectionHeader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
-import { DEMO_DIFFS, DEMO_EVIDENCE, DEMO_METRICS, DEMO_PLANS } from '@/dev/styleguide-fixtures'
-import { useUiStore } from '@/stores/ui'
+import StructurePanel from '@/components/StructurePanel.vue'
+import type { TableColumn } from '@/components/table-types'
+import { DEMO_DIFFS, DEMO_EVIDENCE, DEMO_LEDGER_KEYS, DEMO_METRICS, DEMO_PLANS, DEMO_STRUCTURE } from '@/dev/overview-fixtures'
+import { CHART_TOKENS, PALETTE } from '@/styles/palette'
+import { contrastRatio } from '@/utils/color'
 
-const ui = useUiStore()
+const router = useRouter()
+const isDev = import.meta.env.DEV
 
-const palettes = {
-  ink: {
-    title: 'A「墨蓝 · 麦金」',
-    primary: '#1F3A5F',
-    accent: '#B07A2A',
-    canvas: '#F3F4F6',
-    surface: '#FFFFFF',
-    text: '#1B2430',
-    muted: '#5B6878',
-    border: '#E2E6EC',
-    success: '#2F6B4F',
-    warning: '#A15C12',
-    danger: '#A33A2B',
-  },
-  pine: {
-    title: 'B「松绿 · 砂岩」',
-    primary: '#2E5B52',
-    accent: '#8C6A4A',
-    canvas: '#F2F3F0',
-    surface: '#FFFFFF',
-    text: '#1C2622',
-    muted: '#5D6A63',
-    border: '#E1E4DD',
-    success: '#2E6B4F',
-    warning: '#94641A',
-    danger: '#A23F32',
-  },
-} as const
+const tabs = [
+  { id: 'principles', label: '方向' },
+  { id: 'color', label: '色彩' },
+  { id: 'type', label: '排版' },
+  { id: 'components', label: '控件' },
+  { id: 'data', label: '数据' },
+  { id: 'structure', label: '结构剖面' },
+  { id: 'states', label: '四态' },
+  { id: 'responsive', label: '响应式' },
+]
 
-const palette = computed(() => palettes[ui.theme])
+const swatches = [
+  { label: '主色', value: PALETTE.primary },
+  { label: '主色悬停', value: PALETTE.primaryHover },
+  { label: '强调（黄铜）', value: PALETTE.brass },
+  { label: '画布', value: PALETTE.canvas },
+  { label: '层 / 侧栏', value: PALETTE.layer },
+  { label: '表面', value: PALETTE.surface },
+  { label: '主文字', value: PALETTE.text },
+  { label: '次文字', value: PALETTE.textMuted },
+  { label: '描边', value: PALETTE.border },
+  { label: '成功', value: PALETTE.success },
+  { label: '警告', value: PALETTE.warning },
+  { label: '危险', value: PALETTE.danger },
+]
 
-function changeTheme(value: string): void {
-  if (value === 'ink' || value === 'pine') ui.setTheme(value)
-}
-
-const swatches = computed(() => [
-  ['主色', palette.value.primary],
-  ['强调色', palette.value.accent],
-  ['画布', palette.value.canvas],
-  ['表面', palette.value.surface],
-  ['主文字', palette.value.text],
-  ['次文字', palette.value.muted],
-  ['描边', palette.value.border],
-  ['成功', palette.value.success],
-  ['警告', palette.value.warning],
-  ['危险', palette.value.danger],
+const contrastRows = computed(() => [
+  { label: '主文字 / 表面', pair: `${PALETTE.text} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.text, PALETTE.surface) },
+  { label: '次文字 / 表面', pair: `${PALETTE.textMuted} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.textMuted, PALETTE.surface) },
+  { label: '次文字 / 画布', pair: `${PALETTE.textMuted} / ${PALETTE.canvas}`, ratio: contrastRatio(PALETTE.textMuted, PALETTE.canvas) },
+  { label: '主色 / 表面', pair: `${PALETTE.primary} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.primary, PALETTE.surface) },
+  { label: '危险 / 表面', pair: `${PALETTE.danger} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.danger, PALETTE.surface) },
+  { label: '身份牌文字 / 身份牌', pair: `${PALETTE.nameplateText} / ${PALETTE.nameplate}`, ratio: contrastRatio(PALETTE.nameplateText, PALETTE.nameplate) },
 ])
+
+const spaces = [
+  ['--lpp-space-1', '4', '图标与文字'],
+  ['--lpp-space-2', '8', '按钮组、行内'],
+  ['--lpp-space-3', '12', '表单、表格单元'],
+  ['--lpp-space-4', '16', '区块内边距'],
+  ['--lpp-space-6', '24', '区块间距'],
+  ['--lpp-space-8', '32', '页面分节'],
+]
+
+const radii = [
+  ['--lpp-radius-tag', '4', '状态标签'],
+  ['--lpp-radius-control', '6', '按钮 / 输入 / 导航'],
+  ['--lpp-radius-card', '10', '表格 / 面板'],
+  ['--lpp-radius-window', '14', '弹窗'],
+]
 
 const formRef = ref<FormInstance>()
 const form = reactive({ title: '', course: '信息技术', week: 2, note: '' })
@@ -80,79 +90,95 @@ function submitForm(): void {
   })
 }
 
-const loading = ref(false)
-const showEmpty = ref(false)
-const plans = DEMO_PLANS
-const page = ref(1)
-const planColumns: TableColumn[] = [
-  { key: 'title', label: '课题', minWidth: 180, tooltip: true },
-  { key: 'course', label: '课程', width: 110 },
-  { key: 'week', label: '周/次', width: 80 },
-  { key: 'teacher', label: '教师', width: 100 },
-  { key: 'status', label: '状态', width: 110 },
-  { key: 'version', label: '版本', width: 70 },
-]
 const dialogVisible = ref(false)
-
 const uploadFiles = ref<{ name: string; size: number }[]>([])
 
 function onFileChange(file: { name: string; size?: number }): void {
   uploadFiles.value = [{ name: file.name, size: file.size ?? 0 }]
 }
 
-const evidence = DEMO_EVIDENCE
-const diffs = DEMO_DIFFS
-const metrics = DEMO_METRICS
-const chartMetrics = computed(() => metrics.filter((metric) => metric.available && metric.value !== null && metric.unit !== '秒'))
-
-const metricGroups = [
-  {
-    title: '质量',
-    note: '结构、金标准、缺陷、证据链',
-    keys: ['structure_rate', 'gold_standard', 'defect_density', 'evidence_rate'],
-  },
-  {
-    title: '过程',
-    note: '同步、任务、单份耗时',
-    keys: ['sync_consistency', 'task_completion', 'export_seconds'],
-  },
-  {
-    title: '运行',
-    note: '专家评分、可用性',
-    keys: ['expert_score', 'availability'],
-  },
+const tablePage = ref(1)
+const tablePageSize = 5
+const tableRows = computed(() =>
+  DEMO_PLANS.slice((tablePage.value - 1) * tablePageSize, tablePage.value * tablePageSize),
+)
+const planColumns: TableColumn[] = [
+  { key: 'title', label: '课题', minWidth: 200 },
+  { key: 'course', label: '课程', width: 100 },
+  { key: 'week', label: '周 / 次', width: 84 },
+  { key: 'teacher', label: '教师', width: 92 },
+  { key: 'version', label: '版本', width: 60, align: 'right' },
+  { key: 'evidence', label: '证据', width: 68 },
+  { key: 'status', label: '状态', width: 104 },
 ]
 
-function groupMetrics(keys: string[]): typeof metrics {
-  return keys
-    .map((key) => metrics.find((metric) => metric.key === key))
-    .filter((metric): metric is (typeof metrics)[number] => Boolean(metric))
-}
+const ledgerMetrics = computed(() =>
+  DEMO_LEDGER_KEYS.map((key) => DEMO_METRICS.find((metric) => metric.key === key)).filter(
+    (metric): metric is (typeof DEMO_METRICS)[number] => Boolean(metric),
+  ),
+)
+
+const rateMetrics = computed(() =>
+  DEMO_METRICS.filter((metric) =>
+    ['structure_rate', 'evidence_rate', 'sync_consistency', 'task_completion'].includes(metric.key),
+  ),
+)
 
 const chartOption = computed<EChartsOption>(() => ({
-  grid: { left: 40, right: 16, top: 20, bottom: 56 },
+  animation: false,
+  grid: { left: 96, right: 36, top: 22, bottom: 32 },
+  textStyle: { fontFamily: CHART_TOKENS.fontFamily },
   xAxis: {
-    type: 'category',
-    data: chartMetrics.value.map((item) => item.label),
-    axisLabel: { rotate: 32, fontSize: 10, color: palette.value.muted, interval: 0 },
-    axisLine: { lineStyle: { color: palette.value.border } },
+    type: 'value',
+    min: 0,
+    max: 1,
+    axisLabel: { formatter: (value: number) => `${Math.round(value * 100)}%`, color: CHART_TOKENS.text, fontSize: 12 },
+    splitLine: { lineStyle: { color: CHART_TOKENS.grid } },
+    axisLine: { show: false },
+    axisTick: { show: false },
   },
   yAxis: {
-    type: 'value',
-    max: 1,
-    splitLine: { lineStyle: { color: palette.value.border } },
-    axisLabel: { fontSize: 10, color: palette.value.muted },
+    type: 'category',
+    data: rateMetrics.value.map((metric) => metric.label),
+    axisLabel: { color: CHART_TOKENS.text, fontSize: 12 },
+    axisLine: { show: false },
+    axisTick: { show: false },
+  },
+  tooltip: {
+    trigger: 'item',
+    formatter: (params: unknown) => {
+      const index = (params as { dataIndex: number }).dataIndex
+      const metric = rateMetrics.value[index]
+      return `${metric.label}<br/>${Math.round((metric.value ?? 0) * 100)}% / ${metric.numerator}/${metric.denominator}`
+    },
   },
   series: [
     {
-      type: 'bar',
-      data: chartMetrics.value.map((item) => item.value ?? 0),
-      barMaxWidth: 22,
-      itemStyle: { color: palette.value.primary, borderRadius: [3, 3, 0, 0] },
+      type: 'scatter',
+      symbolSize: 10,
+      itemStyle: { color: CHART_TOKENS.primary },
+      data: rateMetrics.value.map((metric, index) => [metric.value ?? 0, index]),
+      markLine: {
+        silent: true,
+        symbol: 'none',
+        label: { formatter: '目标 90%', color: CHART_TOKENS.text, fontSize: 11 },
+        lineStyle: { color: CHART_TOKENS.accent, type: 'dashed', width: 1 },
+        data: [{ xAxis: 0.9 }],
+      },
     },
   ],
-  tooltip: { trigger: 'axis' },
 }))
+
+const chartSummary = computed(
+  () =>
+    `四项比率指标：${rateMetrics.value
+      .map((metric) => `${metric.label} ${Math.round((metric.value ?? 0) * 100)}%`)
+      .join('；')}。虚线为目标 90%。`,
+)
+
+const force2d = ref(false)
+const showEmpty = ref(false)
+const loading = ref(false)
 
 function toggleLoading(): void {
   loading.value = true
@@ -160,111 +186,141 @@ function toggleLoading(): void {
     loading.value = false
   }, 800)
 }
+
+const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_reviewer', 'structure_invalid', 'failed']
 </script>
 
 <template>
-  <div class="review">
-    <header class="review-head">
-      <div class="review-title">
-        <p class="kicker">Design review · 2026-10</p>
-        <h1>视觉与组件验收</h1>
-        <p class="review-lead">
-          参考 Windows 11 Fluent 的导航与命令栏、macOS Finder 的内容优先、GNOME Settings 的分段结构。
-          B「松绿 · 砂岩」已选，布局待确认。
+  <div class="styleguide page">
+    <PageHeader
+      title="设计验收"
+      description="单一「松绿 · 砂岩」主题；用规则线、留白和数字层级建立秩序，3D 结构剖面是唯一的重音。"
+    >
+      <template #meta>
+        <p class="styleguide-meta">
+          候选稿 v1.1 / 2026-10-28 / 待用户确认后冻结
         </p>
-        <div class="chips">
-          <span class="chip">主题 B 松绿</span>
-          <span class="chip">Fluent / Finder / GNOME</span>
-          <span class="chip chip--accent">待确认</span>
-        </div>
-      </div>
-      <div class="review-summary" aria-label="验收摘要">
-        <div><span>参考系统</span><strong>3</strong><small>Windows / macOS / GNOME</small></div>
-        <div><span>覆盖</span><strong>4 / 4</strong><small>令牌 · 组件 · 四态 · 响应式</small></div>
-        <div><span>状态</span><strong>待验收</strong><small>通过后冻结 v1.0</small></div>
-      </div>
-    </header>
+      </template>
+      <template #actions>
+        <el-button @click="router.push('/preview/overview')">查看概览预览</el-button>
+      </template>
+    </PageHeader>
 
-    <nav class="tabs" aria-label="验收章节">
-      <a href="#tokens">色板与令牌</a>
-      <a href="#type">排版</a>
-      <a href="#buttons">按钮</a>
-      <a href="#forms">表单</a>
-      <a href="#table">列表与状态</a>
-      <a href="#overlays">弹窗与上传</a>
-      <a href="#data">证据与指标</a>
-      <a href="#states">页面四态</a>
-      <span class="tabs-spacer" />
-      <el-radio-group :model-value="ui.theme" size="small" @update:model-value="changeTheme">
-        <el-radio-button value="ink">A 墨蓝</el-radio-button>
-        <el-radio-button value="pine">B 松绿</el-radio-button>
-      </el-radio-group>
+    <nav class="style-tabs" aria-label="验收章节">
+      <a v-for="tab in tabs" :key="tab.id" :href="`#${tab.id}`">{{ tab.label }}</a>
+      <span class="style-tabs__spacer" />
+      <span class="style-tabs__note">1440 / 1280 / 390</span>
     </nav>
 
-    <div class="review-body">
-      <section id="tokens" class="review-section">
-        <header class="section-head">
-          <div>
-            <h2>色板与令牌</h2>
-            <p class="muted">画布、表面、描边三层关系；颜色只通过令牌引用。</p>
-          </div>
-          <span class="section-meta">CSS variables</span>
-        </header>
-        <div class="swatch-grid">
-          <div v-for="[label, color] in swatches" :key="label">
-            <div class="swatch" :style="{ background: color }" />
-            <div class="swatch-label"><span>{{ label }}</span><span class="mono">{{ color }}</span></div>
-          </div>
+    <section id="principles" class="style-section">
+      <SectionHeader
+        title="方向：教案校样台"
+        description="像编辑校样一样看教案：规则线、页边、批注、版本号与审查印记。"
+        meta="不套后台模板"
+      />
+      <div class="principle-grid">
+        <article>
+          <h3>结构优先</h3>
+          <p>先把三维目标、八步流程与证据链排清楚，再谈装饰。表格是主内容，不是卡片堆。</p>
+        </article>
+        <article>
+          <h3>状态有文字</h3>
+          <p>审查、导出、逾期、证据缺项都给出文字结论；颜色只做辅助，不承担唯一信息。</p>
+        </article>
+        <article>
+          <h3>一处重音</h3>
+          <p>结构剖面是唯一的高投入视觉；其余区域保持安静、低对比、可长时间阅读。</p>
+        </article>
+      </div>
+
+      <table class="ref-table">
+        <caption class="sr-only">设计参考与取舍</caption>
+        <thead>
+          <tr><th scope="col">参考</th><th scope="col">借用</th><th scope="col">不照搬</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Linear</td><td>命令优先、紧凑但不拥挤、键盘可达</td><td>全暗色、紫色光晕</td></tr>
+          <tr><td>Stripe Dashboard</td><td>指标排版、表格数字、克制的分隔线</td><td>营销式大数字堆叠</td></tr>
+          <tr><td>Figma</td><td>工作台感：工具归工具，内容归内容</td><td>深色侧栏本身</td></tr>
+          <tr><td>瑞士国际主义排版</td><td>网格、规则线、对齐、层级</td><td>无圆角报纸栏密度</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="color" class="style-section">
+      <SectionHeader title="色彩" description="唯一的行动色是松绿；黄铜只做规则线、选中小标记与印章。" meta="CSS variables" />
+      <div class="swatch-grid">
+        <div v-for="swatch in swatches" :key="swatch.label">
+          <div class="swatch" :style="{ background: swatch.value }" />
+          <div class="swatch-label"><span>{{ swatch.label }}</span><span class="mono">{{ swatch.value }}</span></div>
         </div>
-      </section>
+      </div>
 
-      <div class="pair">
-        <section id="type" class="review-section">
-          <header class="section-head">
-            <div>
-              <h2>排版</h2>
-              <p class="muted">Segoe UI + 系统中文字体；正文 14、表格 13、标题 20。</p>
-            </div>
-            <span class="section-meta">无外链字体</span>
-          </header>
-          <div class="type-specimens">
-            <div><span class="spec-label">页面标题 / 20 · 600</span><h1>教案库与版本链</h1></div>
-            <div><span class="spec-label">小标题 / 16 · 600</span><h2>证据链与审查记录</h2></div>
-            <div><span class="spec-label">正文 / 14 · 1.6</span><p>教师只能查看本人教案，组长查看本组；管理员可查看全部并审计关键操作。</p></div>
-            <div><span class="spec-label">表格 / 13 · 1.45</span><p class="mono">planHash 8f2c…a91 · 2026-10-28 14:20</p></div>
-          </div>
-        </section>
+      <div class="contrast-table">
+        <div class="contrast-head"><span>文字组合</span><span>色值</span><span>对比度</span></div>
+        <div v-for="row in contrastRows" :key="row.label" class="contrast-row">
+          <span>{{ row.label }}</span>
+          <span class="mono">{{ row.pair }}</span>
+          <span class="numeric" :class="{ 'is-pass': row.ratio >= 4.5 }">{{ row.ratio.toFixed(2) }}:1</span>
+        </div>
+      </div>
+    </section>
 
-        <section id="buttons" class="review-section">
-          <header class="section-head">
-            <div>
-              <h2>按钮</h2>
-              <p class="muted">控件高 32、圆角 6；一屏一个主按钮。</p>
-            </div>
-            <span class="section-meta">Fluent 尺度</span>
-          </header>
-          <div class="demo-surface row">
+    <section id="type" class="style-section">
+      <SectionHeader title="排版与尺度" description="中文系统无衬线 + Bahnschrift 数字；信息文字不小于 12px，不请求外部字体。" meta="12 → 36" />
+      <div class="type-grid">
+        <div class="type-specimens">
+          <div><span class="spec-label">页面标题 / 28 / 600</span><h1>教案库与版本链</h1></div>
+          <div><span class="spec-label">小标题 / 16 / 600</span><h2>证据链与审查记录</h2></div>
+          <div><span class="spec-label">正文 / 14 / 1.65</span><p>教师只能查看本人教案，组长查看本组；管理员可查看全部并审计关键操作。</p></div>
+          <div><span class="spec-label">表格 / 13 / 1.5</span><p class="numeric">planHash 8f2c…a91 / 2026-10-28 14:20</p></div>
+          <div><span class="spec-label">辅助 / 12 / 1.4</span><p class="muted">当前范围 / 不含已删除教案</p></div>
+        </div>
+        <div class="scale-tables">
+          <table class="scale-table">
+            <caption class="sr-only">间距令牌</caption>
+            <thead><tr><th scope="col">间距</th><th scope="col">px</th><th scope="col">用途</th></tr></thead>
+            <tbody>
+              <tr v-for="row in spaces" :key="row[0]"><td class="mono">{{ row[0] }}</td><td class="numeric">{{ row[1] }}</td><td>{{ row[2] }}</td></tr>
+            </tbody>
+          </table>
+          <table class="scale-table">
+            <caption class="sr-only">圆角令牌</caption>
+            <thead><tr><th scope="col">圆角</th><th scope="col">px</th><th scope="col">用途</th></tr></thead>
+            <tbody>
+              <tr v-for="row in radii" :key="row[0]"><td class="mono">{{ row[0] }}</td><td class="numeric">{{ row[1] }}</td><td>{{ row[2] }}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="components" class="style-section">
+      <SectionHeader title="控件" description="主按钮每屏一个；成功/警告/危险使用轻色调，不把整屏染成红绿。" meta="Element Plus 映射" />
+      <div class="demo-grid">
+        <div class="demo-surface">
+          <h3>按钮</h3>
+          <div class="row">
             <el-button type="primary">上传契约包</el-button>
             <el-button>取消</el-button>
-            <el-button type="success">通过</el-button>
-            <el-button type="warning">放行</el-button>
-            <el-button type="danger">删除</el-button>
+            <el-button plain type="success">通过</el-button>
+            <el-button plain type="warning">放行</el-button>
+            <el-button plain type="danger">退回修复</el-button>
             <el-button text>文字按钮</el-button>
             <el-button disabled>禁用</el-button>
             <el-button type="primary" loading>提交中</el-button>
           </div>
-        </section>
-      </div>
+        </div>
 
-      <div class="pair">
-        <section id="forms" class="review-section">
-          <header class="section-head">
-            <div>
-              <h2>表单</h2>
-              <p class="muted">标签在字段上方，错误在下方；窄屏自动一列。</p>
-            </div>
-            <span class="section-meta">Element Plus Form</span>
-          </header>
+        <div class="demo-surface">
+          <h3>状态标签</h3>
+          <div class="row">
+            <StatusTag v-for="status in statuses" :key="status" :code="status" :status="status" />
+          </div>
+        </div>
+
+        <div class="demo-surface demo-surface--wide">
+          <h3>表单</h3>
           <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form-grid">
             <el-form-item label="课题" prop="title">
               <el-input v-model="form.title" placeholder="例如：一级考证辅导2" />
@@ -286,376 +342,380 @@ function toggleLoading(): void {
             <el-button type="primary" @click="submitForm">保存</el-button>
             <el-button @click="formRef?.resetFields()">重置</el-button>
           </div>
-        </section>
+        </div>
 
-        <section id="overlays" class="review-section">
-          <header class="section-head">
-            <div>
-              <h2>弹窗与上传</h2>
-              <p class="muted">Esc 关闭、焦点归位；上传只接受 .zip。</p>
-            </div>
-            <span class="section-meta">Dialog / Upload</span>
-          </header>
-          <div class="demo-surface row">
+        <div class="demo-surface">
+          <h3>弹层与上传</h3>
+          <div class="row">
             <el-button @click="dialogVisible = true">打开弹窗</el-button>
             <el-button @click="ElMessage.success('已保存')">成功提示</el-button>
             <el-button @click="ElMessage.error('保存失败（INTERNAL）')">失败提示</el-button>
-            <el-upload :auto-upload="false" :show-file-list="false" accept=".zip" :on-change="onFileChange">
-              <el-button>选择契约包</el-button>
-            </el-upload>
           </div>
-          <p v-if="uploadFiles.length" class="muted selected-file">
+          <el-upload :auto-upload="false" :show-file-list="false" accept=".zip" :on-change="onFileChange">
+            <el-button>选择契约包</el-button>
+          </el-upload>
+          <p v-if="uploadFiles.length" class="upload-note mono">
             {{ uploadFiles[0].name }}（{{ Math.ceil(uploadFiles[0].size / 1024) }} KB）
           </p>
-          <el-dialog v-model="dialogVisible" title="删除这份教案？" width="420px">
-            <p>软删除后教师与组长不可见，管理员仍可在审计中追溯。</p>
-            <template #footer>
-              <el-button @click="dialogVisible = false">取消</el-button>
-              <el-button type="danger" @click="dialogVisible = false">确认删除</el-button>
-            </template>
-          </el-dialog>
-        </section>
+        </div>
+
+        <el-dialog v-model="dialogVisible" title="删除这份教案？" width="420px">
+          <p>软删除后教师与组长不可见，管理员仍可在审计中追溯。</p>
+          <template #footer>
+            <el-button @click="dialogVisible = false">取消</el-button>
+            <el-button type="danger" @click="dialogVisible = false">确认删除</el-button>
+          </template>
+        </el-dialog>
+      </div>
+    </section>
+
+    <section id="data" class="style-section">
+      <SectionHeader title="数据展示" description="表格、指标、证据链与差异必须同屏给出分子/分母、状态文字与原因。" meta="业务展示组件" />
+
+      <div class="demo-toolbar">
+        <el-button @click="toggleLoading">模拟加载</el-button>
+        <el-switch v-model="showEmpty" active-text="空态" />
       </div>
 
-      <section id="table" class="review-section">
-        <header class="section-head">
-          <div>
-            <h2>列表与状态</h2>
-            <p class="muted">表格是主内容，筛选条与表格共用一条内容表面；表头透明、底部细线。</p>
-          </div>
-          <span class="section-meta">空态 / 加载 / 正常</span>
-        </header>
-        <DataTable
-          :rows="showEmpty ? [] : plans"
-          :columns="planColumns"
-          :state="loading ? 'loading' : 'ready'"
-          :page="page"
-          :page-size="10"
-          :total="42"
-          show-pagination
-          aria-label="示例教案列表"
-          empty-text="没有匹配的教案，试试调整筛选条件"
-          @update:page="page = $event"
-        >
-          <template #toolbar>
-            <div class="row">
-              <el-input v-model="form.title" placeholder="按课题筛选" clearable style="width: 220px" />
-              <el-select v-model="form.course" style="width: 140px">
-                <el-option label="信息技术" value="信息技术" />
-                <el-option label="英语" value="英语" />
-              </el-select>
-              <el-button type="primary">查询</el-button>
-            </div>
-            <div class="row">
-              <el-button @click="toggleLoading">模拟加载</el-button>
-              <el-switch v-model="showEmpty" active-text="空态" />
-            </div>
-          </template>
-          <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
-          <template #cell-status="{ row }">
-            <StatusTag :code="String(row.status)" :status="String(row.status)" />
-          </template>
-          <template #empty>
-            <el-button type="primary">上传契约包</el-button>
-          </template>
-        </DataTable>
-      </section>
+      <DataTable
+        :rows="showEmpty ? [] : tableRows"
+        :columns="planColumns"
+        :state="loading ? 'loading' : 'ready'"
+        :page="tablePage"
+        :page-size="tablePageSize"
+        :total="DEMO_PLANS.length"
+        show-pagination
+        aria-label="示例教案列表"
+        empty-text="没有匹配的教案，试试调整筛选条件"
+        @update:page="tablePage = $event"
+      >
+        <template #cell-title="{ row }">
+          <strong class="table-title">{{ row.title }}</strong>
+        </template>
+        <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
+        <template #cell-evidence="{ row }">{{ row.evidencePassed }}/{{ row.evidenceTotal }}</template>
+        <template #cell-status="{ row }">
+          <StatusTag :code="String(row.status)" :status="String(row.status)" />
+        </template>
+        <template #empty>
+          <el-button @click="showEmpty = false">清除筛选</el-button>
+        </template>
+      </DataTable>
 
-      <section id="data" class="review-section">
-        <header class="section-head">
-          <div>
-            <h2>证据、差异与指标</h2>
-            <p class="muted">证据链五项与版本差异并排；指标卡必须同屏显示分子/分母。</p>
-          </div>
-          <span class="section-meta">业务展示组件</span>
-        </header>
-        <div class="data-grid">
-          <EvidenceChain :items="evidence" :passed="4" :total="5" />
-          <div class="demo-surface stack">
-            <div class="section-title"><h3>版本差异</h3><span>字段路径 + 前后值</span></div>
-            <DiffViewer :changes="diffs" />
-          </div>
-        </div>
-        <div class="metric-groups">
-          <div v-for="group in metricGroups" :key="group.title" class="metric-group">
-            <div class="group-head">
-              <h3>{{ group.title }}</h3>
-              <span>{{ group.note }}</span>
-            </div>
-            <div class="metrics-grid">
-              <MetricCard v-for="metric in groupMetrics(group.keys)" :key="metric.key" :metric="metric" />
-            </div>
-          </div>
-        </div>
-        <div class="chart-surface">
-          <ChartCard :option="chartOption" height="220px" />
-        </div>
-      </section>
+      <div class="ledger-demo">
+        <MetricLedger :metrics="ledgerMetrics" />
+      </div>
 
-      <section id="states" class="review-section">
-        <header class="section-head">
-          <div>
-            <h2>页面四态</h2>
-            <p class="muted">loading 用骨架，empty 给动作，error 带 code/traceId，403 说明原因。</p>
-          </div>
-          <span class="section-meta">每页必备</span>
-        </header>
-        <div class="state-grid">
-          <div class="demo-surface"><StatePanel state="loading" title="正在加载教案…" /></div>
-          <div class="demo-surface">
-            <StatePanel state="empty" title="还没有教案" description="先上传一个契约包，或从样例库复制">
-              <template #action><el-button type="primary">上传契约包</el-button></template>
-            </StatePanel>
-          </div>
-          <div class="demo-surface">
-            <StatePanel state="error" title="读取失败（NOT_FOUND）" description="traceId: 4a77…c91" />
-          </div>
-          <div class="demo-surface"><StatePanel state="forbidden" title="无权查看该教案" /></div>
+      <div class="metric-grid">
+        <MetricCard v-for="metric in DEMO_METRICS" :key="metric.key" :metric="metric" />
+      </div>
+
+      <div class="data-grid">
+        <EvidenceChain :items="DEMO_EVIDENCE" :passed="4" :total="5" />
+        <div class="demo-surface stack">
+          <div class="section-title"><h3>版本差异</h3><span>字段路径 + 前后值</span></div>
+          <DiffViewer :changes="DEMO_DIFFS" />
         </div>
-      </section>
-    </div>
+      </div>
+
+      <div class="chart-surface">
+        <ChartCard
+          :option="chartOption"
+          height="230px"
+          label="四项比率指标与 90% 目标线"
+          :summary="chartSummary"
+        />
+      </div>
+    </section>
+
+    <section id="structure" class="style-section">
+      <SectionHeader
+        title="结构剖面"
+        description="3D 只承载一个信息：三维目标、八步流程、五项证据的三层剖面。所有信息在结构清单中同样可得。"
+        meta="three.js + 2D 兜底"
+      />
+      <div class="structure-toolbar">
+        <el-switch v-model="force2d" active-text="强制简化视图" />
+        <span class="muted">无 WebGL、窄屏、chunk 失败或上下文丢失时自动降级为 SVG。</span>
+      </div>
+      <StructurePanel :structure="DEMO_STRUCTURE" :force-fallback="force2d" height="400px" />
+      <p class="muted structure-note">
+        3D 在 `prefers-reduced-motion` 下静止；离开视口暂停；卸载时释放几何、材质与 WebGL 上下文。
+      </p>
+    </section>
+
+    <section id="states" class="style-section">
+      <SectionHeader title="页面四态" description="loading 不闪白；empty 给一个可执行动作；error 带 code 与 traceId；403 说明原因。" meta="每页必备" />
+      <div class="state-grid">
+        <div class="demo-surface"><StatePanel state="loading" title="正在加载教案…" /></div>
+        <div class="demo-surface">
+          <StatePanel state="empty" title="还没有教案" description="先上传一个契约包，或从样例库复制。">
+            <template #action><el-button type="primary">上传契约包</el-button></template>
+          </StatePanel>
+        </div>
+        <div class="demo-surface">
+          <StatePanel state="error" title="NOT_FOUND" description="资源不存在或已被删除。" trace-id="4a77c91" />
+        </div>
+        <div class="demo-surface"><StatePanel state="forbidden" title="无权查看该教案" /></div>
+      </div>
+    </section>
+
+    <section id="responsive" class="style-section">
+      <SectionHeader title="响应式与无障碍" description="断点与检查项；焦点、对比度与 reduced-motion 都有自动化或人工证据。" meta="1440 / 1280 / 390" />
+      <div class="responsive-grid">
+        <table class="scale-table">
+          <caption class="sr-only">断点</caption>
+          <thead><tr><th scope="col">视口</th><th scope="col">行为</th></tr></thead>
+          <tbody>
+            <tr><td>≥1100</td><td>228px 侧栏展开；3D 与右侧栏并排</td></tr>
+            <tr><td>900–1099</td><td>侧栏抽屉；3D 降级为 2D 剖面</td></tr>
+            <tr><td>640–899</td><td>单列；表格容器内横向滚动</td></tr>
+            <tr><td>&lt;640</td><td>抽屉 280px；按钮不重叠；隐藏次要元信息</td></tr>
+          </tbody>
+        </table>
+        <ul class="a11y-list">
+          <li>正文与次文字对比度 ≥4.5:1，单测锁定。</li>
+          <li>焦点环 2px 实色松绿；Tab 顺序从跳过链接开始。</li>
+          <li>图标按钮有 aria-label；状态不只靠颜色。</li>
+          <li>3D canvas 不承载唯一信息，结构清单可键盘阅读。</li>
+          <li>reduced-motion 下关闭自动旋转、入场与图表动画。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="style-section style-section--last">
+      <SectionHeader title="验收记录" description="反馈写入 docs/frontend/review-notes.md；通过后由用户签字冻结 v1.1。" meta="待确认" />
+      <div class="review-links">
+        <p><span class="mono">docs/frontend/ui-style-spec.md</span> 设计令牌与 3D 规范</p>
+        <p><span class="mono">docs/frontend/component-acceptance.md</span> 组件与四态清单</p>
+        <p><span class="mono">docs/frontend/review-notes.md</span> 本轮反馈表</p>
+      </div>
+      <p v-if="isDev" class="dev-note">本页只在 DEV 注册，生产构建不包含演示数据与预览路由。</p>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.review {
-  max-width: 1360px;
-  margin: 0 auto;
+.styleguide {
+  gap: 30px;
+  max-width: 1400px;
 }
 
-.review-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-  gap: 32px;
-  padding: 4px 0 18px;
-  border-bottom: 1px solid var(--lpp-border);
-}
-
-.kicker {
-  color: var(--lpp-text-muted);
-  font-size: 11px;
-  margin-bottom: 4px;
-}
-
-.review-title h1 {
-  font-size: 22px;
-  letter-spacing: -0.01em;
-}
-
-.review-lead {
-  max-width: 640px;
+.styleguide-meta {
   margin-top: 6px;
   color: var(--lpp-text-muted);
-  font-size: 12px;
+  font-size: var(--lpp-font-xs);
 }
 
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-.chip {
-  padding: 2px 8px;
-  border: 1px solid var(--lpp-border);
-  border-radius: 999px;
-  background: var(--lpp-surface);
-  color: var(--lpp-text-muted);
-  font-size: 11px;
-}
-
-.chip--accent {
-  border-color: color-mix(in srgb, var(--lpp-accent) 40%, var(--lpp-border));
-  background: color-mix(in srgb, var(--lpp-accent) 8%, white);
-  color: color-mix(in srgb, var(--lpp-accent) 70%, var(--lpp-text));
-}
-
-.review-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  align-self: end;
-  border: 1px solid var(--lpp-border);
-  border-radius: var(--lpp-radius-card);
-  background: var(--lpp-surface);
-  overflow: hidden;
-}
-
-.review-summary > div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border-right: 1px solid var(--lpp-border);
-}
-
-.review-summary > div:last-child {
-  border-right: 0;
-}
-
-.review-summary span {
-  color: var(--lpp-text-muted);
-  font-size: 10px;
-}
-
-.review-summary strong {
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-
-.review-summary small {
-  color: var(--lpp-text-muted);
-  font-size: 10px;
-  line-height: 1.35;
-}
-
-.tabs {
+.style-tabs {
   position: sticky;
-  top: 0;
-  z-index: 5;
+  top: var(--lpp-commandbar);
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 8px 0;
-  margin-bottom: 4px;
-  background: var(--lpp-canvas);
+  padding: 7px 0;
+  margin: 0 -4px;
   border-bottom: 1px solid var(--lpp-border);
+  background: var(--lpp-canvas);
   overflow-x: auto;
 }
 
-.tabs a {
+.style-tabs a {
   padding: 5px 9px;
   border-radius: var(--lpp-radius-control);
   color: var(--lpp-text-muted);
-  font-size: 12px;
+  font-size: var(--lpp-font-xs);
   text-decoration: none;
   white-space: nowrap;
 }
 
-.tabs a:hover {
+.style-tabs a:hover {
   background: var(--lpp-nav-hover);
   color: var(--lpp-text);
   text-decoration: none;
 }
 
-.tabs-spacer {
+.style-tabs__spacer {
   flex: 1;
 }
 
-.review-section {
-  padding: 18px 0 20px;
+.style-tabs__note {
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.style-section {
+  scroll-margin-top: calc(var(--lpp-commandbar) + 12px);
+}
+
+.style-section--last {
+  padding-bottom: 12px;
+}
+
+.principle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--lpp-border);
   border-bottom: 1px solid var(--lpp-border);
 }
 
-.pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 32px;
+.principle-grid article {
+  padding: 14px 18px;
+  border-right: 1px solid var(--lpp-border);
 }
 
-.section-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
+.principle-grid article:first-child {
+  padding-left: 0;
 }
 
-.section-head h2 {
-  margin-bottom: 2px;
+.principle-grid article:last-child {
+  border-right: 0;
 }
 
-.section-head p {
-  font-size: 12px;
-  max-width: 680px;
+.principle-grid h3 {
+  font-size: var(--lpp-font-sm);
+  font-weight: 600;
 }
 
-.section-meta {
+.principle-grid p {
+  margin-top: 4px;
   color: var(--lpp-text-muted);
-  font-size: 11px;
+  font-size: var(--lpp-font-xs);
+  line-height: 1.6;
+}
+
+.ref-table,
+.scale-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--lpp-font-xs);
+  text-align: left;
+}
+
+.ref-table {
+  margin-top: 16px;
+}
+
+.ref-table th,
+.ref-table td,
+.scale-table th,
+.scale-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--lpp-border);
+  vertical-align: top;
+}
+
+.ref-table th,
+.scale-table th {
+  color: var(--lpp-text-muted);
+  font-weight: 600;
+  border-bottom-color: var(--lpp-border-strong);
+}
+
+.ref-table td:first-child {
+  color: var(--lpp-text);
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .swatch-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
 }
 
-.swatch {
-  height: 40px;
-  border-radius: var(--lpp-radius-control);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+.swatch-grid .swatch {
+  height: 62px;
 }
 
-.swatch-label {
-  display: flex;
-  justify-content: space-between;
-  gap: 4px;
-  margin-top: 4px;
+.contrast-table {
+  margin-top: 18px;
+  border-top: 1px solid var(--lpp-border);
+}
+
+.contrast-head,
+.contrast-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 90px;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--lpp-border);
+  font-size: var(--lpp-font-xs);
+}
+
+.contrast-head {
   color: var(--lpp-text-muted);
-  font-size: 11px;
+  font-weight: 600;
+  border-bottom-color: var(--lpp-border-strong);
+}
+
+.contrast-row .mono {
+  color: var(--lpp-text-muted);
+}
+
+.contrast-row .is-pass {
+  color: var(--lpp-success);
+  font-weight: 600;
+}
+
+.type-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 28px;
 }
 
 .type-specimens {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .type-specimens > div {
-  padding-bottom: 7px;
+  padding-bottom: 8px;
   border-bottom: 1px dashed var(--lpp-border);
 }
 
 .type-specimens > div:last-child {
   border-bottom: 0;
-  padding-bottom: 0;
 }
 
 .spec-label {
   color: var(--lpp-text-muted);
-  font-size: 11px;
+  font-size: var(--lpp-font-xs);
 }
 
-.demo-surface,
-.table-surface,
-.chart-surface {
-  background: var(--lpp-surface);
+.scale-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.demo-surface {
+  padding: 14px;
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
-  padding: 12px 14px;
+  background: var(--lpp-surface);
 }
 
-.table-surface {
-  padding: 0;
-  overflow: hidden;
+.demo-surface h3 {
+  margin-bottom: 10px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 600;
 }
 
-.table-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--lpp-border);
-  background: var(--lpp-layer);
-}
-
-.table-scroll {
-  width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.table-surface :deep(.el-table) {
-  border-radius: 0;
-}
-
-.table-surface .page-footer {
-  padding: 8px 12px;
-  border-top: 1px solid var(--lpp-border);
+.demo-surface--wide {
+  grid-column: span 2;
 }
 
 .form-grid {
@@ -664,51 +724,67 @@ function toggleLoading(): void {
   gap: 0 16px;
 }
 
-.selected-file {
+.upload-note {
   margin-top: 8px;
-  font-size: 11px;
+}
+
+.demo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.table-title {
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  font-weight: 500;
+}
+
+.ledger-demo {
+  margin-top: 18px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .data-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-}
-
-.metric-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 12px;
-}
-
-.group-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.group-head h3 {
-  color: var(--lpp-text);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.group-head span {
-  color: var(--lpp-text-muted);
-  font-size: 10px;
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px;
+  margin-top: 16px;
 }
 
 .chart-surface {
-  margin-top: 12px;
-  padding: 6px 8px 0;
+  margin-top: 14px;
+  padding: 8px 10px 2px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
+}
+
+.structure-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.structure-toolbar .muted {
+  font-size: var(--lpp-font-xs);
+}
+
+.structure-note {
+  margin-top: 8px;
+  font-size: var(--lpp-font-xs);
 }
 
 .state-grid {
@@ -718,73 +794,117 @@ function toggleLoading(): void {
 }
 
 .state-grid .demo-surface {
-  min-height: 170px;
+  min-height: 200px;
 }
 
-.mobile-hint {
-  display: none;
-  padding: 6px 12px 0;
-  font-size: 11px;
+.responsive-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.a11y-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--lpp-font-xs);
+  line-height: 1.7;
+}
+
+.a11y-list li {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--lpp-border);
+}
+
+.a11y-list li::before {
+  content: '✓';
+  margin-right: 7px;
+  color: var(--lpp-success);
+  font-weight: 700;
+}
+
+.review-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--lpp-font-xs);
+}
+
+.review-links .mono {
+  margin-right: 6px;
+  color: var(--lpp-primary);
+}
+
+.dev-note {
+  margin-top: 12px;
+  color: var(--lpp-text-muted);
+  font-size: 12px;
 }
 
 @media (max-width: 1100px) {
-  .review-head {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+  .swatch-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .swatch-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .principle-grid,
+  .type-grid,
+  .responsive-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .principle-grid article {
+    padding-left: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--lpp-border);
+  }
+
+  .principle-grid article:last-child {
+    border-bottom: 0;
   }
 }
 
 @media (max-width: 900px) {
-  .pair {
+  .demo-grid,
+  .data-grid,
+  .state-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0;
   }
 
-  .metrics-grid,
-  .state-grid,
-  .data-grid {
+  .demo-surface--wide {
+    grid-column: auto;
+  }
+
+  .form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 767px) {
-  .form-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .style-tabs {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    margin: 0 -14px;
+    padding: 7px 14px;
+    overflow: visible;
   }
 
-  .mobile-hint {
-    display: block;
+  .style-tabs__spacer,
+  .style-tabs__note {
+    display: none;
   }
 
   .swatch-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .tabs {
-    margin: 0 -14px;
-    padding: 8px 14px;
+  .contrast-head,
+  .contrast-row {
+    grid-template-columns: minmax(0, 1fr) 70px;
   }
 
-  .review-summary {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .review-summary > div {
-    border-right: 0;
-    border-bottom: 1px solid var(--lpp-border);
-  }
-
-  .review-summary > div:last-child {
-    border-bottom: 0;
-  }
-
-  .table-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+  .contrast-head span:nth-child(2),
+  .contrast-row span:nth-child(2) {
+    display: none;
   }
 }
 </style>

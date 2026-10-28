@@ -10,10 +10,4 @@ import './styles/tokens.css'
 import './styles/element.css'
 import './styles/base.css'
 
-document.documentElement.dataset.theme = 'ink'
-
-createApp(App)
-  .use(createPinia())
-  .use(router)
-  .use(ElementPlus, { locale: zhCn })
-  .mount('#app')
+createApp(App).use(createPinia()).use(router).use(ElementPlus, { locale: zhCn }).mount('#app')

@@ -11,6 +11,11 @@ body,
   margin: 0;
 }
 
+html {
+  background: var(--lpp-canvas);
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--lpp-canvas);
   color: var(--lpp-text);
@@ -18,32 +23,114 @@ body {
   font-size: var(--lpp-font-base);
   line-height: var(--lpp-line);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
 }
 
 a {
   color: var(--lpp-primary);
   text-decoration: none;
+  text-underline-offset: 3px;
 }
 
 a:hover {
+  color: var(--lpp-primary-hover);
   text-decoration: underline;
 }
 
 h1,
 h2,
 h3,
-p {
+h4,
+p,
+figure,
+blockquote {
   margin: 0;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  color: var(--lpp-text);
+  line-height: var(--lpp-line-title);
+  text-wrap: balance;
+}
+
 h1 {
-  font-size: var(--lpp-font-lg);
-  line-height: 1.3;
+  font-size: var(--lpp-font-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 h2 {
+  font-size: var(--lpp-font-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h3 {
   font-size: var(--lpp-font-md);
-  line-height: 1.35;
+  font-weight: 600;
+}
+
+h4 {
+  font-size: var(--lpp-font-base);
+  font-weight: 600;
+}
+
+p {
+  max-width: 68ch;
+}
+
+code,
+kbd,
+samp {
+  font-family: var(--lpp-mono);
+  font-size: 0.92em;
+}
+
+::selection {
+  background: var(--lpp-selection);
+  color: var(--lpp-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--lpp-focus);
+  outline-offset: 2px;
+}
+
+/* 只在键盘操作时出现，鼠标点击不闪焦点环 */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--lpp-border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--lpp-border-strong);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .muted {
@@ -53,26 +140,81 @@ h2 {
 .mono {
   font-family: var(--lpp-mono);
   font-size: var(--lpp-font-xs);
+  letter-spacing: -0.01em;
+}
+
+.numeric {
+  font-family: var(--lpp-font-numeric);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.hairline {
+  border: 0;
+  border-top: 1px solid var(--lpp-border);
+}
+
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 100;
+  padding: 8px 14px;
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-primary);
+  color: #fff;
+  font-size: var(--lpp-font-sm);
+  transform: translateY(-160%);
+  transition: transform 120ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  text-decoration: none;
 }
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--lpp-space-4);
-  padding: var(--lpp-space-6);
+  gap: var(--lpp-space-6);
+  width: 100%;
+  max-width: var(--lpp-content-max);
+  margin: 0 auto;
 }
 
 .page-header {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: var(--lpp-space-4);
+  gap: var(--lpp-space-6);
+  padding-bottom: var(--lpp-space-4);
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.page-title {
+  font-size: var(--lpp-font-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
+  margin-top: var(--lpp-space-1);
   color: var(--lpp-text-muted);
   font-size: var(--lpp-font-sm);
-  margin-top: var(--lpp-space-1);
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lpp-space-2);
+}
+
+.panel {
+  background: var(--lpp-surface);
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  padding: var(--lpp-space-4);
 }
 
 .toolbar {
@@ -86,13 +228,6 @@ h2 {
   border-radius: var(--lpp-radius-card);
 }
 
-.panel {
-  background: var(--lpp-surface);
-  border: 1px solid var(--lpp-border);
-  border-radius: var(--lpp-radius-card);
-  padding: var(--lpp-space-4);
-}
-
 .stack {
   display: flex;
   flex-direction: column;
@@ -101,27 +236,28 @@ h2 {
 
 .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--lpp-space-2);
-  flex-wrap: wrap;
+}
+
+.grid-2,
+.grid-3,
+.grid-4 {
+  display: grid;
+  gap: var(--lpp-space-4);
 }
 
 .grid-2 {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--lpp-space-4);
 }
 
 .grid-3 {
-  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--lpp-space-4);
 }
 
 .grid-4 {
-  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--lpp-space-4);
 }
 
 .section-title {
@@ -138,20 +274,20 @@ h2 {
 }
 
 .code-block {
-  background: #101820;
-  color: #d8e1ea;
-  border-radius: var(--lpp-radius-control);
   padding: var(--lpp-space-3);
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-nameplate);
+  color: #dce5de;
   overflow: auto;
   font-family: var(--lpp-mono);
   font-size: var(--lpp-font-xs);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .swatch {
   height: 48px;
-  border-radius: var(--lpp-radius-control);
   border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--lpp-radius-control);
 }
 
 .swatch-label {
@@ -159,8 +295,8 @@ h2 {
   justify-content: space-between;
   gap: var(--lpp-space-1);
   margin-top: var(--lpp-space-1);
-  font-size: var(--lpp-font-xs);
   color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
 }
 
 .specimen {
@@ -173,6 +309,7 @@ h2 {
 }
 
 .metric-value {
+  font-family: var(--lpp-font-numeric);
   font-size: var(--lpp-font-xl);
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
@@ -214,7 +351,7 @@ h2 {
   border: 0;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1100px) {
   .grid-4,
   .grid-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -223,7 +360,7 @@ h2 {
 
 @media (max-width: 767px) {
   .page {
-    padding: var(--lpp-space-4);
+    gap: var(--lpp-space-5);
   }
 
   .grid-4,
@@ -234,5 +371,24 @@ h2 {
 
   .page-header {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-title {
+    font-size: var(--lpp-font-lg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
