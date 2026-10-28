@@ -396,6 +396,18 @@ class DocxPackage:
         path = Path(src)
         if not path.is_absolute() and self.base_dir is not None:
             path = self.base_dir / src
+        if self.base_dir is not None:
+            # 只允许解析到 base_dir 之内：防止 Markdown 用绝对路径或 ../ 把服务器上的
+            # 任意文件（数据库、他人教案）当作图片打包进 DOCX。
+            base = self.base_dir.resolve()
+            try:
+                resolved = path.resolve()
+            except OSError:
+                resolved = None
+            if resolved is None or not resolved.is_relative_to(base):
+                self.missing_images.append(src)
+                return None
+            path = resolved
         return path if path.is_file() else None
 
     def register_image(self, src: str) -> str | None:
