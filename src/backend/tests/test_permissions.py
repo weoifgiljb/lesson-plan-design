@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 
 from fastapi.testclient import TestClient
@@ -53,7 +54,8 @@ class TestPermissionMatrix(unittest.TestCase):
     def _request(self, item: dict, csrf: str | None = None, client=None):
         target = client or self.client
         method = item["method"]
-        path = item["path"].replace("{id}", "1")
+        # 路径参数名不统一（{id}/{sample_id}/{task_id}）：一律替换成 1，否则矩阵打不到真实路由
+        path = re.sub(r"\{[^}]+\}", "1", item["path"])
         headers = {"X-CSRF-Token": csrf} if csrf else {}
         if path.endswith("/import"):
             return target.post(
@@ -80,9 +82,10 @@ class TestPermissionMatrix(unittest.TestCase):
     def test_all_endpoints_are_covered_by_matrix(self) -> None:
         # 契约扩容时不写死数字：矩阵必须覆盖契约里的每一个端点
         paths = {(item["method"], item["path"]) for item in contract_endpoints()}
-        self.assertGreaterEqual(len(paths), 31)
+        self.assertGreaterEqual(len(paths), 33)
         # 上游审计导出端点必须仍在矩阵里（合并时不能把这条断言丢掉）
         self.assertIn(("GET", "/api/v1/audit/export"), paths)
+        self.assertIn(("POST", "/api/v1/tasks/{task_id}/rollback"), paths)
 
     def test_unauthenticated_requests(self) -> None:
         anonymous = TestClient(create_app())

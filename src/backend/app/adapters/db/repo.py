@@ -332,6 +332,170 @@ class Repo:
         rows = self.conn.execute(rows_sql, (*params, int(limit), int(offset))).fetchall()
         return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
 
+    # ---------- 任务 ----------
+    def insert_task(
+        self, course: str, week: int, session: int, title: str, class_name: str,
+        owner_id: int, due_date: str | None,
+    ) -> int:
+        try:
+            cursor = self.conn.execute(
+                "INSERT INTO task (course, week, session, title, class_name, owner_id, due_date, status, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)",
+                (course, int(week), int(session), title, class_name, owner_id, due_date, clock.now_iso()),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise AppError("CONFLICT_STALE", "同一课程/周次/课次/班级的任务已存在") from exc
+        return int(cursor.lastrowid or 0)
+
+    def update_task(self, task_id: int, *, title: str, due_date: str | None) -> None:
+        self.conn.execute(
+            "UPDATE task SET title = ?, due_date = ? WHERE id = ?", (title, due_date, int(task_id))
+        )
+
+    def set_task_status(self, task_id: int, status: str) -> None:
+        self.conn.execute("UPDATE task SET status = ? WHERE id = ?", (status, int(task_id)))
+
+    def find_task(
+        self, course: str, week: int, session: int, class_name: str
+    ) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT * FROM task WHERE course = ? AND week = ? AND session = ? AND class_name = ?",
+                (course, int(week), int(session), class_name),
+            ).fetchone()
+        )
+
+    def get_task(self, task_id: int) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT t.*, u.display_name AS teacher, u.group_name AS owner_group"
+                " FROM task t JOIN user u ON u.id = t.owner_id WHERE t.id = ?",
+                (task_id,),
+            ).fetchone()
+        )
+
+    def list_tasks(
+        self, scope: dict[str, Any], filters: dict[str, Any], limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        condition, params = self._scope_condition(scope, "t.owner_id")
+        extra, more = self._task_where(filters)
+        where = " AND ".join([condition, extra])
+        joins = (
+            " FROM task t JOIN user u ON u.id = t.owner_id"
+        )
+        count = self.conn.execute(
+            " ".join(("SELECT COUNT(*) AS total", joins, "WHERE", where)), (*params, *more)
+        ).fetchone()
+        rows = self.conn.execute(
+            " ".join(
+                (
+                    "SELECT t.*, u.display_name AS teacher, u.group_name AS owner_group",
+                    joins,
+                    "WHERE",
+                    where,
+                    "ORDER BY (t.due_date IS NULL), t.due_date ASC, t.id DESC LIMIT ? OFFSET ?",
+                )
+            ),
+            (*params, *more, int(limit), int(offset)),
+        ).fetchall()
+        return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
+
+    def _task_where(self, filters: dict[str, Any]) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        for column, key in (("t.course", "course"), ("t.week", "week"), ("t.status", "status")):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        return " AND ".join(where), params
+
+    def attach_task_for_plan(
+        self, plan_id: int, plan: dict[str, Any], status: str, task_id: int | None = None
+    ) -> int | None:
+        owner = self.conn.execute("SELECT owner_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        if owner is None:
+            return None
+        if task_id is not None:
+            # 显式 taskId 优先：直接绑定并校验归属
+            task = _row(self.conn.execute("SELECT * FROM task WHERE id = ?", (int(task_id),)).fetchone())
+            if task is None or int(task["owner_id"]) != int(owner["owner_id"]):
+                return None
+        else:
+            # 启发式匹配：把班级纳入条件；命中 0 条或跨班多条都不静默挑一条
+            class_name = str(plan.get("className") or plan.get("class") or "")
+            sql = (
+                "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
+                " AND title = ?"
+            )
+            params: list[Any] = [
+                int(owner["owner_id"]),
+                str(plan.get("course") or ""),
+                int(plan.get("week") or 0),
+                int(plan.get("session") or 0),
+                str(plan.get("contentTitle") or ""),
+            ]
+            if class_name:
+                sql += " AND class_name = ?"
+                params.append(class_name)
+            rows = self.conn.execute(sql + " ORDER BY id LIMIT 2", params).fetchall()
+            if len(rows) != 1:
+                return None
+            task = dict(rows[0])
+        self.conn.execute("UPDATE plan SET task_id = ? WHERE id = ? AND task_id IS NULL", (task["id"], plan_id))
+        if task_rules.TASK_RANK.get(status, 0) > task_rules.TASK_RANK.get(str(task["status"]), 0):
+            self.conn.execute("UPDATE task SET status = ? WHERE id = ?", (status, task["id"]))
+            return int(task["id"])
+        return None
+
+    def task_for_plan(self, plan_id: int) -> dict[str, Any] | None:
+        row = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        if row is None or row["task_id"] is None:
+            return None
+        return self.get_task(int(row["task_id"]))
+
+    def mark_task_exported(self, plan_id: int) -> int | None:
+        row = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        if row is None or row["task_id"] is None:
+            return None
+        task_id = int(row["task_id"])
+        cursor = self.conn.execute(
+            "UPDATE task SET status = 'exported' WHERE id = ? AND status != 'exported'", (task_id,)
+        )
+        return task_id if cursor.rowcount else None
+
+    # ---------- 用户管理 ----------
+    def list_users(
+        self, filters: dict[str, Any], limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        for column, key in (("role", "role"), ("group_name", "group"), ("active", "active")):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if filters.get("q"):
+            where.append("(username LIKE ? OR display_name LIKE ?)")
+            like = f"%{filters['q']}%"
+            params.extend([like, like])
+        condition = " AND ".join(where)
+        count = self.conn.execute(
+            " ".join(("SELECT COUNT(*) AS total FROM user WHERE", condition)), params
+        ).fetchone()
+        rows = self.conn.execute(
+            " ".join(
+                (
+                    "SELECT id, username, display_name, group_name, role, active,"
+                    " must_change_password, created_at FROM user WHERE",
+                    condition,
+                    "ORDER BY id DESC LIMIT ? OFFSET ?",
+                )
+            ),
+            (*params, int(limit), int(offset)),
+        ).fetchall()
+        return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
+
     # ---------- 统计 ----------
     def stats_plans(self, scope: dict[str, Any], filters: dict[str, Any]) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope)

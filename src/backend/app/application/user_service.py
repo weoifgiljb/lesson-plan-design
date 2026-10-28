@@ -13,16 +13,66 @@ from app.domain.errors import AppError
 
 
 def create_user(
-    repo: Repo, *, username: str, display_name: str, role: str, password: str, group_name: str = ""
+    repo: Repo,
+    *,
+    username: str,
+    display_name: str,
+    role: str,
+    password: str,
+    group_name: str = "",
+    actor_id: int | None = None,
+    ip: str = "",
+    trace_id: str = "",
 ) -> int:
     if not roles.is_valid_role(role):
         raise AppError("PAYLOAD_REJECTED", f"角色非法：{role}")
     problem = security.password_problem(password)
     if problem:
         raise AppError("PAYLOAD_REJECTED", problem)
-    if repo.user_by_username(username) is not None:
-        raise AppError("CONFLICT_STALE", f"用户名已存在：{username}")
-    return repo.insert_user(username, display_name, role, security.hash_password(password), group_name)
+    with repo.transaction():
+        if repo.user_by_username(username) is not None:
+            raise AppError("CONFLICT_STALE", f"用户名已存在：{username}")
+        user_id = repo.insert_user(
+            username, display_name, role, security.hash_password(password), group_name
+        )
+        audit_service.record(
+            repo,
+            actor_id=actor_id,
+            action="user.create",
+            target_type="user",
+            target_id=str(user_id),
+            detail={"username": username, "role": role, "group": group_name},
+            ip=ip,
+            trace_id=trace_id,
+        )
+    return user_id
+
+
+def list_users(
+    repo: Repo, *, filters: dict[str, Any], page: int | None, page_size: int | None
+) -> dict[str, Any]:
+    from app.domain import library  # noqa: PLC0415 - 避免循环导入
+
+    actual_page, actual_size, offset = library.page_params(page, page_size)
+    rows, total = repo.list_users(filters, actual_size, offset)
+    return {
+        "items": [
+            {
+                "userId": int(row["id"]),
+                "username": row["username"],
+                "displayName": row["display_name"],
+                "group": row["group_name"],
+                "role": row["role"],
+                "active": bool(row["active"]),
+                "mustChangePassword": bool(row["must_change_password"]),
+                "createdAt": row["created_at"],
+            }
+            for row in rows
+        ],
+        "page": actual_page,
+        "pageSize": actual_size,
+        "total": total,
+    }
 
 
 def login(
