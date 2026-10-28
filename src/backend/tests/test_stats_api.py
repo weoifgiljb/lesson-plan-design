@@ -69,7 +69,7 @@ class TestStatsApi(unittest.TestCase):
     ) -> tuple[int, int]:
         plan_id = self.repo.create_plan(owner, {"contentTitle": title, "week": 2, "session": 1, "course": course})
         version_id, _ = self.repo.insert_version_or_existing(
-            plan_id, 1, content, plan_hash or f"hash-{title}", 1, "1.0", "1.0.0"
+            plan_id, 1, content, plan_hash or f"hash-{title}", f"report-{title}", 1, "1.0", "1.0.0"
         )
         self.repo.set_current_version(plan_id, version_id)
         return plan_id, version_id
