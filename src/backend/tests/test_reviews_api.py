@@ -197,10 +197,11 @@ class TestReviewsApi(unittest.TestCase):
         self.assertIn("轮次不连续", item["reason"])
 
     def test_date_filter_boundary(self) -> None:
-        # 固定全部审查的入库时间，避免用例依赖“运行当天”（跨 UTC 天后原断言会变红）
-        self.connection.execute("UPDATE review SET created_at = '2026-10-30T12:00:00+00:00'")
+        # 固定全部审查的入库时间：本地日（+08:00）为准，且不依赖运行当天
+        # 其余 8 条 = 本地 2026-10-30 12:00；边界条 = 本地 2026-10-29 23:59:59
+        self.connection.execute("UPDATE review SET created_at = '2026-10-30T04:00:00+00:00'")
         self.connection.execute(
-            "UPDATE review SET created_at = '2026-10-29T23:59:59+00:00' WHERE id = ?",
+            "UPDATE review SET created_at = '2026-10-29T15:59:59+00:00' WHERE id = ?",
             (self.reviews["passed"],),
         )
         self.connection.commit()
@@ -210,6 +211,64 @@ class TestReviewsApi(unittest.TestCase):
         next_day = self.client.get("/api/v1/reviews?dateFrom=2026-10-30&dateTo=2026-10-30").json()
         self.assertNotIn(self.reviews["passed"], [item["reviewId"] for item in next_day["items"]])
         self.assertGreater(next_day["total"], 0)
+
+    def test_date_filter_uses_local_day_not_utc_day(self) -> None:
+        # UTC 2026-10-29T16:00 = 本地 2026-10-30 00:00；按本地日必须落在 10-30
+        self.connection.execute(
+            "UPDATE review SET created_at = '2026-10-29T16:00:00+00:00' WHERE id = ?",
+            (self.reviews["passed"],),
+        )
+        self.connection.commit()
+        self._login("teacher1")
+        on_29 = self.client.get("/api/v1/reviews?dateFrom=2026-10-29&dateTo=2026-10-29").json()
+        self.assertNotIn(self.reviews["passed"], [item["reviewId"] for item in on_29["items"]])
+        on_30 = self.client.get("/api/v1/reviews?dateFrom=2026-10-30&dateTo=2026-10-30").json()
+        self.assertIn(self.reviews["passed"], [item["reviewId"] for item in on_30["items"]])
+
+    def test_bad_report_is_marked_not_500(self) -> None:
+        # 坏 JSON：整页仍 200，该行 evidence.gaps 标 report_unreadable（证据链最需要它的时候不能 500）
+        self.connection.execute(
+            "UPDATE review SET report_json = '{not json' WHERE id = ?", (self.reviews["passed"],)
+        )
+        self.connection.commit()
+        self._login("teacher1")
+        listing = self.client.get("/api/v1/reviews")
+        self.assertEqual(listing.status_code, 200, listing.text)
+        items = {item["reviewId"]: item for item in listing.json()["items"]}
+        self.assertIn("report_unreadable", items[self.reviews["passed"]]["evidence"]["gaps"])
+        detail = self.client.get(f"/api/v1/reviews/{self.reviews['passed']}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertIn("report_unreadable", detail.json()["evidence"]["gaps"])
+
+    def test_bad_field_types_are_marked_not_500(self) -> None:
+        # severity/status 写成对象：类型守卫应标红而不是抛 TypeError
+        report = {
+            "schemaVersion": 1,
+            "rubricVersion": "1.0",
+            "toolVersion": "1.0.0",
+            "planHash": "hash",
+            "round": 1,
+            "reviewer": "张老师",
+            "independence": {},
+            "reviewedAt": "2026-10-28T00:00:00+00:00",
+            "structuralValidation": {"ok": True},
+            "findings": [{"id": "AR-1", "severity": {}, "status": {"x": 1}}],
+            "overrides": [],
+            "repairHistory": [],
+            "attestation": "no_counterexample",
+            "status": {},
+            "conclusion": "",
+        }
+        self.connection.execute(
+            "UPDATE review SET report_json = ? WHERE id = ?",
+            (json.dumps(report, ensure_ascii=False), self.reviews["passed"]),
+        )
+        self.connection.commit()
+        self._login("teacher1")
+        listing = self.client.get("/api/v1/reviews")
+        self.assertEqual(listing.status_code, 200, listing.text)
+        items = {item["reviewId"]: item for item in listing.json()["items"]}
+        self.assertFalse(items[self.reviews["passed"]]["evidence"]["complete"])
 
     def test_lead_cannot_read_other_group_detail(self) -> None:
         self._login("lead1")

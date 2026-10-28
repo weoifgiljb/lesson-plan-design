@@ -268,6 +268,16 @@ class Repo:
         sql = " ".join((self.REVIEW_SELECT, "WHERE rv.id = ?"))
         return _row(self.conn.execute(sql, (review_id,)).fetchone())
 
+    def parse_report(self, text: Any) -> dict[str, Any] | None:
+        """解析 report_json：坏数据返回 None，让调用方标红而不是整页 500。"""
+        if not isinstance(text, str) or not text:
+            return None
+        try:
+            data = json.loads(text)
+        except (TypeError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
     def plan_rounds(self, plan_id: int) -> list[int]:
         rows = self.conn.execute(
             "SELECT rv.round FROM review rv JOIN plan_version pv ON pv.id = rv.plan_version_id"
