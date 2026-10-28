@@ -92,12 +92,37 @@ function onFileChange(file: { name: string; size?: number }): void {
 const evidence = DEMO_EVIDENCE
 const diffs = DEMO_DIFFS
 const metrics = DEMO_METRICS
+const chartMetrics = computed(() => metrics.filter((metric) => metric.available && metric.value !== null && metric.unit !== '秒'))
+
+const metricGroups = [
+  {
+    title: '质量',
+    note: '结构、金标准、缺陷、证据链',
+    keys: ['structure_rate', 'gold_standard', 'defect_density', 'evidence_rate'],
+  },
+  {
+    title: '过程',
+    note: '同步、任务、单份耗时',
+    keys: ['sync_consistency', 'task_completion', 'export_seconds'],
+  },
+  {
+    title: '运行',
+    note: '专家评分、可用性',
+    keys: ['expert_score', 'availability'],
+  },
+]
+
+function groupMetrics(keys: string[]): typeof metrics {
+  return keys
+    .map((key) => metrics.find((metric) => metric.key === key))
+    .filter((metric): metric is (typeof metrics)[number] => Boolean(metric))
+}
 
 const chartOption = computed<EChartsOption>(() => ({
   grid: { left: 40, right: 16, top: 20, bottom: 56 },
   xAxis: {
     type: 'category',
-    data: metrics.map((item) => item.label),
+    data: chartMetrics.value.map((item) => item.label),
     axisLabel: { rotate: 32, fontSize: 10, color: palette.value.muted, interval: 0 },
     axisLine: { lineStyle: { color: palette.value.border } },
   },
@@ -110,7 +135,7 @@ const chartOption = computed<EChartsOption>(() => ({
   series: [
     {
       type: 'bar',
-      data: metrics.map((item) => item.value ?? 0),
+      data: chartMetrics.value.map((item) => item.value ?? 0),
       barMaxWidth: 22,
       itemStyle: { color: palette.value.primary, borderRadius: [3, 3, 0, 0] },
     },
@@ -343,8 +368,16 @@ function toggleLoading(): void {
             <DiffViewer :changes="diffs" />
           </div>
         </div>
-        <div class="metrics-grid">
-          <MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" />
+        <div class="metric-groups">
+          <div v-for="group in metricGroups" :key="group.title" class="metric-group">
+            <div class="group-head">
+              <h3>{{ group.title }}</h3>
+              <span>{{ group.note }}</span>
+            </div>
+            <div class="metrics-grid">
+              <MetricCard v-for="metric in groupMetrics(group.keys)" :key="metric.key" :metric="metric" />
+            </div>
+          </div>
         </div>
         <div class="chart-surface">
           <ChartCard :option="chartOption" height="220px" />
@@ -634,11 +667,35 @@ function toggleLoading(): void {
   gap: 12px;
 }
 
+.metric-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.group-head h3 {
+  color: var(--lpp-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.group-head span {
+  color: var(--lpp-text-muted);
+  font-size: 10px;
+}
+
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
-  margin-top: 12px;
 }
 
 .chart-surface {

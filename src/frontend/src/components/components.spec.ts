@@ -17,7 +17,7 @@ describe('StatusTag', () => {
 })
 
 describe('MetricCard', () => {
-  it('shows 暂无数据 instead of 0 when the denominator is 0', () => {
+  it('shows a dash and 未接入 when the denominator is 0', () => {
     const wrapper = mount(MetricCard, {
       props: {
         metric: {
@@ -32,11 +32,32 @@ describe('MetricCard', () => {
         },
       },
     })
-    expect(wrapper.text()).toContain('暂无数据')
-    expect(wrapper.text()).toContain('分母 0')
+    expect(wrapper.text()).toContain('—')
+    expect(wrapper.text()).toContain('未接入')
+    expect(wrapper.text()).toContain('等待数据源接入')
+  })
+
+  it('renders a rate as a percent with a ratio bar', () => {
+    const wrapper = mount(MetricCard, {
+      props: {
+        metric: {
+          key: 'structure_rate',
+          label: '结构合规率',
+          numerator: 3,
+          denominator: 4,
+          value: 0.75,
+          unit: '',
+          available: true,
+          filters: {},
+        },
+      },
+    })
+    expect(wrapper.text()).toContain('75')
+    expect(wrapper.text()).toContain('%')
+    expect(wrapper.text()).toContain('3 / 4')
+    expect(wrapper.find('.metric-bar span').attributes('style')).toContain('75%')
   })
 })
-
 describe('EvidenceChain', () => {
   it('shows the failed item reason', () => {
     const wrapper = mount(EvidenceChain, {
