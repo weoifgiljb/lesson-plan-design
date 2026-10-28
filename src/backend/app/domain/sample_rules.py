@@ -26,11 +26,13 @@ SESSION_RANGE = (1, 20)
 
 
 def identity(plan: dict[str, Any]) -> dict[str, Any]:
-    try:
-        week = int(plan.get("week"))
-        session = int(plan.get("session"))
-    except (TypeError, ValueError) as exc:
-        raise AppError("STRUCTURE_INVALID", "周次或课次必须是整数", {"week": plan.get("week")}) from exc
+    week_value = plan.get("week")
+    session_value = plan.get("session")
+    if not isinstance(week_value, int) or isinstance(week_value, bool):
+        raise AppError("STRUCTURE_INVALID", "周次必须是整数", {"week": week_value})
+    if not isinstance(session_value, int) or isinstance(session_value, bool):
+        raise AppError("STRUCTURE_INVALID", "课次必须是整数", {"session": session_value})
+    week, session = int(week_value), int(session_value)
     if not WEEK_RANGE[0] <= week <= WEEK_RANGE[1]:
         raise AppError("STRUCTURE_INVALID", f"周次超出范围（{WEEK_RANGE[0]}–{WEEK_RANGE[1]}）", {"week": week})
     if not SESSION_RANGE[0] <= session <= SESSION_RANGE[1]:
