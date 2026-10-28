@@ -1050,6 +1050,9 @@
               }
             }
           },
+          "200": {
+            "description": "同一版本已有可复用产物，直接返回已有导出记录"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1121,10 +1124,13 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "DOCX 产物",
             "content": {
-              "application/json": {
-                "schema": {}
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },

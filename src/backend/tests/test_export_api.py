@@ -191,6 +191,20 @@ class TestExportApi(unittest.TestCase):
         response = self._export([self.version_id], csrf)
         self.assertEqual(response.status_code, 403)
 
+    def test_reexport_after_artifact_loss(self) -> None:
+        first = self._export([self.version_id]).json()["items"][0]
+        storage.export_path(int(first["exportId"])).unlink()
+        again = self._export([self.version_id])
+        self.assertEqual(again.status_code, 201, again.text)
+        item = again.json()["items"][0]
+        self.assertEqual(item["status"], "succeeded", item)
+        self.assertNotEqual(item["exportId"], first["exportId"])
+        # 统一 DTO：新建项与详情返回同样的键
+        detail = self.client.get(f"/api/v1/exports/{item['exportId']}").json()
+        self.assertEqual(set(item), set(detail))
+        download = self.client.get(f"/api/v1/exports/{item['exportId']}/download")
+        self.assertEqual(download.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()
