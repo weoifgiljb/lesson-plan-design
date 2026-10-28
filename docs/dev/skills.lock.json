@@ -1,8 +1,8 @@
 {
   "installedAt": "2026-10-25",
-  "updatedAt": "2026-10-26",
+  "updatedAt": "2026-10-28",
   "target": ".dsh/skills",
-  "totalSkills": 24,
+  "totalSkills": 27,
   "sources": [
     {
       "repo": "https://github.com/fishzjp/qa-skills.git",
@@ -83,6 +83,37 @@
         "SKILL.md front-matter 的 description 由单行改为折叠块（原值含未转义的 ': '，YAML 解析失败导致技能不出现）；正文未改",
         "使用时把默认 outputs/ 目录改为 docs/api/ 或 .qa/handoffs/，避免误提交"
       ]
+    },
+    {
+      "repo": "https://github.com/anthropics/skills.git",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "license": "Apache-2.0",
+      "sourcePath": "skills/",
+      "skills": [
+        "frontend-design"
+      ],
+      "originalPaths": {
+        "frontend-design": "skills/frontend-design"
+      },
+      "adaptations": []
+    },
+    {
+      "repo": "https://github.com/vercel-labs/agent-skills.git",
+      "commit": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62",
+      "license": "未声明（仅本地安装，不随仓库分发）",
+      "sourcePath": "skills/",
+      "skills": [
+        "web-design-guidelines"
+      ],
+      "originalPaths": {
+        "web-design-guidelines": "skills/web-design-guidelines"
+      },
+      "adaptations": [
+        "SKILL.md 改为本地快照优先：references/command.md（来自 vercel-labs/web-interface-guidelines main/command.md），需要时再联网刷新"
+      ]
     }
+  ],
+  "projectSkills": [
+    "frontend-style-review"
   ]
 }

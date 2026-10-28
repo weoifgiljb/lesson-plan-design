@@ -1,12 +1,12 @@
-# 开发与测试技能包（产品 + 测试 + 后端开发）
+# 开发与测试技能包（产品 + 测试 + 后端 + 前端设计）
 
 给本项目开发、自查、验收用的一套 Agent 技能。装好后直接说中文即可，不需要记命令。
 
 - 安装位置：`.dsh/skills/`（本项目是 git 根，DSH 会自动发现该目录）
-- 当前数量：**24 个技能**（5 个产品 + 13 个测试 + 6 个后端开发）
+- 当前数量：**27 个技能**（5 个产品 + 13 个测试 + 6 个后端 + 3 个前端设计）
 - 生效方式：本会话已热加载；新开会话、Cursor 重载后同样可见
-- 来源：三个开源技能库，许可见[来源与许可](#来源与许可)
-- 仓库内另有 `skills/code-standards`、`skills/git-workflow`、`skills/backend-review-gate` 三份**项目规范技能**：它们随仓库提交、供宿主与人工评审读取；本会话自动发现的只有 `.dsh/skills/`
+- 来源：五个技能库/项目技能，许可见[来源与许可](#来源与许可)
+- 仓库内另有 `skills/code-standards`、`skills/git-workflow`、`skills/backend-review-gate`、`skills/frontend-style-review` 四份**项目规范技能**：它们随仓库提交、供宿主与人工评审读取；本会话自动发现的只有 `.dsh/skills/`
 
 ---
 
@@ -59,7 +59,27 @@
 这次改动（git diff）应该回归哪些用例？
 ```
 
-## 三、后端开发技能（6）
+## 三、前端设计技能（3）
+
+| 你想做的事 | 技能 | 产出 |
+|---|---|---|
+| 定视觉方向、配色、字体、布局 | `frontend-design` | 主题与设计令牌草案；两套候选方向 |
+| 审 UI 的可访问性、交互与响应式 | `web-design-guidelines` | 按 Web Interface Guidelines 给出 `文件:行` 发现 |
+| 合并/交付前做风格验收 | `frontend-style-review` | 令牌/Element Plus 组件/四态/响应式/无障碍清单 + 通过/有条件通过/拒绝 |
+
+中文话术示例：
+
+```text
+用 frontend-design 给平台端定两套视觉方向，先不写页面。
+用 web-design-guidelines 审一下这个页面的可访问性和交互问题。
+用 frontend-style-review 验收教案库页面，截图在 .qa/frontend-review/。
+```
+
+**安装与边界**：`frontend-design`、`web-design-guidelines` 装在 `.dsh/skills/`（不入库）；`frontend-style-review` 是项目技能，源文件在 `skills/frontend-style-review/SKILL.md`，并同步到 `.dsh/skills/` 供本会话触发。`web-design-guidelines` 默认读取随技能附带的规则快照，离线可用；需要更新时再联网刷新。
+
+**前端命令**：本机 `corepack pnpm` 不可用，统一用 npm（Node 20）：`npm install`、`npm run dev`、`npm run typecheck`、`npm run lint`、`npm run test`、`npm run build`。
+
+## 四、后端开发技能（6）
 
 给「不熟后端也要把平台端做对」准备的一组过程技能。它们不替你写代码，而是约束你怎么写、怎么写测试、怎么评审、怎么排错。
 
@@ -84,14 +104,14 @@ verification-before-completion：把这条命令的输出贴出来再告诉我�
 
 **与项目闸门的关系**：这 6 个技能是通用方法；本项目的强制闸门是 `skills/backend-review-gate/SKILL.md` + `scripts/run_backend_gate.py`。方法技能服从闸门规则：`AGENTS.md` 与 `docs/backend/backend-review-gate.md` 优先，技能里的"删掉重写""跳过测试"等建议不得越过本仓库门禁。
 
-## 四、测试产出落在哪
+## 五、测试产出落在哪
 
 - 流水线状态、用例、报告、Bug 条目：落在项目 `.qa/`，可断点续跑
 - 后端评审报告：`.qa/reviews/backend-<分支>-<日期>.md`（同上，默认不进版本库）
 - 注意：本仓库 `.gitignore` 目前忽略了 `/.qa/`，所以测试知识默认**不随 git 提交**
 - 想让 `qa-memory` 的跨会话经验进版本库：删掉 `.gitignore` 里的 `/.qa/`，再按 `qa-memory` 的写入规范提交
 
-## 五、脚本与运行环境
+## 六、脚本与运行环境
 
 产品技能的脚本是纯标准库，无第三方依赖。**本机 `python` 是 Microsoft Store 的占位别名（退出码 9009），必须用 `py -3`。**
 
@@ -121,7 +141,7 @@ py -3 .dsh/skills/pre-mortem/scripts/risk_categorizer.py risks.json
 
 后端开发技能是纯提示词（`systematic-debugging` 附带一个 Bash 脚本 `find-polluter.sh`，Windows 下可在 Git Bash/WSL 里用）；它们的执行依赖本仓库闸门：`py -3 scripts/run_backend_gate.py`、`py -3 scripts/run_all_tests.py`。
 
-## 六、来源与许可
+## 七、来源与许可
 
 | 技能 | 来源仓库 | 版本 / 提交 | 许可 |
 |---|---|---|---|
@@ -129,6 +149,9 @@ py -3 .dsh/skills/pre-mortem/scripts/risk_categorizer.py risks.json
 | `create-prd`、`job-stories`、`story-splitting`、`prioritization-frameworks`、`pre-mortem` | [borghei/Claude-Skills · project-management](https://github.com/borghei/Claude-Skills/tree/main/project-management) | `2c12c7e` | MIT + Commons Clause |
 | `requesting-code-review`、`receiving-code-review`、`test-driven-development`、`systematic-debugging`、`verification-before-completion` | [obra/superpowers](https://github.com/obra/superpowers) | v7.0.1 @ `2ce8aa1` | MIT |
 | `backend-api-brief` | [datawhalechina/ai-skills-for-everyone](https://github.com/datawhalechina/ai-skills-for-everyone) | `247ffdf` | CC BY-NC-SA 4.0（内容；非商用毕设可用，需署名） |
+| `frontend-design` | [anthropics/skills](https://github.com/anthropics/skills) | `dbd4588` | Apache-2.0 |
+| `web-design-guidelines` | [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) | `1a2c79d` | 仓库未声明许可；仅本地安装、不随仓库分发 |
+| `frontend-style-review` | 本项目 `skills/frontend-style-review` | — | 随仓库 |
 
 `Commons Clause` 只限制「转售该软件」，个人/团队内部使用不受影响。除下列适配外，原始技能内容未改动，仅做目录扁平化（原路径记录在 `docs/dev/skills.lock.json`）。
 
@@ -138,8 +161,9 @@ py -3 .dsh/skills/pre-mortem/scripts/risk_categorizer.py risks.json
 2. `backend-api-brief` 默认把产物写到 `outputs/`；本仓库 `.gitignore` 不忽略该目录，使用时请改写到 `docs/api/` 或 `.qa/handoffs/`，避免误提交。
 3. `obra/superpowers` 的技能面向通用项目，部分建议（删掉重写、先跳过测试）与本仓库门禁冲突，**以 `AGENTS.md` 与 `docs/backend/backend-review-gate.md` 为准**。
 4. 技能正文为英文，输出仍按你的语言。
+5. `web-design-guidelines` 的规则原文从 `web-interface-guidelines` 快照到 `references/command.md`，SKILL.md 改为本地优先，避免离线验收时抓不到规则。
 
-## 七、升级与卸载
+## 八、升级与卸载
 
 **升级**（重新拉取后覆盖，提交号以 `docs/dev/skills.lock.json` 为准）：
 
@@ -178,13 +202,13 @@ Remove-Item tmp-qa -Recurse -Force
 Copy-Item .dsh\skills\* "$env:USERPROFILE\.dsh\skills\" -Recurse -Force
 ```
 
-## 八、与既有 `lesson-plan-design` 的边界
+## 九、与既有 `lesson-plan-design` 的边界
 
 - `lesson-plan-design`：业务技能，管「校标教案长什么样、怎么校验、怎么导出」
 - 本技能包：过程技能，管「需求怎么写、优先级怎么排、怎么测、后端怎么审」
 - 两者互不依赖。写教案时按原有流程，做需求、测试与后端评审时用本包。
 
-## 九、已知限制
+## 十、已知限制
 
 - 产品技能与后端开发技能正文是英文（`backend-api-brief` 是中文），输出仍按你的语言；命令示例里的 `python` 在 Windows 上换成 `py -3`
 - 测试技能按宿主不同需要 Playwright / pytest，且要有可访问的测试环境和账号
