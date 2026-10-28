@@ -7,7 +7,7 @@ import json
 import sqlite3
 import threading
 import time
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from app.adapters import clock
 from app.domain.errors import AppError
@@ -17,14 +17,28 @@ def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
+PLAN_FILTER_KEYS = ("course", "week", "teacher", "created_from", "created_before")
+
+
+def _has_plan_filters(filters: dict[str, Any] | None) -> bool:
+    if not filters:
+        return False
+    return any(filters.get(key) not in (None, "") for key in PLAN_FILTER_KEYS)
+
+
 class Repo:
     def __init__(self, conn: sqlite3.Connection, lock: threading.Lock | None = None) -> None:
         self.conn = conn
         self.lock = lock
 
+    def close(self) -> None:
+        self.conn.close()
+
     # ---------- 事务 ----------
     @contextlib.contextmanager
-    def transaction(self) -> Iterator["Repo"]:
+    def transaction(
+        self, on_rollback: Callable[[BaseException], None] | None = None
+    ) -> Iterator["Repo"]:
         if self.lock is not None:
             self.lock.acquire()
         try:
@@ -32,8 +46,11 @@ class Repo:
             try:
                 yield self
                 self.conn.execute("COMMIT")
-            except BaseException:
+            except BaseException as exc:
                 self.conn.execute("ROLLBACK")
+                if on_rollback is not None:
+                    # 事务已回滚，调用方在此处补写"被回滚的拒绝"审计（在事务外）
+                    on_rollback(exc)
                 raise
         finally:
             if self.lock is not None:
@@ -84,6 +101,9 @@ class Repo:
             (username, display_name, group_name, role, password_hash, clock.now_iso()),
         )
         return int(cursor.lastrowid or 0)
+
+    def set_password(self, user_id: int, password_hash: str) -> None:
+        self.conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))
 
     def record_login_failure(self, user_id: int, failed_count: int, locked_until: str | None) -> None:
         self.conn.execute(
@@ -314,7 +334,13 @@ class Repo:
             grouped.setdefault(int(row["plan_id"]), []).append(int(row["round"]))
         return grouped
 
-    def stats_sync(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    def stats_sync(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        # sync_log 没有教案维度（course/week/teacher）字段：带筛选时明确返回空，
+        # 让该指标 available=false，避免"筛选条件被回显、数字却是全量"的假一致。
+        if _has_plan_filters(filters):
+            return []
         condition, params = self._scope_condition(scope, "s.operator_id")
         return self._group(
             "SELECT s.result AS key, COUNT(*) AS total FROM sync_log s"
@@ -323,17 +349,23 @@ class Repo:
             params,
         )
 
-    def stats_tasks(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    def stats_tasks(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope, "t.owner_id")
+        extra, more = self._task_where(filters)
         return self._group(
             "SELECT t.status AS key, COUNT(*) AS total FROM task t"
             " LEFT JOIN user u ON u.id = t.owner_id"
-            f" WHERE {condition} GROUP BY t.status",
-            params,
+            f" WHERE {condition} AND {extra} GROUP BY t.status",
+            (*params, *more),
         )
 
-    def stats_exports(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    def stats_exports(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope)
+        extra, more = self._stats_where(dict(filters or {}))
         sql = " ".join(
             (
                 "SELECT j.created_at AS export_created_at, p.created_at AS plan_created_at",
@@ -341,9 +373,28 @@ class Repo:
                 "JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
                 "WHERE j.status = 'succeeded' AND p.deleted_at IS NULL AND",
                 condition,
+                "AND",
+                extra,
             )
         )
-        return self._group(sql, params)
+        return self._group(sql, (*params, *more))
+
+    def _task_where(self, filters: dict[str, Any] | None) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        data = dict(filters or {})
+        for column, key in (("t.course", "course"), ("t.week", "week"), ("u.display_name", "teacher")):
+            value = data.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if data.get("created_from"):
+            where.append("t.created_at >= ?")
+            params.append(str(data["created_from"]))
+        if data.get("created_before"):
+            where.append("t.created_at < ?")
+            params.append(str(data["created_before"]))
+        return " AND ".join(where), params
 
     def _stats_where(self, filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["1 = 1"]
@@ -472,6 +523,16 @@ class Repo:
     def get_review(self, review_id: int) -> dict[str, Any] | None:
         sql = " ".join((self.REVIEW_SELECT, "WHERE rv.id = ?"))
         return _row(self.conn.execute(sql, (review_id,)).fetchone())
+
+    def parse_report(self, text: Any) -> dict[str, Any] | None:
+        """解析 report_json：坏数据返回 None，让调用方标红而不是整页 500。"""
+        if not isinstance(text, str) or not text:
+            return None
+        try:
+            data = json.loads(text)
+        except (TypeError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
 
     def plan_rounds(self, plan_id: int) -> list[int]:
         rows = self.conn.execute(
@@ -665,32 +726,29 @@ class Repo:
 
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
-        schema_version: int, rubric_version: str, engine_version: str,
+        report_sha256: str, schema_version: int, rubric_version: str, engine_version: str,
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
-                "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, schema_version,"
-                " rubric_version, engine_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
+                " schema_version, rubric_version, engine_version, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
-                    plan_id,
-                    version_no,
-                    content_json,
-                    plan_hash,
-                    schema_version,
-                    rubric_version,
-                    engine_version,
-                    clock.now_iso(),
+                    plan_id, version_no, content_json, plan_hash, report_sha256,
+                    schema_version, rubric_version, engine_version, clock.now_iso(),
                 ),
             )
             return int(cursor.lastrowid or 0), True
         except sqlite3.IntegrityError as exc:
-            latest = self.conn.execute(
-                "SELECT id FROM plan_version WHERE plan_id = ? AND plan_hash = ? ORDER BY version_no DESC LIMIT 1",
-                (plan_id, plan_hash),
+            # 唯一索引兜底：同一 (plan_id, plan_hash, report_sha256) 只允许一版
+            existing = self.conn.execute(
+                "SELECT id FROM plan_version WHERE plan_id = ? AND plan_hash = ? AND report_sha256 = ?"
+                " ORDER BY version_no DESC LIMIT 1",
+                (plan_id, plan_hash, report_sha256),
             ).fetchone()
-            if latest is None:
+            if existing is None:
                 raise AppError("CONFLICT_STALE", "版本冲突，请重试") from exc
-            return int(latest["id"]), False
+            return int(existing["id"]), False
 
     def close(self) -> None:
         self.conn.close()
@@ -721,20 +779,30 @@ class Repo:
                 ),
             )
 
-    def insert_overrides(self, overrides: list[dict[str, Any]]) -> None:
+    def insert_overrides(self, review_id: int, overrides: list[dict[str, Any]]) -> None:
         for item in overrides:
             teacher = self.user_by_display_name(str(item.get("teacher") or ""))
-            self.conn.execute(
-                "INSERT OR IGNORE INTO override (finding_id, teacher_id, reason, approved_at, plan_hash)"
-                " VALUES (?, ?, ?, ?, ?)",
+            if teacher is None:
+                # 放行必须能归属到真实教师，否则证据链失效：直接拒收而不是落 NULL
+                raise AppError(
+                    "REPORT_INCONSISTENT", f"放行记录中的教师不存在：{item.get('teacher') or ''}"
+                )
+            cursor = self.conn.execute(
+                "INSERT INTO override (review_id, finding_id, teacher_id, reason, approved_at, plan_hash)"
+                " VALUES (?, ?, ?, ?, ?, ?)"
+                " ON CONFLICT (review_id, finding_id) DO UPDATE SET"
+                " reason = excluded.reason, approved_at = excluded.approved_at",
                 (
+                    review_id,
                     str(item.get("findingId") or ""),
-                    int(teacher["id"]) if teacher else None,
+                    int(teacher["id"]),
                     str(item.get("reason") or ""),
                     str(item.get("approvedAt") or clock.now_iso()),
                     str(item.get("planHash") or ""),
                 ),
             )
+            if cursor.rowcount < 0:  # pragma: no cover - 防御
+                raise AppError("CONFLICT_STALE", "放行记录写入失败")
 
     # ---------- 审计 ----------
     def insert_audit(

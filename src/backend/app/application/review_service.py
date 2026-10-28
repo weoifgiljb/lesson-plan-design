@@ -37,7 +37,16 @@ def review_detail(
     if row is None:
         raise AppError("NOT_FOUND", "审查记录不存在")
     _require_visible(repo, user, row, ip, trace_id)
-    report = json.loads(row["report_json"])
+    report = repo.parse_report(row["report_json"])
+    if report is None:
+        return {
+            "review": _review_header(row),
+            "report": None,
+            "findings": [],
+            "overrides": [],
+            "repairHistory": [],
+            "evidence": {"items": [], "complete": False, "passed": 0, "total": 5, "gaps": ["report_unreadable"]},
+        }
     chain = _chain(report, row, repo.plan_rounds(int(row["plan_id"])))
     return {
         "review": _review_header(row),
@@ -50,7 +59,12 @@ def review_detail(
 
 
 def _summary(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
-    report = json.loads(row["report_json"])
+    report = repo.parse_report(row["report_json"])
+    if report is None:
+        return {
+            **_review_header(row),
+            "evidence": {"complete": False, "passed": 0, "total": 5, "gaps": ["report_unreadable"]},
+        }
     chain = _chain(report, row, rounds)
     return {
         **_review_header(row),
