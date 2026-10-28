@@ -236,6 +236,91 @@ class Repo:
             ).fetchone()
         )
 
+    # ---------- 审查中心 ----------
+    REVIEW_SELECT = (
+        "SELECT rv.id AS review_id, rv.plan_version_id, rv.round, rv.status, rv.reviewer_mode,"
+        " rv.report_sha256, rv.created_at, rv.report_json,"
+        " pv.version_no, pv.plan_hash, p.id AS plan_id, p.content_title, p.course, p.week, p.session,"
+        " p.owner_id, p.deleted_at, u.display_name AS teacher, u.group_name AS owner_group"
+        " FROM review rv JOIN plan_version pv ON pv.id = rv.plan_version_id"
+        " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
+    )
+
+    def list_reviews(
+        self, scope: dict[str, Any], filters: dict[str, Any], limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        where, params = self._review_where(scope, filters)
+        count_sql = " ".join(
+            (
+                "SELECT COUNT(DISTINCT rv.id) AS total FROM review rv",
+                "JOIN plan_version pv ON pv.id = rv.plan_version_id",
+                "JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
+                "WHERE",
+                where,
+            )
+        )
+        count = self.conn.execute(count_sql, params).fetchone()
+        rows_sql = " ".join((self.REVIEW_SELECT, "WHERE", where, "ORDER BY rv.id DESC LIMIT ? OFFSET ?"))
+        rows = self.conn.execute(rows_sql, (*params, int(limit), int(offset))).fetchall()
+        return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
+
+    def get_review(self, review_id: int) -> dict[str, Any] | None:
+        sql = " ".join((self.REVIEW_SELECT, "WHERE rv.id = ?"))
+        return _row(self.conn.execute(sql, (review_id,)).fetchone())
+
+    def plan_rounds(self, plan_id: int) -> list[int]:
+        rows = self.conn.execute(
+            "SELECT rv.round FROM review rv JOIN plan_version pv ON pv.id = rv.plan_version_id"
+            " WHERE pv.plan_id = ? ORDER BY rv.round",
+            (plan_id,),
+        ).fetchall()
+        return [int(row["round"]) for row in rows]
+
+    def plan_rounds_many(self, plan_ids: list[int]) -> dict[int, list[int]]:
+        if not plan_ids:
+            return {}
+        placeholders = ",".join("?" for _ in plan_ids)
+        sql = " ".join(
+            (
+                "SELECT pv.plan_id AS plan_id, rv.round AS round FROM review rv",
+                "JOIN plan_version pv ON pv.id = rv.plan_version_id",
+                f"WHERE pv.plan_id IN ({placeholders}) ORDER BY pv.plan_id, rv.round",
+            )
+        )
+        rows = self.conn.execute(sql, tuple(int(item) for item in plan_ids)).fetchall()
+        grouped: dict[int, list[int]] = {}
+        for row in rows:
+            grouped.setdefault(int(row["plan_id"]), []).append(int(row["round"]))
+        return grouped
+
+    def _review_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        owner_id = scope.get("owner_id")
+        group_name = scope.get("group_name")
+        if owner_id is not None:
+            where.append("p.owner_id = ?")
+            params.append(int(owner_id))
+        elif group_name:
+            where.append("u.group_name = ?")
+            params.append(str(group_name))
+        for column, key in (("rv.status", "status"), ("u.display_name", "teacher")):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        severity = filters.get("severity")
+        if severity:
+            where.append("EXISTS (SELECT 1 FROM finding f WHERE f.review_id = rv.id AND f.severity = ?)")
+            params.append(severity)
+        if filters.get("date_from"):
+            where.append("rv.created_at >= ?")
+            params.append(str(filters["date_from"]))
+        if filters.get("date_to"):
+            where.append("rv.created_at <= ?")
+            params.append(str(filters["date_to"]))
+        return " AND ".join(where), params
+
     def soft_delete_plan(self, plan_id: int) -> bool:
         cursor = self.conn.execute(
             "UPDATE plan SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
