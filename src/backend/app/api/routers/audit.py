@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from app.api.deps import require_role
+from app.api.request_info import client_ip, trace_id
 from app.application import audit_service
 
 router = APIRouter()
@@ -35,4 +36,41 @@ def list_audit(
     }
     return audit_service.query(
         context["repo"], context["user"], filters=filters, page=page, page_size=page_size
+    )
+
+
+@router.get("/audit/export")
+def export_audit(
+    request: Request,
+    context: dict[str, Any] = Depends(require_role("admin", "lead")),
+    action: str | None = None,
+    actor: str | None = None,
+    target_type: str | None = Query(None, alias="targetType"),
+    target_id: str | None = Query(None, alias="targetId"),
+    from_date: date | None = Query(None, alias="dateFrom"),
+    to_date: date | None = Query(None, alias="dateTo"),
+) -> Response:
+    filters = {
+        "action": action,
+        "actor": actor,
+        "target_type": target_type,
+        "target_id": target_id,
+        "date_from": from_date,
+        "date_to": to_date,
+    }
+    csv_text = audit_service.export_csv(context["repo"], context["user"], filters=filters)
+    audit_service.record(
+        context["repo"],
+        actor_id=int(context["user"]["id"]),
+        action="audit.export",
+        target_type="audit",
+        target_id="",
+        detail={"rows": max(csv_text.count("\n") - 1, 0)},
+        ip=client_ip(request),
+        trace_id=trace_id(request),
+    )
+    return Response(
+        content="\ufeff" + csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="audit-export.csv"'},
     )
