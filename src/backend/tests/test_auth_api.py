@@ -85,6 +85,23 @@ class TestAuthApi(unittest.TestCase):
         even_correct = self._login()
         self.assertEqual(even_correct.status_code, 429)
 
+    def test_lock_expiry_resets_failed_count(self) -> None:
+        connection = open_database(self.db_file)
+        try:
+            row = connection.execute("SELECT id FROM user WHERE username = 'teacher1'").fetchone()
+            connection.execute(
+                "UPDATE user SET failed_count = ?, locked_until = ? WHERE id = ?",
+                (5, "2000-01-01T00:00:00+00:00", row[0]),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        # 锁定期已过：错一次应回到 401（计数从 0 重新开始），而不是立刻再锁 10 分钟
+        self.assertEqual(self._login(password="wrong-pass1").status_code, 401)
+        # 关键回归：锁到期后正确口令必须能登录（修复前这里恒为 429，账号被永久锁死）
+        ok = self._login()
+        self.assertEqual(ok.status_code, 200, ok.text)
+
     def test_logout_requires_csrf_and_blocks_replay(self) -> None:
         login = self._login()
         token = self.client.cookies.get("lpp_session")

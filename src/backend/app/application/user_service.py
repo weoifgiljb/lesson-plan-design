@@ -35,9 +35,14 @@ def login(
     if not user.get("active"):
         _audit(repo, int(user["id"]), "auth.login.failed", {"reason": "inactive"}, ip, trace_id)
         raise AppError("FORBIDDEN", "账号已停用")
-    if user.get("locked_until") and not clock.is_past(str(user["locked_until"])):
+    locked_until = str(user.get("locked_until") or "")
+    if locked_until and not clock.is_past(locked_until):
         _audit(repo, int(user["id"]), "auth.login.locked", {}, ip, trace_id)
         raise AppError("RATE_LIMITED", "账号已锁定，请稍后再试")
+    if locked_until:
+        # 锁定期已过：失败计数必须归零，否则"每 10 分钟错一次"即可永久锁死该账号
+        repo.reset_login_failure(int(user["id"]))
+        user = {**user, "failed_count": 0, "locked_until": None}
     return _verify(repo, user, password, ip, trace_id)
 
 
