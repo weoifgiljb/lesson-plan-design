@@ -127,8 +127,56 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertTrue(second.json()["alreadyDeleted"])
         actions = [row["action"] for row in self.repo.list_audit(50)]
-        self.assertIn("plan.delete", actions)
+        self.assertEqual(actions.count("plan.delete"), 1)
         self.assertIn("plan.delete.denied", actions)
+
+    def test_lead_can_delete_own_plan(self) -> None:
+        own_plan = self._import(self.lead1, read_package_dir("valid-package"))
+        self._login("lead1")
+        csrf = self.client.cookies.get("lpp_csrf")
+        response = self.client.delete(f"/api/v1/plans/{own_plan}", headers={"X-CSRF-Token": csrf})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertFalse(response.json()["alreadyDeleted"])
+
+    def test_lead_cannot_read_other_group(self) -> None:
+        self._login("lead1")
+        for path in (
+            f"/api/v1/plans/{self.plan2}",
+            f"/api/v1/plans/{self.plan2}/versions",
+            f"/api/v1/plans/{self.plan2}/diff",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self._get(path).status_code, 403)
+        audit = [row for row in self.repo.list_audit(100) if row["action"] == "plan.read.denied"]
+        self.assertGreaterEqual(len(audit), 3)
+
+    def test_diff_boundaries(self) -> None:
+        plan = load_json_bytes(read_package_dir("valid-package")["plan.json"])
+        plan["contentTitle"] = "单版本课题"
+        single_plan = self._import(self.teacher1, build_package(plan, report=plugin_report(plan)))
+        self._login("teacher1")
+        single = self._get(f"/api/v1/plans/{single_plan}/diff")
+        self.assertEqual(single.status_code, 404)
+        self.assertIn("两个版本", single.json()["message"])
+
+        missing = self._get(f"/api/v1/plans/{self.plan1}/diff?fromVersion=999")
+        self.assertEqual(missing.status_code, 404)
+        same = self._get(f"/api/v1/plans/{self.plan1}/diff?fromVersion=1&toVersion=1")
+        self.assertEqual(same.status_code, 404)
+        self.assertIn("相同", same.json()["message"])
+        zero = self._get(f"/api/v1/plans/{self.plan1}/diff?fromVersion=0")
+        self.assertEqual(zero.status_code, 404)
+
+    def test_deleted_plan_hidden_everywhere(self) -> None:
+        self._login("teacher1")
+        csrf = self.client.cookies.get("lpp_csrf")
+        self.client.delete(f"/api/v1/plans/{self.plan1}", headers={"X-CSRF-Token": csrf})
+        self.assertEqual(self._get("/api/v1/plans").json()["total"], 0)
+        self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}/versions").status_code, 404)
+        self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}/diff").status_code, 404)
+        self._login("admin1")
+        admin_list = self._get("/api/v1/plans").json()
+        self.assertEqual([item["planId"] for item in admin_list["items"]], [self.plan2])
 
     def test_admin_can_delete_others(self) -> None:
         self._login("admin1")

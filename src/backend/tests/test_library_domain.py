@@ -30,7 +30,8 @@ class TestLibraryRules(unittest.TestCase):
     def test_can_delete(self) -> None:
         self.assertTrue(library.can_delete("teacher", 1, 1))
         self.assertFalse(library.can_delete("teacher", 1, 2))
-        self.assertFalse(library.can_delete("lead", 1, 1))
+        self.assertTrue(library.can_delete("lead", 1, 1))
+        self.assertFalse(library.can_delete("lead", 1, 2))
         self.assertTrue(library.can_delete("admin", 9, 1))
 
 

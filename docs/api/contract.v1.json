@@ -333,6 +333,7 @@
       "auth": true,
       "roles": [
         "teacher",
+        "lead",
         "admin"
       ],
       "csrf": true,

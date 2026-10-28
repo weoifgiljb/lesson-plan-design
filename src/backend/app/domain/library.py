@@ -37,4 +37,7 @@ def can_view(
 
 
 def can_delete(role: str, user_id: int, owner_id: int) -> bool:
-    return role == "admin" or (role == "teacher" and int(user_id) == int(owner_id))
+    """教师与组长可删本人教案，管理员可删全部；组长不越组删除。"""
+    if role == "admin":
+        return True
+    return role in {"teacher", "lead"} and int(user_id) == int(owner_id)

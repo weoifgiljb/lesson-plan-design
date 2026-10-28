@@ -56,25 +56,34 @@ def list_plans(
     session: int | None = None,
     status: str | None = None,
     teacher: str | None = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
+    page: int = 1,
+    page_size: int = Query(20, alias="pageSize"),
 ) -> dict[str, Any]:
     filters = {"course": course, "week": week, "session": session, "status": status, "teacher": teacher}
     return plan_service.list_plans(context["repo"], context["user"], filters=filters, page=page, page_size=page_size)
 
 
 @router.get("/plans/{plan_id}")
-def plan_detail(plan_id: int, context: dict[str, Any] = Depends(current_context)) -> dict[str, Any]:
-    return plan_service.plan_detail(context["repo"], context["user"], plan_id)
+def plan_detail(
+    request: Request, plan_id: int, context: dict[str, Any] = Depends(current_context)
+) -> dict[str, Any]:
+    return plan_service.plan_detail(
+        context["repo"], context["user"], plan_id, ip=_client_ip(request), trace_id=_trace_id(request)
+    )
 
 
 @router.get("/plans/{plan_id}/versions")
-def plan_versions(plan_id: int, context: dict[str, Any] = Depends(current_context)) -> dict[str, Any]:
-    return plan_service.plan_versions(context["repo"], context["user"], plan_id)
+def plan_versions(
+    request: Request, plan_id: int, context: dict[str, Any] = Depends(current_context)
+) -> dict[str, Any]:
+    return plan_service.plan_versions(
+        context["repo"], context["user"], plan_id, ip=_client_ip(request), trace_id=_trace_id(request)
+    )
 
 
 @router.get("/plans/{plan_id}/diff")
 def plan_diff(
+    request: Request,
     plan_id: int,
     context: dict[str, Any] = Depends(current_context),
     from_version: int | None = Query(None, alias="fromVersion"),
@@ -86,6 +95,8 @@ def plan_diff(
         plan_id,
         from_version=from_version,
         to_version=to_version,
+        ip=_client_ip(request),
+        trace_id=_trace_id(request),
     )
 
 
@@ -93,7 +104,7 @@ def plan_diff(
 def delete_plan(
     request: Request,
     plan_id: int,
-    context: dict[str, Any] = Depends(require_csrf_role("teacher", "admin")),
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead", "admin")),
 ) -> dict[str, Any]:
     return plan_service.delete_plan(
         context["repo"],

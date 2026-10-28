@@ -170,6 +170,12 @@ class Repo:
         return int(row["total"]) if row is not None else 0
 
     # ---------- 教案库 ----------
+    # 同一版本可能有多轮审查（schema 允许），列表/详情只取最新一轮，避免 JOIN 放大行数。
+    LATEST_REVIEW_JOIN = (
+        "LEFT JOIN review rv ON rv.id = ("
+        "SELECT rv2.id FROM review rv2 WHERE rv2.plan_version_id = pv.id"
+        " ORDER BY rv2.round DESC LIMIT 1)"
+    )
     LIBRARY_SELECT = (
         "SELECT p.id AS plan_id, p.content_title, p.course, p.week, p.session, p.owner_id,"
         " p.current_version_id, p.created_at, p.deleted_at,"
@@ -179,7 +185,7 @@ class Repo:
         " rv.round AS review_round, rv.reviewer_mode AS reviewer_mode, rv.report_sha256 AS report_sha256"
         " FROM plan p JOIN user u ON u.id = p.owner_id"
         " LEFT JOIN plan_version pv ON pv.id = p.current_version_id"
-        " LEFT JOIN review rv ON rv.plan_version_id = pv.id"
+        " " + LATEST_REVIEW_JOIN
     )
 
     def list_plans(
@@ -188,9 +194,9 @@ class Repo:
         where, params = self._library_where(scope, filters)
         count_sql = " ".join(
             (
-                "SELECT COUNT(*) AS total FROM plan p JOIN user u ON u.id = p.owner_id",
+                "SELECT COUNT(DISTINCT p.id) AS total FROM plan p JOIN user u ON u.id = p.owner_id",
                 "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
-                "LEFT JOIN review rv ON rv.plan_version_id = pv.id",
+                self.LATEST_REVIEW_JOIN,
                 "WHERE",
                 where,
             )
@@ -209,7 +215,9 @@ class Repo:
         rows = self.conn.execute(
             "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.engine_version, pv.created_at,"
             " pv.content_json, rv.round, rv.status, rv.report_sha256, rv.reviewer_mode"
-            " FROM plan_version pv LEFT JOIN review rv ON rv.plan_version_id = pv.id"
+            " FROM plan_version pv LEFT JOIN review rv ON rv.id = ("
+            "SELECT rv2.id FROM review rv2 WHERE rv2.plan_version_id = pv.id"
+            " ORDER BY rv2.round DESC LIMIT 1)"
             " WHERE pv.plan_id = ? ORDER BY pv.version_no",
             (plan_id,),
         ).fetchall()
@@ -220,7 +228,9 @@ class Repo:
             self.conn.execute(
                 "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.content_json, pv.created_at,"
                 " rv.round, rv.status, rv.report_sha256"
-                " FROM plan_version pv LEFT JOIN review rv ON rv.plan_version_id = pv.id"
+                " FROM plan_version pv LEFT JOIN review rv ON rv.id = ("
+                "SELECT rv2.id FROM review rv2 WHERE rv2.plan_version_id = pv.id"
+                " ORDER BY rv2.round DESC LIMIT 1)"
                 " WHERE pv.plan_id = ? AND pv.version_no = ?",
                 (plan_id, version_no),
             ).fetchone()

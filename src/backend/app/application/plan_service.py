@@ -29,8 +29,10 @@ def list_plans(
     }
 
 
-def plan_detail(repo: Repo, user: dict[str, Any], plan_id: int) -> dict[str, Any]:
-    row = _visible(repo, user, plan_id)
+def plan_detail(
+    repo: Repo, user: dict[str, Any], plan_id: int, *, ip: str = "", trace_id: str = ""
+) -> dict[str, Any]:
+    row = _visible(repo, user, plan_id, ip=ip, trace_id=trace_id)
     versions = repo.list_versions(plan_id)
     current = next((item for item in versions if item["version_no"] == row["version_no"]), None)
     payload = {
@@ -50,8 +52,10 @@ def plan_detail(repo: Repo, user: dict[str, Any], plan_id: int) -> dict[str, Any
     return payload
 
 
-def plan_versions(repo: Repo, user: dict[str, Any], plan_id: int) -> dict[str, Any]:
-    _visible(repo, user, plan_id)
+def plan_versions(
+    repo: Repo, user: dict[str, Any], plan_id: int, *, ip: str = "", trace_id: str = ""
+) -> dict[str, Any]:
+    _visible(repo, user, plan_id, ip=ip, trace_id=trace_id)
     items = [
         {
             "versionNo": row["version_no"],
@@ -72,16 +76,20 @@ def plan_diff(
     *,
     from_version: int | None = None,
     to_version: int | None = None,
+    ip: str = "",
+    trace_id: str = "",
 ) -> dict[str, Any]:
-    _visible(repo, user, plan_id)
+    _visible(repo, user, plan_id, ip=ip, trace_id=trace_id)
     versions = repo.list_versions(plan_id)
-    numbers = [int(item["version_no"]) for item in versions]
+    numbers = sorted({int(item["version_no"]) for item in versions})
     if len(numbers) < 2:
         raise AppError("NOT_FOUND", "至少需要两个版本才能对比")
-    source_no = int(from_version or numbers[-2])
-    target_no = int(to_version or numbers[-1])
-    if source_no == target_no or source_no not in numbers or target_no not in numbers:
+    source_no = numbers[-2] if from_version is None else int(from_version)
+    target_no = numbers[-1] if to_version is None else int(to_version)
+    if source_no not in numbers or target_no not in numbers:
         raise AppError("NOT_FOUND", f"版本不存在：{source_no} -> {target_no}")
+    if source_no == target_no:
+        raise AppError("NOT_FOUND", "两个版本相同，无法对比")
     source = repo.version_by_no(plan_id, source_no)
     target = repo.version_by_no(plan_id, target_no)
     if source is None or target is None:
@@ -106,24 +114,29 @@ def delete_plan(
     if not library.can_delete(str(user.get("role") or ""), actor_id, int(row["owner_id"])):
         _audit_denied(repo, user, plan_id, "plan.delete", ip, trace_id)
         raise AppError("FORBIDDEN", "只能删除本人教案")
-    already = row.get("deleted_at") is not None
-    if not already:
-        repo.soft_delete_plan(plan_id)
-    audit_service.record(
-        repo,
-        actor_id=actor_id,
-        action="plan.delete",
-        target_type="plan",
-        target_id=str(plan_id),
-        detail={"alreadyDeleted": already},
-        ip=ip,
-        trace_id=trace_id,
-        before_hash=str(row.get("plan_hash") or ""),
-    )
-    return {"planId": plan_id, "deleted": True, "alreadyDeleted": already}
+    if row.get("deleted_at") is not None:
+        return {"planId": plan_id, "deleted": True, "alreadyDeleted": True}
+    with repo.transaction():
+        changed = repo.soft_delete_plan(plan_id)
+        if not changed:
+            return {"planId": plan_id, "deleted": True, "alreadyDeleted": True}
+        audit_service.record(
+            repo,
+            actor_id=actor_id,
+            action="plan.delete",
+            target_type="plan",
+            target_id=str(plan_id),
+            detail={"alreadyDeleted": False},
+            ip=ip,
+            trace_id=trace_id,
+            before_hash=str(row.get("plan_hash") or ""),
+        )
+    return {"planId": plan_id, "deleted": True, "alreadyDeleted": False}
 
 
-def _visible(repo: Repo, user: dict[str, Any], plan_id: int) -> dict[str, Any]:
+def _visible(
+    repo: Repo, user: dict[str, Any], plan_id: int, *, ip: str = "", trace_id: str = ""
+) -> dict[str, Any]:
     row = repo.get_plan(plan_id)
     if row is None:
         raise AppError("NOT_FOUND", "教案不存在")
@@ -135,7 +148,7 @@ def _visible(repo: Repo, user: dict[str, Any], plan_id: int) -> dict[str, Any]:
         str(row["owner_group"] or ""),
     )
     if not allowed:
-        _audit_denied(repo, user, plan_id, "plan.read", "", "")
+        _audit_denied(repo, user, plan_id, "plan.read", ip, trace_id)
         raise AppError("FORBIDDEN", "无权访问该教案")
     return row
 

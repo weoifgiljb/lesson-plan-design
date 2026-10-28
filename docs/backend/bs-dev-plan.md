@@ -5,7 +5,7 @@
 | 文档编号 | LPP-BS-PLAN-001 |
 | 文档版本 | v1.0 |
 | 编制日期 | 2026-10-26 |
-| 关联需求 | 《功能优化需求-BS平台端》v1.2（LPP-BS-001） |
+| 关联需求 | 《功能优化需求-BS平台端》v1.3（LPP-BS-001） |
 | 关联规范 | `AGENTS.md`、`docs/dev/git-workflow.md`、`skills/code-standards/SKILL.md` |
 | 关联契约 | `docs/api/contract.v1.json`、`tests/fixtures/dual-end/` |
 | 关联闸门 | `docs/backend/backend-review-gate.md`、`scripts/run_backend_gate.py` |
