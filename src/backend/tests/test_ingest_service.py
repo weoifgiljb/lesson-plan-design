@@ -64,6 +64,13 @@ class TestIngestService(unittest.TestCase):
         actions = [row["action"] for row in self.repo.list_audit()]
         self.assertIn("plan.import.rejected", actions)
 
+    def test_import_writes_sync_event(self) -> None:
+        result = self._import(read_package_dir("valid-package"))
+        rows = self.conn.execute("SELECT kind, plan_id, plan_version_id FROM sync_event").fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["kind"], "version")
+        self.assertEqual(int(rows[0]["plan_id"]), result.plan_id)
+
     def test_duplicate_package_is_idempotent(self) -> None:
         files = read_package_dir("valid-package")
         first = self._import(files)
