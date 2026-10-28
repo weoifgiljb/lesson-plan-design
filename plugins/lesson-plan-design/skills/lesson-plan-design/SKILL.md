@@ -11,7 +11,7 @@ description: >
 
 ## 必须按序
 
-1. Read `references/schema.md`（字段与八步名称）。
+1. Read `references/schema.md`（字段、八步名称、三维目标与重难点写法）。
 2. Read `CATALOG.md`，打开 `examples/` 中最接近的一份 JSON 作为结构金标准。
 3. 以 `templates/empty-plan.json` 为骨架填写完整教案（缺周次/课次/课题则先问）。
 4. **导出前必须执行**（飞书无 hooks 时同样强制）：
