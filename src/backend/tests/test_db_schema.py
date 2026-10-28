@@ -55,6 +55,16 @@ class TestDatabaseSchema(unittest.TestCase):
         override_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(override)")]
         self.assertIn("review_id", override_columns)
 
+    def test_migrations_add_sync_event_and_feature_columns(self) -> None:
+        tables = {row[0] for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        self.assertIn("sync_event", tables)
+        sample_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(sample)")]
+        self.assertIn("score", sample_columns)
+        export_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(export_job)")]
+        self.assertIn("report_sha256", export_columns)
+        task_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(task)")]
+        self.assertIn("assignee_id", task_columns)
+
     def test_v1_database_upgrades_to_latest(self) -> None:
         target = self.root / "legacy.db"
         conn = sqlite3.connect(str(target), isolation_level=None)
