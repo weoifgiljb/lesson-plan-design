@@ -22,11 +22,19 @@
 ```powershell
 cd src/frontend
 npm install
-npm run dev          # 本地验收
+npm run dev          # 本地验收：http://127.0.0.1:5174/styleguide
 npm run typecheck
 npm run lint
 npm run test
 npm run build
+npm run screenshots  # 生成 1440/1280/390 × A/B 截图到 .qa/frontend-review/
+```
+
+类型生成（契约变更后必须同批更新）：
+
+```powershell
+py -3 scripts/gen_frontend_types.py
+py -3 scripts/gen_frontend_types.py --check
 ```
 
 前端出现后，后端闸门会检查契约一致性：
@@ -36,3 +44,5 @@ py -3 scripts/run_backend_gate.py
 ```
 
 必须 block 0（BC-05 错误码、BC-07 25 个 UI 接口、BC-08 类型快照哈希）。
+
+> 本机 `corepack pnpm` 不可用，统一使用 npm（Node 20）。沙箱内 `npm install` 需加 `--ignore-scripts`，构建/测试需允许 esbuild 子进程；普通终端不需要这些参数。

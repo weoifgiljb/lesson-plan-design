@@ -53,6 +53,14 @@ class TestArchitectureGate(unittest.TestCase):
         with stack:
             self.assertEqual(blocks(arch.scan(backend, frontend)), [])
 
+    def test_frontend_node_modules_is_not_scanned_for_absolute_paths(self) -> None:
+        stack, backend, frontend = project_with(frontend=True)
+        with stack:
+            vendor = frontend / "node_modules" / "pkg"
+            vendor.mkdir(parents=True)
+            (vendor / "index.d.ts").write_text("// C:\\\\Users\\\\someone\\\\file.ts\n", encoding="utf-8")
+            self.assertEqual(blocks(arch.scan(backend, frontend)), [])
+
     def test_domain_import_is_blocked(self) -> None:
         stack, backend, frontend = project_with({"app/domain/bad.py": "import fastapi\n"})
         with stack:
@@ -125,6 +133,26 @@ class TestArchitectureGate(unittest.TestCase):
 
 
 class TestContractGate(unittest.TestCase):
+    def test_frontend_calls_support_nested_generics_upload_and_download(self) -> None:
+        with tempdir() as root:
+            api = root / "src" / "api"
+            api.mkdir(parents=True)
+            (api / "plans.ts").write_text(
+                "client.get<Paged<PlanItem>>('/api/v1/plans')\n"
+                "client.upload('/api/v1/plans/import', file)\n"
+                "client.download('/api/v1/exports/1/download')\n",
+                encoding="utf-8",
+            )
+            calls = contract_gate._frontend_calls(root)
+            self.assertEqual(
+                calls,
+                {
+                    ("GET", "/api/v1/plans"),
+                    ("POST", "/api/v1/plans/import"),
+                    ("GET", "/api/v1/exports/1/download"),
+                },
+            )
+
     def test_clean_contract_passes(self) -> None:
         stack, backend, frontend, contract_file, openapi_file = contract_project()
         with stack:

@@ -1,0 +1,87 @@
+:root {
+  --el-color-primary: var(--lpp-primary);
+  --el-color-primary-light-3: color-mix(in srgb, var(--lpp-primary) 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--lpp-primary) 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--lpp-primary) 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--lpp-primary) 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, var(--lpp-primary) 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--lpp-primary) 80%, black);
+  --el-color-success: var(--lpp-success);
+  --el-color-warning: var(--lpp-warning);
+  --el-color-danger: var(--lpp-danger);
+  --el-color-error: var(--lpp-danger);
+  --el-text-color-primary: var(--lpp-text);
+  --el-text-color-regular: color-mix(in srgb, var(--lpp-text) 82%, white);
+  --el-text-color-secondary: var(--lpp-text-muted);
+  --el-border-color: var(--lpp-border);
+  --el-border-color-light: color-mix(in srgb, var(--lpp-border) 70%, white);
+  --el-fill-color-light: var(--lpp-fill-light);
+  --el-fill-color-blank: var(--lpp-surface);
+  --el-bg-color: var(--lpp-surface);
+  --el-bg-color-page: var(--lpp-bg);
+  --el-border-radius-base: var(--lpp-radius-control);
+  --el-border-radius-small: 4px;
+  --el-font-size-base: var(--lpp-font-base);
+  --el-font-family: var(--lpp-font-family);
+  --el-table-row-hover-bg-color: var(--lpp-fill-hover);
+  --el-table-header-bg-color: var(--lpp-fill-light);
+  --el-table-border-color: var(--lpp-border);
+  --el-box-shadow-light: var(--lpp-shadow-float);
+}
+
+.el-button {
+  height: 32px;
+  padding: 0 14px;
+  font-weight: 500;
+}
+
+.el-button--large {
+  height: 36px;
+}
+
+.el-button--primary {
+  --el-button-hover-bg-color: var(--lpp-primary-hover);
+}
+
+.el-table {
+  font-size: var(--lpp-font-sm);
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+  color: var(--lpp-text);
+}
+
+.el-table .cell {
+  line-height: var(--lpp-line-table);
+}
+
+.el-form-item__label {
+  font-weight: 500;
+  color: var(--lpp-text);
+}
+
+.el-dialog {
+  border-radius: var(--lpp-radius-dialog);
+}
+
+.el-card {
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  box-shadow: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--lpp-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

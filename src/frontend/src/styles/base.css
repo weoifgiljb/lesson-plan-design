@@ -1,0 +1,238 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--lpp-bg);
+  color: var(--lpp-text);
+  font-family: var(--lpp-font-family);
+  font-size: var(--lpp-font-base);
+  line-height: var(--lpp-line);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--lpp-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--lpp-font-lg);
+  line-height: 1.3;
+}
+
+h2 {
+  font-size: var(--lpp-font-md);
+  line-height: 1.35;
+}
+
+.muted {
+  color: var(--lpp-text-muted);
+}
+
+.mono {
+  font-family: var(--lpp-mono);
+  font-size: var(--lpp-font-xs);
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lpp-space-4);
+  padding: var(--lpp-space-6);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--lpp-space-4);
+}
+
+.page-subtitle {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+  margin-top: var(--lpp-space-1);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lpp-space-2);
+  padding: var(--lpp-space-3);
+  background: var(--lpp-surface);
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+}
+
+.panel {
+  background: var(--lpp-surface);
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  padding: var(--lpp-space-4);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lpp-space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--lpp-space-2);
+  flex-wrap: wrap;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--lpp-space-4);
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lpp-space-4);
+}
+
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--lpp-space-4);
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lpp-space-2);
+  margin-bottom: var(--lpp-space-2);
+}
+
+.section-title span {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.code-block {
+  background: #101820;
+  color: #d8e1ea;
+  border-radius: var(--lpp-radius-control);
+  padding: var(--lpp-space-3);
+  overflow: auto;
+  font-family: var(--lpp-mono);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
+}
+
+.swatch {
+  height: 48px;
+  border-radius: var(--lpp-radius-control);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.swatch-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--lpp-space-1);
+  margin-top: var(--lpp-space-1);
+  font-size: var(--lpp-font-xs);
+  color: var(--lpp-text-muted);
+}
+
+.specimen {
+  border-bottom: 1px dashed var(--lpp-border);
+  padding: var(--lpp-space-2) 0;
+}
+
+.specimen:last-child {
+  border-bottom: 0;
+}
+
+.metric-value {
+  font-size: var(--lpp-font-xl);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-label {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.metric-denominator {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lpp-space-2);
+  margin-bottom: var(--lpp-space-3);
+}
+
+.page-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 1023px) {
+  .grid-4,
+  .grid-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .page {
+    padding: var(--lpp-space-4);
+  }
+
+  .grid-4,
+  .grid-3,
+  .grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+}

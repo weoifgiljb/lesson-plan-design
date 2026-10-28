@@ -231,7 +231,14 @@ def scan(backend=None, frontend=None) -> list[dict]:
     text_paths = []
     for base in (root, frontend or common.FRONTEND):
         if base.is_dir():
-            text_paths += [path for path in base.rglob("*") if path.is_file() and path.suffix.lower() in TEXT_SUFFIXES]
+            excluded = {"node_modules", "dist", ".vite", "coverage"}
+        text_paths += [
+            path
+            for path in base.rglob("*")
+            if path.is_file()
+            and path.suffix.lower() in TEXT_SUFFIXES
+            and not any(part in excluded for part in path.parts)
+        ]
     problems += _check_absolute_paths(text_paths)
     return problems
 

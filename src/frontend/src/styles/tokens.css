@@ -1,0 +1,57 @@
+:root,
+[data-theme='ink'] {
+  --lpp-primary: #1f3a5f;
+  --lpp-primary-hover: #2a4c78;
+  --lpp-accent: #b07a2a;
+  --lpp-bg: #f7f8f5;
+  --lpp-surface: #ffffff;
+  --lpp-text: #1b2430;
+  --lpp-text-muted: #5b6878;
+  --lpp-border: #dde3ea;
+  --lpp-success: #2f6b4f;
+  --lpp-warning: #a15c12;
+  --lpp-danger: #a33a2b;
+  --lpp-focus: rgba(31, 58, 95, 0.4);
+  --lpp-fill-light: #f2f5f8;
+  --lpp-fill-hover: #f4f7fa;
+}
+
+[data-theme='pine'] {
+  --lpp-primary: #2e5b52;
+  --lpp-primary-hover: #3a6f64;
+  --lpp-accent: #8c6a4a;
+  --lpp-bg: #f5f4ef;
+  --lpp-surface: #ffffff;
+  --lpp-text: #1c2622;
+  --lpp-text-muted: #5d6a63;
+  --lpp-border: #d9ddd6;
+  --lpp-success: #2e6b4f;
+  --lpp-warning: #94641a;
+  --lpp-danger: #a23f32;
+  --lpp-focus: rgba(46, 91, 82, 0.4);
+  --lpp-fill-light: #f0f2ed;
+  --lpp-fill-hover: #f1f4ef;
+}
+
+:root {
+  --lpp-radius-control: 6px;
+  --lpp-radius-card: 8px;
+  --lpp-radius-dialog: 10px;
+  --lpp-space-1: 4px;
+  --lpp-space-2: 8px;
+  --lpp-space-3: 12px;
+  --lpp-space-4: 16px;
+  --lpp-space-6: 24px;
+  --lpp-space-8: 32px;
+  --lpp-font-xs: 12px;
+  --lpp-font-sm: 13px;
+  --lpp-font-base: 14px;
+  --lpp-font-md: 16px;
+  --lpp-font-lg: 20px;
+  --lpp-font-xl: 28px;
+  --lpp-line: 1.6;
+  --lpp-line-table: 1.45;
+  --lpp-shadow-float: 0 8px 24px rgba(20, 30, 40, 0.12);
+  --lpp-font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', sans-serif;
+  --lpp-mono: 'Cascadia Mono', 'Consolas', monospace;
+}

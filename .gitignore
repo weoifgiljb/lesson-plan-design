@@ -13,3 +13,5 @@ work-plan.docx
 *.db
 *.db-wal
 *.db-shm
+/src/frontend/dist/
+/src/frontend/coverage/
