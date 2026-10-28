@@ -78,6 +78,15 @@ def try_read_package(data: bytes) -> tuple[dict[str, bytes] | None, AppError | N
         return None, exc
 
 
+def build_zip(entries: dict[str, bytes]) -> bytes:
+    """服务端可信内容打包（任务包等），只写不读，统一走 archive 适配层。"""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
+
+
 def _open(buffer: io.BytesIO) -> zipfile.ZipFile:
     try:
         return zipfile.ZipFile(buffer)

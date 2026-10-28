@@ -118,6 +118,7 @@ def _perform_export(
             return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
         return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
     _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
+    repo.mark_task_exported(int(row["plan_id"]))
     return {
         "planVersionId": version_id,
         "exportId": job_id,

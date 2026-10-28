@@ -41,7 +41,7 @@ def import_package(
         return _reject(repo, problem, actor_id, ip, trace_id, sync=sync)
     assert manifest is not None and plan is not None and report is not None
     validation = engine.validate_plan(plan)
-    structure = _structure_verdict(validation)
+    structure = ingest.structure_verdict(validation)
     if structure is not None:
         # 结构未通过时不做任何身份/版本计算，避免未校验字段（如 week 为数组）打穿成 500。
         return _reject(repo, structure, actor_id, ip, trace_id, sync=sync)
@@ -95,16 +95,6 @@ def _evaluate(
         snapshot_hash=_snapshot_hash(report),
         previous_round=_round_floor(previous_round, duplicate, report),
         validation=validation,
-    )
-
-
-def _structure_verdict(validation: dict[str, Any]) -> Verdict | None:
-    if validation.get("ok") is True:
-        return None
-    return fail(
-        "STRUCTURE_INVALID",
-        "教案未通过结构校验",
-        {"issues": validation.get("issues", []), "ruleVersion": validation.get("ruleVersion", "")},
     )
 
 
@@ -241,6 +231,8 @@ def _write_version(
     repo.insert_findings(review_id, list(report.get("findings") or []))
     repo.insert_overrides(list(report.get("overrides") or []))
     repo.set_current_version(plan_id, version_id)
+    passed = str(report.get("status") or "").startswith("passed")
+    repo.attach_task_for_plan(plan_id, plan, "passed" if passed else "reviewing")
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
     if sync is not None:

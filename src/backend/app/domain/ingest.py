@@ -9,6 +9,16 @@ from app.domain import report_rules, versions
 from app.domain.verdict import PASS, Verdict, fail
 
 
+def structure_verdict(validation: dict[str, Any]) -> Verdict | None:
+    if validation.get("ok") is True:
+        return None
+    return fail(
+        "STRUCTURE_INVALID",
+        "教案未通过结构校验",
+        {"issues": validation.get("issues", []), "ruleVersion": validation.get("ruleVersion", "")},
+    )
+
+
 def evaluate(
     *,
     manifest: dict[str, Any],
