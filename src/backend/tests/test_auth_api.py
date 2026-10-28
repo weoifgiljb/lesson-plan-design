@@ -105,6 +105,23 @@ class TestAuthApi(unittest.TestCase):
             connection.close()
         wrong = self._login(password="wrong-pass1")
         self.assertEqual(wrong.status_code, 401, wrong.text)
+        expired_retry = self._login()
+        self.assertEqual(expired_retry.status_code, 200, expired_retry.text)
+
+    def test_lock_expiry_resets_failed_count(self) -> None:
+        connection = open_database(self.db_file)
+        try:
+            row = connection.execute("SELECT id FROM user WHERE username = 'teacher1'").fetchone()
+            connection.execute(
+                "UPDATE user SET failed_count = ?, locked_until = ? WHERE id = ?",
+                (5, "2000-01-01T00:00:00+00:00", row[0]),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        # 锁定期已过：错一次应回到 401（计数从 0 重新开始），而不是立刻再锁 10 分钟
+        self.assertEqual(self._login(password="wrong-pass1").status_code, 401)
+        # 关键回归：锁到期后正确口令必须能登录（修复前这里恒为 429，账号被永久锁死）
         ok = self._login()
         self.assertEqual(ok.status_code, 200, ok.text)
 
@@ -113,6 +130,7 @@ class TestAuthApi(unittest.TestCase):
         token = self.client.cookies.get("lpp_session")
         self.assertTrue(token)
         self.assertEqual(self.client.post("/api/v1/auth/logout").status_code, 403)
+        self.assertIn("authz.denied", self._audit_actions())
         csrf = login.json()["csrfToken"]
         ok = self.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
         self.assertEqual(ok.status_code, 200, ok.text)
@@ -135,6 +153,7 @@ class TestAuthApi(unittest.TestCase):
         self.app.add_api_route("/api/v1/admin-probe", probe, methods=["GET"])
         self._login()
         self.assertEqual(self.client.get("/api/v1/admin-probe").status_code, 403)
+        self.assertIn("authz.denied", self._audit_actions())
         self._login("admin1")
         allowed = self.client.get("/api/v1/admin-probe")
         self.assertEqual(allowed.status_code, 200, allowed.text)
