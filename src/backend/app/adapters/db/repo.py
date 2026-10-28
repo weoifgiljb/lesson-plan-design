@@ -559,3 +559,51 @@ class Repo:
             "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (int(limit),)
         ).fetchall()
         return [dict(row) for row in rows]
+
+    AUDIT_SELECT = (
+        "SELECT a.id, a.actor_id, a.action, a.target_type, a.target_id, a.detail_json,"
+        " a.ip, a.trace_id, a.before_hash, a.after_hash, a.created_at,"
+        " u.display_name AS actor_name, u.role AS actor_role, u.group_name AS actor_group"
+        " FROM audit_log a JOIN user u ON u.id = a.actor_id"
+    )
+
+    def list_audit_entries(
+        self, scope: dict[str, Any], filters: dict[str, Any], limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        where, params = self._audit_where(scope, filters)
+        count_sql = " ".join(
+            (
+                "SELECT COUNT(*) AS total FROM audit_log a JOIN user u ON u.id = a.actor_id",
+                "WHERE",
+                where,
+            )
+        )
+        count = self.conn.execute(count_sql, params).fetchone()
+        rows_sql = " ".join((self.AUDIT_SELECT, "WHERE", where, "ORDER BY a.id DESC LIMIT ? OFFSET ?"))
+        rows = self.conn.execute(rows_sql, (*params, int(limit), int(offset))).fetchall()
+        return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
+
+    def _audit_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        group_name = scope.get("group_name")
+        if group_name:
+            where.append("u.group_name = ?")
+            params.append(str(group_name))
+        for column, key in (
+            ("a.action", "action"),
+            ("u.display_name", "actor"),
+            ("a.target_type", "target_type"),
+            ("a.target_id", "target_id"),
+        ):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(str(value))
+        if filters.get("created_from"):
+            where.append("a.created_at >= ?")
+            params.append(str(filters["created_from"]))
+        if filters.get("created_before"):
+            where.append("a.created_at < ?")
+            params.append(str(filters["created_before"]))
+        return " AND ".join(where), params
