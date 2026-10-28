@@ -229,6 +229,51 @@ class Repo:
             )
         )
         return _row(self.conn.execute(sql, (job_id,)).fetchone())
+
+    # ---------- 样例库 ----------
+    def find_sample(self, course: str, week: int, session: int, title: str) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT * FROM sample WHERE course = ? AND week = ? AND session = ? AND title = ?",
+                (course, int(week), int(session), title),
+            ).fetchone()
+        )
+
+    def insert_sample(
+        self, course: str, week: int, session: int, title: str, json_path: str, plan_hash: str
+    ) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO sample (course, week, session, title, json_path, plan_hash, valid)"
+            " VALUES (?, ?, ?, ?, ?, ?, 1)",
+            (course, int(week), int(session), title, json_path, plan_hash),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def get_sample(self, sample_id: int) -> dict[str, Any] | None:
+        return _row(self.conn.execute("SELECT * FROM sample WHERE id = ?", (sample_id,)).fetchone())
+
+    def list_samples(
+        self, filters: dict[str, Any], limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        for column, key in (("course", "course"), ("week", "week"), ("session", "session")):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if filters.get("q"):
+            where.append("title LIKE ?")
+            params.append(f"%{filters['q']}%")
+        condition = " AND ".join(where)
+        count_sql = " ".join(("SELECT COUNT(*) AS total FROM sample WHERE", condition))
+        count = self.conn.execute(count_sql, params).fetchone()
+        rows_sql = " ".join(
+            ("SELECT * FROM sample WHERE", condition, "ORDER BY id DESC LIMIT ? OFFSET ?")
+        )
+        rows = self.conn.execute(rows_sql, (*params, int(limit), int(offset))).fetchall()
+        return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
+
     # ---------- 统计 ----------
     def stats_plans(self, scope: dict[str, Any], filters: dict[str, Any]) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope)
