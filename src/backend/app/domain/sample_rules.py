@@ -16,10 +16,15 @@ def require_valid(validation: dict[str, Any]) -> None:
         )
 
 
+def normalize_text(value: Any) -> str:
+    """去首尾空白并把连续空白折叠为一个空格，避免“信息技术 ”绕过查重。"""
+    return " ".join(str(value or "").split())
+
+
 def identity(plan: dict[str, Any]) -> dict[str, Any]:
     return {
-        "course": str(plan.get("course") or ""),
+        "course": normalize_text(plan.get("course")),
         "week": int(plan["week"]),
         "session": int(plan["session"]),
-        "title": str(plan.get("contentTitle") or ""),
+        "title": normalize_text(plan.get("contentTitle")),
     }

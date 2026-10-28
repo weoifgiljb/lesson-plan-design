@@ -10,6 +10,7 @@ DEFAULT_DATA_DIR = REPO_ROOT / "data"
 
 MAX_PACKAGE_BYTES = 50 * 1024 * 1024
 MAX_PACKAGE_FILES = 200
+MAX_SAMPLE_BYTES = 2 * 1024 * 1024
 ALLOWED_PACKAGE_SUFFIXES = (".json", ".png", ".jpg", ".jpeg", ".docx")
 MANIFEST_NAME = "manifest.json"
 PLAN_NAME = "plan.json"
@@ -42,6 +43,10 @@ def exports_dir() -> Path:
 
 def max_package_bytes() -> int:
     return int(os.environ.get("LPP_MAX_PACKAGE_BYTES", MAX_PACKAGE_BYTES))
+
+
+def max_sample_bytes() -> int:
+    return int(os.environ.get("LPP_MAX_SAMPLE_BYTES", MAX_SAMPLE_BYTES))
 
 
 def cookie_secure() -> bool:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import unittest
 
 from fastapi.testclient import TestClient
@@ -11,7 +12,10 @@ from support import isolated_data_dir, load_json_bytes, read_package_dir, tempdi
 
 from app.adapters import storage
 from app.adapters.db.connection import open_database
+from app.adapters.db.repo import Repo
+from app.application import sample_service
 from app.domain import security
+from app.domain.errors import AppError
 from app.main import create_app
 
 PASSWORD = "Lesson2026"
@@ -73,6 +77,44 @@ class TestSamplesApi(unittest.TestCase):
         csrf = self._login("admin1")
         self.assertEqual(self._upload(self.plan, csrf).status_code, 201)
         self.assertEqual(self._upload(self.plan, csrf).status_code, 409)
+
+    def test_whitespace_variant_conflicts(self) -> None:
+        csrf = self._login("admin1")
+        self.assertEqual(self._upload(self.plan, csrf).status_code, 201)
+        variant = json.loads(json.dumps(self.plan))
+        variant["course"] = variant["course"] + "  "
+        self.assertEqual(self._upload(variant, csrf).status_code, 409)
+
+    def test_concurrent_duplicate_upload_is_conflict_not_500(self) -> None:
+        lock = threading.Lock()
+        data = json.dumps(self.plan, ensure_ascii=False).encode("utf-8")
+        user = {"id": 1, "role": "admin"}
+        outcomes: list[str] = []
+
+        def upload() -> None:
+            repo = Repo(open_database(self.db_file), lock)
+            try:
+                sample_service.create(repo, user, data)
+                outcomes.append("created")
+            except AppError as exc:
+                outcomes.append(exc.code)
+            finally:
+                repo.close()
+
+        threads = [threading.Thread(target=upload) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15)
+        self.assertCountEqual(outcomes, ["created", "CONFLICT_STALE"])
+        connection = open_database(self.db_file)
+        try:
+            samples = connection.execute("SELECT COUNT(*) FROM sample").fetchone()[0]
+            audits = connection.execute("SELECT COUNT(*) FROM audit_log WHERE action = 'sample.create'").fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(samples, 1)
+        self.assertEqual(audits, 1)
 
     def test_invalid_structure_is_rejected_with_issues(self) -> None:
         plan = json.loads(json.dumps(self.plan))

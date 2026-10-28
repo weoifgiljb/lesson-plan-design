@@ -24,23 +24,24 @@ def create(
         raise AppError("PAYLOAD_REJECTED", f"样例 JSON 无效：{problem}")
     sample_rules.require_valid(engine.validate_plan(plan))
     identity = sample_rules.identity(plan)
-    if repo.find_sample(identity["course"], identity["week"], identity["session"], identity["title"]):
-        raise AppError("CONFLICT_STALE", "同一课题的样例已存在")
     plan_hash = engine.plan_hash(plan)
-    path = storage.write_sample(plan_hash, data)
-    sample_id = repo.insert_sample(
-        identity["course"], identity["week"], identity["session"], identity["title"], path, plan_hash
-    )
-    audit_service.record(
-        repo,
-        actor_id=int(user.get("id") or 0),
-        action="sample.create",
-        target_type="sample",
-        target_id=str(sample_id),
-        detail={"planHash": plan_hash, "title": identity["title"], "path": path},
-        ip=ip,
-        trace_id=trace_id,
-    )
+    with repo.transaction():
+        if repo.find_sample(identity["course"], identity["week"], identity["session"], identity["title"]):
+            raise AppError("CONFLICT_STALE", "同一课题的样例已存在")
+        path = storage.write_sample(plan_hash, data)
+        sample_id = repo.insert_sample(
+            identity["course"], identity["week"], identity["session"], identity["title"], path, plan_hash
+        )
+        audit_service.record(
+            repo,
+            actor_id=int(user.get("id") or 0),
+            action="sample.create",
+            target_type="sample",
+            target_id=str(sample_id),
+            detail={"planHash": plan_hash, "title": identity["title"], "path": path},
+            ip=ip,
+            trace_id=trace_id,
+        )
     return {
         "sampleId": sample_id,
         **identity,
@@ -70,9 +71,15 @@ def list_samples(
 def _item(row: dict[str, Any]) -> dict[str, Any]:
     raw = storage.read_sample(str(row["json_path"]))
     complete = False
+    valid = False
+    rule_version = ""
     if raw is not None:
         plan, problem = archive.read_json({"plan.json": raw}, "plan.json")
-        complete = problem is None and plan is not None and engine.plan_hash(plan) == row["plan_hash"]
+        if problem is None and plan is not None:
+            complete = engine.plan_hash(plan) == row["plan_hash"]
+            validation = engine.validate_plan(plan)
+            valid = validation.get("ok") is True
+            rule_version = str(validation.get("ruleVersion") or "")
     return {
         "sampleId": int(row["id"]),
         "course": row["course"],
@@ -80,6 +87,7 @@ def _item(row: dict[str, Any]) -> dict[str, Any]:
         "session": int(row["session"]),
         "title": row["title"],
         "planHash": row["plan_hash"],
-        "valid": bool(row["valid"]),
+        "valid": valid and complete,
+        "ruleVersion": rule_version,
         "complete": complete,
     }

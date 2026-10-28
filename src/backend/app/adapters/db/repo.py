@@ -242,11 +242,14 @@ class Repo:
     def insert_sample(
         self, course: str, week: int, session: int, title: str, json_path: str, plan_hash: str
     ) -> int:
-        cursor = self.conn.execute(
-            "INSERT INTO sample (course, week, session, title, json_path, plan_hash, valid)"
-            " VALUES (?, ?, ?, ?, ?, ?, 1)",
-            (course, int(week), int(session), title, json_path, plan_hash),
-        )
+        try:
+            cursor = self.conn.execute(
+                "INSERT INTO sample (course, week, session, title, json_path, plan_hash, valid)"
+                " VALUES (?, ?, ?, ?, ?, ?, 1)",
+                (course, int(week), int(session), title, json_path, plan_hash),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise AppError("CONFLICT_STALE", "同一课题的样例已存在") from exc
         return int(cursor.lastrowid or 0)
 
     def get_sample(self, sample_id: int) -> dict[str, Any] | None:
@@ -263,8 +266,9 @@ class Repo:
                 where.append(f"{column} = ?")
                 params.append(value)
         if filters.get("q"):
-            where.append("title LIKE ?")
-            params.append(f"%{filters['q']}%")
+            escaped = str(filters["q"]).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            where.append("title LIKE ? ESCAPE '\\'")
+            params.append(f"%{escaped}%")
         condition = " AND ".join(where)
         count_sql = " ".join(("SELECT COUNT(*) AS total FROM sample WHERE", condition))
         count = self.conn.execute(count_sql, params).fetchone()
