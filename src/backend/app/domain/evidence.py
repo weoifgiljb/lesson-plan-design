@@ -44,6 +44,10 @@ def evaluate(
     }
 
 
+def _is_member(value: Any, allowed: set[str]) -> bool:
+    return isinstance(value, str) and value in allowed
+
+
 def _item(key: str, problem: str | None) -> dict[str, Any]:
     return {"key": key, "label": LABELS[key], "ok": problem is None, "reason": problem or ""}
 
@@ -87,7 +91,7 @@ def _override_problem(report: dict[str, Any]) -> str | None:
             return f"放行记录缺少教师：{finding_id}"
         if len(str(item.get("reason") or "").strip()) < MIN_REASON:
             return f"放行理由过短：{finding_id}"
-        if item.get("kind") not in {"teacher_override", "minor_acceptance"}:
+        if not _is_member(item.get("kind"), {"teacher_override", "minor_acceptance"}):
             return f"放行类型无效：{finding_id}"
         if finding_id in kinds:
             return f"同一问题存在多条放行记录：{finding_id}"
@@ -98,7 +102,7 @@ def _override_problem(report: dict[str, Any]) -> str | None:
             return f"放行记录引用了不存在的问题：{finding_id}"
     for item in findings:
         status = item.get("status")
-        if status not in {"waived", "accepted"}:
+        if not _is_member(status, {"waived", "accepted"}):
             continue
         expected = "minor_acceptance" if status == "accepted" else "teacher_override"
         if kinds.get(str(item.get("id"))) != expected:
@@ -112,9 +116,9 @@ def _finding_shape_problem(findings: list[Any]) -> str | None:
             return "问题格式无效（不是对象）"
         severity = item.get("severity")
         status = item.get("status")
-        if severity not in {"blocker", "major", "minor"}:
+        if not _is_member(severity, {"blocker", "major", "minor"}):
             return f"问题严重级别无效：{item.get('id')}"
-        if status not in {"open", "waived", "accepted"}:
+        if not _is_member(status, {"open", "waived", "accepted"}):
             return f"问题状态无效：{item.get('id')}"
         if status == "accepted" and severity != "minor":
             return "仅轻微问题可以标记为已接受"
@@ -125,7 +129,7 @@ def _finding_shape_problem(findings: list[Any]) -> str | None:
 
 def _independence_problem(report: dict[str, Any]) -> str | None:
     mode = report.get("independence") or report.get("reviewer")
-    if mode not in ALLOWED_MODES:
+    if not _is_member(mode, ALLOWED_MODES):
         return f"审校方式无效：{mode}"
     if not str(report.get("reviewer") or "").strip():
         return "缺少审校员"
@@ -134,7 +138,7 @@ def _independence_problem(report: dict[str, Any]) -> str | None:
 
 def _status_problem(report: dict[str, Any]) -> str | None:
     status = report.get("status")
-    if status not in ALLOWED_STATUS:
+    if not _is_member(status, ALLOWED_STATUS):
         return f"报告状态无效：{status}"
     raw_findings = report.get("findings") or []
     if not isinstance(raw_findings, list) or any(not isinstance(item, dict) for item in raw_findings):
@@ -154,7 +158,7 @@ def _status_problem(report: dict[str, Any]) -> str | None:
     if status == "passed" and report.get("attestation") != "no_counterexample":
         return "通过的报告缺少无反例声明"
     if status == "passed_with_override" and not any(
-        item.get("severity") in BLOCKING and item.get("status") == "waived" for item in findings
+        _is_member(item.get("severity"), BLOCKING) and item.get("status") == "waived" for item in findings
     ):
         return "放行通过的报告没有已放行的 blocker/major"
     if status == "passed_with_accepted_minor" and not any(

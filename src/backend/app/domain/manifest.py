@@ -90,6 +90,12 @@ def verify_files(manifest: dict[str, Any], files: dict[str, bytes]) -> Verdict |
             return _missing(path)
         if sha256_bytes(data) != item["sha256"]:
             return _mismatch(path)
+        if len(data) != item["size"]:
+            return fail(
+                "PAYLOAD_REJECTED",
+                f"文件实际大小与 manifest 声明不符：{path}",
+                {"path": path, "declared": item["size"], "actual": len(data)},
+            )
     extra = set(files) - set(declared) - {MANIFEST_FILE}
     if extra:
         return fail("PAYLOAD_REJECTED", "契约包含未声明的文件", {"extra": sorted(extra)})

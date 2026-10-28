@@ -39,7 +39,8 @@ def import_package(
     manifest, plan, report, problem = load_package(files)
     if problem is not None:
         return _reject(repo, problem, actor_id, ip, trace_id, sync=sync)
-    assert manifest is not None and plan is not None and report is not None
+    if manifest is None or plan is None or report is None:
+        raise AppError("INTERNAL", "契约包解析结果不完整")
     validation = engine.validate_plan(plan)
     structure = _structure_verdict(validation)
     if structure is not None:
@@ -181,7 +182,22 @@ def _persist(
     previous_round: int,
     sync: dict[str, Any] | None = None,
 ) -> ImportResult:
-    with repo.transaction():
+    def audit_rollback(exc: BaseException) -> None:
+        # 事务已回滚：拒绝审计必须在事务外单独写，否则也会被回滚掉
+        code = exc.code if isinstance(exc, AppError) else "INTERNAL"
+        message = exc.message if isinstance(exc, AppError) else str(exc)
+        audit_service.record(
+            repo,
+            actor_id=actor_id,
+            action="plan.import.rejected",
+            target_type="plan",
+            target_id="",
+            detail={"code": code, "message": message, "stage": "persist", "planHash": plan_hash},
+            ip=ip,
+            trace_id=trace_id,
+        )
+
+    with repo.transaction(audit_rollback):
         plan_id = repo.find_or_create_plan(owner_id, plan)
         existing = repo.find_version(plan_id, plan_hash, report_sha256)
         if existing is not None:
@@ -223,6 +239,7 @@ def _write_version(
         version_no,
         json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
         plan_hash,
+        report_sha256,
         int(report["schemaVersion"]),
         str(report["rubricVersion"]),
         engine_version,
@@ -239,7 +256,7 @@ def _write_version(
         str(report.get("independence") or report.get("reviewer") or "role_simulation"),
     )
     repo.insert_findings(review_id, list(report.get("findings") or []))
-    repo.insert_overrides(list(report.get("overrides") or []))
+    repo.insert_overrides(review_id, list(report.get("overrides") or []))
     repo.set_current_version(plan_id, version_id)
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)

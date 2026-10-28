@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
         bootstrap.close()
     except Exception:  # noqa: BLE001 - 启动失败要让健康检查报告 down 而不是进程消失
         logger.warning("database init failed; health check will report down")
+    # 每请求独立连接（WAL 下多连接安全），写事务仍由同一把锁串行化
     app.state.repo_factory = lambda: Repo(open_database(), app.state.db_lock)
     yield
 
