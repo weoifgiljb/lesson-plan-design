@@ -197,14 +197,17 @@ class TestReviewsApi(unittest.TestCase):
         self.assertIn("轮次不连续", item["reason"])
 
     def test_date_filter_boundary(self) -> None:
+        # 固定全部审查的入库时间，避免用例依赖“运行当天”（跨 UTC 天后原断言会变红）
+        self.connection.execute("UPDATE review SET created_at = '2026-10-30T12:00:00+00:00'")
         self.connection.execute(
-            "UPDATE review SET created_at = '2026-10-27T23:59:59+00:00' WHERE id = ?",
+            "UPDATE review SET created_at = '2026-10-29T23:59:59+00:00' WHERE id = ?",
             (self.reviews["passed"],),
         )
+        self.connection.commit()
         self._login("teacher1")
-        same_day = self.client.get("/api/v1/reviews?dateFrom=2026-10-27&dateTo=2026-10-27").json()
+        same_day = self.client.get("/api/v1/reviews?dateFrom=2026-10-29&dateTo=2026-10-29").json()
         self.assertEqual([item["reviewId"] for item in same_day["items"]], [self.reviews["passed"]])
-        next_day = self.client.get("/api/v1/reviews?dateFrom=2026-10-28&dateTo=2026-10-28").json()
+        next_day = self.client.get("/api/v1/reviews?dateFrom=2026-10-30&dateTo=2026-10-30").json()
         self.assertNotIn(self.reviews["passed"], [item["reviewId"] for item in next_day["items"]])
         self.assertGreater(next_day["total"], 0)
 
