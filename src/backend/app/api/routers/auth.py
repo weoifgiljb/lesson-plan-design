@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Request, Response
 
 from app.api import schemas
+from app.api.request_info import client_ip, trace_id
 from app.api.deps import clear_session_cookie, get_repo, require_csrf, set_session_cookie
 from app.application import session_service, user_service
 
@@ -38,8 +39,8 @@ def logout(
 
 
 def _client_ip(request: Request) -> str:
-    return str(request.client.host) if request.client else ""
+    return client_ip(request)
 
 
 def _trace_id(request: Request) -> str:
-    return str(getattr(request.state, "trace_id", ""))
+    return trace_id(request)

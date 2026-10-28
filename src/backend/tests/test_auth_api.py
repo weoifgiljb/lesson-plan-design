@@ -107,6 +107,7 @@ class TestAuthApi(unittest.TestCase):
         token = self.client.cookies.get("lpp_session")
         self.assertTrue(token)
         self.assertEqual(self.client.post("/api/v1/auth/logout").status_code, 403)
+        self.assertIn("authz.denied", self._audit_actions())
         csrf = login.json()["csrfToken"]
         ok = self.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf})
         self.assertEqual(ok.status_code, 200, ok.text)
@@ -129,6 +130,7 @@ class TestAuthApi(unittest.TestCase):
         self.app.add_api_route("/api/v1/admin-probe", probe, methods=["GET"])
         self._login()
         self.assertEqual(self.client.get("/api/v1/admin-probe").status_code, 403)
+        self.assertIn("authz.denied", self._audit_actions())
         self._login("admin1")
         allowed = self.client.get("/api/v1/admin-probe")
         self.assertEqual(allowed.status_code, 200, allowed.text)

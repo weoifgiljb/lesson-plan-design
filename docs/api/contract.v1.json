@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.1 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-10-26",
+  "updatedAt": "2026-10-28",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -110,6 +110,8 @@
       "status": [
         200,
         401,
+        403,
+        422,
         429
       ],
       "client": "ui",
@@ -129,7 +131,8 @@
       "idempotent": true,
       "status": [
         200,
-        401
+        401,
+        403
       ],
       "client": "ui",
       "implemented": true
