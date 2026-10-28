@@ -26,9 +26,9 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
     records = [_record(row, rounds.get(int(row["plan_id"]), [])) for row in rows]
     payload = stats.build(
         records,
-        _counts(repo.stats_sync(scope)),
-        _counts(repo.stats_tasks(scope)),
-        _export_seconds(repo.stats_exports(scope)),
+        _counts(repo.stats_sync(scope, window)),
+        _counts(repo.stats_tasks(scope, window)),
+        _export_seconds(repo.stats_exports(scope, window)),
         _filters_payload(raw_filters),
     )
     payload["scope"] = _scope_name(str(user.get("role") or ""))

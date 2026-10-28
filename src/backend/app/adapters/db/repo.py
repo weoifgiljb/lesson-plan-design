@@ -17,6 +17,15 @@ def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
+PLAN_FILTER_KEYS = ("course", "week", "teacher", "created_from", "created_before")
+
+
+def _has_plan_filters(filters: dict[str, Any] | None) -> bool:
+    if not filters:
+        return False
+    return any(filters.get(key) not in (None, "") for key in PLAN_FILTER_KEYS)
+
+
 class Repo:
     def __init__(self, conn: sqlite3.Connection, lock: threading.Lock | None = None) -> None:
         self.conn = conn
@@ -265,7 +274,13 @@ class Repo:
             grouped.setdefault(int(row["plan_id"]), []).append(int(row["round"]))
         return grouped
 
-    def stats_sync(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    def stats_sync(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        # sync_log 没有教案维度（course/week/teacher）字段：带筛选时明确返回空，
+        # 让该指标 available=false，避免"筛选条件被回显、数字却是全量"的假一致。
+        if _has_plan_filters(filters):
+            return []
         condition, params = self._scope_condition(scope, "s.operator_id")
         return self._group(
             "SELECT s.result AS key, COUNT(*) AS total FROM sync_log s"
@@ -274,17 +289,23 @@ class Repo:
             params,
         )
 
-    def stats_tasks(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    def stats_tasks(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope, "t.owner_id")
+        extra, more = self._task_where(filters)
         return self._group(
             "SELECT t.status AS key, COUNT(*) AS total FROM task t"
             " LEFT JOIN user u ON u.id = t.owner_id"
-            f" WHERE {condition} GROUP BY t.status",
-            params,
+            f" WHERE {condition} AND {extra} GROUP BY t.status",
+            (*params, *more),
         )
 
-    def stats_exports(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+    def stats_exports(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope)
+        extra, more = self._stats_where(dict(filters or {}))
         sql = " ".join(
             (
                 "SELECT j.created_at AS export_created_at, p.created_at AS plan_created_at",
@@ -292,9 +313,28 @@ class Repo:
                 "JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
                 "WHERE j.status = 'succeeded' AND p.deleted_at IS NULL AND",
                 condition,
+                "AND",
+                extra,
             )
         )
-        return self._group(sql, params)
+        return self._group(sql, (*params, *more))
+
+    def _task_where(self, filters: dict[str, Any] | None) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        data = dict(filters or {})
+        for column, key in (("t.course", "course"), ("t.week", "week"), ("u.display_name", "teacher")):
+            value = data.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if data.get("created_from"):
+            where.append("t.created_at >= ?")
+            params.append(str(data["created_from"]))
+        if data.get("created_before"):
+            where.append("t.created_at < ?")
+            params.append(str(data["created_before"]))
+        return " AND ".join(where), params
 
     def _stats_where(self, filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["1 = 1"]

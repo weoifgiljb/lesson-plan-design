@@ -136,6 +136,21 @@ class TestStatsApi(unittest.TestCase):
         self.assertEqual(metrics["export_seconds"]["denominator"], 1)
         self.assertIn("filters", metrics["structure_rate"])
 
+    def test_course_filter_applies_to_all_metrics(self) -> None:
+        self._login("admin1")
+        body = self.client.get("/api/v1/stats/summary?course=英语").json()
+        metrics = {item["key"]: item for item in body["metrics"]}
+        # 只有"英语课"命中：1 份教案
+        self.assertEqual(metrics["structure_rate"]["denominator"], 1)
+        # 导出与任务都属于"信息技术"，筛选后没有样本 → 必须不可用，不能返回全量数
+        self.assertFalse(metrics["export_seconds"]["available"])
+        self.assertEqual(metrics["export_seconds"]["denominator"], 0)
+        self.assertFalse(metrics["task_completion"]["available"])
+        self.assertEqual(metrics["task_completion"]["denominator"], 0)
+        # sync_log 无教案维度，带筛选时明确不可用
+        self.assertFalse(metrics["sync_consistency"]["available"])
+        self.assertEqual(metrics["sync_consistency"]["denominator"], 0)
+
     def test_deleted_plan_excluded_everywhere(self) -> None:
         self._login("admin1")
         metrics = self._metrics()
