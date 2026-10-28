@@ -404,7 +404,7 @@
         403
       ],
       "client": "plugin",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -423,7 +423,7 @@
         403
       ],
       "client": "plugin",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "POST",
@@ -448,7 +448,7 @@
         429
       ],
       "client": "plugin",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "POST",

@@ -61,6 +61,13 @@ class TestPermissionMatrix(unittest.TestCase):
                 files={"file": ("probe.zip", b"not-a-zip", "application/zip")},
                 headers=headers,
             )
+        if path.endswith("/push"):
+            return target.post(
+                path,
+                files={"file": ("probe.zip", b"not-a-zip", "application/zip")},
+                data={"baseHash": ""},
+                headers=headers,
+            )
         if path.endswith("/login"):
             with TestClient(create_app()) as throwaway:
                 return throwaway.post(path, json={"username": "teacher1", "password": PASSWORD})

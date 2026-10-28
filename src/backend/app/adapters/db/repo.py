@@ -321,6 +321,59 @@ class Repo:
             params.append(str(filters["created_before"]))
         return " AND ".join(where), params
 
+    # ---------- 双端同步 ----------
+    def plan_head(self, plan_id: int) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.created_at, p.deleted_at"
+                " FROM plan_version pv JOIN plan p ON p.id = pv.plan_id"
+                " WHERE pv.plan_id = ? AND pv.id = p.current_version_id",
+                (plan_id,),
+            ).fetchone()
+        )
+
+    def pull_versions(
+        self, scope: dict[str, Any], since: int, limit: int
+    ) -> list[dict[str, Any]]:
+        where, params = self._pull_where(scope)
+        sql = " ".join(
+            (
+                "SELECT pv.id AS version_id, pv.plan_id, pv.version_no, pv.plan_hash, pv.content_json,"
+                " pv.created_at, p.content_title, p.owner_id, u.display_name AS teacher",
+                "FROM plan_version pv JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
+                "WHERE pv.id > ? AND p.deleted_at IS NULL",
+                where,
+                "ORDER BY pv.id LIMIT ?",
+            )
+        )
+        rows = self.conn.execute(sql, (int(since), *params, int(limit))).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_sync_log(
+        self,
+        direction: str,
+        package_sha256: str,
+        plan_hash: str,
+        result: str,
+        conflict_code: str,
+        operator_id: int | None,
+    ) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO sync_log (direction, package_sha256, plan_hash, result, conflict_code,"
+            " operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (direction, package_sha256, plan_hash, result, conflict_code, operator_id, clock.now_iso()),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def _pull_where(self, scope: dict[str, Any]) -> tuple[str, list[Any]]:
+        owner_id = scope.get("owner_id")
+        group_name = scope.get("group_name")
+        if owner_id is not None:
+            return "AND p.owner_id = ?", [int(owner_id)]
+        if group_name:
+            return "AND u.group_name = ?", [str(group_name)]
+        return "", []
+
     def soft_delete_plan(self, plan_id: int) -> bool:
         cursor = self.conn.execute(
             "UPDATE plan SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",

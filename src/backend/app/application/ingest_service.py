@@ -32,34 +32,27 @@ def import_package(
     actor_id: int | None = None,
     ip: str = "",
     trace_id: str = "",
+    sync: dict[str, Any] | None = None,
 ) -> ImportResult:
-    manifest, plan, report, problem = _load(files)
+    manifest, plan, report, problem = load_package(files)
     if problem is not None:
-        return _reject(repo, problem, actor_id, ip, trace_id)
+        return _reject(repo, problem, actor_id, ip, trace_id, sync=sync)
     assert manifest is not None and plan is not None and report is not None
     validation = engine.validate_plan(plan)
     structure = _structure_verdict(validation)
     if structure is not None:
         # 结构未通过时不做任何身份/版本计算，避免未校验字段（如 week 为数组）打穿成 500。
-        return _reject(repo, structure, actor_id, ip, trace_id)
+        return _reject(repo, structure, actor_id, ip, trace_id, sync=sync)
     plan_hash = engine.plan_hash(plan)
     report_sha256 = storage.sha256_bytes(files[REPORT_NAME])
     plan_id, previous_round, duplicate = _prior_state(repo, owner_id, plan, plan_hash, report_sha256)
-    verdict = ingest.evaluate(
-        manifest=manifest,
-        files=files,
-        plan=plan,
-        report=report,
-        report_sha256=report_sha256,
-        plan_hash=plan_hash,
-        snapshot_hash=_snapshot_hash(report),
-        previous_round=_round_floor(previous_round, duplicate, report),
-        validation=validation,
+    verdict = _evaluate(
+        manifest, files, plan, report, plan_hash, report_sha256, validation, previous_round, duplicate
     )
     if not verdict.ok:
-        return _reject(repo, verdict, actor_id, ip, trace_id)
+        return _reject(repo, verdict, actor_id, ip, trace_id, sync=sync)
     if duplicate is not None:
-        return _duplicate(repo, duplicate, actor_id, ip, trace_id)
+        return _duplicate(repo, duplicate, actor_id, ip, trace_id, sync=sync)
     return _persist(
         repo,
         files=files,
@@ -72,6 +65,31 @@ def import_package(
         ip=ip,
         trace_id=trace_id,
         previous_round=previous_round,
+        sync=sync,
+    )
+
+
+def _evaluate(
+    manifest: dict[str, Any],
+    files: dict[str, bytes],
+    plan: dict[str, Any],
+    report: dict[str, Any],
+    plan_hash: str,
+    report_sha256: str,
+    validation: dict[str, Any],
+    previous_round: int,
+    duplicate: dict[str, Any] | None,
+) -> Verdict:
+    return ingest.evaluate(
+        manifest=manifest,
+        files=files,
+        plan=plan,
+        report=report,
+        report_sha256=report_sha256,
+        plan_hash=plan_hash,
+        snapshot_hash=_snapshot_hash(report),
+        previous_round=_round_floor(previous_round, duplicate, report),
+        validation=validation,
     )
 
 
@@ -103,7 +121,7 @@ def _round_floor(previous_round: int, duplicate: dict | None, report: dict) -> i
     return int(round_number) - 1 if isinstance(round_number, int) and round_number > 1 else 0
 
 
-def _load(files: dict[str, bytes]) -> tuple[dict | None, dict | None, dict | None, Verdict | None]:
+def load_package(files: dict[str, bytes]) -> tuple[dict | None, dict | None, dict | None, Verdict | None]:
     manifest, error = archive.read_json(files, MANIFEST_NAME)
     if error:
         return None, None, None, fail("PAYLOAD_REJECTED", error)
@@ -125,8 +143,11 @@ def _snapshot_hash(report: dict[str, Any]) -> str | None:
 
 
 def _reject(
-    repo: Repo, verdict: Verdict, actor_id: int | None, ip: str, trace_id: str
+    repo: Repo, verdict: Verdict, actor_id: int | None, ip: str, trace_id: str,
+    *, sync: dict[str, Any] | None = None,
 ) -> ImportResult:
+    if sync is not None:
+        _log_sync(repo, sync, "", "rejected", verdict.code)
     audit_service.record(
         repo,
         actor_id=actor_id,
@@ -153,12 +174,13 @@ def _persist(
     ip: str,
     trace_id: str,
     previous_round: int,
+    sync: dict[str, Any] | None = None,
 ) -> ImportResult:
     with repo.transaction():
         plan_id = repo.find_or_create_plan(owner_id, plan)
         existing = repo.find_version(plan_id, plan_hash, report_sha256)
         if existing is not None:
-            return _duplicate(repo, existing, actor_id, ip, trace_id)
+            return _duplicate(repo, existing, actor_id, ip, trace_id, sync=sync)
         if repo.last_round(plan_id) != previous_round:
             raise AppError("CONFLICT_STALE", "入库期间出现了新的审查轮次，请重试")
         return _write_version(
@@ -172,6 +194,7 @@ def _persist(
             actor_id=actor_id,
             ip=ip,
             trace_id=trace_id,
+            sync=sync,
         )
 
 
@@ -187,6 +210,7 @@ def _write_version(
     actor_id: int | None,
     ip: str,
     trace_id: str,
+    sync: dict[str, Any] | None = None,
 ) -> ImportResult:
     version_no = repo.next_version_no(plan_id)
     engine_version = engine.engine_version()
@@ -201,7 +225,7 @@ def _write_version(
     )
     if not created:
         stored = repo.find_version(plan_id, plan_hash, report_sha256) or {}
-        return _duplicate(repo, stored, actor_id, ip, trace_id)
+        return _duplicate(repo, stored, actor_id, ip, trace_id, sync=sync)
     review_id = repo.insert_review(
         version_id,
         int(report["round"]),
@@ -215,6 +239,8 @@ def _write_version(
     repo.set_current_version(plan_id, version_id)
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
+    if sync is not None:
+        _log_sync(repo, sync, plan_hash, "created")
     return ImportResult(True, plan_id, version_no, review_id, plan_hash)
 
 
@@ -236,8 +262,11 @@ def _audit_import(
 
 
 def _duplicate(
-    repo: Repo, existing: dict[str, Any], actor_id: int | None, ip: str, trace_id: str
+    repo: Repo, existing: dict[str, Any], actor_id: int | None, ip: str, trace_id: str,
+    *, sync: dict[str, Any] | None = None,
 ) -> ImportResult:
+    if sync is not None:
+        _log_sync(repo, sync, str(existing.get("plan_hash") or ""), "duplicate")
     audit_service.record(
         repo,
         actor_id=actor_id,
@@ -254,4 +283,17 @@ def _duplicate(
         int(existing.get("version_no") or 0),
         int(existing.get("review_id") or 0),
         str(existing.get("plan_hash") or ""),
+    )
+
+
+def _log_sync(
+    repo: Repo, sync: dict[str, Any], plan_hash: str, result: str, conflict_code: str = ""
+) -> None:
+    repo.insert_sync_log(
+        str(sync.get("direction") or "push"),
+        str(sync.get("package_sha256") or ""),
+        plan_hash,
+        result,
+        conflict_code,
+        sync.get("operator_id"),
     )
