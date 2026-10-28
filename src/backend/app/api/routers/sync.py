@@ -10,6 +10,7 @@ from app.adapters import archive
 from app.api.deps import require_csrf_role, require_role
 from app.api.uploads import ACCEPTED_TYPES, read_limited
 from app.application import sync_service
+from app.config import max_package_bytes
 from app.domain.errors import AppError
 
 router = APIRouter()
@@ -45,12 +46,22 @@ async def sync_push(
     base_hash: str = Form("", alias="baseHash"),
     context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
 ) -> dict[str, Any]:
+    actor_id = int(context["user"]["id"])
+    repo = context["repo"]
     if (file.content_type or "") not in ACCEPTED_TYPES:
+        repo.insert_sync_log("push", "", "", "rejected", "UNSUPPORTED_MEDIA", actor_id)
         raise AppError("UNSUPPORTED_MEDIA", f"不接受的上传类型：{file.content_type}")
+    limit = max_package_bytes()
+    if file.size is not None and file.size > limit:
+        repo.insert_sync_log("push", "", "", "rejected", "PAYLOAD_TOO_LARGE", actor_id)
+        raise AppError("PAYLOAD_TOO_LARGE", f"契约包超过 {limit} 字节")
     data = await read_limited(file)
-    files = archive.read_package(data)
+    files, problem = archive.try_read_package(data)
+    if problem is not None:
+        repo.insert_sync_log("push", "", "", "rejected", problem.code, actor_id)
+        raise problem
     result = sync_service.push(
-        context["repo"],
+        repo,
         context["user"],
         files=files,
         package_bytes=data,

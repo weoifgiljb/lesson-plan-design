@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any
 
 from app.adapters import archive, engine, storage
 from app.adapters.db.repo import Repo
-from app.application import audit_service
+from app.application import audit_service, sync_log
 from app.config import MANIFEST_NAME, PLAN_NAME, REPORT_NAME
 from app.domain import ingest, manifest as manifest_rules
 from app.domain.errors import AppError
@@ -33,6 +34,7 @@ def import_package(
     ip: str = "",
     trace_id: str = "",
     sync: dict[str, Any] | None = None,
+    guard: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
 ) -> ImportResult:
     manifest, plan, report, problem = load_package(files)
     if problem is not None:
@@ -53,6 +55,9 @@ def import_package(
         return _reject(repo, verdict, actor_id, ip, trace_id, sync=sync)
     if duplicate is not None:
         return _duplicate(repo, duplicate, actor_id, ip, trace_id, sync=sync)
+    if guard is not None:
+        # 复校通过后才做同步乐观锁判定，避免未校验字段（如 week 为数组）打穿成 500。
+        guard(plan, report)
     return _persist(
         repo,
         files=files,
@@ -147,7 +152,7 @@ def _reject(
     *, sync: dict[str, Any] | None = None,
 ) -> ImportResult:
     if sync is not None:
-        _log_sync(repo, sync, "", "rejected", verdict.code)
+        sync_log.record(repo, sync, "", "rejected", verdict.code)
     audit_service.record(
         repo,
         actor_id=actor_id,
@@ -181,8 +186,7 @@ def _persist(
         existing = repo.find_version(plan_id, plan_hash, report_sha256)
         if existing is not None:
             return _duplicate(repo, existing, actor_id, ip, trace_id, sync=sync)
-        if repo.last_round(plan_id) != previous_round:
-            raise AppError("CONFLICT_STALE", "入库期间出现了新的审查轮次，请重试")
+        _ensure_round(repo, plan_id, previous_round, sync, plan_hash)
         return _write_version(
             repo,
             plan_id=plan_id,
@@ -240,7 +244,7 @@ def _write_version(
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
     if sync is not None:
-        _log_sync(repo, sync, plan_hash, "created")
+        sync_log.record(repo, sync, plan_hash, "created")
     return ImportResult(True, plan_id, version_no, review_id, plan_hash)
 
 
@@ -266,7 +270,7 @@ def _duplicate(
     *, sync: dict[str, Any] | None = None,
 ) -> ImportResult:
     if sync is not None:
-        _log_sync(repo, sync, str(existing.get("plan_hash") or ""), "duplicate")
+        sync_log.record(repo, sync, str(existing.get("plan_hash") or ""), "duplicate")
     audit_service.record(
         repo,
         actor_id=actor_id,
@@ -286,14 +290,11 @@ def _duplicate(
     )
 
 
-def _log_sync(
-    repo: Repo, sync: dict[str, Any], plan_hash: str, result: str, conflict_code: str = ""
+def _ensure_round(
+    repo: Repo, plan_id: int, previous_round: int, sync: dict[str, Any] | None, plan_hash: str
 ) -> None:
-    repo.insert_sync_log(
-        str(sync.get("direction") or "push"),
-        str(sync.get("package_sha256") or ""),
-        plan_hash,
-        result,
-        conflict_code,
-        sync.get("operator_id"),
-    )
+    if repo.last_round(plan_id) == previous_round:
+        return
+    if sync is not None:
+        sync_log.record(repo, sync, plan_hash, "conflict", "CONFLICT_STALE")
+    raise AppError("CONFLICT_STALE", "入库期间出现了新的审查轮次，请重试")

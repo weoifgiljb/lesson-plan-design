@@ -2,7 +2,10 @@
 """双端同步 API：头版本、游标拉取、baseHash 推送与 409 冲突。"""
 from __future__ import annotations
 
+import io
+import json
 import unittest
+import zipfile
 
 from fastapi.testclient import TestClient
 
@@ -63,17 +66,17 @@ class TestSyncApi(unittest.TestCase):
         report = plugin_report(plan, round_number=round_number, previous_report=previous)
         return build_package(plan, report=report)
 
-    def _push(self, files: dict[str, bytes], base_hash: str, csrf: str | None = None):
-        import zipfile
-        from io import BytesIO
-
-        buffer = BytesIO()
+    def _zip(self, files: dict[str, bytes]) -> bytes:
+        buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w") as handle:
             for name, data in files.items():
                 handle.writestr(name, data)
+        return buffer.getvalue()
+
+    def _push(self, files: dict[str, bytes], base_hash: str, csrf: str | None = None):
         return self.client.post(
             "/api/v1/sync/push",
-            files={"file": ("pkg.zip", buffer.getvalue(), "application/zip")},
+            files={"file": ("pkg.zip", self._zip(files), "application/zip")},
             data={"baseHash": base_hash},
             headers={"X-CSRF-Token": csrf or self.csrf},
         )
@@ -187,6 +190,68 @@ class TestSyncApi(unittest.TestCase):
         self.assertEqual(self.client.get("/api/v1/sync/head?planId=1").status_code, 403)
         response = self._push(read_package_dir("valid-package"), "", csrf)
         self.assertEqual(response.status_code, 403)
+
+
+    def test_push_malformed_structure_is_422(self) -> None:
+        plan = load_json_bytes(read_package_dir("valid-package")["plan.json"])
+        plan["week"] = ["第二周"]
+        package = build_package(plan, report=plugin_report(plan))
+        response = self._push(package, self.first_hash)
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "STRUCTURE_INVALID")
+        connection = open_database(self.db_file)
+        try:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM plan_version").fetchone()[0], 1)
+        finally:
+            connection.close()
+        rejected = [row for row in self._sync_log() if row["result"] == "rejected"]
+        self.assertTrue(rejected)
+
+    def test_tampered_manifest_is_not_duplicate(self) -> None:
+        files = read_package_dir("valid-package")
+        manifest = load_json_bytes(files["manifest.json"])
+        manifest["reportHash"] = "0" * 64
+        files["manifest.json"] = json.dumps(manifest, ensure_ascii=False).encode("utf-8")
+        response = self._push(files, self.first_hash)
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertIn(response.json()["code"], {"HASH_MISMATCH", "REPORT_INCONSISTENT"})
+        rejected = [row for row in self._sync_log() if row["result"] == "rejected"]
+        self.assertTrue(rejected)
+
+    def test_conflict_without_base_hash_still_has_changes(self) -> None:
+        previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
+        response = self._push(self._package(2, "缺 baseHash 但要有差异", previous), "")
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertTrue(response.json()["details"]["changes"])
+
+    def test_route_level_rejection_is_logged(self) -> None:
+        response = self.client.post(
+            "/api/v1/sync/push",
+            files={"file": ("bad.zip", b"not-a-zip", "application/zip")},
+            data={"baseHash": ""},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(response.status_code, 422, response.text)
+        rejected = [row for row in self._sync_log() if row["result"] == "rejected"]
+        self.assertTrue(rejected)
+        self.assertEqual(rejected[-1]["conflict_code"], "PAYLOAD_REJECTED")
+
+    def test_pull_reports_deleted_tombstone(self) -> None:
+        csrf = self.client.cookies.get("lpp_csrf")
+        deleted = self.client.delete(f"/api/v1/plans/{self.plan_id}", headers={"X-CSRF-Token": csrf})
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        items = self.client.get("/api/v1/sync/pull?since=0").json()["items"]
+        self.assertTrue(items)
+        self.assertTrue(items[0]["deleted"])
+
+    def test_lead_identity_head_covers_group(self) -> None:
+        csrf = self._login("lead1")
+        self.assertEqual(csrf, self.client.cookies.get("lpp_csrf"))
+        head = self.client.get(
+            "/api/v1/sync/head?course=信息技术&week=2&session=1&contentTitle=一级考证辅导2"
+        ).json()
+        self.assertTrue(head["exists"], head)
+        self.assertEqual(head["planId"], self.plan_id)
 
 
 if __name__ == "__main__":

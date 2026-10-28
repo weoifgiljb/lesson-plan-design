@@ -70,6 +70,14 @@ def read_package(data: bytes) -> dict[str, bytes]:
     return _read_entries(_open(io.BytesIO(data)), limit)
 
 
+def try_read_package(data: bytes) -> tuple[dict[str, bytes] | None, AppError | None]:
+    """不抛异常版本：供需要在校验失败时先落审计/同步日志的调用方使用。"""
+    try:
+        return read_package(data), None
+    except AppError as exc:
+        return None, exc
+
+
 def _open(buffer: io.BytesIO) -> zipfile.ZipFile:
     try:
         return zipfile.ZipFile(buffer)

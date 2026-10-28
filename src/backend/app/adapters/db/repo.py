@@ -339,15 +339,41 @@ class Repo:
         sql = " ".join(
             (
                 "SELECT pv.id AS version_id, pv.plan_id, pv.version_no, pv.plan_hash, pv.content_json,"
-                " pv.created_at, p.content_title, p.owner_id, u.display_name AS teacher",
+                " pv.created_at, p.content_title, p.owner_id, p.deleted_at, u.display_name AS teacher",
                 "FROM plan_version pv JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
-                "WHERE pv.id > ? AND p.deleted_at IS NULL",
+                "WHERE pv.id > ?",
                 where,
                 "ORDER BY pv.id LIMIT ?",
             )
         )
         rows = self.conn.execute(sql, (int(since), *params, int(limit))).fetchall()
         return [dict(row) for row in rows]
+
+    def find_plan_by_identity_scope(
+        self, scope: dict[str, Any], plan: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        where, params = self._pull_where(scope)
+        sql = " ".join(
+            (
+                "SELECT p.* FROM plan p JOIN user u ON u.id = p.owner_id",
+                "WHERE p.course = ? AND p.week = ? AND p.session = ? AND p.content_title = ?",
+                "AND p.deleted_at IS NULL",
+                where,
+                "ORDER BY p.id DESC LIMIT 1",
+            )
+        )
+        return _row(
+            self.conn.execute(
+                sql,
+                (
+                    str(plan.get("course") or ""),
+                    int(plan.get("week") or 0),
+                    int(plan.get("session") or 0),
+                    str(plan.get("contentTitle") or ""),
+                    *params,
+                ),
+            ).fetchone()
+        )
 
     def insert_sync_log(
         self,

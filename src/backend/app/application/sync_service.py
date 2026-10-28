@@ -51,16 +51,15 @@ def push(
 ) -> dict[str, Any]:
     actor_id = int(user.get("id") or 0)
     package_sha256 = storage.sha256_bytes(package_bytes)
-    manifest, plan, report, problem = ingest_service.load_package(files)
-    if problem is None and plan is not None:
-        duplicate = _existing_duplicate(repo, actor_id, plan, files)
-        if duplicate is None:
-            _check_base_hash(repo, actor_id, plan, base_hash, package_sha256, ip, trace_id)
     sync = {
         "direction": "push",
         "package_sha256": package_sha256,
         "operator_id": actor_id,
     }
+
+    def guard(plan: dict[str, Any], report: dict[str, Any]) -> None:
+        _check_base_hash(repo, actor_id, plan, base_hash, package_sha256, ip, trace_id)
+
     result = ingest_service.import_package(
         repo,
         files=files,
@@ -69,6 +68,7 @@ def push(
         ip=ip,
         trace_id=trace_id,
         sync=sync,
+        guard=guard,
     )
     head_payload = _head_payload(repo, result.plan_id)
     return {
@@ -80,18 +80,6 @@ def push(
         "headVersion": head_payload["headVersion"],
         "headHash": head_payload["headHash"],
     }
-
-
-def _existing_duplicate(
-    repo: Repo, actor_id: int, plan: dict[str, Any], files: dict[str, bytes]
-) -> dict[str, Any] | None:
-    """同一包断网重试：不校验 baseHash，直接走幂等返回。"""
-    existing = repo.find_plan_by_identity(actor_id, plan)
-    if existing is None:
-        return None
-    plan_hash = engine.plan_hash(plan)
-    report_sha = storage.sha256_bytes(files["plan.review.json"])
-    return repo.find_version(int(existing["id"]), plan_hash, report_sha)
 
 
 def _check_base_hash(
@@ -108,10 +96,8 @@ def _check_base_hash(
     new_hash = engine.plan_hash(plan)
     board = repo.version_by_no(int(existing["id"]), int(head["version_no"])) if head else None
     changes = []
-    if board is not None and base_hash:
-        changes = diff.summarize(
-            diff.diff_plans(json.loads(board["content_json"]), plan)
-        )
+    if board is not None:
+        changes = diff.summarize(diff.diff_plans(json.loads(board["content_json"]), plan))
     _audit_conflict(repo, actor_id, existing, expected, base_hash, changes, package_sha256, ip, trace_id)
     raise AppError(
         "CONFLICT_STALE",
@@ -170,7 +156,7 @@ def _plan_for(
     data = identity or {}
     if not data.get("contentTitle") or not data.get("week") or not data.get("session"):
         raise AppError("NOT_FOUND", "请提供 planId 或课程周次课次课题")
-    return repo.find_plan_by_identity(int(user.get("id") or 0), data)
+    return repo.find_plan_by_identity_scope(library.scope_for(user), data)
 
 
 def _head_payload(repo: Repo, plan_id: int) -> dict[str, Any]:
@@ -196,5 +182,6 @@ def _pull_item(row: dict[str, Any]) -> dict[str, Any]:
         "contentTitle": row["content_title"],
         "teacher": row["teacher"],
         "updatedAt": row["created_at"],
+        "deleted": row.get("deleted_at") is not None,
         "content": json.loads(row["content_json"]),
     }
