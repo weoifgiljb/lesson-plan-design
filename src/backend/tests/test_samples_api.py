@@ -78,6 +78,34 @@ class TestSamplesApi(unittest.TestCase):
         self.assertEqual(self._upload(self.plan, csrf).status_code, 201)
         self.assertEqual(self._upload(self.plan, csrf).status_code, 409)
 
+    def test_content_type_with_charset_is_accepted(self) -> None:
+        csrf = self._login("admin1")
+        response = self._upload(self.plan, csrf, content_type="application/json; charset=utf-8")
+        self.assertEqual(response.status_code, 201, response.text)
+
+    def test_huge_week_is_rejected_not_500(self) -> None:
+        csrf = self._login("admin1")
+        plan = json.loads(json.dumps(self.plan))
+        plan["week"] = 10 ** 100
+        response = self._upload(plan, csrf)
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "STRUCTURE_INVALID")
+
+    def test_sample_detail_and_download(self) -> None:
+        csrf = self._login("admin1")
+        created = self._upload(self.plan, csrf).json()
+        sample_id = created["sampleId"]
+        self.assertGreater(created.get("score", 0), 0)
+        detail = self.client.get(f"/api/v1/samples/{sample_id}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        body = detail.json()
+        self.assertEqual(body["content"]["contentTitle"], self.plan["contentTitle"])
+        self.assertIn("score", body)
+        download = self.client.get(f"/api/v1/samples/{sample_id}/download")
+        self.assertEqual(download.status_code, 200)
+        self.assertIn("attachment", download.headers.get("content-disposition", ""))
+        self.assertEqual(json.loads(download.content)["contentTitle"], self.plan["contentTitle"])
+
     def test_whitespace_variant_conflicts(self) -> None:
         csrf = self._login("admin1")
         self.assertEqual(self._upload(self.plan, csrf).status_code, 201)

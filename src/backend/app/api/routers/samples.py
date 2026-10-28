@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 
 from app.api.deps import require_csrf_role, require_role
 from app.api.uploads import read_limited
@@ -37,7 +37,8 @@ async def create_sample(
     file: UploadFile = File(...),
     context: dict[str, Any] = Depends(require_csrf_role("admin")),
 ) -> dict[str, Any]:
-    if (file.content_type or "") != "application/json":
+    media_type = (file.content_type or "").split(";")[0].strip().lower()
+    if media_type != "application/json":
         raise AppError("UNSUPPORTED_MEDIA", f"样例必须是 application/json：{file.content_type}")
     limit = max_sample_bytes()
     if file.size is not None and file.size > limit:
@@ -51,6 +52,28 @@ async def create_sample(
         data,
         ip=_client_ip(request),
         trace_id=_trace_id(request),
+    )
+
+
+@router.get("/samples/{sample_id}")
+def sample_detail(
+    sample_id: int,
+    context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
+) -> dict[str, Any]:
+    return sample_service.detail(context["repo"], sample_id)
+
+
+@router.get("/samples/{sample_id}/download", response_class=Response)
+def sample_download(
+    sample_id: int,
+    context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
+) -> Response:
+    item, data = sample_service.download(context["repo"], sample_id)
+    filename = f"sample-{item['sampleId']}.json"
+    return Response(
+        content=data,
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

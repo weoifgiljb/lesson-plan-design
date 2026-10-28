@@ -6,11 +6,12 @@ from typing import Any
 
 PAGE_SIZE_DEFAULT = 20
 PAGE_SIZE_MAX = 100
+PAGE_MAX = 100000
 
 
 def page_params(page: int | None, page_size: int | None) -> tuple[int, int, int]:
     """返回 (page, page_size, offset)，越界值收敛而不是报错。"""
-    actual_page = max(1, int(page or 1))
+    actual_page = min(max(1, int(page or 1)), PAGE_MAX)
     actual_size = min(max(int(page_size or PAGE_SIZE_DEFAULT), 1), PAGE_SIZE_MAX)
     return actual_page, actual_size, (actual_page - 1) * actual_size
 

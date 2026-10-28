@@ -21,10 +21,25 @@ def normalize_text(value: Any) -> str:
     return " ".join(str(value or "").split())
 
 
+WEEK_RANGE = (1, 30)
+SESSION_RANGE = (1, 20)
+
+
 def identity(plan: dict[str, Any]) -> dict[str, Any]:
+    try:
+        week = int(plan.get("week"))
+        session = int(plan.get("session"))
+    except (TypeError, ValueError) as exc:
+        raise AppError("STRUCTURE_INVALID", "周次或课次必须是整数", {"week": plan.get("week")}) from exc
+    if not WEEK_RANGE[0] <= week <= WEEK_RANGE[1]:
+        raise AppError("STRUCTURE_INVALID", f"周次超出范围（{WEEK_RANGE[0]}–{WEEK_RANGE[1]}）", {"week": week})
+    if not SESSION_RANGE[0] <= session <= SESSION_RANGE[1]:
+        raise AppError(
+            "STRUCTURE_INVALID", f"课次超出范围（{SESSION_RANGE[0]}–{SESSION_RANGE[1]}）", {"session": session}
+        )
     return {
         "course": normalize_text(plan.get("course")),
-        "week": int(plan["week"]),
-        "session": int(plan["session"]),
+        "week": week,
+        "session": session,
         "title": normalize_text(plan.get("contentTitle")),
     }

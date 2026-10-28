@@ -548,7 +548,8 @@
       "idempotent": true,
       "status": [
         200,
-        401
+        401,
+        422
       ],
       "client": "ui",
       "implemented": true
@@ -568,6 +569,8 @@
         401,
         403,
         409,
+        413,
+        415,
         422
       ],
       "client": "ui",
@@ -680,6 +683,46 @@
         503
       ],
       "client": "internal",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/samples/{sample_id}",
+      "summary": "样例详情/预览",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        404
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/samples/{sample_id}/download",
+      "summary": "样例下载",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        404
+      ],
+      "client": "ui",
       "implemented": true
     }
   ]

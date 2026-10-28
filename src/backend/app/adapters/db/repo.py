@@ -260,13 +260,26 @@ class Repo:
         )
 
     def insert_sample(
-        self, course: str, week: int, session: int, title: str, json_path: str, plan_hash: str
+        self,
+        course: str,
+        week: int,
+        session: int,
+        title: str,
+        json_path: str,
+        plan_hash: str,
+        *,
+        score: int = 0,
+        engine_version: str = "",
+        rule_version: str = "",
     ) -> int:
         try:
             cursor = self.conn.execute(
-                "INSERT INTO sample (course, week, session, title, json_path, plan_hash, valid)"
-                " VALUES (?, ?, ?, ?, ?, ?, 1)",
-                (course, int(week), int(session), title, json_path, plan_hash),
+                "INSERT INTO sample (course, week, session, title, json_path, plan_hash, valid,"
+                " score, engine_version, rule_version) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+                (
+                    course, int(week), int(session), title, json_path, plan_hash,
+                    int(score), engine_version, rule_version,
+                ),
             )
         except sqlite3.IntegrityError as exc:
             raise AppError("CONFLICT_STALE", "同一课题的样例已存在") from exc
