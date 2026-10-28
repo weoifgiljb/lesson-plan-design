@@ -2,6 +2,26 @@
 
 本文件记录每个发布标签的变更。版本号遵循语义化版本；标签打在 `main` 上，发布路径为 `feature/* → develop → main`，详见 [docs/dev/git-workflow.md](docs/dev/git-workflow.md)。
 
+## 未发布
+
+### 新增
+
+- **平台端 UI v1.1「教案校样台」**：单一松绿主题、228px 标签式侧栏、56px 命令栏、自绘线性图标、命令面板、指标账本、审查队列与 DEV 概览预览（`/preview/overview`）。
+- **three.js 教案结构剖面**：三维目标、八步流程与证据链的三层剖面；手写指针旋转、悬停说明、自动旋转/重置；无 WebGL、窄屏、chunk 失败或上下文丢失时降级为等距 SVG。仅在 DEV 预览挂载，生产包不含 `three`。
+- **前端设计验收页 v1.1**：色彩与对比度、排版尺度、控件、数据展示、3D 规范、四态与响应式检查；截图脚本覆盖 1440/1280/390 与 2D 兜底，并断言 body 无横向溢出。
+
+### 变更
+
+- A「墨蓝」主题与 A/B 切换退役；`tokens.css` 只保留 `:root`，色板由 `styles/palette.ts` 与单测锁定。
+- 登录页改为深松绿「书桌」分栏 + 纸面表单；共享组件（Table/Metric/Evidence/Diff/State/Chart）按新令牌重做。
+- 生产构建仍只注册登录/403/404 与外壳；业务页面与真实 `/dashboard` 留待 FE-01…FE-09。
+
+### 测试
+
+- 前端 `npm run test`：9 个文件、27 条用例通过（含色板同步、对比度、结构模型、2D 兜底、指标格式化、命令过滤）。
+- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；生产包无预览路由、演示数据与 three chunk。
+- 仓库 `run_backend_gate.py`：block 0（架构 warn 2、契约 warn 1 为既有计划内项）。
+
 ## v1.1.0 — 2026-10-26
 
 ### 新增
