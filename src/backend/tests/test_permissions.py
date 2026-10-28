@@ -88,7 +88,7 @@ class TestPermissionMatrix(unittest.TestCase):
                 with self.subTest(endpoint=f"{item['method']} {item['path']}"):
                     response = self._request(item, client=anonymous)
                     if not item.get("implemented"):
-                        self.assertEqual(response.status_code, 404, response.text)
+                        self.assertIn(response.status_code, (404, 405), response.text)
                     elif item.get("auth") is False:
                         self.assertNotEqual(response.status_code, 401)
                     else:

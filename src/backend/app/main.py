@@ -12,7 +12,7 @@ from fastapi import FastAPI, Request
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
 from app.api.errors import register_error_handlers
-from app.api.routers import auth, health, me, plans, reviews, sync
+from app.api.routers import audit, auth, health, me, plans, reviews, settings, sync
 
 logger = logging.getLogger("lpp")
 
@@ -46,6 +46,8 @@ def create_app() -> FastAPI:
     application.include_router(plans.router, prefix="/api/v1")
     application.include_router(reviews.router, prefix="/api/v1")
     application.include_router(sync.router, prefix="/api/v1")
+    application.include_router(audit.router, prefix="/api/v1")
+    application.include_router(settings.router, prefix="/api/v1")
     return application
 
 

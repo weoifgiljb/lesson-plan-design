@@ -227,7 +227,7 @@ src/
 
 新增 1 张实现表 `user_session`（可撤销会话，满足"退出后重放必须失效"），其余 12 张表按需求 §5.4；`user` 表增加 `group_name` 以支持"组长看本组"。
 
-**首批落地状态（2026-10-28）**：已实现 `health`、`auth/login`、`auth/logout`、`me`、`plans/import`、`plans` 列表/详情/版本链/差异/软删除、`reviews` 列表/详情（含证据链五项），以及 BS-04 的 `sync/head`、`sync/pull`、`sync/push`（baseHash 409 + 游标 + sync_log），共 15 个接口；数据库与不可变触发器、zip 安全解包、插件引擎对照、domain 复校、幂等/并发/审计、范围权限、版本差异、证据链与同步冲突测试均已通过。其余 14 个接口保持 `implemented=false`，由后续 BS-06/07/08 分支逐个翻转。
+**首批落地状态（2026-10-28）**：已实现 `health`、`auth/login`、`auth/logout`、`me`、`plans/import`、`plans` 列表/详情/版本链/差异/软删除、`reviews` 列表/详情（含证据链五项）、`sync/head`、`sync/pull`、`sync/push`（baseHash 409 + 游标 + sync_log）、`audit` 审计查询（管理员全量、组长本组）与 `settings/engine`（管理员），共 17 个接口；数据库与不可变触发器、zip 安全解包、插件引擎对照、domain 复校、幂等/并发/审计、范围权限、版本差异、证据链与同步冲突测试均已通过。其余 12 个接口保持 `implemented=false`，由后续 BS-07/08 分支逐个翻转。
 
 ## 5 前端分层与页面
 

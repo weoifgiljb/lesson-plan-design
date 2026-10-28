@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from test_archive import TestArchive  # noqa: E402,F401
+from test_audit_api import TestAuditApi  # noqa: E402,F401
 from test_auth_api import TestAuthApi  # noqa: E402,F401
 from test_auth_domain import TestAuthRules, TestRoles  # noqa: E402,F401
 from test_db_schema import TestDatabaseSchema  # noqa: E402,F401

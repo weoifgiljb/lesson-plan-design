@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-"""审计编排：把业务动作写入只追加的 audit_log。"""
+"""审计编排：写入只追加的 audit_log，以及管理员/组长的查询。"""
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from app.adapters.db.repo import Repo
+from app.domain import library, timerange
 
 
 def record(
@@ -31,3 +33,45 @@ def record(
         before_hash=before_hash,
         after_hash=after_hash,
     )
+
+
+def query(
+    repo: Repo,
+    user: dict[str, Any],
+    *,
+    filters: dict[str, Any],
+    page: int | None,
+    page_size: int | None,
+) -> dict[str, Any]:
+    actual_page, actual_size, offset = library.page_params(page, page_size)
+    window = dict(filters)
+    window["created_from"] = timerange.start_of(filters["date_from"]) if filters.get("date_from") else None
+    window["created_before"] = timerange.end_exclusive(filters["date_to"]) if filters.get("date_to") else None
+    rows, total = repo.list_audit_entries(library.scope_for(user), window, actual_size, offset)
+    return {
+        "items": [_entry(row) for row in rows],
+        "page": actual_page,
+        "pageSize": actual_size,
+        "total": total,
+    }
+
+
+def _entry(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "actor": {
+            "id": int(row["actor_id"]),
+            "name": row["actor_name"],
+            "role": row["actor_role"],
+            "group": row["actor_group"],
+        },
+        "action": row["action"],
+        "targetType": row["target_type"],
+        "targetId": row["target_id"],
+        "detail": json.loads(row["detail_json"]),
+        "ip": row["ip"],
+        "traceId": row["trace_id"],
+        "beforeHash": row["before_hash"],
+        "afterHash": row["after_hash"],
+        "createdAt": row["created_at"],
+    }

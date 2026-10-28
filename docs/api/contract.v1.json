@@ -587,7 +587,7 @@
         403
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -643,7 +643,7 @@
         403
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "PUT",
