@@ -5,6 +5,8 @@ import type { FormInstance, FormRules } from 'element-plus'
 import type { EChartsOption } from 'echarts'
 
 import ChartCard from '@/components/ChartCard.vue'
+import DataTable from '@/components/DataTable.vue'
+import type { TableColumn } from '@/components/table-types'
 import DiffViewer from '@/components/DiffViewer.vue'
 import EvidenceChain from '@/components/EvidenceChain.vue'
 import MetricCard from '@/components/MetricCard.vue'
@@ -81,6 +83,15 @@ function submitForm(): void {
 const loading = ref(false)
 const showEmpty = ref(false)
 const plans = DEMO_PLANS
+const page = ref(1)
+const planColumns: TableColumn[] = [
+  { key: 'title', label: '课题', minWidth: 180, tooltip: true },
+  { key: 'course', label: '课程', width: 110 },
+  { key: 'week', label: '周/次', width: 80 },
+  { key: 'teacher', label: '教师', width: 100 },
+  { key: 'status', label: '状态', width: 110 },
+  { key: 'version', label: '版本', width: 70 },
+]
 const dialogVisible = ref(false)
 
 const uploadFiles = ref<{ name: string; size: number }[]>([])
@@ -314,8 +325,19 @@ function toggleLoading(): void {
           </div>
           <span class="section-meta">空态 / 加载 / 正常</span>
         </header>
-        <div class="table-surface">
-          <div class="table-toolbar">
+        <DataTable
+          :rows="showEmpty ? [] : plans"
+          :columns="planColumns"
+          :state="loading ? 'loading' : 'ready'"
+          :page="page"
+          :page-size="10"
+          :total="42"
+          show-pagination
+          aria-label="示例教案列表"
+          empty-text="没有匹配的教案，试试调整筛选条件"
+          @update:page="page = $event"
+        >
+          <template #toolbar>
             <div class="row">
               <el-input v-model="form.title" placeholder="按课题筛选" clearable style="width: 220px" />
               <el-select v-model="form.course" style="width: 140px">
@@ -328,29 +350,15 @@ function toggleLoading(): void {
               <el-button @click="toggleLoading">模拟加载</el-button>
               <el-switch v-model="showEmpty" active-text="空态" />
             </div>
-          </div>
-          <div class="table-scroll">
-            <el-table v-loading="loading" :data="showEmpty ? [] : plans" size="default">
-              <el-table-column prop="title" label="课题" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="course" label="课程" width="110" />
-              <el-table-column label="周/次" width="80">
-                <template #default="{ row }">{{ row.week }} / {{ row.session }}</template>
-              </el-table-column>
-              <el-table-column prop="teacher" label="教师" width="100" />
-              <el-table-column label="状态" width="110">
-                <template #default="{ row }"><StatusTag :code="row.status" :status="row.status" /></template>
-              </el-table-column>
-              <el-table-column prop="version" label="版本" width="70" />
-            </el-table>
-          </div>
-          <p class="muted mobile-hint">窄屏可左右滑动表格查看全部列</p>
-          <el-empty v-if="showEmpty" description="没有匹配的教案，试试调整筛选条件">
+          </template>
+          <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
+          <template #cell-status="{ row }">
+            <StatusTag :code="String(row.status)" :status="String(row.status)" />
+          </template>
+          <template #empty>
             <el-button type="primary">上传契约包</el-button>
-          </el-empty>
-          <div class="page-footer">
-            <el-pagination background layout="prev, pager, next, total" :total="42" :page-size="10" />
-          </div>
-        </div>
+          </template>
+        </DataTable>
       </section>
 
       <section id="data" class="review-section">
