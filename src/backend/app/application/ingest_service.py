@@ -229,5 +229,5 @@ def _duplicate(
         int(existing.get("plan_id") or 0),
         int(existing.get("version_no") or 0),
         int(existing.get("review_id") or 0),
-        "",
+        str(existing.get("plan_hash") or ""),
     )

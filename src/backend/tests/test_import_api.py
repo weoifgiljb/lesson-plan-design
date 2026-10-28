@@ -82,6 +82,7 @@ class TestImportApi(unittest.TestCase):
         again = self._upload(data, csrf)
         self.assertEqual(again.status_code, 200, again.text)
         self.assertTrue(again.json()["duplicate"])
+        self.assertEqual(again.json()["planHash"], body["planHash"])
         self.assertEqual(self._version_count(), 1)
         self.assertIn("plan.import", self._audit_actions())
 

@@ -180,7 +180,7 @@ class Repo:
         return _row(
             self.conn.execute(
                 "SELECT plan_version.id AS version_id, plan_version.version_no AS version_no,"
-                " review.id AS review_id, plan_version.plan_id AS plan_id"
+                " plan_version.plan_hash AS plan_hash, review.id AS review_id, plan_version.plan_id AS plan_id"
                 " FROM plan_version JOIN review ON review.plan_version_id = plan_version.id"
                 " WHERE plan_version.plan_id = ? AND plan_version.plan_hash = ? AND review.report_sha256 = ?"
                 " ORDER BY plan_version.version_no DESC LIMIT 1",
