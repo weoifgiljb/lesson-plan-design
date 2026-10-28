@@ -57,13 +57,14 @@ def query(
 
 
 def _entry(row: dict[str, Any]) -> dict[str, Any]:
+    actor_id = row["actor_id"]
     return {
         "id": int(row["id"]),
         "actor": {
-            "id": int(row["actor_id"]),
-            "name": row["actor_name"],
-            "role": row["actor_role"],
-            "group": row["actor_group"],
+            "id": int(actor_id) if actor_id is not None else None,
+            "name": row["actor_name"] or "系统",
+            "role": row["actor_role"] or "",
+            "group": row["actor_group"] or "",
         },
         "action": row["action"],
         "targetType": row["target_type"],

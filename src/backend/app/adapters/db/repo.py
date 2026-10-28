@@ -564,7 +564,7 @@ class Repo:
         "SELECT a.id, a.actor_id, a.action, a.target_type, a.target_id, a.detail_json,"
         " a.ip, a.trace_id, a.before_hash, a.after_hash, a.created_at,"
         " u.display_name AS actor_name, u.role AS actor_role, u.group_name AS actor_group"
-        " FROM audit_log a JOIN user u ON u.id = a.actor_id"
+        " FROM audit_log a LEFT JOIN user u ON u.id = a.actor_id"
     )
 
     def list_audit_entries(
@@ -573,7 +573,7 @@ class Repo:
         where, params = self._audit_where(scope, filters)
         count_sql = " ".join(
             (
-                "SELECT COUNT(*) AS total FROM audit_log a JOIN user u ON u.id = a.actor_id",
+                "SELECT COUNT(*) AS total FROM audit_log a LEFT JOIN user u ON u.id = a.actor_id",
                 "WHERE",
                 where,
             )
@@ -586,8 +586,12 @@ class Repo:
     def _audit_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["1 = 1"]
         params: list[Any] = []
+        owner_id = scope.get("owner_id")
         group_name = scope.get("group_name")
-        if group_name:
+        if owner_id is not None:
+            where.append("a.actor_id = ?")
+            params.append(int(owner_id))
+        elif group_name:
             where.append("u.group_name = ?")
             params.append(str(group_name))
         for column, key in (
