@@ -1179,6 +1179,22 @@
             }
           },
           {
+            "name": "class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class"
+            }
+          },
+          {
             "name": "teacher",
             "in": "query",
             "required": false,
@@ -1241,6 +1257,127 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stats/export.csv": {
+      "get": {
+        "summary": "Stats Export Csv",
+        "operationId": "stats_export_csv_api_v1_stats_export_csv_get",
+        "parameters": [
+          {
+            "name": "course",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Course"
+            }
+          },
+          {
+            "name": "week",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Week"
+            }
+          },
+          {
+            "name": "class",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Class"
+            }
+          },
+          {
+            "name": "teacher",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Teacher"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Datefrom"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dateto"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",

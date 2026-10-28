@@ -319,9 +319,11 @@ class Repo:
         extra, more = self._stats_where(dict(filters or {}))
         sql = " ".join(
             (
-                "SELECT j.created_at AS export_created_at, p.created_at AS plan_created_at",
+                "SELECT j.created_at AS export_created_at,"
+                " COALESCE(t.created_at, p.created_at) AS start_at",
                 "FROM export_job j JOIN plan_version pv ON pv.id = j.plan_version_id",
-                "JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
+                "JOIN plan p ON p.id = pv.plan_id LEFT JOIN task t ON t.id = p.task_id",
+                "JOIN user u ON u.id = p.owner_id",
                 "WHERE j.status = 'succeeded' AND p.deleted_at IS NULL AND",
                 condition,
                 "AND",
@@ -334,7 +336,7 @@ class Repo:
         where = ["1 = 1"]
         params: list[Any] = []
         data = dict(filters or {})
-        for column, key in (("t.course", "course"), ("t.week", "week"), ("u.display_name", "teacher")):
+        for column, key in (("t.course", "course"), ("t.week", "week"), ("t.class_name", "class"), ("u.display_name", "teacher")):
             value = data.get(key)
             if value not in (None, ""):
                 where.append(f"{column} = ?")
@@ -350,6 +352,10 @@ class Repo:
     def _stats_where(self, filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["1 = 1"]
         params: list[Any] = []
+        class_name = filters.get("class")
+        if class_name not in (None, ""):
+            where.append("p.task_id IN (SELECT id FROM task WHERE class_name = ?)")
+            params.append(class_name)
         for column, key in (("p.course", "course"), ("p.week", "week"), ("u.display_name", "teacher")):
             value = filters.get(key)
             if value not in (None, ""):

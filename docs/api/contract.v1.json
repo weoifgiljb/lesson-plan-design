@@ -681,6 +681,25 @@
       ],
       "client": "internal",
       "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/stats/export.csv",
+      "summary": "统计指标 CSV 导出",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401
+      ],
+      "client": "ui",
+      "implemented": true
     }
   ]
 }

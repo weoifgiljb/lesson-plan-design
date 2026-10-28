@@ -16,6 +16,7 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
     window = {
         "course": raw_filters.get("course"),
         "week": raw_filters.get("week"),
+        "class": raw_filters.get("class"),
         "teacher": raw_filters.get("teacher"),
         "created_from": timerange.start_of(raw_filters["date_from"]) if raw_filters.get("date_from") else None,
         "created_before": timerange.end_exclusive(raw_filters["date_to"]) if raw_filters.get("date_to") else None,
@@ -64,18 +65,42 @@ def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _export_seconds(rows: list[dict[str, Any]]) -> list[float]:
-    seconds = []
+    """单份耗时：任务创建 → 导出完成，单位分钟（需求 BS-08/开题表 2）。"""
+    minutes = []
     for row in rows:
-        start = datetime.fromisoformat(str(row["plan_created_at"]))
+        start = datetime.fromisoformat(str(row["start_at"]))
         end = datetime.fromisoformat(str(row["export_created_at"]))
-        seconds.append(max((end - start).total_seconds(), 0.0))
-    return seconds
+        minutes.append(max((end - start).total_seconds(), 0.0) / 60.0)
+    return minutes
+
+
+def export_csv(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None = None) -> str:
+    """把 9 项指标导出为 CSV：分子/分母/值/单位/可用性都要看得见。"""
+    payload = summary(repo, user, filters=filters)
+    lines = ["key,label,numerator,denominator,value,unit,available"]
+    for item in payload["metrics"]:
+        value = "" if item["value"] is None else item["value"]
+        lines.append(
+            ",".join(
+                (
+                    str(item["key"]),
+                    str(item["label"]),
+                    str(item["numerator"]),
+                    str(item["denominator"]),
+                    str(value),
+                    str(item["unit"]),
+                    "1" if item["available"] else "0",
+                )
+            )
+        )
+    return "\n".join(lines) + "\n"
 
 
 def _filters_payload(raw: dict[str, Any]) -> dict[str, Any]:
     return {
         "course": raw.get("course"),
         "week": raw.get("week"),
+        "class": raw.get("class"),
         "teacher": raw.get("teacher"),
         "dateFrom": raw.get("date_from").isoformat() if raw.get("date_from") else None,
         "dateTo": raw.get("date_to").isoformat() if raw.get("date_to") else None,

@@ -183,6 +183,30 @@ class TestStatsApi(unittest.TestCase):
         self.assertEqual(metrics["structure_rate"]["denominator"], 1)
         self.assertEqual(filtered["filters"]["course"], "英语")
 
+    def test_export_duration_unit_is_minutes(self) -> None:
+        self._login("admin1")
+        metrics = self._metrics()
+        self.assertEqual(metrics["export_seconds"]["unit"], "分钟")
+        self.assertEqual(metrics["export_seconds"]["denominator"], 1)
+        self.assertIsNotNone(metrics["export_seconds"]["value"])
+
+    def test_class_filter_limits_scope(self) -> None:
+        self._login("admin1")
+        filtered = self.client.get("/api/v1/stats/summary?class=计算机1班").json()
+        metrics = {item["key"]: item for item in filtered["metrics"]}
+        # setUp 里的教案都没有挂任务，按班级筛选后没有样本
+        self.assertEqual(metrics["structure_rate"]["denominator"], 0)
+        self.assertFalse(metrics["task_completion"]["available"])
+
+    def test_export_csv_lists_nine_metrics(self) -> None:
+        self._login("admin1")
+        response = self.client.get("/api/v1/stats/export.csv")
+        self.assertEqual(response.status_code, 200, response.text)
+        lines = [line for line in response.text.splitlines() if line]
+        self.assertEqual(len(lines), 10)  # 表头 + 9 项指标
+        self.assertTrue(lines[0].lstrip("\ufeff").startswith("key,label,numerator,denominator"))
+        self.assertIn("structure_rate", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()
