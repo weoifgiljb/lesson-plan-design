@@ -2,13 +2,16 @@
 """SQLite 连接与建库迁移：WAL、外键、忙等超时、user_version 版本号。"""
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 
 from app.config import db_path
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
-SCHEMA_VERSION = 1
+MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
+SCHEMA_VERSION = 2
+MIGRATION_NAME = re.compile(r"^(\d{4})_.*\.sql$")
 
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
@@ -28,11 +31,41 @@ def current_version(conn: sqlite3.Connection) -> int:
     return int(conn.execute("PRAGMA user_version").fetchone()[0])
 
 
+def available_migrations() -> dict[int, Path]:
+    found: dict[int, Path] = {}
+    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        match = MIGRATION_NAME.match(path.name)
+        if match:
+            found[int(match.group(1))] = path
+    return found
+
+
 def initialize(conn: sqlite3.Connection) -> None:
     version = current_version(conn)
     if version == 0:
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
         conn.execute("PRAGMA user_version=1")
+        version = 1
+    if version > SCHEMA_VERSION:
+        raise RuntimeError(f"数据库结构版本 {version} 高于代码支持的 {SCHEMA_VERSION}")
+    migrations = available_migrations()
+    for target in range(version + 1, SCHEMA_VERSION + 1):
+        script = migrations.get(target)
+        if script is None:
+            raise RuntimeError(f"缺少迁移脚本 {target:04d}_*.sql")
+        conn.executescript(script.read_text(encoding="utf-8"))
+        set_version(conn, target)
+
+
+_VERSION_SQL = {n: f"PRAGMA user_version={n}" for n in range(1, 100)}
+
+
+def set_version(conn: sqlite3.Connection, version: int) -> None:
+    """推进 user_version：PRAGMA 不支持参数绑定，这里只走内部白名单常量。"""
+    sql = _VERSION_SQL.get(int(version))
+    if sql is None:
+        raise RuntimeError(f"迁移版本号超出范围：{version}")
+    conn.execute(sql)
 
 
 def open_database(path: Path | None = None) -> sqlite3.Connection:

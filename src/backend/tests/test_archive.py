@@ -40,6 +40,24 @@ class TestArchive(unittest.TestCase):
             archive.read_package(payload)
         self.assertEqual(caught.exception.code, "PAYLOAD_REJECTED")
 
+    def test_windows_drive_and_unc_paths_are_rejected(self) -> None:
+        for name in ("C:/evil.png", "c:\\evil.png", "//server/share/evil.png"):
+            with self.subTest(name=name):
+                with self.assertRaises(AppError) as caught:
+                    archive.normalize_entry(name)
+                self.assertEqual(caught.exception.code, "PAYLOAD_REJECTED")
+
+    def test_windows_reserved_names_are_rejected(self) -> None:
+        for name in ("media/CON.png", "media/nul.json", "media/trailing.", "media/pad /plan.json"):
+            with self.subTest(name=name):
+                with self.assertRaises(AppError) as caught:
+                    archive.normalize_entry(name)
+                self.assertEqual(caught.exception.code, "PAYLOAD_REJECTED")
+
+    def test_normal_entries_still_pass(self) -> None:
+        self.assertEqual(archive.normalize_entry("media/page-001.png"), "media/page-001.png")
+        self.assertEqual(archive.normalize_entry("plan.json"), "plan.json")
+
     def test_suffix_whitelist(self) -> None:
         payload = self._zip_bytes([("manifest.json", b"{}"), ("evil.exe", b"x")])
         with self.assertRaises(AppError) as caught:

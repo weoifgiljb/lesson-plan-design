@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import uuid
 from pathlib import Path
 
@@ -45,11 +46,24 @@ def disk_status() -> str:
 
 
 def store_version_files(plan_id: int, version_no: int, files: dict[str, bytes]) -> dict[str, str]:
-    """把契约包内文件原样落到 files/plans/<id>/<version>/，返回 名称 -> sha256。"""
+    """把契约包内文件原样落到 files/plans/<id>/<version>/，返回 名称 -> sha256。
+
+    任一条写失败就把本次已写的目录清掉，避免失败后残留半套文件（评审 P19-1）。
+    """
     root = files_dir()
     base = f"plans/{plan_id}/{version_no}"
     stored: dict[str, str] = {}
-    for name, data in files.items():
-        write_bytes(root, f"{base}/{name}", data)
-        stored[name] = sha256_bytes(data)
+    try:
+        for name, data in files.items():
+            write_bytes(root, f"{base}/{name}", data)
+            stored[name] = sha256_bytes(data)
+    except Exception:
+        remove_version_files(plan_id, version_no)
+        raise
     return stored
+
+
+def remove_version_files(plan_id: int, version_no: int) -> None:
+    target = files_dir() / f"plans/{plan_id}/{version_no}"
+    if target.exists():
+        shutil.rmtree(target, ignore_errors=True)
