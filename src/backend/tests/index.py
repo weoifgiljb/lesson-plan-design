@@ -15,6 +15,7 @@ from test_engine import TestEngineParity  # noqa: E402,F401
 from test_health import TestHealth, TestOpenApiSnapshot  # noqa: E402,F401
 from test_ingest_domain import TestIngestVerdicts  # noqa: E402,F401
 from test_ingest_service import TestIngestService  # noqa: E402,F401
+from test_import_api import TestImportApi  # noqa: E402,F401
 from test_permissions import TestPermissionMatrix  # noqa: E402,F401
 from test_security import TestSecurity  # noqa: E402,F401
 from test_storage import TestStorage  # noqa: E402,F401

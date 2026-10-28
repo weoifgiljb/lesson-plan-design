@@ -57,15 +57,23 @@ class TestPermissionMatrix(unittest.TestCase):
             self.assertIn(item["method"], {"GET", "POST", "PUT", "PATCH", "DELETE"})
             self.assertTrue(item["path"].startswith("/api/v1/"))
 
+    def _call(self, item: dict):
+        method = item["method"]
+        path = item["path"]
+        if method == "GET":
+            return self.client.get(path)
+        if path.endswith("/import"):
+            return self.client.post(
+                path, files={"file": ("probe.zip", b"not-a-zip", "application/zip")}
+            )
+        return self.client.post(path, json={})
+
     def test_unauthenticated_requests_are_401(self) -> None:
         for item in implemented_endpoints():
             if item.get("auth") is False:
                 continue
             with self.subTest(endpoint=f"{item['method']} {item['path']}"):
-                if item["method"] == "GET":
-                    response = self.client.get(item["path"])
-                else:
-                    response = self.client.post(item["path"], json={})
+                response = self._call(item)
                 self.assertEqual(response.status_code, 401, response.text)
 
     def test_public_endpoints_are_reachable(self) -> None:
@@ -73,10 +81,10 @@ class TestPermissionMatrix(unittest.TestCase):
             if item.get("auth") is not False:
                 continue
             with self.subTest(endpoint=f"{item['method']} {item['path']}"):
+                response = self._call(item)
                 if item["path"].endswith("/health"):
-                    self.assertEqual(self.client.get(item["path"]).status_code, 200)
+                    self.assertEqual(response.status_code, 200)
                 else:
-                    response = self.client.post(item["path"], json={})
                     self.assertNotEqual(response.status_code, 401)
 
     def test_csrf_required_when_contract_says_so(self) -> None:
@@ -85,7 +93,7 @@ class TestPermissionMatrix(unittest.TestCase):
         for item in csrf_endpoints:
             with self.subTest(endpoint=item["path"]):
                 self._login("teacher")
-                self.assertEqual(self.client.post(item["path"], json={}).status_code, 403)
+                self.assertEqual(self._call(item).status_code, 403, item["path"])
 
     def test_each_role_can_read_own_profile(self) -> None:
         for role in ROLES:

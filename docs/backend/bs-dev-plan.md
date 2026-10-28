@@ -227,7 +227,7 @@ src/
 
 新增 1 张实现表 `user_session`（可撤销会话，满足"退出后重放必须失效"），其余 12 张表按需求 §5.4。
 
-**首批落地范围（本批）**：`health`、入库管道（domain + application + 适配层）、数据库与不可变触发器、zip 安全解包、插件引擎对照；`auth/login`、`auth/logout`、`me` 与 `plans/import` 在后续两个 PR 内完成，`implemented` 随实现同批翻转。
+**首批落地状态（2026-10-28）**：已实现 `health`、`auth/login`、`auth/logout`、`me`、`plans/import` 五个接口；数据库与不可变触发器、zip 安全解包、插件引擎对照、domain 复校、幂等/并发/审计与 6 个黄金契约包测试均已通过。其余接口保持 `implemented=false`，由后续 BS-02/03/04/06 分支逐个翻转。
 
 ## 5 前端分层与页面
 
