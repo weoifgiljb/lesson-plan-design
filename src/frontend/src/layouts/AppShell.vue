@@ -7,16 +7,13 @@ import {
   DataAnalysis,
   Document,
   Download,
-  Expand,
   Files,
-  Fold,
   Grid,
   Moon,
   Plus,
   Search,
   Setting,
   Sunny,
-  User,
 } from '@element-plus/icons-vue'
 
 import { useSessionStore } from '@/stores/session'
@@ -30,14 +27,15 @@ const isDev = import.meta.env.DEV
 const navItems = computed(() => [
   { label: '概览', icon: Grid },
   { label: '任务', icon: Document },
-  { label: '教案库', icon: Files },
-  { label: '审查中心', icon: Collection },
-  { label: '导出中心', icon: Download },
+  { label: '教案', icon: Files },
+  { label: '审查', icon: Collection },
+  { label: '导出', icon: Download },
   { label: '统计', icon: DataAnalysis },
-  { label: '样例库', icon: Collection },
+  { label: '样例', icon: Collection },
   ...(session.isAdmin ? [{ label: '管理', icon: Setting }] : []),
 ])
 
+const initial = computed(() => (session.user?.displayName ?? '验').slice(0, 1))
 const roleLabel = computed(() => {
   const map: Record<string, string> = { teacher: '教师', lead: '教研组长', admin: '管理员' }
   return map[session.role] ?? '验收模式'
@@ -50,58 +48,48 @@ async function signOut(): Promise<void> {
 </script>
 
 <template>
-  <div class="workspace" :class="{ 'workspace--compact': ui.sidebarCollapsed }">
+  <div class="workspace">
     <aside class="rail" aria-label="主导航">
-      <div class="brand">
+      <div class="brand" title="校本教案平台">
         <span class="brand-mark">L</span>
-        <div v-if="!ui.sidebarCollapsed" class="brand-copy">
-          <strong>校本教案</strong>
-          <span>平台端</span>
-        </div>
       </div>
 
       <nav class="rail-nav">
         <button
           v-for="item in navItems"
           :key="item.label"
-          class="nav-item nav-item--muted"
+          class="rail-item"
           type="button"
           :title="`${item.label}（待开发）`"
-          :aria-disabled="true"
+          aria-disabled="true"
+          disabled
         >
           <el-icon><component :is="item.icon" /></el-icon>
-          <span v-if="!ui.sidebarCollapsed">{{ item.label }}</span>
+          <span>{{ item.label }}</span>
         </button>
-        <router-link v-if="isDev" class="nav-item nav-item--active" to="/styleguide">
+        <router-link v-if="isDev" class="rail-item rail-item--active" to="/styleguide" title="风格验收">
           <el-icon><Brush /></el-icon>
-          <span v-if="!ui.sidebarCollapsed">风格验收</span>
+          <span>验收</span>
         </router-link>
       </nav>
 
-      <div v-if="!ui.sidebarCollapsed" class="rail-footer">
-        <span>契约 28/29</span>
-        <span>· 联调通过</span>
+      <div class="rail-foot">
+        <button v-if="session.user" class="avatar" type="button" title="退出登录" @click="signOut">
+          {{ initial }}
+        </button>
+        <router-link v-else class="avatar avatar--login" to="/login" title="登录">登</router-link>
       </div>
     </aside>
 
     <section class="main">
       <header class="commandbar">
-        <button
-          class="icon-button"
-          type="button"
-          :aria-label="ui.sidebarCollapsed ? '展开导航' : '折叠导航'"
-          @click="ui.toggleSidebar()"
-        >
-          <el-icon><Expand v-if="ui.sidebarCollapsed" /><Fold v-else /></el-icon>
-        </button>
-
         <div class="crumb">
-          平台端
-          <span>/</span>
+          <span>平台端</span>
+          <span class="sep">/</span>
           <strong>{{ isDev ? '风格验收' : '首页' }}</strong>
         </div>
 
-        <div class="commandbar-spacer" />
+        <div class="spacer" />
 
         <label class="searchbox" title="搜索在教案库上线后启用">
           <el-icon><Search /></el-icon>
@@ -118,10 +106,9 @@ async function signOut(): Promise<void> {
           <el-icon><Sunny v-if="ui.theme === 'pine'" /><Moon v-else /></el-icon>
         </button>
 
-        <div class="user">
-          <el-icon><User /></el-icon>
-          <span>{{ session.user?.displayName ?? '未登录' }}</span>
-          <span class="user-role">{{ roleLabel }}</span>
+        <div class="identity">
+          <span class="identity-name">{{ session.user?.displayName ?? '未登录' }}</span>
+          <span class="identity-role">{{ roleLabel }}</span>
         </div>
 
         <el-button v-if="session.user" size="small" @click="signOut">退出</el-button>
@@ -129,7 +116,7 @@ async function signOut(): Promise<void> {
 
         <el-button type="primary" size="small" :disabled="!session.user" title="登录并上线教案库后启用">
           <el-icon><Plus /></el-icon>
-          上传契约包
+          上传
         </el-button>
       </header>
 
@@ -148,133 +135,116 @@ async function signOut(): Promise<void> {
 }
 
 .rail {
-  width: 248px;
-  flex: 0 0 248px;
+  width: 76px;
+  flex: 0 0 76px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
-  padding: 10px 8px 12px;
+  padding: 10px 6px 8px;
   background: var(--lpp-layer);
   border-right: 1px solid var(--lpp-border);
 }
 
-.workspace--compact .rail {
-  width: 64px;
-  flex-basis: 64px;
-  padding: 10px 6px;
-}
-
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 44px;
-  padding: 0 8px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
 }
 
 .brand-mark {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--lpp-primary);
   color: #fff;
-  font-weight: 700;
   font-size: 13px;
-}
-
-.brand-copy {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.brand-copy strong {
-  font-size: 14px;
-}
-
-.brand-copy span {
-  color: var(--lpp-text-muted);
-  font-size: 11px;
+  font-weight: 700;
 }
 
 .rail-nav {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  margin-top: 4px;
+  gap: 2px;
 }
 
-.nav-item {
+.rail-item {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 10px;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 52px;
   border: 0;
   border-radius: var(--lpp-radius-control);
   background: transparent;
-  color: var(--lpp-text);
+  color: var(--lpp-text-muted);
   font: inherit;
-  font-size: 13px;
-  text-align: left;
+  font-size: 10px;
   text-decoration: none;
   cursor: pointer;
 }
 
-.nav-item .el-icon {
-  font-size: 16px;
-  color: var(--lpp-text-muted);
+.rail-item .el-icon {
+  font-size: 18px;
 }
 
-.nav-item:hover {
+.rail-item:hover {
   background: var(--lpp-nav-hover);
+  color: var(--lpp-text);
   text-decoration: none;
 }
 
-.nav-item--muted {
-  color: var(--lpp-text-muted);
-  opacity: 0.62;
+.rail-item[aria-disabled='true'] {
+  opacity: 0.58;
   cursor: default;
 }
 
-.nav-item--active {
+.rail-item[aria-disabled='true']:hover {
+  background: transparent;
+  color: var(--lpp-text-muted);
+}
+
+.rail-item--active {
   background: var(--lpp-nav-selected);
   color: var(--lpp-primary);
   font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--lpp-primary);
 }
 
-.nav-item--active .el-icon {
+.rail-item--active .el-icon {
   color: var(--lpp-primary);
 }
 
-.nav-item--active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--lpp-primary);
-}
-
-.workspace--compact .nav-item {
-  justify-content: center;
-  padding: 0;
-}
-
-.workspace--compact .nav-item--active::before {
-  left: 2px;
-}
-
-.rail-footer {
+.rail-foot {
   margin-top: auto;
-  padding: 8px 10px 2px;
-  color: var(--lpp-text-muted);
-  font-size: 11px;
+  padding-top: 8px;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--lpp-border-strong);
+  border-radius: 50%;
+  background: var(--lpp-surface);
+  color: var(--lpp-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.avatar--login {
+  text-decoration: none;
 }
 
 .main {
@@ -285,32 +255,14 @@ async function signOut(): Promise<void> {
 }
 
 .commandbar {
-  height: 52px;
-  flex: 0 0 52px;
+  height: 48px;
+  flex: 0 0 48px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 16px;
   background: var(--lpp-surface);
   border-bottom: 1px solid var(--lpp-border);
-}
-
-.icon-button {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: var(--lpp-radius-control);
-  background: transparent;
-  color: var(--lpp-text);
-  cursor: pointer;
-}
-
-.icon-button:hover {
-  background: var(--lpp-row-hover);
-  border-color: var(--lpp-border);
 }
 
 .crumb {
@@ -327,7 +279,11 @@ async function signOut(): Promise<void> {
   font-weight: 600;
 }
 
-.commandbar-spacer {
+.sep {
+  color: var(--lpp-border-strong);
+}
+
+.spacer {
   flex: 1;
 }
 
@@ -358,7 +314,25 @@ async function signOut(): Promise<void> {
   color: var(--lpp-text-muted);
 }
 
-.user {
+.icon-button {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--lpp-radius-control);
+  background: transparent;
+  color: var(--lpp-text);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: var(--lpp-row-hover);
+  border-color: var(--lpp-border);
+}
+
+.identity {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -366,7 +340,7 @@ async function signOut(): Promise<void> {
   white-space: nowrap;
 }
 
-.user-role {
+.identity-role {
   color: var(--lpp-text-muted);
 }
 
@@ -380,7 +354,7 @@ async function signOut(): Promise<void> {
   padding: 20px 24px 32px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1100px) {
   .searchbox {
     display: none;
   }
@@ -390,18 +364,7 @@ async function signOut(): Promise<void> {
   .rail {
     width: 64px;
     flex-basis: 64px;
-    padding: 10px 6px;
-  }
-
-  .brand-copy,
-  .rail-footer,
-  .nav-item span {
-    display: none;
-  }
-
-  .nav-item {
-    justify-content: center;
-    padding: 0;
+    padding: 10px 4px 8px;
   }
 
   .canvas {
@@ -420,8 +383,7 @@ async function signOut(): Promise<void> {
     padding: 0 10px;
   }
 
-  .user span:not(.user-role),
-  .user-role {
+  .identity {
     display: none;
   }
 }

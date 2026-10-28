@@ -127,47 +127,52 @@ function toggleLoading(): void {
 </script>
 
 <template>
-  <div class="settings">
-    <aside class="settings-nav">
-      <div class="settings-intro">
-        <p class="eyebrow">Design review · 2026-10</p>
-        <h1>视觉方向与组件验收</h1>
-        <p class="muted">
-          参考 Windows 11 Fluent 的导航/命令栏、macOS Finder 的内容优先、GNOME Settings
-          的分段结构；主题 B 已选定，布局待确认。
+  <div class="review">
+    <header class="review-head">
+      <div class="review-title">
+        <p class="kicker">Design review · 2026-10</p>
+        <h1>视觉与组件验收</h1>
+        <p class="review-lead">
+          参考 Windows 11 Fluent 的导航与命令栏、macOS Finder 的内容优先、GNOME Settings 的分段结构。
+          B「松绿 · 砂岩」已选，布局待确认。
         </p>
+        <div class="chips">
+          <span class="chip">主题 B 松绿</span>
+          <span class="chip">Fluent / Finder / GNOME</span>
+          <span class="chip chip--accent">待确认</span>
+        </div>
       </div>
-
-      <nav class="section-links" aria-label="验收章节">
-        <a href="#tokens">色板与令牌</a>
-        <a href="#type">排版</a>
-        <a href="#buttons">按钮与操作</a>
-        <a href="#forms">表单</a>
-        <a href="#table">列表与状态</a>
-        <a href="#overlays">弹窗与上传</a>
-        <a href="#data">证据、差异与指标</a>
-        <a href="#states">页面四态</a>
-      </nav>
-
-      <div class="theme-box">
-        <span class="theme-label">主题</span>
-        <el-radio-group :model-value="ui.theme" size="small" @update:model-value="changeTheme">
-          <el-radio-button value="ink">A 墨蓝</el-radio-button>
-          <el-radio-button value="pine">B 松绿</el-radio-button>
-        </el-radio-group>
-        <p class="muted">当前：{{ palette.title }}</p>
-        <p class="muted">切到 1280 / 390 检查导航折叠与内容换行。</p>
+      <div class="review-summary" aria-label="验收摘要">
+        <div><span>参考系统</span><strong>3</strong><small>Windows / macOS / GNOME</small></div>
+        <div><span>覆盖</span><strong>4 / 4</strong><small>令牌 · 组件 · 四态 · 响应式</small></div>
+        <div><span>状态</span><strong>待验收</strong><small>通过后冻结 v1.0</small></div>
       </div>
-    </aside>
+    </header>
 
-    <div class="settings-content">
-      <section id="tokens" class="settings-section">
+    <nav class="tabs" aria-label="验收章节">
+      <a href="#tokens">色板与令牌</a>
+      <a href="#type">排版</a>
+      <a href="#buttons">按钮</a>
+      <a href="#forms">表单</a>
+      <a href="#table">列表与状态</a>
+      <a href="#overlays">弹窗与上传</a>
+      <a href="#data">证据与指标</a>
+      <a href="#states">页面四态</a>
+      <span class="tabs-spacer" />
+      <el-radio-group :model-value="ui.theme" size="small" @update:model-value="changeTheme">
+        <el-radio-button value="ink">A 墨蓝</el-radio-button>
+        <el-radio-button value="pine">B 松绿</el-radio-button>
+      </el-radio-group>
+    </nav>
+
+    <div class="review-body">
+      <section id="tokens" class="review-section">
         <header class="section-head">
           <div>
             <h2>色板与令牌</h2>
-            <p class="muted">画布、表面、描边分层，接近桌面系统的“窗口/面板/内容”关系，而不是卡片叠卡片。</p>
+            <p class="muted">画布、表面、描边三层关系；颜色只通过令牌引用。</p>
           </div>
-          <span class="section-meta">CSS variables · 实时切换</span>
+          <span class="section-meta">CSS variables</span>
         </header>
         <div class="swatch-grid">
           <div v-for="[label, color] in swatches" :key="label">
@@ -177,78 +182,110 @@ function toggleLoading(): void {
         </div>
       </section>
 
-      <section id="type" class="settings-section">
-        <header class="section-head">
-          <div>
-            <h2>排版</h2>
-            <p class="muted">Segoe UI + 系统中文字体；正文 14、表格 13、标题 20；数字使用等宽数字。</p>
+      <div class="pair">
+        <section id="type" class="review-section">
+          <header class="section-head">
+            <div>
+              <h2>排版</h2>
+              <p class="muted">Segoe UI + 系统中文字体；正文 14、表格 13、标题 20。</p>
+            </div>
+            <span class="section-meta">无外链字体</span>
+          </header>
+          <div class="type-specimens">
+            <div><span class="spec-label">页面标题 / 20 · 600</span><h1>教案库与版本链</h1></div>
+            <div><span class="spec-label">小标题 / 16 · 600</span><h2>证据链与审查记录</h2></div>
+            <div><span class="spec-label">正文 / 14 · 1.6</span><p>教师只能查看本人教案，组长查看本组；管理员可查看全部并审计关键操作。</p></div>
+            <div><span class="spec-label">表格 / 13 · 1.45</span><p class="mono">planHash 8f2c…a91 · 2026-10-28 14:20</p></div>
           </div>
-          <span class="section-meta">无外链字体</span>
-        </header>
-        <div class="type-specimens">
-          <div><span class="spec-label">页面标题 / 20 · 600</span><h1>教案库与版本链</h1></div>
-          <div><span class="spec-label">小标题 / 16 · 600</span><h2>证据链与审查记录</h2></div>
-          <div><span class="spec-label">正文 / 14 · 1.6</span><p>教师只能查看本人教案，组长查看本组；管理员可查看全部并审计关键操作。</p></div>
-          <div><span class="spec-label">表格 / 13 · 1.45</span><p class="mono">planHash 8f2c…a91 · 2026-10-28 14:20</p></div>
-        </div>
-      </section>
+        </section>
 
-      <section id="buttons" class="settings-section">
-        <header class="section-head">
-          <div>
-            <h2>按钮与操作</h2>
-            <p class="muted">控件高度 32、圆角 4；一屏一个主按钮，其余为默认/文字/图标按钮。</p>
+        <section id="buttons" class="review-section">
+          <header class="section-head">
+            <div>
+              <h2>按钮</h2>
+              <p class="muted">控件高 32、圆角 6；一屏一个主按钮。</p>
+            </div>
+            <span class="section-meta">Fluent 尺度</span>
+          </header>
+          <div class="demo-surface row">
+            <el-button type="primary">上传契约包</el-button>
+            <el-button>取消</el-button>
+            <el-button type="success">通过</el-button>
+            <el-button type="warning">放行</el-button>
+            <el-button type="danger">删除</el-button>
+            <el-button text>文字按钮</el-button>
+            <el-button disabled>禁用</el-button>
+            <el-button type="primary" loading>提交中</el-button>
           </div>
-          <span class="section-meta">Fluent 控件尺度</span>
-        </header>
-        <div class="demo-surface row">
-          <el-button type="primary">上传契约包</el-button>
-          <el-button>取消</el-button>
-          <el-button type="success">通过</el-button>
-          <el-button type="warning">放行</el-button>
-          <el-button type="danger">删除</el-button>
-          <el-button text>文字按钮</el-button>
-          <el-button disabled>禁用</el-button>
-          <el-button type="primary" loading>提交中</el-button>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      <section id="forms" class="settings-section">
-        <header class="section-head">
-          <div>
-            <h2>表单</h2>
-            <p class="muted">标签在字段上方，错误在下方；两列在窄屏自动变一列。</p>
+      <div class="pair">
+        <section id="forms" class="review-section">
+          <header class="section-head">
+            <div>
+              <h2>表单</h2>
+              <p class="muted">标签在字段上方，错误在下方；窄屏自动一列。</p>
+            </div>
+            <span class="section-meta">Element Plus Form</span>
+          </header>
+          <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form-grid">
+            <el-form-item label="课题" prop="title">
+              <el-input v-model="form.title" placeholder="例如：一级考证辅导2" />
+            </el-form-item>
+            <el-form-item label="课程" prop="course">
+              <el-select v-model="form.course" style="width: 100%">
+                <el-option label="信息技术" value="信息技术" />
+                <el-option label="英语" value="英语" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="周次" prop="week">
+              <el-input-number v-model="form.week" :min="1" :max="20" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.note" type="textarea" :rows="2" placeholder="选填" />
+            </el-form-item>
+          </el-form>
+          <div class="row">
+            <el-button type="primary" @click="submitForm">保存</el-button>
+            <el-button @click="formRef?.resetFields()">重置</el-button>
           </div>
-          <span class="section-meta">Element Plus Form</span>
-        </header>
-        <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="form-grid">
-          <el-form-item label="课题" prop="title">
-            <el-input v-model="form.title" placeholder="例如：一级考证辅导2" />
-          </el-form-item>
-          <el-form-item label="课程" prop="course">
-            <el-select v-model="form.course" style="width: 100%">
-              <el-option label="信息技术" value="信息技术" />
-              <el-option label="英语" value="英语" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="周次" prop="week">
-            <el-input-number v-model="form.week" :min="1" :max="20" />
-          </el-form-item>
-          <el-form-item label="备注">
-            <el-input v-model="form.note" type="textarea" :rows="2" placeholder="选填" />
-          </el-form-item>
-        </el-form>
-        <div class="row">
-          <el-button type="primary" @click="submitForm">保存</el-button>
-          <el-button @click="formRef?.resetFields()">重置</el-button>
-        </div>
-      </section>
+        </section>
 
-      <section id="table" class="settings-section">
+        <section id="overlays" class="review-section">
+          <header class="section-head">
+            <div>
+              <h2>弹窗与上传</h2>
+              <p class="muted">Esc 关闭、焦点归位；上传只接受 .zip。</p>
+            </div>
+            <span class="section-meta">Dialog / Upload</span>
+          </header>
+          <div class="demo-surface row">
+            <el-button @click="dialogVisible = true">打开弹窗</el-button>
+            <el-button @click="ElMessage.success('已保存')">成功提示</el-button>
+            <el-button @click="ElMessage.error('保存失败（INTERNAL）')">失败提示</el-button>
+            <el-upload :auto-upload="false" :show-file-list="false" accept=".zip" :on-change="onFileChange">
+              <el-button>选择契约包</el-button>
+            </el-upload>
+          </div>
+          <p v-if="uploadFiles.length" class="muted selected-file">
+            {{ uploadFiles[0].name }}（{{ Math.ceil(uploadFiles[0].size / 1024) }} KB）
+          </p>
+          <el-dialog v-model="dialogVisible" title="删除这份教案？" width="420px">
+            <p>软删除后教师与组长不可见，管理员仍可在审计中追溯。</p>
+            <template #footer>
+              <el-button @click="dialogVisible = false">取消</el-button>
+              <el-button type="danger" @click="dialogVisible = false">确认删除</el-button>
+            </template>
+          </el-dialog>
+        </section>
+      </div>
+
+      <section id="table" class="review-section">
         <header class="section-head">
           <div>
             <h2>列表与状态</h2>
-            <p class="muted">表格是主内容，不放在卡片里；筛选条与表格共用一条内容表面。</p>
+            <p class="muted">表格是主内容，筛选条与表格共用一条内容表面；表头透明、底部细线。</p>
           </div>
           <span class="section-meta">空态 / 加载 / 正常</span>
         </header>
@@ -270,15 +307,15 @@ function toggleLoading(): void {
           <div class="table-scroll">
             <el-table v-loading="loading" :data="showEmpty ? [] : plans" size="default">
               <el-table-column prop="title" label="课题" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="course" label="课程" width="120" />
-              <el-table-column label="周/次" width="90">
+              <el-table-column prop="course" label="课程" width="110" />
+              <el-table-column label="周/次" width="80">
                 <template #default="{ row }">{{ row.week }} / {{ row.session }}</template>
               </el-table-column>
-              <el-table-column prop="teacher" label="教师" width="110" />
-              <el-table-column label="状态" width="120">
+              <el-table-column prop="teacher" label="教师" width="100" />
+              <el-table-column label="状态" width="110">
                 <template #default="{ row }"><StatusTag :code="row.status" :status="row.status" /></template>
               </el-table-column>
-              <el-table-column prop="version" label="版本" width="80" />
+              <el-table-column prop="version" label="版本" width="70" />
             </el-table>
           </div>
           <p class="muted mobile-hint">窄屏可左右滑动表格查看全部列</p>
@@ -291,39 +328,11 @@ function toggleLoading(): void {
         </div>
       </section>
 
-      <section id="overlays" class="settings-section">
-        <header class="section-head">
-          <div>
-            <h2>弹窗与上传</h2>
-            <p class="muted">遮罩、Esc、焦点回到触发元素；上传只接受 .zip 并给出类型/大小提示。</p>
-          </div>
-          <span class="section-meta">Dialog / Upload</span>
-        </header>
-        <div class="demo-surface row">
-          <el-button @click="dialogVisible = true">打开确认弹窗</el-button>
-          <el-button @click="ElMessage.success('已保存')">成功提示</el-button>
-          <el-button @click="ElMessage.error('保存失败（INTERNAL），traceId: demo')">失败提示</el-button>
-          <el-upload :auto-upload="false" :show-file-list="false" accept=".zip" :on-change="onFileChange">
-            <el-button>选择契约包</el-button>
-          </el-upload>
-          <span v-if="uploadFiles.length" class="muted">
-            已选择：{{ uploadFiles[0].name }}（{{ Math.ceil(uploadFiles[0].size / 1024) }} KB）
-          </span>
-        </div>
-        <el-dialog v-model="dialogVisible" title="删除这份教案？" width="420px">
-          <p>软删除后教师与组长不可见，管理员仍可在审计中追溯。</p>
-          <template #footer>
-            <el-button @click="dialogVisible = false">取消</el-button>
-            <el-button type="danger" @click="dialogVisible = false">确认删除</el-button>
-          </template>
-        </el-dialog>
-      </section>
-
-      <section id="data" class="settings-section">
+      <section id="data" class="review-section">
         <header class="section-head">
           <div>
             <h2>证据、差异与指标</h2>
-            <p class="muted">证据链是审查页的核心内容；指标卡必须同屏显示分子与分母。</p>
+            <p class="muted">证据链五项与版本差异并排；指标卡必须同屏显示分子/分母。</p>
           </div>
           <span class="section-meta">业务展示组件</span>
         </header>
@@ -338,11 +347,11 @@ function toggleLoading(): void {
           <MetricCard v-for="metric in metrics" :key="metric.key" :metric="metric" />
         </div>
         <div class="chart-surface">
-          <ChartCard :option="chartOption" height="240px" />
+          <ChartCard :option="chartOption" height="220px" />
         </div>
       </section>
 
-      <section id="states" class="settings-section">
+      <section id="states" class="review-section">
         <header class="section-head">
           <div>
             <h2>页面四态</h2>
@@ -363,101 +372,145 @@ function toggleLoading(): void {
           <div class="demo-surface"><StatePanel state="forbidden" title="无权查看该教案" /></div>
         </div>
       </section>
-
-      <p class="muted page-foot">
-        参考：Windows 11 Fluent 的浅色导航与命令栏、macOS Finder 的“侧栏 + 内容”、GNOME Settings
-        的分段列表。验收通过后把这些规则写进 ui-style-spec v1.0，再拆业务页面。
-      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.settings {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 28px;
+.review {
   max-width: 1360px;
   margin: 0 auto;
 }
 
-.settings-nav {
-  position: sticky;
-  top: 16px;
-  align-self: start;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 4px 0;
+.review-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 32px;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid var(--lpp-border);
 }
 
-.settings-intro h1 {
-  font-size: 18px;
-  margin: 4px 0 6px;
+.kicker {
+  color: var(--lpp-text-muted);
+  font-size: 11px;
+  margin-bottom: 4px;
 }
 
-.settings-intro p {
+.review-title h1 {
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.review-lead {
+  max-width: 640px;
+  margin-top: 6px;
+  color: var(--lpp-text-muted);
   font-size: 12px;
 }
 
-.eyebrow {
-  margin: 0;
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chip {
+  padding: 2px 8px;
+  border: 1px solid var(--lpp-border);
+  border-radius: 999px;
+  background: var(--lpp-surface);
   color: var(--lpp-text-muted);
   font-size: 11px;
-  letter-spacing: 0.04em;
 }
 
-.section-links {
+.chip--accent {
+  border-color: color-mix(in srgb, var(--lpp-accent) 40%, var(--lpp-border));
+  background: color-mix(in srgb, var(--lpp-accent) 8%, white);
+  color: color-mix(in srgb, var(--lpp-accent) 70%, var(--lpp-text));
+}
+
+.review-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  align-self: end;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
+  overflow: hidden;
+}
+
+.review-summary > div {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  padding: 10px 12px;
+  border-right: 1px solid var(--lpp-border);
 }
 
-.section-links a {
-  padding: 7px 10px;
+.review-summary > div:last-child {
+  border-right: 0;
+}
+
+.review-summary span {
+  color: var(--lpp-text-muted);
+  font-size: 10px;
+}
+
+.review-summary strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.review-summary small {
+  color: var(--lpp-text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  margin-bottom: 4px;
+  background: var(--lpp-canvas);
+  border-bottom: 1px solid var(--lpp-border);
+  overflow-x: auto;
+}
+
+.tabs a {
+  padding: 5px 9px;
   border-radius: var(--lpp-radius-control);
   color: var(--lpp-text-muted);
-  font-size: 13px;
+  font-size: 12px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
-.section-links a:hover {
+.tabs a:hover {
   background: var(--lpp-nav-hover);
   color: var(--lpp-text);
   text-decoration: none;
 }
 
-.theme-box {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  border: 1px solid var(--lpp-border);
-  border-radius: var(--lpp-radius-card);
-  background: var(--lpp-layer);
+.tabs-spacer {
+  flex: 1;
 }
 
-.theme-box p {
-  font-size: 11px;
-  margin: 0;
-}
-
-.theme-label {
-  color: var(--lpp-text-muted);
-  font-size: 11px;
-}
-
-.settings-content {
-  min-width: 0;
-}
-
-.settings-section {
-  padding: 18px 0 22px;
+.review-section {
+  padding: 18px 0 20px;
   border-bottom: 1px solid var(--lpp-border);
 }
 
-.settings-section:first-child {
-  padding-top: 4px;
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
 }
 
 .section-head {
@@ -465,16 +518,16 @@ function toggleLoading(): void {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .section-head h2 {
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .section-head p {
   font-size: 12px;
-  max-width: 760px;
+  max-width: 680px;
 }
 
 .section-meta {
@@ -486,11 +539,11 @@ function toggleLoading(): void {
 .swatch-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .swatch {
-  height: 44px;
+  height: 40px;
   border-radius: var(--lpp-radius-control);
   border: 1px solid rgba(0, 0, 0, 0.08);
 }
@@ -507,11 +560,11 @@ function toggleLoading(): void {
 .type-specimens {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .type-specimens > div {
-  padding-bottom: 8px;
+  padding-bottom: 7px;
   border-bottom: 1px dashed var(--lpp-border);
 }
 
@@ -531,7 +584,7 @@ function toggleLoading(): void {
   background: var(--lpp-surface);
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
-  padding: 14px 16px;
+  padding: 12px 14px;
 }
 
 .table-surface {
@@ -544,7 +597,7 @@ function toggleLoading(): void {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--lpp-border);
   background: var(--lpp-layer);
 }
@@ -560,7 +613,7 @@ function toggleLoading(): void {
 }
 
 .table-surface .page-footer {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-top: 1px solid var(--lpp-border);
 }
 
@@ -570,32 +623,37 @@ function toggleLoading(): void {
   gap: 0 16px;
 }
 
+.selected-file {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
 .data-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .chart-surface {
-  margin-top: 14px;
-  padding: 8px 8px 0;
+  margin-top: 12px;
+  padding: 6px 8px 0;
 }
 
 .state-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .state-grid .demo-surface {
-  min-height: 180px;
+  min-height: 170px;
 }
 
 .mobile-hint {
@@ -604,15 +662,10 @@ function toggleLoading(): void {
   font-size: 11px;
 }
 
-.page-foot {
-  padding: 18px 0 8px;
-  font-size: 11px;
-}
-
 @media (max-width: 1100px) {
-  .settings {
-    grid-template-columns: 180px minmax(0, 1fr);
-    gap: 18px;
+  .review-head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
   }
 
   .swatch-grid {
@@ -621,28 +674,9 @@ function toggleLoading(): void {
 }
 
 @media (max-width: 900px) {
-  .settings {
+  .pair {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .settings-nav {
-    position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding-bottom: 6px;
-  }
-
-  .settings-intro,
-  .section-links {
-    display: none;
-  }
-
-  .theme-box {
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
+    gap: 0;
   }
 
   .metrics-grid,
@@ -665,9 +699,22 @@ function toggleLoading(): void {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .section-head {
-    flex-direction: column;
-    gap: 4px;
+  .tabs {
+    margin: 0 -14px;
+    padding: 8px 14px;
+  }
+
+  .review-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .review-summary > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--lpp-border);
+  }
+
+  .review-summary > div:last-child {
+    border-bottom: 0;
   }
 
   .table-toolbar {

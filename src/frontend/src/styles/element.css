@@ -88,7 +88,7 @@
 }
 
 .el-tag {
-  border-radius: 3px;
+  border-radius: var(--lpp-radius-tag);
 }
 
 :focus-visible {

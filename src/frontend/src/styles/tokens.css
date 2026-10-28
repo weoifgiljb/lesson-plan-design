@@ -40,13 +40,15 @@
 }
 
 :root {
-  --lpp-radius-control: 4px;
-  --lpp-radius-card: 8px;
-  --lpp-radius-window: 8px;
+  --lpp-radius-tag: 4px;
+  --lpp-radius-control: 6px;
+  --lpp-radius-card: 10px;
+  --lpp-radius-window: 10px;
   --lpp-space-1: 4px;
   --lpp-space-2: 8px;
   --lpp-space-3: 12px;
   --lpp-space-4: 16px;
+  --lpp-space-5: 20px;
   --lpp-space-6: 24px;
   --lpp-space-8: 32px;
   --lpp-font-xs: 12px;
