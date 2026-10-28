@@ -564,8 +564,19 @@ class Repo:
                 raise AppError("CONFLICT_STALE", "版本冲突，请重试") from exc
             return int(existing["id"]), False
 
+<<<<<<< HEAD
     def close(self) -> None:
         self.conn.close()
+=======
+    # ---------- 同步事件 ----------
+    def insert_sync_event(self, kind: str, plan_id: int, plan_version_id: int | None = None) -> int:
+        """写一条同步事件：version=新增版本、deleted=软删除；pull 用事件 id 作游标。"""
+        cursor = self.conn.execute(
+            "INSERT INTO sync_event (kind, plan_id, plan_version_id, created_at) VALUES (?, ?, ?, ?)",
+            (kind, int(plan_id), None if plan_version_id is None else int(plan_version_id), clock.now_iso()),
+        )
+        return int(cursor.lastrowid or 0)
+>>>>>>> feature/bs-05-auth-session
 
     # ---------- 审查 ----------
     def insert_review(
