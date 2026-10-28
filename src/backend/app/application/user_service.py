@@ -38,6 +38,10 @@ def login(
     if user.get("locked_until") and not clock.is_past(str(user["locked_until"])):
         _audit(repo, int(user["id"]), "auth.login.locked", {}, ip, trace_id)
         raise AppError("RATE_LIMITED", "账号已锁定，请稍后再试")
+    if user.get("locked_until"):
+        # 锁定已到期：清零失败计数，避免下一次失败立刻再次锁定。
+        repo.reset_login_failure(int(user["id"]))
+        user = {**user, "failed_count": 0, "locked_until": None}
     return _verify(repo, user, password, ip, trace_id)
 
 

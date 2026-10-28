@@ -85,6 +85,19 @@ class TestAuthApi(unittest.TestCase):
         even_correct = self._login()
         self.assertEqual(even_correct.status_code, 429)
 
+    def test_lockout_expiry_allows_retry(self) -> None:
+        for _ in range(5):
+            self._login(password="wrong-pass1")
+        connection = open_database(self.db_file)
+        try:
+            connection.execute("UPDATE user SET locked_until = '2000-01-01T00:00:00+00:00'")
+        finally:
+            connection.close()
+        wrong = self._login(password="wrong-pass1")
+        self.assertEqual(wrong.status_code, 401, wrong.text)
+        ok = self._login()
+        self.assertEqual(ok.status_code, 200, ok.text)
+
     def test_logout_requires_csrf_and_blocks_replay(self) -> None:
         login = self._login()
         token = self.client.cookies.get("lpp_session")
