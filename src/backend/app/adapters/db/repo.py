@@ -196,22 +196,27 @@ class Repo:
 
     def create_export_job(
         self, version_id: int, engine_version: str, operator_id: int, status: str,
-        docx_path: str = "", docx_sha256: str = "",
+        docx_path: str = "", docx_sha256: str = "", report_sha256: str = "",
     ) -> int:
         cursor = self.conn.execute(
-            "INSERT INTO export_job (plan_version_id, engine_version, status, docx_path, docx_sha256,"
-            " operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (version_id, engine_version, status, docx_path, docx_sha256, operator_id, clock.now_iso()),
+            "INSERT INTO export_job (plan_version_id, engine_version, report_sha256, status,"
+            " docx_path, docx_sha256, operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (version_id, engine_version, report_sha256, status, docx_path, docx_sha256,
+             operator_id, clock.now_iso()),
         )
         return int(cursor.lastrowid or 0)
 
     def update_export_job(
         self, job_id: int, status: str, docx_path: str = "", docx_sha256: str = ""
-    ) -> None:
-        self.conn.execute(
-            "UPDATE export_job SET status = ?, docx_path = ?, docx_sha256 = ? WHERE id = ?",
-            (status, docx_path, docx_sha256, job_id),
-        )
+    ) -> bool:
+        try:
+            self.conn.execute(
+                "UPDATE export_job SET status = ?, docx_path = ?, docx_sha256 = ? WHERE id = ?",
+                (status, docx_path, docx_sha256, job_id),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        return True
 
     def get_export_job(self, job_id: int) -> dict[str, Any] | None:
         sql = " ".join(

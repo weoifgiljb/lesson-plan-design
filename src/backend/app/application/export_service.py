@@ -64,10 +64,13 @@ def _export_one(
         return _failed(version_id, "FORBIDDEN", "无权导出该版本"), False, False
     plan = json.loads(row["content_json"])
     report = json.loads(row["report_json"]) if row.get("report_json") else {}
+    engine_version = engine.engine_version()
+    if not engine_version:
+        return _failed(version_id, "INTERNAL", "引擎版本不可用"), False, False
     problem = _gate_problem(row, plan, report)
     if problem is not None:
+        _audit_failure(repo, user, version_id, problem["code"], problem["message"], row, ip, trace_id)
         return problem, False, False
-    engine_version = engine.engine_version()
     existing = repo.find_export_job(version_id, engine_version)
     if existing is not None:
         existing = repo.get_export_job(int(existing["id"]))
@@ -91,28 +94,30 @@ def _perform_export(
     engine_version: str, ip: str, trace_id: str,
 ) -> tuple[dict[str, Any], bool, bool]:
     version_id = int(row["version_id"])
-    job_id = repo.create_export_job(version_id, engine_version, int(user.get("id") or 0), "pending")
-    result = engine.export_docx(plan, storage.export_path(job_id))
+    report_sha = str(row.get("report_sha256") or "")
+    base_dir = storage.files_dir() / f"plans/{row['plan_id']}/{row['version_no']}"
+    job_id = repo.create_export_job(
+        version_id, engine_version, int(user.get("id") or 0), "pending", report_sha256=report_sha
+    )
+    result = engine.export_docx(plan, storage.export_path(job_id), base_dir=base_dir)
     if not result.get("ok"):
-        repo.update_export_job(job_id, "failed")
-        _audit_failure(repo, user, version_id, result.get("message", "导出失败"), ip, trace_id)
-        return _failed(version_id, result.get("code", "INTERNAL"), result.get("message", "导出失败")), False, False
+        return _fail_job(repo, user, row, job_id, result.get("code", "INTERNAL"),
+                         result.get("message", "导出失败"), ip, trace_id)
+    if result["result"].get("engineVersion") != engine_version:
+        return _fail_job(repo, user, row, job_id, "INTERNAL", "产物引擎版本与记录不一致", ip, trace_id)
     warnings = result["result"].get("warnings") or []
     if warnings:
-        storage.export_path(job_id).unlink(missing_ok=True)
-        repo.update_export_job(job_id, "failed")
-        message = "；".join(warnings)
-        _audit_failure(repo, user, version_id, message, ip, trace_id)
-        return _failed(version_id, "MEDIA_MISSING", message), False, False
+        return _fail_job(repo, user, row, job_id, "MEDIA_MISSING", "；".join(warnings), ip, trace_id)
     data = storage.export_path(job_id).read_bytes()
     digest = storage.sha256_bytes(data)
-    repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
-    audit_service.record(
-        repo, actor_id=int(user.get("id") or 0), action="plan.export",
-        target_type="plan_version", target_id=str(version_id),
-        detail={"exportId": job_id, "docxSha256": digest, "engineVersion": engine_version},
-        ip=ip, trace_id=trace_id, after_hash=digest,
-    )
+    if not repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest):
+        storage.export_path(job_id).unlink(missing_ok=True)
+        repo.update_export_job(job_id, "failed")
+        existing = repo.find_export_job(version_id, engine_version)
+        if existing is not None:
+            return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
+        return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
+    _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
     return {
         "planVersionId": version_id,
         "exportId": job_id,
@@ -120,7 +125,37 @@ def _perform_export(
         "engineVersion": engine_version,
         "docxSha256": digest,
         "planHash": row["plan_hash"],
+        "reportHash": report_sha,
     }, True, False
+
+
+def _fail_job(
+    repo: Repo, user: dict[str, Any], row: dict[str, Any], job_id: int,
+    code: str, message: str, ip: str, trace_id: str,
+) -> tuple[dict[str, Any], bool, bool]:
+    version_id = int(row["version_id"])
+    storage.export_path(job_id).unlink(missing_ok=True)
+    repo.update_export_job(job_id, "failed")
+    _audit_failure(repo, user, version_id, code, message, row, ip, trace_id)
+    return _failed(version_id, code, message), False, False
+
+
+def _audit_success(
+    repo: Repo, user: dict[str, Any], row: dict[str, Any], job_id: int,
+    digest: str, report_sha: str, engine_version: str, ip: str, trace_id: str,
+) -> None:
+    audit_service.record(
+        repo, actor_id=int(user.get("id") or 0), action="plan.export",
+        target_type="plan_version", target_id=str(row["version_id"]),
+        detail={
+            "exportId": job_id,
+            "docxSha256": digest,
+            "planHash": row["plan_hash"],
+            "reportHash": report_sha,
+            "engineVersion": engine_version,
+        },
+        ip=ip, trace_id=trace_id, after_hash=digest,
+    )
 
 
 def _validate_ids(version_ids: list[int]) -> list[int]:
@@ -142,6 +177,11 @@ def _visible_job(repo: Repo, user: dict[str, Any], export_id: int) -> dict[str, 
     if row is None:
         raise AppError("NOT_FOUND", "导出记录不存在")
     if not _visible(row, user):
+        audit_service.record(
+            repo, actor_id=int(user.get("id") or 0), action="plan.export.access.denied",
+            target_type="export", target_id=str(export_id),
+            detail={"role": user.get("role")}, ip="", trace_id="",
+        )
         raise AppError("FORBIDDEN", "无权访问该导出记录")
     return row
 
@@ -166,6 +206,8 @@ def _job_payload(row: dict[str, Any]) -> dict[str, Any]:
         "status": row["status"],
         "engineVersion": row["engine_version"],
         "docxSha256": row["docx_sha256"],
+        "planHash": row.get("plan_hash") or "",
+        "reportHash": row.get("report_sha256") or "",
         "createdAt": row["created_at"],
     }
 
@@ -175,10 +217,12 @@ def _failed(version_id: int, code: str, message: str) -> dict[str, Any]:
 
 
 def _audit_failure(
-    repo: Repo, user: dict[str, Any], version_id: int, message: str, ip: str, trace_id: str
+    repo: Repo, user: dict[str, Any], version_id: int, code: str, message: str,
+    row: dict[str, Any], ip: str, trace_id: str,
 ) -> None:
     audit_service.record(
         repo, actor_id=int(user.get("id") or 0), action="plan.export.failed",
         target_type="plan_version", target_id=str(version_id),
-        detail={"message": message}, ip=ip, trace_id=trace_id,
+        detail={"code": code, "message": message, "planHash": row.get("plan_hash") or ""},
+        ip=ip, trace_id=trace_id,
     )

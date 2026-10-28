@@ -101,12 +101,16 @@ CREATE TABLE IF NOT EXISTS export_job (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     plan_version_id INTEGER NOT NULL REFERENCES plan_version (id),
     engine_version TEXT NOT NULL,
+    report_sha256 TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'pending',
     docx_path TEXT,
     docx_sha256 TEXT,
     operator_id INTEGER NOT NULL REFERENCES user (id),
     created_at TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_export_job_succeeded
+    ON export_job (plan_version_id, engine_version) WHERE status = 'succeeded';
 
 CREATE TABLE IF NOT EXISTS sample (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

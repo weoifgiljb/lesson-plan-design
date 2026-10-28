@@ -128,6 +128,52 @@ class TestExportApi(unittest.TestCase):
         item = response.json()["items"][0]
         self.assertEqual(item["status"], "failed")
         self.assertEqual(item["code"], "REPORT_INCONSISTENT")
+        connection = open_database(self.db_file)
+        try:
+            rows = connection.execute(
+                "SELECT detail_json FROM audit_log WHERE action = 'plan.export.failed'"
+            ).fetchall()
+        finally:
+            connection.close()
+        self.assertTrue(any("REPORT_INCONSISTENT" in row[0] for row in rows))
+
+    def test_gate_runs_before_reuse(self) -> None:
+        first = self._export([self.version_id]).json()["items"][0]
+        self.assertEqual(first["status"], "succeeded")
+        connection = open_database(self.db_file)
+        try:
+            connection.execute(
+                "UPDATE review SET status = 'needs_repair' WHERE plan_version_id = ?",
+                (self.version_id,),
+            )
+        finally:
+            connection.close()
+        again = self._export([self.version_id]).json()["items"][0]
+        self.assertEqual(again["status"], "failed")
+        self.assertNotIn("exportId", again)
+        connection = open_database(self.db_file)
+        try:
+            succeeded = connection.execute(
+                "SELECT COUNT(*) FROM export_job WHERE plan_version_id = ? AND status = 'succeeded'",
+                (self.version_id,),
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(succeeded, 1)
+
+    def test_detail_and_download_forbidden(self) -> None:
+        item = self._export([self.version_id]).json()["items"][0]
+        self._login("teacher2")
+        self.assertEqual(self.client.get(f"/api/v1/exports/{item['exportId']}").status_code, 403)
+        self.assertEqual(self.client.get(f"/api/v1/exports/{item['exportId']}/download").status_code, 403)
+        connection = open_database(self.db_file)
+        try:
+            denied = connection.execute(
+                "SELECT COUNT(*) FROM audit_log WHERE action = 'plan.export.access.denied'"
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertGreaterEqual(denied, 2)
 
     def test_teacher_cannot_export_others(self) -> None:
         csrf = self._login("teacher2")
