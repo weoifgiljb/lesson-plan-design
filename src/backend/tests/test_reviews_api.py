@@ -78,7 +78,7 @@ class TestReviewsApi(unittest.TestCase):
             owner, {"contentTitle": title, "week": 2, "session": 1, "course": "信息技术"}
         )
         version_id, _ = self.repo.insert_version_or_existing(
-            plan_id, 1, "{}", f"hash-{title}", 1, "1.0", "1.0.0"
+            plan_id, 1, "{}", f"hash-{title}", f"report-{title}", 1, "1.0", "1.0.0"
         )
         return plan_id, version_id
 
@@ -115,7 +115,9 @@ class TestReviewsApi(unittest.TestCase):
         self.reviews["needs_repair"] = self._review(plan_b, version_b, report_b, severity="blocker")
 
         plan_c, version_c1 = self._plan(self.teacher1, "跳号课")
-        version_c3, _ = self.repo.insert_version_or_existing(plan_c, 3, "{}", "hash-跳号课-v3", 1, "1.0", "1.0.0")
+        version_c3, _ = self.repo.insert_version_or_existing(
+            plan_c, 3, "{}", "hash-跳号课-v3", "report-跳号课-v3", 1, "1.0", "1.0.0"
+        )
         self._review(plan_c, version_c1, make_report("hash-跳号课"))
         self.reviews["round_gap"] = self._review(plan_c, version_c3, make_report("hash-跳号课-v3", 3), round_number=3)
 
