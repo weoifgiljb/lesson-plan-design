@@ -230,70 +230,100 @@ class Repo:
         )
         return _row(self.conn.execute(sql, (job_id,)).fetchone())
     # ---------- 统计 ----------
-    def stats_summary(self, scope: dict[str, Any]) -> dict[str, Any]:
+    def stats_plans(self, scope: dict[str, Any], filters: dict[str, Any]) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope)
-        joins = (
-            " FROM plan p JOIN user u ON u.id = p.owner_id"
-            " LEFT JOIN plan_version pv ON pv.plan_id = p.id"
+        extra, more = self._stats_where(filters)
+        where = " AND ".join([condition, "p.deleted_at IS NULL", extra])
+        sql = " ".join(
+            (
+                "SELECT p.id AS plan_id, p.created_at AS plan_created_at, pv.content_json, pv.plan_hash,"
+                " pv.version_no, rv.id AS review_id, rv.status AS review_status, rv.round AS review_round,"
+                " rv.report_json, rv.report_sha256",
+                "FROM plan p JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
+                self.LATEST_REVIEW_JOIN,
+                "WHERE",
+                where,
+            )
         )
-        plans = self._scalar(
-            "SELECT COUNT(*) FROM plan p JOIN user u ON u.id = p.owner_id"
-            f" WHERE {condition} AND p.deleted_at IS NULL",
-            params,
-        )
-        versions = self._scalar(f"SELECT COUNT(pv.id){joins} WHERE {condition}", params)
-        reviews = self._group(
-            "SELECT rv.status AS key, COUNT(*) AS total FROM review rv"
-            " JOIN plan_version pv ON pv.id = rv.plan_version_id"
-            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
-            f" WHERE {condition} GROUP BY rv.status",
-            params,
-        )
-        findings = self._group(
-            "SELECT f.severity AS severity, f.status AS status, COUNT(*) AS total FROM finding f"
-            " JOIN review rv ON rv.id = f.review_id"
-            " JOIN plan_version pv ON pv.id = rv.plan_version_id"
-            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
-            f" WHERE {condition} GROUP BY f.severity, f.status",
-            params,
-        )
-        rounds = self._group(
-            "SELECT rv.round AS key, COUNT(*) AS total FROM review rv"
-            " JOIN plan_version pv ON pv.id = rv.plan_version_id"
-            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
-            f" WHERE {condition} GROUP BY rv.round ORDER BY rv.round",
-            params,
-        )
-        exports = self._group(
-            "SELECT j.status AS key, COUNT(*) AS total FROM export_job j"
-            " JOIN plan_version pv ON pv.id = j.plan_version_id"
-            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
-            f" WHERE {condition} GROUP BY j.status",
-            params,
-        )
-        return {
-            "plans": plans,
-            "versions": versions,
-            "reviews": reviews,
-            "findings": findings,
-            "rounds": rounds,
-            "exports": exports,
-        }
+        return self._group(sql, (*params, *more))
 
-    def _scope_condition(self, scope: dict[str, Any]) -> tuple[str, list[Any]]:
+    def stats_rounds(self, plan_ids: list[int]) -> dict[int, list[int]]:
+        if not plan_ids:
+            return {}
+        placeholders = ",".join("?" for _ in plan_ids)
+        sql = " ".join(
+            (
+                "SELECT pv.plan_id AS plan_id, rv.round AS round FROM review rv",
+                "JOIN plan_version pv ON pv.id = rv.plan_version_id",
+                f"WHERE pv.plan_id IN ({placeholders}) ORDER BY pv.plan_id, rv.round",
+            )
+        )
+        rows = self.conn.execute(sql, tuple(int(item) for item in plan_ids)).fetchall()
+        grouped: dict[int, list[int]] = {}
+        for row in rows:
+            grouped.setdefault(int(row["plan_id"]), []).append(int(row["round"]))
+        return grouped
+
+    def stats_sync(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+        condition, params = self._scope_condition(scope, "s.operator_id")
+        return self._group(
+            "SELECT s.result AS key, COUNT(*) AS total FROM sync_log s"
+            " LEFT JOIN user u ON u.id = s.operator_id"
+            f" WHERE {condition} GROUP BY s.result",
+            params,
+        )
+
+    def stats_tasks(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+        condition, params = self._scope_condition(scope, "t.owner_id")
+        return self._group(
+            "SELECT t.status AS key, COUNT(*) AS total FROM task t"
+            " LEFT JOIN user u ON u.id = t.owner_id"
+            f" WHERE {condition} GROUP BY t.status",
+            params,
+        )
+
+    def stats_exports(self, scope: dict[str, Any]) -> list[dict[str, Any]]:
+        condition, params = self._scope_condition(scope)
+        sql = " ".join(
+            (
+                "SELECT j.created_at AS export_created_at, p.created_at AS plan_created_at",
+                "FROM export_job j JOIN plan_version pv ON pv.id = j.plan_version_id",
+                "JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
+                "WHERE j.status = 'succeeded' AND p.deleted_at IS NULL AND",
+                condition,
+            )
+        )
+        return self._group(sql, params)
+
+    def _stats_where(self, filters: dict[str, Any]) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        for column, key in (("p.course", "course"), ("p.week", "week"), ("u.display_name", "teacher")):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if filters.get("created_from"):
+            where.append("p.created_at >= ?")
+            params.append(str(filters["created_from"]))
+        if filters.get("created_before"):
+            where.append("p.created_at < ?")
+            params.append(str(filters["created_before"]))
+        return " AND ".join(where), params
+
+    def _scope_condition(
+        self, scope: dict[str, Any], owner_column: str = "p.owner_id"
+    ) -> tuple[str, list[Any]]:
         owner_id = scope.get("owner_id")
         group_name = scope.get("group_name")
         if owner_id is not None:
-            return "p.owner_id = ?", [int(owner_id)]
+            return f"{owner_column} = ?", [int(owner_id)]
         if group_name:
             return "u.group_name = ?", [str(group_name)]
         return "1 = 1", []
 
-    def _scalar(self, sql: str, params: list[Any]) -> int:
-        row = self.conn.execute(sql, params).fetchone()
-        return int(row[0]) if row is not None else 0
-
-    def _group(self, sql: str, params: list[Any]) -> list[dict[str, Any]]:
+    def _group(self, sql: str, params: tuple[Any, ...] | list[Any]) -> list[dict[str, Any]]:
         return [dict(row) for row in self.conn.execute(sql, params).fetchall()]
 
     # 同一版本可能有多轮审查（schema 允许），列表/详情只取最新一轮，避免 JOIN 放大行数。

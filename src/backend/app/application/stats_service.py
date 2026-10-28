@@ -1,18 +1,85 @@
 # -*- coding: utf-8 -*-
-"""统计编排：按角色范围聚合教案、审查、问题与导出。"""
+"""统计编排：按当前版本 + 最新一轮审查聚合 9 项指标。"""
 from __future__ import annotations
 
+import json
+from datetime import datetime
 from typing import Any
 
+from app.adapters import engine
 from app.adapters.db.repo import Repo
-from app.domain import library, stats
+from app.domain import evidence, library, stats, timerange
 
 
-def summary(repo: Repo, user: dict[str, Any]) -> dict[str, Any]:
-    raw = repo.stats_summary(library.scope_for(user))
-    payload = stats.summarize(raw)
+def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None = None) -> dict[str, Any]:
+    raw_filters = dict(filters or {})
+    window = {
+        "course": raw_filters.get("course"),
+        "week": raw_filters.get("week"),
+        "teacher": raw_filters.get("teacher"),
+        "created_from": timerange.start_of(raw_filters["date_from"]) if raw_filters.get("date_from") else None,
+        "created_before": timerange.end_exclusive(raw_filters["date_to"]) if raw_filters.get("date_to") else None,
+    }
+    scope = library.scope_for(user)
+    rows = repo.stats_plans(scope, window)
+    rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in rows}))
+    records = [_record(row, rounds.get(int(row["plan_id"]), [])) for row in rows]
+    payload = stats.build(
+        records,
+        _counts(repo.stats_sync(scope)),
+        _counts(repo.stats_tasks(scope)),
+        _export_seconds(repo.stats_exports(scope)),
+        _filters_payload(raw_filters),
+    )
     payload["scope"] = _scope_name(str(user.get("role") or ""))
     return payload
+
+
+def _record(row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
+    content = json.loads(row["content_json"]) if row.get("content_json") else {}
+    structure_ok = bool(content) and engine.validate_plan(content).get("ok") is True
+    report = json.loads(row["report_json"]) if row.get("report_json") else None
+    complete = False
+    open_blocking = 0
+    if isinstance(report, dict):
+        snapshot = report.get("planSnapshot")
+        complete = evidence.evaluate(
+            report,
+            plan_hash=str(row["plan_hash"]),
+            rounds=rounds,
+            snapshot_hash=engine.plan_hash(snapshot) if isinstance(snapshot, dict) else None,
+        )["complete"]
+        open_blocking = sum(
+            1
+            for item in report.get("findings") or []
+            if isinstance(item, dict)
+            and item.get("status") == "open"
+            and item.get("severity") in {"blocker", "major"}
+        )
+    return {"structure_ok": structure_ok, "evidence_ok": complete, "open_blocking": open_blocking}
+
+
+def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    return {str(row["key"]): int(row["total"]) for row in rows}
+
+
+def _export_seconds(rows: list[dict[str, Any]]) -> list[float]:
+    seconds = []
+    for row in rows:
+        start = datetime.fromisoformat(str(row["plan_created_at"]))
+        end = datetime.fromisoformat(str(row["export_created_at"]))
+        seconds.append(max((end - start).total_seconds(), 0.0))
+    return seconds
+
+
+def _filters_payload(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "course": raw.get("course"),
+        "week": raw.get("week"),
+        "teacher": raw.get("teacher"),
+        "dateFrom": raw.get("date_from").isoformat() if raw.get("date_from") else None,
+        "dateTo": raw.get("date_to").isoformat() if raw.get("date_to") else None,
+    }
 
 
 def _scope_name(role: str) -> str:
