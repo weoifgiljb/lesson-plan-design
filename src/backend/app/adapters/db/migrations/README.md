@@ -13,6 +13,7 @@
 规则：
 
 1. 迁移只追加，不改已发布的 `schema.sql`；
-2. 每个迁移文件末尾更新 `PRAGMA user_version`，由 `initialize()` 统一推进；
+2. 迁移脚本内**不要**写 `PRAGMA user_version`：`initialize()` 在执行成功后统一推进 `SCHEMA_VERSION`；
 3. 迁移前备份 `data/`（BS-14 会做成脚本）；
-4. 迁移变更需同时更新 `docs/requirements/功能优化需求-BS平台端.md` 的数据模型表与契约测试。
+4. 迁移变更需同时更新 `docs/requirements/功能优化需求-BS平台端.md` 的数据模型表与契约测试；
+5. 新增迁移时同步把 `connection.SCHEMA_VERSION` 加一，并补「v1 起步 → 升级到最新」用例。

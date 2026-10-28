@@ -10,7 +10,7 @@ from app.application import health_service
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/health", responses={503: {"description": "依赖不可用（数据库或磁盘）"}})
 def health(response: Response, repo=Depends(get_repo)) -> dict:
     payload = health_service.collect(repo)
     response.status_code = 200 if payload["ok"] else 503
