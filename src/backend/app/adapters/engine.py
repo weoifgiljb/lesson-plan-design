@@ -10,6 +10,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PLUGIN_SCRIPTS = REPO_ROOT / "plugins" / "lesson-plan-design" / "skills" / "lesson-plan-design" / "scripts"
+FORMATTING_SCRIPTS = REPO_ROOT / "plugins" / "lesson-plan-design" / "skills" / "formatting-lesson-docx" / "scripts"
 FOOTER_PATH = PLUGIN_SCRIPTS / "docx_export" / "footer.py"
 ENGINE_VERSION_RE = re.compile(r"^\s*ENGINE_VERSION\s*=\s*\"([^\"]+)\"", re.M)
 
@@ -34,6 +35,21 @@ def validate_plan(plan: dict[str, Any]) -> dict[str, Any]:
 
 def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str, Any]:
     return _lib().export_gate(plan, report)
+
+
+def export_docx(plan: dict[str, Any], output: Path, base_dir: Path | None = None) -> dict[str, Any]:
+    """调用插件 export_docx 生成 DOCX；失败以返回值表达，不向调用方抛异常。"""
+    target = str(FORMATTING_SCRIPTS)
+    if target not in sys.path:
+        sys.path.insert(0, target)
+    _lib()
+    from export_docx import export_docx_result  # noqa: PLC0415
+
+    try:
+        result = export_docx_result(plan, output, base_dir=base_dir)
+    except Exception as exc:  # noqa: BLE001 - 适配层统一转成可展示错误
+        return {"ok": False, "code": "INTERNAL", "message": f"导出失败：{exc}"[:300]}
+    return {"ok": True, "result": result}
 
 
 def engine_version() -> str:

@@ -36,6 +36,10 @@ def files_dir() -> Path:
     return data_dir() / "files"
 
 
+def exports_dir() -> Path:
+    return data_dir() / "exports"
+
+
 def max_package_bytes() -> int:
     return int(os.environ.get("LPP_MAX_PACKAGE_BYTES", MAX_PACKAGE_BYTES))
 

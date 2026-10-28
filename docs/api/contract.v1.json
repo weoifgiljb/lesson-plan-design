@@ -469,7 +469,7 @@
         422
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -489,7 +489,7 @@
         404
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -509,7 +509,7 @@
         404
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",

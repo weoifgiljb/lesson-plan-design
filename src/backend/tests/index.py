@@ -14,6 +14,7 @@ from test_auth_domain import TestAuthRules, TestRoles  # noqa: E402,F401
 from test_db_schema import TestDatabaseSchema  # noqa: E402,F401
 from test_engine import TestEngineParity  # noqa: E402,F401
 from test_errors_api import TestErrorEnvelope  # noqa: E402,F401
+from test_export_api import TestExportApi  # noqa: E402,F401
 from test_evidence_domain import TestEvidenceChain  # noqa: E402,F401
 from test_health import TestHealth, TestOpenApiSnapshot  # noqa: E402,F401
 from test_idempotency import TestIdempotency  # noqa: E402,F401

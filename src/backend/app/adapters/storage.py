@@ -7,7 +7,7 @@ import os
 import uuid
 from pathlib import Path
 
-from app.config import files_dir
+from app.config import exports_dir, files_dir
 from app.domain.errors import AppError
 
 
@@ -53,3 +53,11 @@ def store_version_files(plan_id: int, version_no: int, files: dict[str, bytes]) 
         write_bytes(root, f"{base}/{name}", data)
         stored[name] = sha256_bytes(data)
     return stored
+
+
+def export_path(job_id: int) -> Path:
+    return exports_dir() / f"{job_id}.docx"
+
+
+def read_export(job_id: int) -> bytes:
+    return export_path(job_id).read_bytes()
