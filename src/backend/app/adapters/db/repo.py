@@ -22,6 +22,9 @@ class Repo:
         self.conn = conn
         self.lock = lock
 
+    def close(self) -> None:
+        self.conn.close()
+
     # ---------- 事务 ----------
     @contextlib.contextmanager
     def transaction(
@@ -84,6 +87,9 @@ class Repo:
             (username, display_name, role, password_hash, clock.now_iso()),
         )
         return int(cursor.lastrowid or 0)
+
+    def set_password(self, user_id: int, password_hash: str) -> None:
+        self.conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))
 
     def record_login_failure(self, user_id: int, failed_count: int, locked_until: str | None) -> None:
         self.conn.execute(
