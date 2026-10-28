@@ -529,7 +529,7 @@
         403
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",

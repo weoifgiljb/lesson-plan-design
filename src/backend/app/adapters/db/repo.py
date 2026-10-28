@@ -229,6 +229,73 @@ class Repo:
             )
         )
         return _row(self.conn.execute(sql, (job_id,)).fetchone())
+    # ---------- 统计 ----------
+    def stats_summary(self, scope: dict[str, Any]) -> dict[str, Any]:
+        condition, params = self._scope_condition(scope)
+        joins = (
+            " FROM plan p JOIN user u ON u.id = p.owner_id"
+            " LEFT JOIN plan_version pv ON pv.plan_id = p.id"
+        )
+        plans = self._scalar(
+            "SELECT COUNT(*) FROM plan p JOIN user u ON u.id = p.owner_id"
+            f" WHERE {condition} AND p.deleted_at IS NULL",
+            params,
+        )
+        versions = self._scalar(f"SELECT COUNT(pv.id){joins} WHERE {condition}", params)
+        reviews = self._group(
+            "SELECT rv.status AS key, COUNT(*) AS total FROM review rv"
+            " JOIN plan_version pv ON pv.id = rv.plan_version_id"
+            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
+            f" WHERE {condition} GROUP BY rv.status",
+            params,
+        )
+        findings = self._group(
+            "SELECT f.severity AS severity, f.status AS status, COUNT(*) AS total FROM finding f"
+            " JOIN review rv ON rv.id = f.review_id"
+            " JOIN plan_version pv ON pv.id = rv.plan_version_id"
+            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
+            f" WHERE {condition} GROUP BY f.severity, f.status",
+            params,
+        )
+        rounds = self._group(
+            "SELECT rv.round AS key, COUNT(*) AS total FROM review rv"
+            " JOIN plan_version pv ON pv.id = rv.plan_version_id"
+            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
+            f" WHERE {condition} GROUP BY rv.round ORDER BY rv.round",
+            params,
+        )
+        exports = self._group(
+            "SELECT j.status AS key, COUNT(*) AS total FROM export_job j"
+            " JOIN plan_version pv ON pv.id = j.plan_version_id"
+            " JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id"
+            f" WHERE {condition} GROUP BY j.status",
+            params,
+        )
+        return {
+            "plans": plans,
+            "versions": versions,
+            "reviews": reviews,
+            "findings": findings,
+            "rounds": rounds,
+            "exports": exports,
+        }
+
+    def _scope_condition(self, scope: dict[str, Any]) -> tuple[str, list[Any]]:
+        owner_id = scope.get("owner_id")
+        group_name = scope.get("group_name")
+        if owner_id is not None:
+            return "p.owner_id = ?", [int(owner_id)]
+        if group_name:
+            return "u.group_name = ?", [str(group_name)]
+        return "1 = 1", []
+
+    def _scalar(self, sql: str, params: list[Any]) -> int:
+        row = self.conn.execute(sql, params).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def _group(self, sql: str, params: list[Any]) -> list[dict[str, Any]]:
+        return [dict(row) for row in self.conn.execute(sql, params).fetchall()]
+
     # 同一版本可能有多轮审查（schema 允许），列表/详情只取最新一轮，避免 JOIN 放大行数。
     LATEST_REVIEW_JOIN = (
         "LEFT JOIN review rv ON rv.id = ("

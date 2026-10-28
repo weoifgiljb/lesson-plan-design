@@ -1137,6 +1137,26 @@
           }
         }
       }
+    },
+    "/api/v1/stats/summary": {
+      "get": {
+        "summary": "Stats Summary",
+        "operationId": "stats_summary_api_v1_stats_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Stats Summary Api V1 Stats Summary Get"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
