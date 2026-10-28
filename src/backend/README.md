@@ -31,6 +31,15 @@ py -3 -m uvicorn app.main:app --app-dir src/backend --host 127.0.0.1 --port 8000
 健康检查：`GET http://127.0.0.1:8000/api/v1/health`。
 接口文档：`http://127.0.0.1:8000/docs`（仅开发环境）。
 
+## 建号
+
+平台没有自助注册，第一个账号用受控脚本创建（幂等，已存在则重置口令）：
+
+```powershell
+py -3 scripts/seed_users.py --admin admin1 --password 'Lesson2026' --name 管理员
+py -3 scripts/seed_users.py --teacher teacher1 --password 'Lesson2026' --name 张老师
+```
+
 ## 测试
 
 ```powershell
