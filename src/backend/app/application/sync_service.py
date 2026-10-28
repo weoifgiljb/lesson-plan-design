@@ -32,10 +32,10 @@ def pull(
     repo: Repo, user: dict[str, Any], *, since: int = 0, limit: int = 50
 ) -> dict[str, Any]:
     actual_limit = min(max(int(limit), 1), PULL_LIMIT_MAX)
-    rows = repo.pull_versions(library.scope_for(user), max(int(since), 0), actual_limit + 1)
+    rows = repo.pull_events(library.scope_for(user), max(int(since), 0), actual_limit + 1)
     has_more = len(rows) > actual_limit
     items = [_pull_item(row) for row in rows[:actual_limit]]
-    next_cursor = items[-1]["versionId"] if items else max(int(since), 0)
+    next_cursor = int(items[-1]["eventId"]) if items else max(int(since), 0)
     return {"items": items, "nextCursor": next_cursor, "hasMore": has_more}
 
 
@@ -90,6 +90,9 @@ def _check_base_hash(
     if existing is None:
         return
     head = repo.plan_head(int(existing["id"]))
+    if head is None:
+        # 还没有任何版本（例如本次刚建的教案）：没有可冲突的头，直接允许写入
+        return
     expected = str(head["plan_hash"]) if head is not None else ""
     if base_hash and base_hash == expected:
         return
@@ -98,7 +101,8 @@ def _check_base_hash(
     changes = []
     if board is not None:
         changes = diff.summarize(diff.diff_plans(json.loads(board["content_json"]), plan))
-    _audit_conflict(repo, actor_id, existing, expected, base_hash, changes, package_sha256, ip, trace_id)
+    # 冲突日志与审计不能在这里写：本函数运行在写事务内，回滚会把它们一起丢掉，
+    # 统一由 _persist 的 audit_rollback 在事务外补写。
     raise AppError(
         "CONFLICT_STALE",
         "服务端头版本已变化，请先拉取或改用本地为准上传新版本",
@@ -109,30 +113,6 @@ def _check_base_hash(
             "planHash": new_hash,
             "changes": changes,
         },
-    )
-
-
-def _audit_conflict(
-    repo: Repo, actor_id: int, plan_row: dict[str, Any], head_hash: str,
-    base_hash: str, changes: list[str], package_sha256: str, ip: str, trace_id: str,
-) -> None:
-    repo.insert_sync_log(
-        "push",
-        package_sha256,
-        head_hash,
-        "conflict",
-        "CONFLICT_STALE",
-        actor_id,
-    )
-    audit_service.record(
-        repo,
-        actor_id=actor_id,
-        action="sync.push.conflict",
-        target_type="plan",
-        target_id=str(plan_row["id"]),
-        detail={"headHash": head_hash, "baseHash": base_hash, "changes": changes},
-        ip=ip,
-        trace_id=trace_id,
     )
 
 
@@ -163,8 +143,18 @@ def _head_payload(repo: Repo, plan_id: int) -> dict[str, Any]:
     head = repo.plan_head(plan_id)
     if head is None:
         return {"exists": False, "planId": plan_id, "headVersion": None, "headHash": None}
+    if head.get("deleted_at") is not None:
+        # 已软删除：告诉客户端这条教案不存在了，便于删除本地副本
+        return {
+            "exists": False,
+            "deleted": True,
+            "planId": plan_id,
+            "headVersion": None,
+            "headHash": None,
+        }
     return {
         "exists": True,
+        "deleted": False,
         "planId": plan_id,
         "headVersion": int(head["version_no"]),
         "headHash": str(head["plan_hash"]),
@@ -174,14 +164,23 @@ def _head_payload(repo: Repo, plan_id: int) -> dict[str, Any]:
 
 
 def _pull_item(row: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "versionId": int(row["version_id"]),
+    kind = str(row.get("kind") or "version")
+    item: dict[str, Any] = {
+        "eventId": int(row["event_id"]),
+        "kind": kind,
         "planId": int(row["plan_id"]),
-        "versionNo": int(row["version_no"]),
-        "planHash": row["plan_hash"],
+        "deleted": kind == "deleted" or row.get("deleted_at") is not None,
         "contentTitle": row["content_title"],
         "teacher": row["teacher"],
-        "updatedAt": row["created_at"],
-        "deleted": row.get("deleted_at") is not None,
-        "content": json.loads(row["content_json"]),
+        "updatedAt": row["event_at"],
     }
+    if kind == "version" and row.get("plan_version_id") is not None:
+        item.update(
+            {
+                "versionId": int(row["plan_version_id"]),
+                "versionNo": int(row["version_no"]),
+                "planHash": row["plan_hash"],
+                "content": json.loads(row["content_json"]),
+            }
+        )
+    return item

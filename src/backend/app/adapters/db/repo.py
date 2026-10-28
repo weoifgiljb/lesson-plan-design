@@ -353,6 +353,26 @@ class Repo:
             ).fetchone()
         )
 
+    def pull_events(
+        self, scope: dict[str, Any], since: int, limit: int
+    ) -> list[dict[str, Any]]:
+        """按同步事件游标增量拉取：入库=version、软删除=deleted（删除也能传播）。"""
+        where, params = self._pull_where(scope)
+        sql = " ".join(
+            (
+                "SELECT e.id AS event_id, e.kind, e.plan_id, e.plan_version_id, e.created_at AS event_at,"
+                " pv.version_no, pv.plan_hash, pv.content_json, pv.created_at,"
+                " p.content_title, p.owner_id, p.deleted_at, u.display_name AS teacher",
+                "FROM sync_event e JOIN plan p ON p.id = e.plan_id JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN plan_version pv ON pv.id = e.plan_version_id",
+                "WHERE e.id > ?",
+                where,
+                "ORDER BY e.id LIMIT ?",
+            )
+        )
+        rows = self.conn.execute(sql, (int(since), *params, int(limit))).fetchall()
+        return [dict(row) for row in rows]
+
     def pull_versions(
         self, scope: dict[str, Any], since: int, limit: int
     ) -> list[dict[str, Any]]:

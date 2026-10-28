@@ -244,6 +244,25 @@ class TestSyncApi(unittest.TestCase):
         self.assertTrue(items)
         self.assertTrue(items[0]["deleted"])
 
+    def test_delete_propagates_after_cursor(self) -> None:
+        # 先把游标推到最新，再删除；下一次 pull 必须能拉到 deleted 事件（P24 R1 的核心场景）
+        first = self.client.get("/api/v1/sync/pull?since=0").json()
+        cursor = first["nextCursor"]
+        self.assertGreater(cursor, 0)
+        csrf = self.client.cookies.get("lpp_csrf")
+        self.assertEqual(
+            self.client.delete(f"/api/v1/plans/{self.plan_id}", headers={"X-CSRF-Token": csrf}).status_code,
+            200,
+        )
+        after = self.client.get(f"/api/v1/sync/pull?since={cursor}").json()
+        self.assertTrue(after["items"], after)
+        kinds = [(item["kind"], item["planId"]) for item in after["items"]]
+        self.assertIn(("deleted", self.plan_id), kinds)
+        # head 对已删教案必须告诉客户端"不存在/已删除"
+        head = self.client.get(f"/api/v1/sync/head?planId={self.plan_id}").json()
+        self.assertFalse(head["exists"], head)
+        self.assertTrue(head["deleted"], head)
+
     def test_lead_identity_head_covers_group(self) -> None:
         csrf = self._login("lead1")
         self.assertEqual(csrf, self.client.cookies.get("lpp_csrf"))
