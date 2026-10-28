@@ -19,17 +19,14 @@ logger = logging.getLogger("lpp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.db_lock = threading.Lock()
     try:
-        app.state.db = open_database()
-        app.state.db_lock = threading.Lock()
+        bootstrap = open_database()
+        bootstrap.close()
     except Exception:  # noqa: BLE001 - 启动失败要让健康检查报告 down 而不是进程消失
         logger.warning("database init failed; health check will report down")
-        app.state.db = None
-        app.state.db_lock = threading.Lock()
-    app.state.repo_factory = lambda: Repo(app.state.db, app.state.db_lock)
+    app.state.repo_factory = lambda: Repo(open_database(), app.state.db_lock)
     yield
-    if app.state.db is not None:
-        app.state.db.close()
 
 
 def create_app() -> FastAPI:

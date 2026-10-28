@@ -13,11 +13,15 @@ from app.domain.errors import AppError
 
 
 def get_repo(request: Request):
-    """由 main.py 注入的仓储工厂构造 Repo，api 层不直接依赖数据库适配层。"""
+    """每请求一个连接，写事务由 app.state.db_lock 串行化；api 层不直接依赖数据库适配层。"""
     factory = getattr(request.app.state, "repo_factory", None)
     if factory is None:
         raise AppError("INTERNAL", "数据库不可用")
-    return factory()
+    repo = factory()
+    try:
+        yield repo
+    finally:
+        repo.close()
 
 
 def current_context(request: Request, repo=Depends(get_repo)) -> dict[str, Any]:

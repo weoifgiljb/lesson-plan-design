@@ -17,6 +17,7 @@ ALLOWED_STATUS = {
 }
 ALLOWED_SEVERITY = {"blocker", "major", "minor"}
 ALLOWED_FINDING_STATUS = {"open", "waived", "accepted"}
+ALLOWED_INDEPENDENCE = {"native_subagent", "role_simulation", "human"}
 BLOCKING = {"blocker", "major"}
 MIN_OVERRIDE_REASON = 6
 REQUIRED_REPORT = (
@@ -153,6 +154,9 @@ def check(
         )
     if report.get("planHash") != plan_hash:
         return fail("REPORT_INCONSISTENT", "审查报告与当前教案内容不匹配")
+    independence = report.get("independence") or report.get("reviewer")
+    if independence not in ALLOWED_INDEPENDENCE:
+        return fail("REPORT_INCONSISTENT", "审查报告审校方式无效", {"independence": independence})
     if snapshot_hash is not None and snapshot_hash != plan_hash:
         return fail("REPORT_INCONSISTENT", "审查报告快照与教案哈希不匹配")
     structural = report.get("structuralValidation")

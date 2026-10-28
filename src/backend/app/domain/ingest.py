@@ -48,6 +48,8 @@ def evaluate(
 
 
 def _check_versions(manifest: dict[str, Any], report: dict[str, Any]) -> Verdict | None:
+    if not versions.contract_supported(manifest.get("contractVersion")):
+        return fail("SCHEMA_UNSUPPORTED", "契约包版本不受支持", versions.supported_versions())
     if not versions.is_supported(manifest.get("schemaVersion"), manifest.get("rubricVersion")):
         return fail("SCHEMA_UNSUPPORTED", "契约包版本不受支持", versions.supported_versions())
     if not versions.is_supported(report.get("schemaVersion"), report.get("rubricVersion")):

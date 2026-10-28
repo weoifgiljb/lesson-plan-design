@@ -13,10 +13,12 @@ VERSIONS: dict[str, Any] = {
 
 SUPPORTED_SCHEMA_VERSIONS = {VERSIONS["schemaVersion"]}
 SUPPORTED_RUBRIC_VERSIONS = {VERSIONS["rubricVersion"]}
+SUPPORTED_CONTRACT_VERSIONS = {"1"}
 
 
 def supported_versions() -> dict[str, list]:
     return {
+        "contractVersion": sorted(SUPPORTED_CONTRACT_VERSIONS),
         "schemaVersion": sorted(SUPPORTED_SCHEMA_VERSIONS),
         "rubricVersion": sorted(SUPPORTED_RUBRIC_VERSIONS),
     }
@@ -28,3 +30,7 @@ def is_supported(schema_version: Any, rubric_version: Any) -> bool:
         and schema_version in SUPPORTED_SCHEMA_VERSIONS
         and rubric_version in SUPPORTED_RUBRIC_VERSIONS
     )
+
+
+def contract_supported(contract_version: Any) -> bool:
+    return isinstance(contract_version, str) and contract_version in SUPPORTED_CONTRACT_VERSIONS

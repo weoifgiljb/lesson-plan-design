@@ -196,13 +196,22 @@ class Repo:
 
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
-        schema_version: int, rubric_version: str,
+        schema_version: int, rubric_version: str, engine_version: str,
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
                 "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, schema_version,"
-                " rubric_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (plan_id, version_no, content_json, plan_hash, schema_version, rubric_version, clock.now_iso()),
+                " rubric_version, engine_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    plan_id,
+                    version_no,
+                    content_json,
+                    plan_hash,
+                    schema_version,
+                    rubric_version,
+                    engine_version,
+                    clock.now_iso(),
+                ),
             )
             return int(cursor.lastrowid or 0), True
         except sqlite3.IntegrityError as exc:
@@ -213,6 +222,9 @@ class Repo:
             if latest is None:
                 raise AppError("CONFLICT_STALE", "版本冲突，请重试") from exc
             return int(latest["id"]), False
+
+    def close(self) -> None:
+        self.conn.close()
 
     # ---------- 审查 ----------
     def insert_review(

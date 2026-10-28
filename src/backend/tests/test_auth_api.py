@@ -85,6 +85,16 @@ class TestAuthApi(unittest.TestCase):
         even_correct = self._login()
         self.assertEqual(even_correct.status_code, 429)
 
+    def test_validation_error_does_not_echo_credentials(self) -> None:
+        response = self.client.post(
+            "/api/v1/auth/login", json={"username": "t" * 80, "password": "short"}
+        )
+        self.assertEqual(response.status_code, 422, response.text)
+        body = response.text
+        self.assertNotIn("short", body)
+        self.assertNotIn('"input"', body)
+        self.assertEqual(response.json()["code"], "PAYLOAD_REJECTED")
+
     def test_lockout_expiry_allows_retry(self) -> None:
         for _ in range(5):
             self._login(password="wrong-pass1")

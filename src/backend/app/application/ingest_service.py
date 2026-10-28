@@ -37,6 +37,11 @@ def import_package(
     if problem is not None:
         return _reject(repo, problem, actor_id, ip, trace_id)
     assert manifest is not None and plan is not None and report is not None
+    validation = engine.validate_plan(plan)
+    structure = _structure_verdict(validation)
+    if structure is not None:
+        # 结构未通过时不做任何身份/版本计算，避免未校验字段（如 week 为数组）打穿成 500。
+        return _reject(repo, structure, actor_id, ip, trace_id)
     plan_hash = engine.plan_hash(plan)
     report_sha256 = storage.sha256_bytes(files[REPORT_NAME])
     plan_id, previous_round, duplicate = _prior_state(repo, owner_id, plan, plan_hash, report_sha256)
@@ -49,7 +54,7 @@ def import_package(
         plan_hash=plan_hash,
         snapshot_hash=_snapshot_hash(report),
         previous_round=_round_floor(previous_round, duplicate, report),
-        validation=engine.validate_plan(plan),
+        validation=validation,
     )
     if not verdict.ok:
         return _reject(repo, verdict, actor_id, ip, trace_id)
@@ -67,6 +72,16 @@ def import_package(
         ip=ip,
         trace_id=trace_id,
         previous_round=previous_round,
+    )
+
+
+def _structure_verdict(validation: dict[str, Any]) -> Verdict | None:
+    if validation.get("ok") is True:
+        return None
+    return fail(
+        "STRUCTURE_INVALID",
+        "教案未通过结构校验",
+        {"issues": validation.get("issues", []), "ruleVersion": validation.get("ruleVersion", "")},
     )
 
 
@@ -174,6 +189,7 @@ def _write_version(
     trace_id: str,
 ) -> ImportResult:
     version_no = repo.next_version_no(plan_id)
+    engine_version = engine.engine_version()
     version_id, created = repo.insert_version_or_existing(
         plan_id,
         version_no,
@@ -181,6 +197,7 @@ def _write_version(
         plan_hash,
         int(report["schemaVersion"]),
         str(report["rubricVersion"]),
+        engine_version,
     )
     if not created:
         stored = repo.find_version(plan_id, plan_hash, report_sha256) or {}
@@ -197,18 +214,25 @@ def _write_version(
     repo.insert_overrides(list(report.get("overrides") or []))
     repo.set_current_version(plan_id, version_id)
     storage.store_version_files(plan_id, version_no, files)
+    _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
+    return ImportResult(True, plan_id, version_no, review_id, plan_hash)
+
+
+def _audit_import(
+    repo: Repo, plan_id: int, version_no: int, review_id: int, plan_hash: str,
+    engine_version: str, actor_id: int | None, ip: str, trace_id: str,
+) -> None:
     audit_service.record(
         repo,
         actor_id=actor_id,
         action="plan.import",
         target_type="plan",
         target_id=str(plan_id),
-        detail={"versionNo": version_no, "reviewId": review_id, "planHash": plan_hash},
+        detail={"versionNo": version_no, "reviewId": review_id, "planHash": plan_hash, "engineVersion": engine_version},
         ip=ip,
         trace_id=trace_id,
         after_hash=plan_hash,
     )
-    return ImportResult(True, plan_id, version_no, review_id, plan_hash)
 
 
 def _duplicate(
