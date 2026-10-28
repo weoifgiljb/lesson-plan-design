@@ -30,6 +30,7 @@ def _normalize_path(path: str) -> str:
     path = path.split("?")[0].strip()
     path = re.sub(r"\$\{[^}]+\}", "{id}", path)
     path = re.sub(r":[A-Za-z_][A-Za-z0-9_]*", "{id}", path)
+    path = re.sub(r"\{[^}]+\}", "{id}", path)
     return path.rstrip("/") or "/"
 
 

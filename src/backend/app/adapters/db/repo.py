@@ -75,11 +75,13 @@ class Repo:
             self.conn.execute("SELECT * FROM user WHERE display_name = ? AND active = 1", (display_name,)).fetchone()
         )
 
-    def insert_user(self, username: str, display_name: str, role: str, password_hash: str) -> int:
+    def insert_user(
+        self, username: str, display_name: str, role: str, password_hash: str, group_name: str = ""
+    ) -> int:
         cursor = self.conn.execute(
-            "INSERT INTO user (username, display_name, role, password_hash, created_at)"
-            " VALUES (?, ?, ?, ?, ?)",
-            (username, display_name, role, password_hash, clock.now_iso()),
+            "INSERT INTO user (username, display_name, group_name, role, password_hash, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (username, display_name, group_name, role, password_hash, clock.now_iso()),
         )
         return int(cursor.lastrowid or 0)
 
@@ -166,6 +168,94 @@ class Repo:
             "SELECT COUNT(*) AS total FROM plan_version WHERE plan_id = ?", (plan_id,)
         ).fetchone()
         return int(row["total"]) if row is not None else 0
+
+    # ---------- 教案库 ----------
+    LIBRARY_SELECT = (
+        "SELECT p.id AS plan_id, p.content_title, p.course, p.week, p.session, p.owner_id,"
+        " p.current_version_id, p.created_at, p.deleted_at,"
+        " u.display_name AS teacher, u.group_name AS owner_group,"
+        " pv.version_no AS version_no, pv.plan_hash AS plan_hash, pv.engine_version AS engine_version,"
+        " pv.created_at AS version_created_at, rv.id AS review_id, rv.status AS review_status,"
+        " rv.round AS review_round, rv.reviewer_mode AS reviewer_mode, rv.report_sha256 AS report_sha256"
+        " FROM plan p JOIN user u ON u.id = p.owner_id"
+        " LEFT JOIN plan_version pv ON pv.id = p.current_version_id"
+        " LEFT JOIN review rv ON rv.plan_version_id = pv.id"
+    )
+
+    def list_plans(
+        self, scope: dict[str, Any], filters: dict[str, Any], limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        where, params = self._library_where(scope, filters)
+        count_sql = " ".join(
+            (
+                "SELECT COUNT(*) AS total FROM plan p JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
+                "LEFT JOIN review rv ON rv.plan_version_id = pv.id",
+                "WHERE",
+                where,
+            )
+        )
+        count = self.conn.execute(count_sql, params).fetchone()
+        rows_sql = " ".join((self.LIBRARY_SELECT, "WHERE", where, "ORDER BY p.id DESC LIMIT ? OFFSET ?"))
+        rows = self.conn.execute(rows_sql, (*params, int(limit), int(offset))).fetchall()
+        return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
+
+    def get_plan(self, plan_id: int, *, include_deleted: bool = False) -> dict[str, Any] | None:
+        condition = "p.id = ?" if include_deleted else "p.id = ? AND p.deleted_at IS NULL"
+        sql = " ".join((self.LIBRARY_SELECT, "WHERE", condition))
+        return _row(self.conn.execute(sql, (plan_id,)).fetchone())
+
+    def list_versions(self, plan_id: int) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.engine_version, pv.created_at,"
+            " pv.content_json, rv.round, rv.status, rv.report_sha256, rv.reviewer_mode"
+            " FROM plan_version pv LEFT JOIN review rv ON rv.plan_version_id = pv.id"
+            " WHERE pv.plan_id = ? ORDER BY pv.version_no",
+            (plan_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def version_by_no(self, plan_id: int, version_no: int) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.content_json, pv.created_at,"
+                " rv.round, rv.status, rv.report_sha256"
+                " FROM plan_version pv LEFT JOIN review rv ON rv.plan_version_id = pv.id"
+                " WHERE pv.plan_id = ? AND pv.version_no = ?",
+                (plan_id, version_no),
+            ).fetchone()
+        )
+
+    def soft_delete_plan(self, plan_id: int) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE plan SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+            (clock.now_iso(), plan_id),
+        )
+        return bool(cursor.rowcount)
+
+    def _library_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
+        where = ["p.deleted_at IS NULL"]
+        params: list[Any] = []
+        owner_id = scope.get("owner_id")
+        group_name = scope.get("group_name")
+        if owner_id is not None:
+            where.append("p.owner_id = ?")
+            params.append(int(owner_id))
+        elif group_name:
+            where.append("u.group_name = ?")
+            params.append(str(group_name))
+        for column, key in (
+            ("p.course", "course"),
+            ("p.week", "week"),
+            ("p.session", "session"),
+            ("rv.status", "status"),
+            ("u.display_name", "teacher"),
+        ):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        return " AND ".join(where), params
 
     def last_round(self, plan_id: int) -> int:
         row = self.conn.execute(

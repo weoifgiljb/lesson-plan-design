@@ -13,7 +13,7 @@ from app.domain.errors import AppError
 
 
 def create_user(
-    repo: Repo, *, username: str, display_name: str, role: str, password: str
+    repo: Repo, *, username: str, display_name: str, role: str, password: str, group_name: str = ""
 ) -> int:
     if not roles.is_valid_role(role):
         raise AppError("PAYLOAD_REJECTED", f"角色非法：{role}")
@@ -22,7 +22,7 @@ def create_user(
         raise AppError("PAYLOAD_REJECTED", problem)
     if repo.user_by_username(username) is not None:
         raise AppError("CONFLICT_STALE", f"用户名已存在：{username}")
-    return repo.insert_user(username, display_name, role, security.hash_password(password))
+    return repo.insert_user(username, display_name, role, security.hash_password(password), group_name)
 
 
 def login(

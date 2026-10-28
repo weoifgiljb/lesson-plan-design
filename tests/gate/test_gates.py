@@ -177,6 +177,33 @@ class TestContractGate(unittest.TestCase):
         with stack:
             self.assertEqual(blocks(contract_gate.scan(backend, frontend, contract_file, openapi_file)), [])
 
+    def test_path_parameter_names_are_normalized(self) -> None:
+        contract = {
+            "contractVersion": "1",
+            "versions": CONTRACT["versions"],
+            "roles": CONTRACT["roles"],
+            "errorCodes": CONTRACT["errorCodes"],
+            "endpoints": [
+                {
+                    "method": "GET",
+                    "path": "/api/v1/plans/{id}",
+                    "auth": True,
+                    "roles": ["teacher"],
+                    "csrf": False,
+                    "idempotent": True,
+                    "status": [200],
+                    "client": "plugin",
+                    "implemented": True,
+                }
+            ],
+        }
+        stack, backend, frontend, contract_file, openapi_file = contract_project(
+            contract=contract, routes={"/api/v1/plans/{plan_id}": ["get"]}
+        )
+        with stack:
+            absent = frontend.parent / "absent-frontend"
+            self.assertEqual(blocks(contract_gate.scan(backend, absent, contract_file, openapi_file)), [])
+
     def test_write_without_csrf_is_blocked(self) -> None:
         contract = json.loads(json.dumps(CONTRACT))
         contract["endpoints"][1]["csrf"] = False

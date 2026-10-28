@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""教案入库：契约包上传 → 复校 → 落库；重复包返回 200。"""
+"""教案：契约包入库、教案库列表/详情/版本/差异与软删除。"""
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 
 from app.adapters import archive
-from app.api.deps import require_csrf_role
-from app.application import ingest_service
+from app.api.deps import current_context, require_csrf_role
+from app.application import ingest_service, plan_service
 from app.config import max_package_bytes
 from app.domain.errors import AppError
 
@@ -46,6 +46,62 @@ async def import_plan(
         "planHash": result.plan_hash,
         "duplicate": not result.created,
     }
+
+
+@router.get("/plans")
+def list_plans(
+    context: dict[str, Any] = Depends(current_context),
+    course: str | None = None,
+    week: int | None = None,
+    session: int | None = None,
+    status: str | None = None,
+    teacher: str | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
+) -> dict[str, Any]:
+    filters = {"course": course, "week": week, "session": session, "status": status, "teacher": teacher}
+    return plan_service.list_plans(context["repo"], context["user"], filters=filters, page=page, page_size=page_size)
+
+
+@router.get("/plans/{plan_id}")
+def plan_detail(plan_id: int, context: dict[str, Any] = Depends(current_context)) -> dict[str, Any]:
+    return plan_service.plan_detail(context["repo"], context["user"], plan_id)
+
+
+@router.get("/plans/{plan_id}/versions")
+def plan_versions(plan_id: int, context: dict[str, Any] = Depends(current_context)) -> dict[str, Any]:
+    return plan_service.plan_versions(context["repo"], context["user"], plan_id)
+
+
+@router.get("/plans/{plan_id}/diff")
+def plan_diff(
+    plan_id: int,
+    context: dict[str, Any] = Depends(current_context),
+    from_version: int | None = Query(None, alias="fromVersion"),
+    to_version: int | None = Query(None, alias="toVersion"),
+) -> dict[str, Any]:
+    return plan_service.plan_diff(
+        context["repo"],
+        context["user"],
+        plan_id,
+        from_version=from_version,
+        to_version=to_version,
+    )
+
+
+@router.delete("/plans/{plan_id}")
+def delete_plan(
+    request: Request,
+    plan_id: int,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "admin")),
+) -> dict[str, Any]:
+    return plan_service.delete_plan(
+        context["repo"],
+        context["user"],
+        plan_id,
+        ip=_client_ip(request),
+        trace_id=_trace_id(request),
+    )
 
 
 async def _read_limited(file: UploadFile) -> bytes:
