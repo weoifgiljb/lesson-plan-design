@@ -1,7 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Expand, Fold, Moon, Sunny, User } from '@element-plus/icons-vue'
+import {
+  Brush,
+  Collection,
+  DataAnalysis,
+  Document,
+  Download,
+  Expand,
+  Files,
+  Fold,
+  Grid,
+  Moon,
+  Plus,
+  Search,
+  Setting,
+  Sunny,
+  User,
+} from '@element-plus/icons-vue'
 
 import { useSessionStore } from '@/stores/session'
 import { useUiStore } from '@/stores/ui'
@@ -12,14 +28,14 @@ const ui = useUiStore()
 const isDev = import.meta.env.DEV
 
 const navItems = computed(() => [
-  { label: '概览', path: '/', disabled: true },
-  { label: '任务', path: '/tasks', disabled: true },
-  { label: '教案库', path: '/plans', disabled: true },
-  { label: '审查中心', path: '/reviews', disabled: true },
-  { label: '导出中心', path: '/exports', disabled: true },
-  { label: '统计', path: '/stats', disabled: true },
-  { label: '样例库', path: '/samples', disabled: true },
-  ...(session.isAdmin ? [{ label: '管理', path: '/admin', disabled: true }] : []),
+  { label: '概览', icon: Grid },
+  { label: '任务', icon: Document },
+  { label: '教案库', icon: Files },
+  { label: '审查中心', icon: Collection },
+  { label: '导出中心', icon: Download },
+  { label: '统计', icon: DataAnalysis },
+  { label: '样例库', icon: Collection },
+  ...(session.isAdmin ? [{ label: '管理', icon: Setting }] : []),
 ])
 
 const roleLabel = computed(() => {
@@ -34,160 +50,231 @@ async function signOut(): Promise<void> {
 </script>
 
 <template>
-  <div class="shell" :class="{ 'shell--collapsed': ui.sidebarCollapsed }">
-    <aside class="sidebar" aria-label="主导航">
+  <div class="workspace" :class="{ 'workspace--compact': ui.sidebarCollapsed }">
+    <aside class="rail" aria-label="主导航">
       <div class="brand">
         <span class="brand-mark">L</span>
-        <span v-if="!ui.sidebarCollapsed" class="brand-text">校本教案平台</span>
+        <div v-if="!ui.sidebarCollapsed" class="brand-copy">
+          <strong>校本教案</strong>
+          <span>平台端</span>
+        </div>
       </div>
-      <nav class="nav">
-        <a
+
+      <nav class="rail-nav">
+        <button
           v-for="item in navItems"
-          :key="item.path"
-          class="nav-item"
-          :class="{ 'nav-item--disabled': item.disabled }"
-          :aria-disabled="item.disabled ? 'true' : 'false'"
-          :href="item.disabled ? undefined : item.path"
-          @click.prevent="!item.disabled && router.push(item.path)"
+          :key="item.label"
+          class="nav-item nav-item--muted"
+          type="button"
+          :title="`${item.label}（待开发）`"
+          :aria-disabled="true"
         >
-          {{ item.label }}
-          <span v-if="item.disabled && !ui.sidebarCollapsed" class="nav-badge">待开发</span>
-        </a>
-        <router-link v-if="isDev" class="nav-item" to="/styleguide">风格验收</router-link>
+          <el-icon><component :is="item.icon" /></el-icon>
+          <span v-if="!ui.sidebarCollapsed">{{ item.label }}</span>
+        </button>
+        <router-link v-if="isDev" class="nav-item nav-item--active" to="/styleguide">
+          <el-icon><Brush /></el-icon>
+          <span v-if="!ui.sidebarCollapsed">风格验收</span>
+        </router-link>
       </nav>
-      <div v-if="!ui.sidebarCollapsed" class="sidebar-foot">
-        <span class="muted">契约 28/29 · 后端已联调</span>
+
+      <div v-if="!ui.sidebarCollapsed" class="rail-footer">
+        <span>契约 28/29</span>
+        <span>· 联调通过</span>
       </div>
     </aside>
 
-    <div class="main">
-      <header class="topbar">
+    <section class="main">
+      <header class="commandbar">
         <button
           class="icon-button"
           type="button"
-          :aria-label="ui.sidebarCollapsed ? '展开侧栏' : '折叠侧栏'"
+          :aria-label="ui.sidebarCollapsed ? '展开导航' : '折叠导航'"
           @click="ui.toggleSidebar()"
         >
           <el-icon><Expand v-if="ui.sidebarCollapsed" /><Fold v-else /></el-icon>
         </button>
-        <div class="crumb">平台端 / {{ isDev ? '风格验收' : '首页' }}</div>
-        <div class="topbar-right">
-          <button
-            class="icon-button"
-            type="button"
-            :aria-label="ui.theme === 'ink' ? '切换到松绿主题' : '切换到墨蓝主题'"
-            @click="ui.setTheme(ui.theme === 'ink' ? 'pine' : 'ink')"
-          >
-            <el-icon><Sunny v-if="ui.theme === 'pine'" /><Moon v-else /></el-icon>
-          </button>
-          <span class="user-chip">
-            <el-icon><User /></el-icon>
-            {{ session.user?.displayName ?? '未登录（验收模式）' }}
-            <span class="muted">· {{ roleLabel }}</span>
-          </span>
-          <el-button v-if="session.user" size="small" @click="signOut">退出</el-button>
-          <router-link v-else class="login-link" to="/login">去登录</router-link>
+
+        <div class="crumb">
+          平台端
+          <span>/</span>
+          <strong>{{ isDev ? '风格验收' : '首页' }}</strong>
         </div>
+
+        <div class="commandbar-spacer" />
+
+        <label class="searchbox" title="搜索在教案库上线后启用">
+          <el-icon><Search /></el-icon>
+          <input type="search" placeholder="搜索教案、任务…" disabled aria-label="搜索教案、任务" />
+        </label>
+
+        <button
+          class="icon-button"
+          type="button"
+          :aria-label="ui.theme === 'ink' ? '切换到松绿主题' : '切换到墨蓝主题'"
+          :title="ui.theme === 'ink' ? '切换主题：松绿' : '切换主题：墨蓝'"
+          @click="ui.setTheme(ui.theme === 'ink' ? 'pine' : 'ink')"
+        >
+          <el-icon><Sunny v-if="ui.theme === 'pine'" /><Moon v-else /></el-icon>
+        </button>
+
+        <div class="user">
+          <el-icon><User /></el-icon>
+          <span>{{ session.user?.displayName ?? '未登录' }}</span>
+          <span class="user-role">{{ roleLabel }}</span>
+        </div>
+
+        <el-button v-if="session.user" size="small" @click="signOut">退出</el-button>
+        <router-link v-else class="login-link" to="/login">登录</router-link>
+
+        <el-button type="primary" size="small" :disabled="!session.user" title="登录并上线教案库后启用">
+          <el-icon><Plus /></el-icon>
+          上传契约包
+        </el-button>
       </header>
-      <main class="content">
+
+      <main class="canvas">
         <router-view />
       </main>
-    </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.shell {
+.workspace {
   display: flex;
   min-height: 100vh;
-  background: var(--lpp-bg);
+  background: var(--lpp-canvas);
 }
 
-.sidebar {
-  width: 232px;
-  flex: 0 0 232px;
-  background: var(--lpp-primary);
-  color: #f3f6f8;
+.rail {
+  width: 248px;
+  flex: 0 0 248px;
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
-  transition: width 160ms ease;
+  gap: 8px;
+  padding: 10px 8px 12px;
+  background: var(--lpp-layer);
+  border-right: 1px solid var(--lpp-border);
 }
 
-.shell--collapsed .sidebar {
+.workspace--compact .rail {
   width: 64px;
   flex-basis: 64px;
-  padding: 16px 8px;
+  padding: 10px 6px;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 8px 18px;
+  height: 44px;
+  padding: 0 8px;
 }
 
 .brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
   border-radius: 6px;
-  background: var(--lpp-accent);
-  color: #1b1408;
+  background: var(--lpp-primary);
+  color: #fff;
   font-weight: 700;
+  font-size: 13px;
 }
 
-.brand-text {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.nav {
+.brand-copy {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  line-height: 1.2;
+}
+
+.brand-copy strong {
+  font-size: 14px;
+}
+
+.brand-copy span {
+  color: var(--lpp-text-muted);
+  font-size: 11px;
+}
+
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 4px;
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 9px 10px;
-  border-radius: 6px;
-  color: #e7edf2;
-  font-size: 14px;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--lpp-radius-control);
+  background: transparent;
+  color: var(--lpp-text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
   text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-item .el-icon {
+  font-size: 16px;
+  color: var(--lpp-text-muted);
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--lpp-nav-hover);
   text-decoration: none;
 }
 
-.shell--collapsed .nav-item {
+.nav-item--muted {
+  color: var(--lpp-text-muted);
+  opacity: 0.62;
+  cursor: default;
+}
+
+.nav-item--active {
+  background: var(--lpp-nav-selected);
+  color: var(--lpp-primary);
+  font-weight: 600;
+}
+
+.nav-item--active .el-icon {
+  color: var(--lpp-primary);
+}
+
+.nav-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--lpp-primary);
+}
+
+.workspace--compact .nav-item {
   justify-content: center;
-  padding: 9px 4px;
-  font-size: 12px;
+  padding: 0;
 }
 
-.nav-item--disabled {
-  color: rgba(231, 237, 242, 0.5);
-  cursor: not-allowed;
+.workspace--compact .nav-item--active::before {
+  left: 2px;
 }
 
-.nav-badge {
-  font-size: 11px;
-  color: rgba(231, 237, 242, 0.65);
-}
-
-.sidebar-foot {
+.rail-footer {
   margin-top: auto;
-  padding: 12px 8px 0;
+  padding: 8px 10px 2px;
+  color: var(--lpp-text-muted);
   font-size: 11px;
-  color: rgba(231, 237, 242, 0.6);
 }
 
 .main {
@@ -197,89 +284,144 @@ async function signOut(): Promise<void> {
   flex-direction: column;
 }
 
-.topbar {
-  height: 56px;
-  flex: 0 0 56px;
+.commandbar {
+  height: 52px;
+  flex: 0 0 52px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 20px;
+  gap: 8px;
+  padding: 0 16px;
   background: var(--lpp-surface);
   border-bottom: 1px solid var(--lpp-border);
 }
 
-.crumb {
-  color: var(--lpp-text-muted);
-  font-size: 13px;
-}
-
-.topbar-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .icon-button {
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--lpp-border);
-  border-radius: 6px;
-  background: var(--lpp-surface);
+  border: 1px solid transparent;
+  border-radius: var(--lpp-radius-control);
+  background: transparent;
   color: var(--lpp-text);
   cursor: pointer;
 }
 
-.user-chip {
-  display: inline-flex;
+.icon-button:hover {
+  background: var(--lpp-row-hover);
+  border-color: var(--lpp-border);
+}
+
+.crumb {
+  display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  color: var(--lpp-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.crumb strong {
+  color: var(--lpp-text);
+  font-weight: 600;
+}
+
+.commandbar-spacer {
+  flex: 1;
+}
+
+.searchbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 220px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-canvas);
+  color: var(--lpp-text-muted);
+}
+
+.searchbox input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--lpp-text-muted);
+  font: inherit;
+  font-size: 12px;
+}
+
+.searchbox input::placeholder {
+  color: var(--lpp-text-muted);
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.user-role {
+  color: var(--lpp-text-muted);
 }
 
 .login-link {
-  font-size: 13px;
+  font-size: 12px;
 }
 
-.content {
+.canvas {
   flex: 1;
   min-width: 0;
+  padding: 20px 24px 32px;
 }
 
-@media (max-width: 1023px) {
-  .sidebar {
+@media (max-width: 1180px) {
+  .searchbox {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .rail {
     width: 64px;
     flex-basis: 64px;
-    padding: 16px 8px;
+    padding: 10px 6px;
   }
 
-  .brand-text,
-  .nav-badge,
-  .sidebar-foot {
+  .brand-copy,
+  .rail-footer,
+  .nav-item span {
     display: none;
   }
 
   .nav-item {
     justify-content: center;
-    padding: 9px 4px;
-    font-size: 12px;
+    padding: 0;
+  }
+
+  .canvas {
+    padding: 14px 14px 24px;
   }
 }
 
 @media (max-width: 640px) {
-  .sidebar {
+  .rail {
     display: none;
   }
 
-  .topbar {
-    padding: 0 12px;
+  .commandbar {
+    height: 48px;
+    flex-basis: 48px;
+    padding: 0 10px;
   }
 
-  .crumb,
-  .user-chip .muted {
+  .user span:not(.user-role),
+  .user-role {
     display: none;
   }
 }

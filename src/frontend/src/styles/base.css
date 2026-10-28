@@ -12,7 +12,7 @@ body,
 }
 
 body {
-  background: var(--lpp-bg);
+  background: var(--lpp-canvas);
   color: var(--lpp-text);
   font-family: var(--lpp-font-family);
   font-size: var(--lpp-font-base);

@@ -70,7 +70,7 @@ async function submit(): Promise<void> {
   padding: 24px;
   background:
     radial-gradient(circle at 15% 15%, rgba(31, 58, 95, 0.08), transparent 45%),
-    var(--lpp-bg);
+    var(--lpp-canvas);
 }
 
 .login-brand {

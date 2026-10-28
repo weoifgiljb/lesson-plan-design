@@ -11,22 +11,22 @@
   --el-color-danger: var(--lpp-danger);
   --el-color-error: var(--lpp-danger);
   --el-text-color-primary: var(--lpp-text);
-  --el-text-color-regular: color-mix(in srgb, var(--lpp-text) 82%, white);
+  --el-text-color-regular: color-mix(in srgb, var(--lpp-text) 84%, white);
   --el-text-color-secondary: var(--lpp-text-muted);
   --el-border-color: var(--lpp-border);
   --el-border-color-light: color-mix(in srgb, var(--lpp-border) 70%, white);
-  --el-fill-color-light: var(--lpp-fill-light);
+  --el-fill-color-light: var(--lpp-row-hover);
   --el-fill-color-blank: var(--lpp-surface);
   --el-bg-color: var(--lpp-surface);
-  --el-bg-color-page: var(--lpp-bg);
+  --el-bg-color-page: var(--lpp-canvas);
   --el-border-radius-base: var(--lpp-radius-control);
-  --el-border-radius-small: 4px;
+  --el-border-radius-small: 2px;
   --el-font-size-base: var(--lpp-font-base);
   --el-font-family: var(--lpp-font-family);
-  --el-table-row-hover-bg-color: var(--lpp-fill-hover);
-  --el-table-header-bg-color: var(--lpp-fill-light);
+  --el-table-row-hover-bg-color: var(--lpp-row-hover);
+  --el-table-header-bg-color: transparent;
   --el-table-border-color: var(--lpp-border);
-  --el-box-shadow-light: var(--lpp-shadow-float);
+  --el-box-shadow-light: var(--lpp-shadow-flyout);
 }
 
 .el-button {
@@ -43,13 +43,29 @@
   --el-button-hover-bg-color: var(--lpp-primary-hover);
 }
 
+.el-input__wrapper,
+.el-select__wrapper {
+  border-radius: var(--lpp-radius-control);
+}
+
 .el-table {
   font-size: var(--lpp-font-sm);
 }
 
+.el-table::before,
+.el-table::after {
+  display: none;
+}
+
 .el-table th.el-table__cell {
   font-weight: 600;
-  color: var(--lpp-text);
+  color: var(--lpp-text-muted);
+  background: transparent;
+  border-bottom: 1px solid var(--lpp-border-strong);
+}
+
+.el-table td.el-table__cell {
+  border-bottom: 1px solid var(--lpp-border);
 }
 
 .el-table .cell {
@@ -62,13 +78,17 @@
 }
 
 .el-dialog {
-  border-radius: var(--lpp-radius-dialog);
+  border-radius: var(--lpp-radius-window);
 }
 
 .el-card {
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   box-shadow: none;
+}
+
+.el-tag {
+  border-radius: 3px;
 }
 
 :focus-visible {
