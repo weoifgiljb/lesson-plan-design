@@ -50,6 +50,20 @@ class TestIngestService(unittest.TestCase):
         stored = self.root / "files" / "plans" / str(result.plan_id) / "1" / "plan.json"
         self.assertTrue(stored.is_file())
 
+    def test_storage_failure_rolls_back_and_is_audited(self) -> None:
+        from unittest.mock import patch
+
+        files = read_package_dir("valid-package")
+        with patch.object(storage, "write_bytes", side_effect=AppError("INTERNAL", "磁盘写入失败")):
+            with self.assertRaises(AppError):
+                self._import(files)
+        # 事务回滚：不留下版本行，也不留下半套文件
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM plan_version").fetchone()[0], 0)
+        self.assertFalse((self.root / "files" / "plans").exists())
+        # 拒绝审计必须在事务外写进审计表（否则会被回滚掉）
+        actions = [row["action"] for row in self.repo.list_audit()]
+        self.assertIn("plan.import.rejected", actions)
+
     def test_duplicate_package_is_idempotent(self) -> None:
         files = read_package_dir("valid-package")
         first = self._import(files)

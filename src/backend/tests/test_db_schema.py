@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import sqlite3
 import unittest
+from pathlib import Path
 
 from support import isolated_data_dir, tempdir
 
-from app.adapters.db.connection import current_version, open_database
+from app.adapters.db.connection import SCHEMA_VERSION, current_version, initialize, open_database
 from app.adapters import clock
 
 
@@ -42,9 +43,49 @@ class TestDatabaseSchema(unittest.TestCase):
         return int(user), int(plan), int(version)
 
     def test_schema_version_and_pragmas(self) -> None:
-        self.assertEqual(current_version(self.conn), 1)
+        self.assertEqual(current_version(self.conn), SCHEMA_VERSION)
         self.assertEqual(self.conn.execute("PRAGMA journal_mode").fetchone()[0], "wal")
         self.assertEqual(self.conn.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+
+    def test_migration_adds_report_hash_and_override_scope(self) -> None:
+        columns = [row[1] for row in self.conn.execute("PRAGMA table_info(plan_version)")]
+        self.assertIn("report_sha256", columns)
+        indexes = {row[0] for row in self.conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+        self.assertIn("ux_plan_version_report", indexes)
+        override_columns = [row[1] for row in self.conn.execute("PRAGMA table_info(override)")]
+        self.assertIn("review_id", override_columns)
+
+    def test_v1_database_upgrades_to_latest(self) -> None:
+        target = self.root / "legacy.db"
+        conn = sqlite3.connect(str(target), isolation_level=None)
+        try:
+            conn.executescript(
+                Path(__file__).resolve().parents[1].joinpath("app/adapters/db/schema.sql").read_text(encoding="utf-8")
+            )
+            conn.execute("PRAGMA user_version=1")
+            self.assertEqual(current_version(conn), 1)
+            initialize(conn)
+            self.assertEqual(current_version(conn), SCHEMA_VERSION)
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(plan_version)")]
+            self.assertIn("report_sha256", columns)
+        finally:
+            conn.close()
+
+    def test_plan_version_idempotency_key_is_unique(self) -> None:
+        _, plan, _ = self._seed()
+        self.conn.execute(
+            "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
+            " schema_version, rubric_version, created_at)"
+            " VALUES (?, 2, '{}', 'hash', 'report-1', 1, '1.0', ?)",
+            (plan, clock.now_iso()),
+        )
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute(
+                "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
+                " schema_version, rubric_version, created_at)"
+                " VALUES (?, 3, '{}', 'hash', 'report-1', 1, '1.0', ?)",
+                (plan, clock.now_iso()),
+            )
 
     def test_plan_version_is_immutable(self) -> None:
         _, _, version = self._seed()

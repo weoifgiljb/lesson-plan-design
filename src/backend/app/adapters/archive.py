@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -21,17 +22,34 @@ from app.domain.errors import AppError
 
 SYMLINK_MODE = 0o120000
 
+# Windows 盘符、UNC 与保留设备名：这些在 Windows 上会被解析成绝对路径/设备，
+# 必须在白名单之前拒掉，而不是等落盘层兜底。
+WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:")
+WINDOWS_RESERVED = frozenset(
+    {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+)
+
+
+def _windows_reserved(part: str) -> bool:
+    if part.rstrip() != part or part.endswith("."):
+        return True
+    return part.split(".", 1)[0].strip().upper() in WINDOWS_RESERVED
+
 
 def normalize_entry(name: str) -> str:
     if not isinstance(name, str) or not name.strip() or "\x00" in name:
         raise AppError("PAYLOAD_REJECTED", "zip 条目名为空或非法")
     normalized = name.replace("\\", "/").strip()
+    if WINDOWS_DRIVE.match(normalized) or normalized.startswith("//"):
+        raise AppError("PAYLOAD_REJECTED", f"zip 条目不得为盘符或 UNC 路径：{name}")
     path = PurePosixPath(normalized)
     if path.is_absolute() or normalized.startswith("/"):
         raise AppError("PAYLOAD_REJECTED", f"zip 条目不得为绝对路径：{name}")
     parts = [part for part in path.parts if part not in ("", ".")]
     if not parts or any(part == ".." for part in parts):
         raise AppError("PAYLOAD_REJECTED", f"zip 条目含非法路径段：{name}")
+    if any(_windows_reserved(part) for part in parts):
+        raise AppError("PAYLOAD_REJECTED", f"zip 条目含 Windows 保留名或非法结尾：{name}")
     return PurePosixPath(*parts).as_posix()
 
 
