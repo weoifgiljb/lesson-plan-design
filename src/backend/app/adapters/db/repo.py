@@ -17,7 +17,7 @@ def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
-PLAN_FILTER_KEYS = ("course", "week", "teacher", "created_from", "created_before")
+PLAN_FILTER_KEYS = ("course", "week", "class", "teacher", "created_from", "created_before")
 
 
 def _has_plan_filters(filters: dict[str, Any] | None) -> bool:

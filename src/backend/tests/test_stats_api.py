@@ -197,6 +197,10 @@ class TestStatsApi(unittest.TestCase):
         # setUp 里的教案都没有挂任务，按班级筛选后没有样本
         self.assertEqual(metrics["structure_rate"]["denominator"], 0)
         self.assertFalse(metrics["task_completion"]["available"])
+        # 同步日志没有班级维度：带班级筛选时必须标不可用，不能回显筛选却给全量（R2-B1）
+        self.assertFalse(metrics["sync_consistency"]["available"])
+        self.assertIsNone(metrics["sync_consistency"]["value"])
+        self.assertEqual(filtered["filters"]["class"], "计算机1班")
 
     def test_export_csv_lists_nine_metrics(self) -> None:
         self._login("admin1")
