@@ -48,6 +48,18 @@ def review_detail(
             "evidence": {"items": [], "complete": False, "passed": 0, "total": 5, "gaps": ["report_unreadable"]},
         }
     chain = _chain(report, row, repo.plan_rounds(int(row["plan_id"])))
+    if report.get("overrides"):
+        # 查看放行记录要留痕（TC-09-03：入库、导出、放行查看各一条审计）
+        audit_service.record(
+            repo,
+            actor_id=int(user.get("id") or 0) or None,
+            action="review.read",
+            target_type="review",
+            target_id=str(review_id),
+            detail={"planId": int(row["plan_id"]), "overrides": len(report.get("overrides") or [])},
+            ip=ip,
+            trace_id=trace_id,
+        )
     return {
         "review": _review_header(row),
         "report": _report_payload(report),

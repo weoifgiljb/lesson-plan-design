@@ -8,6 +8,11 @@ from typing import Any
 from app.adapters.db.repo import Repo
 from app.domain import library, timerange
 
+CSV_COLUMNS = (
+    "id", "createdAt", "actorId", "actorName", "actorRole", "actorGroup", "action",
+    "targetType", "targetId", "beforeHash", "afterHash", "ip", "traceId", "detail",
+)
+
 
 def record(
     repo: Repo,
@@ -54,6 +59,44 @@ def query(
         "pageSize": actual_size,
         "total": total,
     }
+
+
+def export_csv(
+    repo: Repo, user: dict[str, Any], *, filters: dict[str, Any], limit: int = 10000
+) -> str:
+    """导出 CSV：列与查询一致，含全部字段；只读，不改审计行。"""
+    window = dict(filters)
+    window["created_from"] = timerange.start_of(filters["date_from"]) if filters.get("date_from") else None
+    window["created_before"] = timerange.end_exclusive(filters["date_to"]) if filters.get("date_to") else None
+    rows, _total = repo.list_audit_entries(library.scope_for(user), window, int(limit), 0)
+    lines = [",".join(CSV_COLUMNS)]
+    for row in rows:
+        entry = _entry(row)
+        values: tuple[Any, ...] = (
+            entry["id"],
+            entry["createdAt"],
+            entry["actor"]["id"],
+            entry["actor"]["name"],
+            entry["actor"]["role"],
+            entry["actor"]["group"],
+            entry["action"],
+            entry["targetType"],
+            entry["targetId"],
+            entry["beforeHash"],
+            entry["afterHash"],
+            entry["ip"],
+            entry["traceId"],
+            json.dumps(entry["detail"], ensure_ascii=False, sort_keys=True),
+        )
+        lines.append(",".join(_csv_cell(value) for value in values))
+    return "\n".join(lines) + "\n"
+
+
+def _csv_cell(value: Any) -> str:
+    text = "" if value is None else str(value)
+    if any(ch in text for ch in ',"\n\r'):
+        return '"' + text.replace('"', '""') + '"'
+    return text
 
 
 def _entry(row: dict[str, Any]) -> dict[str, Any]:

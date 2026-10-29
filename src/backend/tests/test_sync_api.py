@@ -134,6 +134,18 @@ class TestSyncApi(unittest.TestCase):
         self.assertNotEqual(head["headHash"], self.first_hash)
         self.assertEqual(len(self.client.get("/api/v1/sync/pull?since=0").json()["items"]), 2)
 
+    def test_old_round_package_gets_409_not_422(self) -> None:
+        # TC-08-01 真实场景：平台已到 v2，客户端仍停在 v1（round 1 的包）
+        previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
+        second = self._package(2, "第二次同步修订", previous)
+        self.assertEqual(self._push(second, self.first_hash).status_code, 201)
+        stale = self._push(self._package(1, "旧客户端仍在 v1", None), self.first_hash)
+        self.assertEqual(stale.status_code, 409, stale.text)
+        details = stale.json()["details"]
+        self.assertEqual(details["headVersion"], 2)
+        self.assertEqual(details["baseHash"], self.first_hash)
+        self.assertIn("changes", details)
+
     def test_stale_base_hash_returns_409(self) -> None:
         previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
         second = self._package(2, "第二次同步修订", previous)
@@ -243,6 +255,25 @@ class TestSyncApi(unittest.TestCase):
         items = self.client.get("/api/v1/sync/pull?since=0").json()["items"]
         self.assertTrue(items)
         self.assertTrue(items[0]["deleted"])
+
+    def test_delete_propagates_after_cursor(self) -> None:
+        # 先把游标推到最新，再删除；下一次 pull 必须能拉到 deleted 事件（P24 R1 的核心场景）
+        first = self.client.get("/api/v1/sync/pull?since=0").json()
+        cursor = first["nextCursor"]
+        self.assertGreater(cursor, 0)
+        csrf = self.client.cookies.get("lpp_csrf")
+        self.assertEqual(
+            self.client.delete(f"/api/v1/plans/{self.plan_id}", headers={"X-CSRF-Token": csrf}).status_code,
+            200,
+        )
+        after = self.client.get(f"/api/v1/sync/pull?since={cursor}").json()
+        self.assertTrue(after["items"], after)
+        kinds = [(item["kind"], item["planId"]) for item in after["items"]]
+        self.assertIn(("deleted", self.plan_id), kinds)
+        # head 对已删教案必须告诉客户端"不存在/已删除"
+        head = self.client.get(f"/api/v1/sync/head?planId={self.plan_id}").json()
+        self.assertFalse(head["exists"], head)
+        self.assertTrue(head["deleted"], head)
 
     def test_lead_identity_head_covers_group(self) -> None:
         csrf = self._login("lead1")

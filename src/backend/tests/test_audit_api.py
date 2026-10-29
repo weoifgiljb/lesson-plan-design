@@ -162,6 +162,23 @@ class TestAuditApi(unittest.TestCase):
         self._login("lead1")
         self.assertEqual(self.client.get("/api/v1/settings/engine").status_code, 403)
 
+    def test_export_csv_contains_all_columns_and_is_audited(self) -> None:
+        self._login("admin1")
+        response = self.client.get("/api/v1/audit/export")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertIn("text/csv", response.headers["content-type"])
+        self.assertIn("attachment", response.headers.get("content-disposition", ""))
+        lines = [line for line in response.text.splitlines() if line]
+        header = lines[0].lstrip("\ufeff")
+        self.assertTrue(header.startswith("id,createdAt,actorId,actorName"), header)
+        self.assertGreaterEqual(len(lines), 2)
+        actions = [item["action"] for item in self.client.get("/api/v1/audit?pageSize=100").json()["items"]]
+        self.assertIn("audit.export", actions)
+
+    def test_export_csv_is_forbidden_for_teacher(self) -> None:
+        self._login("teacher1")
+        self.assertEqual(self.client.get("/api/v1/audit/export").status_code, 403)
+
 
 if __name__ == "__main__":
     unittest.main()

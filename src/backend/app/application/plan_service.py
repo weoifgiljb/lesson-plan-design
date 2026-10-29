@@ -131,6 +131,8 @@ def delete_plan(
             trace_id=trace_id,
             before_hash=str(row.get("plan_hash") or ""),
         )
+        # 删除也要能被增量同步拉到（BS-04）
+        repo.insert_sync_event("deleted", plan_id)
     return {"planId": plan_id, "deleted": True, "alreadyDeleted": False}
 
 
