@@ -424,10 +424,6 @@ class Repo:
         else:
             # 启发式匹配：把班级纳入条件；命中 0 条或跨班多条都不静默挑一条
             class_name = str(plan.get("className") or plan.get("class") or "")
-            sql = (
-                "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
-                " AND title = ?"
-            )
             params: list[Any] = [
                 int(owner["owner_id"]),
                 str(plan.get("course") or ""),
@@ -436,9 +432,17 @@ class Repo:
                 str(plan.get("contentTitle") or ""),
             ]
             if class_name:
-                sql += " AND class_name = ?"
+                sql = (
+                    "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
+                    " AND title = ? AND class_name = ? ORDER BY id LIMIT 2"
+                )
                 params.append(class_name)
-            rows = self.conn.execute(sql + " ORDER BY id LIMIT 2", params).fetchall()
+            else:
+                sql = (
+                    "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
+                    " AND title = ? ORDER BY id LIMIT 2"
+                )
+            rows = self.conn.execute(sql, params).fetchall()
             if len(rows) != 1:
                 return None
             task = dict(rows[0])
