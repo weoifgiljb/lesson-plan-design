@@ -1283,7 +1283,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 30,
+                  "minimum": 1
                 },
                 {
                   "type": "null"
@@ -1299,7 +1301,9 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "maximum": 20,
+                  "minimum": 1
                 },
                 {
                   "type": "null"
@@ -1330,6 +1334,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "minimum": 1,
               "default": 1,
               "title": "Page"
             }
@@ -1340,6 +1345,7 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "minimum": 1,
               "default": 20,
               "title": "Pagesize"
             }
@@ -1420,6 +1426,8 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 4611686018427387904,
+              "minimum": 1,
               "title": "Sample Id"
             }
           }
@@ -1461,6 +1469,8 @@
             "required": true,
             "schema": {
               "type": "integer",
+              "maximum": 4611686018427387904,
+              "minimum": 1,
               "title": "Sample Id"
             }
           }

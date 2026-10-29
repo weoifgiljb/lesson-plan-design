@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""样例库：列表与管理员上传校验。"""
+"""样例库：列表、详情/下载与管理员上传校验。"""
 from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Path, Query, Request, Response, UploadFile
 
 from app.api.deps import require_csrf_role, require_role
 from app.api.uploads import read_limited
@@ -14,16 +14,21 @@ from app.domain.errors import AppError
 
 router = APIRouter()
 
+# 与 sample_rules.WEEK_RANGE / SESSION_RANGE 对齐；同时把超大的整数挡在 SQLite 绑定之前
+WEEK_LIMIT = Query(None, ge=1, le=30)
+SESSION_LIMIT = Query(None, ge=1, le=20)
+SAMPLE_ID = Path(ge=1, le=2**62)
+
 
 @router.get("/samples")
 def list_samples(
     context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
     course: str | None = None,
-    week: int | None = None,
-    session: int | None = None,
+    week: int | None = WEEK_LIMIT,
+    session: int | None = SESSION_LIMIT,
     q: str | None = None,
-    page: int = 1,
-    page_size: int = Query(20, alias="pageSize"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, alias="pageSize", ge=1),
 ) -> dict[str, Any]:
     filters = {"course": course, "week": week, "session": session, "q": q}
     return sample_service.list_samples(
@@ -57,7 +62,7 @@ async def create_sample(
 
 @router.get("/samples/{sample_id}")
 def sample_detail(
-    sample_id: int,
+    sample_id: int = SAMPLE_ID,
     context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
 ) -> dict[str, Any]:
     return sample_service.detail(context["repo"], sample_id)
@@ -65,7 +70,7 @@ def sample_detail(
 
 @router.get("/samples/{sample_id}/download", response_class=Response)
 def sample_download(
-    sample_id: int,
+    sample_id: int = SAMPLE_ID,
     context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
 ) -> Response:
     item, data = sample_service.download(context["repo"], sample_id)

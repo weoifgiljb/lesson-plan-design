@@ -91,6 +91,18 @@ class TestSamplesApi(unittest.TestCase):
         self.assertEqual(response.status_code, 422, response.text)
         self.assertEqual(response.json()["code"], "STRUCTURE_INVALID")
 
+    def test_huge_query_and_path_integers_are_rejected(self) -> None:
+        # R2-F2：GET 侧的超大整数不能打到 SQLite 绑定（会 OverflowError → 500）
+        csrf = self._login("admin1")
+        self.assertEqual(self._upload(self.plan, csrf).status_code, 201)
+        huge = 10 ** 100
+        self.assertEqual(self.client.get(f"/api/v1/samples?week={huge}").status_code, 422)
+        self.assertEqual(self.client.get(f"/api/v1/samples?session={huge}").status_code, 422)
+        self.assertEqual(self.client.get(f"/api/v1/samples/{huge}").status_code, 422)
+        self.assertEqual(self.client.get(f"/api/v1/samples/{huge}/download").status_code, 422)
+        # 正常边界仍然可用
+        self.assertEqual(self.client.get("/api/v1/samples?week=30&session=20").status_code, 200)
+
     def test_sample_detail_and_download(self) -> None:
         csrf = self._login("admin1")
         created = self._upload(self.plan, csrf).json()
