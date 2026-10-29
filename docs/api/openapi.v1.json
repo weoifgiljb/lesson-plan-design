@@ -55,15 +55,17 @@
               }
             }
           },
+          "401": {
+            "description": "用户名或口令错误"
+          },
+          "403": {
+            "description": "账号已停用"
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "请求体校验失败"
+          },
+          "429": {
+            "description": "连续失败次数过多，账号锁定中"
           }
         }
       }
@@ -84,6 +86,12 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "未登录或会话已失效"
+          },
+          "403": {
+            "description": "缺少或错误的 CSRF token"
           }
         }
       }
@@ -111,19 +119,6 @@
   },
   "components": {
     "schemas": {
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
       "LoginPayload": {
         "properties": {
           "username": {
@@ -145,46 +140,6 @@
           "password"
         ],
         "title": "LoginPayload"
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
       }
     }
   }

@@ -14,7 +14,15 @@ from app.application import session_service, user_service
 router = APIRouter()
 
 
-@router.post("/auth/login")
+@router.post(
+    "/auth/login",
+    responses={
+        401: {"description": "用户名或口令错误"},
+        403: {"description": "账号已停用"},
+        422: {"description": "请求体校验失败"},
+        429: {"description": "连续失败次数过多，账号锁定中"},
+    },
+)
 def login(
     payload: schemas.LoginPayload, request: Request, response: Response, repo=Depends(get_repo)
 ) -> dict[str, Any]:
@@ -29,7 +37,13 @@ def login(
     return {"user": schemas.user_payload(user), "csrfToken": csrf_token}
 
 
-@router.post("/auth/logout")
+@router.post(
+    "/auth/logout",
+    responses={
+        401: {"description": "未登录或会话已失效"},
+        403: {"description": "缺少或错误的 CSRF token"},
+    },
+)
 def logout(
     response: Response, context: dict[str, Any] = Depends(require_csrf)
 ) -> dict[str, Any]:
