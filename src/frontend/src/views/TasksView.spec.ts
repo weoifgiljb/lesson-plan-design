@@ -67,6 +67,17 @@ describe('TasksView', () => {
     wrapper.unmount()
   })
 
+  it('shows the creation status as read-only', async () => {
+    const wrapper = await mountView()
+    const create = wrapper.findAll('button').find((item) => item.text() === '新建任务')
+    expect(create).toBeTruthy()
+    await create!.trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('创建时不可手改')
+    expect(document.body.textContent).toContain('待生成')
+    wrapper.unmount()
+  })
+
   it('downloads a task package with a safe file name', async () => {
     const wrapper = await mountView()
     const row = wrapper.findAll('.el-table__row').find((item) => item.text().includes('一级考证辅导2'))

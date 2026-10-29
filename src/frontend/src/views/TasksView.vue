@@ -276,6 +276,12 @@ onMounted(() => {
             <el-date-picker v-model="form.dueDate" type="date" value-format="YYYY-MM-DD" placeholder="选填" />
           </el-form-item>
         </div>
+        <el-form-item label="状态">
+          <div class="status-readonly">
+            <StatusTag code="draft" status="draft" />
+            <span>创建后为“待生成”；导入、审查、导出会自动推进，创建时不可手改。</span>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -359,6 +365,16 @@ onMounted(() => {
 .create-form__row :deep(.el-form-item) {
   flex: 1 1 120px;
   min-width: 0;
+}
+
+.status-readonly {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
 }
 
 @media (max-width: 767px) {
