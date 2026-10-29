@@ -251,7 +251,7 @@ onMounted(() => {
 
     <p class="footnote">任务包由插件端读取后生成教案；下载文件仅包含当前任务，不含其他教师数据。</p>
 
-    <el-dialog v-model="dialogVisible" title="新建任务" width="520px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" title="新建任务" width="min(520px, 92vw)" destroy-on-close>
       <el-alert v-if="formError" :title="formError" type="error" :closable="false" show-icon />
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="create-form">
         <el-form-item label="课题" prop="title">

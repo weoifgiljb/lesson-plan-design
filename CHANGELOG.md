@@ -25,7 +25,7 @@
 ### 测试
 
 - 前端 `npm run test`：16 个文件、46 条用例通过（含任务页渲染/下载/只读状态、请求状态、分页、日期、结构映射、概览四态）。
-- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 与 `npm run smoke:tasks` 通过（需后端与种子数据）；TasksView 8.81 KB（gzip 3.77），Dashboard 32.44 KB（gzip 11.91），three 懒加载 531.75 KB（gzip 134.29）。
+- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 与 `npm run smoke:tasks` 通过（需后端与种子数据）；TasksView 8.82 KB（gzip 3.78），Dashboard 32.44 KB（gzip 11.91），three 懒加载 531.75 KB（gzip 134.29）。
 - 仓库 `run_backend_gate.py`：block 0，172 tests（架构 warn 2、契约 warn 1 为既有计划内项）；含同班不同课、不同教师同任务、schema v2 迁移测试；另含 `6230ed3` 审查日期边界修复。
 - 数据库：`PRAGMA user_version=2`；v1→v2 任务表重建保留数据，外键检查为空。
 
