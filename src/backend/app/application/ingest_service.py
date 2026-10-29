@@ -285,6 +285,20 @@ def _write_version(
     if written is not None:
         # 落盘发生的目录先登记：事务回滚时由 on_rollback 回调清理，避免孤儿文件
         written.append((plan_id, version_no))
+    # 任务状态随入库推进（BS-10 状态机）：报告通过 → passed，否则 → reviewing
+    passed = str(report.get("status") or "").startswith("passed")
+    task_id = repo.attach_task_for_plan(plan_id, plan, "passed" if passed else "reviewing")
+    if task_id is not None:
+        audit_service.record(
+            repo,
+            actor_id=actor_id,
+            action="task.status",
+            target_type="task",
+            target_id=str(task_id),
+            detail={"status": "passed" if passed else "reviewing", "planId": plan_id},
+            ip=ip,
+            trace_id=trace_id,
+        )
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
     if sync is not None:

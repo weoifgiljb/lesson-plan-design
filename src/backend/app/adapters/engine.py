@@ -43,6 +43,19 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     return _lib().export_gate(plan, report)
 
 
+def draft_plan(week: int, session: int, title: str, course: str = "信息技术") -> dict[str, Any]:
+    """用插件草稿器生成结构可过校验的空教案模板；失败返回空字典由调用方降级。"""
+    try:
+        _lib()
+        from lesson_plan.draft import draft_plan as build  # noqa: PLC0415
+
+        plan = build(int(week), int(session), str(title))
+        plan["course"] = str(course)
+        return plan
+    except Exception:  # noqa: BLE001 - 适配层降级，不向 API 抛 500
+        return {}
+
+
 def score_plan(plan: dict[str, Any]) -> dict[str, Any]:
     """结构贴近分（0–100）：复用插件的五维评分，失败时降级为 0 分而不是 500。"""
     try:

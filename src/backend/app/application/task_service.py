@@ -30,6 +30,15 @@ def create(
     with repo.transaction():
         existing = repo.find_task(data["course"], data["week"], data["session"], data["class_name"])
         if existing is not None:
+            # 归属校验：别人的任务不能被 confirm 覆盖（跨教师 IDOR）
+            if not _can_touch(repo, user, existing):
+                audit_service.record(
+                    repo, actor_id=int(user.get("id") or 0), action="authz.denied",
+                    target_type="task", target_id=str(existing["id"]),
+                    detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
+                    ip=ip, trace_id=trace_id,
+                )
+                raise AppError("FORBIDDEN", "该任务属于其他教师，不能覆盖")
             if not confirm:
                 raise AppError(
                     "CONFLICT_STALE",
@@ -63,6 +72,14 @@ def rollback(
     task = repo.get_task(int(task_id))
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
+    # 归属校验：组长只能回退本组任务，不能跨组改别人状态（R2-4）
+    if not _can_touch(repo, user, task):
+        audit_service.record(
+            repo, actor_id=int(user.get("id") or 0), action="authz.denied", target_type="task",
+            target_id=str(task_id), detail={"reason": "task_scope", "path": "/api/v1/tasks/rollback"},
+            ip=ip, trace_id=trace_id,
+        )
+        raise AppError("FORBIDDEN", "只能回退本组任务")
     current = str(task["status"])
     order = ["draft", "reviewing", "passed", "exported"]
     if current not in order or order.index(current) == 0:
@@ -123,6 +140,17 @@ def _nearest_sample(repo: Repo, task: dict[str, Any]) -> int | None:
         )
         sample = rows[0] if rows else None
     return int(sample["id"]) if sample is not None else None
+
+
+def _can_touch(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> bool:
+    """组长只能动本组任务，教师只能动自己的任务。"""
+    return library.can_view(
+        str(user.get("role") or ""),
+        int(user.get("id") or 0),
+        str(user.get("group_name") or ""),
+        int(task["owner_id"]),
+        str(task.get("owner_group") or ""),
+    )
 
 
 def _item(task: dict[str, Any] | None, today: date) -> dict[str, Any]:
