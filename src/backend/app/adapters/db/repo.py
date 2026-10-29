@@ -217,12 +217,15 @@ class Repo:
         return _row(self.conn.execute(sql, (version_id,)).fetchone())
 
     # ---------- 导出 ----------
-    def find_export_job(self, version_id: int, engine_version: str) -> dict[str, Any] | None:
+    def find_export_job(
+        self, version_id: int, engine_version: str, report_sha256: str = ""
+    ) -> dict[str, Any] | None:
+        """复用键 = 版本 + 引擎 + 报告哈希：换了审查报告必须重导，不能拿旧产物（R2-N3）。"""
         return _row(
             self.conn.execute(
                 "SELECT * FROM export_job WHERE plan_version_id = ? AND engine_version = ?"
-                " AND status = 'succeeded' ORDER BY id DESC LIMIT 1",
-                (version_id, engine_version),
+                " AND report_sha256 = ? AND status = 'succeeded' ORDER BY id DESC LIMIT 1",
+                (version_id, engine_version, report_sha256),
             ).fetchone()
         )
 
