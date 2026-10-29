@@ -87,7 +87,7 @@ export interface Evidence {
   gaps: string[]
 }
 
-export interface ReviewListItem {
+export interface ReviewHeader {
   reviewId: number
   planId: number
   versionNo: number
@@ -101,6 +101,9 @@ export interface ReviewListItem {
   course: string
   week: number
   session: number
+}
+
+export interface ReviewListItem extends ReviewHeader {
   evidence: Pick<Evidence, 'complete' | 'passed' | 'total' | 'gaps'>
 }
 
@@ -115,7 +118,7 @@ export interface Finding {
 }
 
 export interface ReviewDetail {
-  review: ReviewListItem
+  review: ReviewHeader
   report: Record<string, unknown>
   findings: Finding[]
   overrides: Record<string, unknown>[]
