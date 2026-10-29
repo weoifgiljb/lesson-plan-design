@@ -152,7 +152,7 @@ const label = computed(
       <text class="layer-meta" x="36" y="204">{{ model.totalMinutes }} 分钟 / 8 步</text>
       <text x="36" y="296">证据链</text>
       <text class="layer-meta" x="36" y="314">
-        {{ model.evidencePassed }} / {{ model.evidenceTotal }} 项通过
+        {{ model.evidenceTotal ? `${model.evidencePassed} / ${model.evidenceTotal} 项通过` : '未接入' }}
       </text>
     </g>
   </svg>

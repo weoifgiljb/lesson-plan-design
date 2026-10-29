@@ -27,6 +27,8 @@ export interface LessonStructure {
   goals: StructureGoals
   steps: StructureStep[]
   evidence: EvidenceItem[]
+  /** 活动未提供 minutes 时按计划学时估算。 */
+  minutesEstimated?: boolean
 }
 
 export interface StructureLayer {
@@ -69,7 +71,7 @@ export function buildStructureModel(structure: LessonStructure): StructureModel 
     totalMinutes,
     evidencePassed,
     evidenceTotal,
-    complete: evidencePassed === evidenceTotal,
+    complete: evidenceTotal > 0 && evidencePassed === evidenceTotal,
   }
 }
 

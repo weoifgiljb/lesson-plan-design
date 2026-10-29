@@ -44,6 +44,10 @@ const activeStep = computed<StructureStep | undefined>(
 const caption = computed(() =>
   activeStep.value ? formatStepCaption(activeStep.value) : '暂无结构数据',
 )
+const hashLabel = computed(() => {
+  const hash = props.structure.planHash
+  return hash.length > 12 ? `${hash.slice(0, 12)}…` : hash
+})
 const goalSummary = computed(
   () =>
     `${props.structure.goals.knowledge} / ${props.structure.goals.ability} / ${props.structure.goals.quality}`,
@@ -114,8 +118,9 @@ onBeforeUnmount(() => {
         <h2>教案结构剖面</h2>
         <p>
           {{ structure.title }} / 第 {{ structure.week }} 周第 {{ structure.session }} 次课
-          <span class="mono">planHash {{ structure.planHash }}</span>
+          <span class="mono">planHash {{ hashLabel }}</span>
         </p>
+        <p v-if="structure.minutesEstimated" class="structure-estimate">分钟按计划学时估算</p>
       </div>
       <div class="structure-controls">
         <div class="structure-switch" role="group" aria-label="视图切换">
@@ -187,7 +192,7 @@ onBeforeUnmount(() => {
         <span class="structure-axis__item" style="top: 70%">
           <i class="structure-axis__dot structure-axis__dot--evidence" />
           <strong>证据链</strong>
-          <small>{{ model.evidencePassed }} / {{ model.evidenceTotal }} 项通过</small>
+          <small>{{ model.evidenceTotal ? `${model.evidencePassed} / ${model.evidenceTotal} 项通过` : '未接入' }}</small>
         </span>
       </div>
       <div v-else class="structure-diagram-wrap">
@@ -205,7 +210,7 @@ onBeforeUnmount(() => {
       <span><i class="swatch swatch--flow" aria-hidden="true" />八步流程</span>
       <span>
         <i class="swatch swatch--evidence" aria-hidden="true" />
-        证据链 {{ model.evidencePassed }} / {{ model.evidenceTotal }}
+        证据链 {{ model.evidenceTotal ? `${model.evidencePassed} / ${model.evidenceTotal}` : '未接入' }}
       </span>
       <span class="structure-legend__meta">{{ model.totalMinutes }} 分钟</span>
     </div>
@@ -228,13 +233,14 @@ onBeforeUnmount(() => {
           <h3>三维目标</h3>
           <p class="structure-list__goal">{{ goalSummary }}</p>
           <h3>证据链</h3>
-          <ul class="structure-list__evidence-list">
+          <ul v-if="structure.evidence.length" class="structure-list__evidence-list">
             <li v-for="item in structure.evidence" :key="item.key" :class="{ 'is-bad': !item.ok }">
               <span>{{ item.ok ? '通过' : '缺项' }}</span>
               {{ item.label }}
               <em v-if="!item.ok">{{ item.reason }}</em>
             </li>
           </ul>
+          <p v-else class="structure-list__goal">该教案还没有可展示的审查证据。</p>
         </div>
       </div>
     </details>
@@ -279,6 +285,12 @@ onBeforeUnmount(() => {
 .structure-title .mono {
   margin-left: 6px;
   color: var(--lpp-text-muted);
+}
+
+.structure-estimate {
+  margin-top: 2px;
+  color: var(--lpp-accent-ink);
+  font-size: var(--lpp-font-xs);
 }
 
 .structure-controls {

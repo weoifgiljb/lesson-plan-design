@@ -15,7 +15,7 @@ const isDev = import.meta.env.DEV
 const formRef = ref<FormInstance>()
 const usernameRef = ref<{ focus: () => void } | null>(null)
 const form = reactive({
-  username: isDev ? 'teacher1' : '',
+  username: isDev ? 'teacher01' : '',
   password: isDev ? 'Lesson2026' : '',
 })
 const loading = ref(false)
@@ -36,7 +36,10 @@ async function submit(): Promise<void> {
     loading.value = true
     try {
       await session.signIn(form.username, form.password)
-      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+      const redirect =
+        typeof route.query.redirect === 'string' && route.query.redirect !== '/login'
+          ? route.query.redirect
+          : '/dashboard'
       await router.push(redirect)
     } catch (caught) {
       if (caught instanceof RequestError) {
@@ -151,7 +154,7 @@ onMounted(() => {
         </el-form>
 
         <p v-if="isDev" class="demo-hint">
-          本地开发：<code>teacher1</code> / <code>Lesson2026</code>
+          本地开发：<code>teacher01</code> / <code>Lesson2026</code>
         </p>
         <p v-if="isDev" class="demo-link">
           <router-link to="/styleguide">查看设计验收</router-link>

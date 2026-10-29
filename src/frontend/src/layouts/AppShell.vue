@@ -45,17 +45,17 @@ const groups = computed<NavGroup[]>(() => [
       {
         label: '概览',
         icon: 'overview',
-        to: isDev ? '/preview/overview' : undefined,
-        ready: isDev,
+        to: '/dashboard',
+        ready: true,
       },
     ],
   },
   {
     label: '教案',
     items: [
-      { label: '任务', icon: 'tasks', count: isDev ? 3 : undefined, ready: false },
+      { label: '任务', icon: 'tasks', ready: false },
       { label: '教案库', icon: 'plans', ready: false },
-      { label: '审查', icon: 'reviews', count: isDev ? 3 : undefined, ready: false },
+      { label: '审查', icon: 'reviews', ready: false },
       { label: '导出', icon: 'exports', ready: false },
     ],
   },
@@ -78,7 +78,10 @@ const groups = computed<NavGroup[]>(() => [
     ? [
         {
           label: '设计',
-          items: [{ label: '风格验收', icon: 'design' as const, to: '/styleguide', ready: true }],
+          items: [
+            { label: '概览预览', icon: 'overview' as const, to: '/preview/overview', ready: true },
+            { label: '风格验收', icon: 'design' as const, to: '/styleguide', ready: true },
+          ],
         },
       ]
     : []),
@@ -89,16 +92,25 @@ const pageSection = computed(() => route.meta.section ?? '平台端')
 const isPreview = computed(() => route.path.startsWith('/preview'))
 
 const commands = computed<CommandItem[]>(() => {
-  const list: CommandItem[] = []
+  const list: CommandItem[] = [
+    {
+      id: 'dashboard',
+      title: '概览',
+      group: '页面',
+      hint: '/dashboard',
+      to: '/dashboard',
+      keywords: 'dashboard overview 工作台',
+    },
+  ]
   if (isDev) {
     list.push(
       {
-        id: 'overview',
-        title: '概览',
+        id: 'preview',
+        title: '概览预览',
         group: '页面',
         hint: '/preview/overview',
         to: '/preview/overview',
-        keywords: 'overview 工作台',
+        keywords: 'preview fixture 设计回归',
       },
       {
         id: 'styleguide',
@@ -128,7 +140,7 @@ const commands = computed<CommandItem[]>(() => {
       group: '操作',
       hint: '概览 / 八步流程',
       action: () => {
-        if (route.path !== '/preview/overview') void router.push('/preview/overview')
+        if (route.path !== '/dashboard') void router.push('/dashboard')
         window.setTimeout(() => document.querySelector('.structure-panel')?.scrollIntoView({ block: 'center' }), 120)
       },
     },
@@ -136,8 +148,8 @@ const commands = computed<CommandItem[]>(() => {
       id: 'upload',
       title: '上传契约包',
       group: '操作',
-      hint: 'FE-01 接入',
-      action: () => ElMessage.info('上传入口将在 FE-01 接入，本轮仅做界面预览。'),
+      hint: 'FE-03 接入',
+      action: () => ElMessage.info('上传入口将在教案库任务（FE-03）接入。'),
     },
   )
   return list

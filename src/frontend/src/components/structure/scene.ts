@@ -45,6 +45,8 @@ export function createStructureScene(
     antialias: true,
     alpha: true,
     powerPreference: 'low-power',
+    // Playwright fullPage 截图会触发合成 resize；保留缓冲避免截图为空。
+    preserveDrawingBuffer: true,
   })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
   renderer.setClearColor(0x000000, 0)

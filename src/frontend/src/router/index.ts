@@ -19,7 +19,12 @@ declare module 'vue-router' {
 const isDev = import.meta.env.DEV
 
 const children: RouteRecordRaw[] = [
-  { path: '', redirect: isDev ? '/preview/overview' : '/login' },
+  { path: '', redirect: '/dashboard' },
+  {
+    path: 'dashboard',
+    component: () => import('@/views/DashboardView.vue'),
+    meta: { title: '概览', section: '工作台' },
+  },
 ]
 
 if (isDev) {
@@ -27,7 +32,7 @@ if (isDev) {
     {
       path: 'preview/overview',
       component: () => import('@/views/OverviewPreviewView.vue'),
-      meta: { public: true, title: '概览', section: '工作台' },
+      meta: { public: true, title: '概览预览', section: '设计' },
     },
     {
       path: 'styleguide',
