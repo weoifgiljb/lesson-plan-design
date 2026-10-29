@@ -357,12 +357,14 @@ class Repo:
         self.conn.execute("UPDATE task SET status = ? WHERE id = ?", (status, int(task_id)))
 
     def find_task(
-        self, course: str, week: int, session: int, class_name: str
+        self, course: str, week: int, session: int, class_name: str, title: str = ""
     ) -> dict[str, Any] | None:
+        """任务身份 = 课程 + 周次 + 课次 + 班级 + 课题（同一班级可以上不同课题的课）。"""
         return _row(
             self.conn.execute(
-                "SELECT * FROM task WHERE course = ? AND week = ? AND session = ? AND class_name = ?",
-                (course, int(week), int(session), class_name),
+                "SELECT * FROM task WHERE course = ? AND week = ? AND session = ?"
+                " AND class_name = ? AND title = ?",
+                (course, int(week), int(session), class_name, title),
             ).fetchone()
         )
 

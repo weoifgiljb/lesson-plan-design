@@ -21,6 +21,9 @@ class TaskCreate(BaseModel):
     title: str
     className: str = ""
     dueDate: date | None = None
+    # 状态由服务端控制：新建固定 draft，后续由入库/审查/导出推进，或走人工回退接口。
+    # 收下这个字段只为给出明确报错，避免前端传了被静默忽略。
+    status: str | None = None
 
 
 @router.get("/tasks")
@@ -51,12 +54,11 @@ def create_task(
     confirm: bool = False,
     context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
 ) -> dict[str, Any]:
-    existing = context["repo"].find_task(payload.course, payload.week, payload.session, payload.className)
-    result = task_service.create(
+    result, created = task_service.create(
         context["repo"], context["user"], payload.model_dump(),
         confirm=confirm, ip=_client_ip(request), trace_id=_trace_id(request),
     )
-    if existing is not None and confirm:
+    if not created:
         response.status_code = 200
     return result
 

@@ -20,15 +20,25 @@ def create(
     confirm: bool = False,
     ip: str = "",
     trace_id: str = "",
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], bool]:
     data = task_rules.validate(
         payload.get("course"), payload.get("week"), payload.get("session"),
         payload.get("title"), payload.get("className", ""),
     )
+    # 状态是服务端推导的，不接受客户端指定：明确拒绝，而不是静默丢弃
+    requested_status = str(payload.get("status") or "draft").strip()
+    if requested_status != "draft":
+        raise AppError(
+            "PAYLOAD_REJECTED",
+            "新建任务的状态固定为 draft，后续由入库/审查/导出推进或人工回退",
+            {"status": requested_status},
+        )
     due = payload.get("dueDate")
     due_text = due.isoformat() if due else None
     with repo.transaction():
-        existing = repo.find_task(data["course"], data["week"], data["session"], data["class_name"])
+        existing = repo.find_task(
+            data["course"], data["week"], data["session"], data["class_name"], data["title"]
+        )
         if existing is not None:
             # 归属校验：别人的任务不能被 confirm 覆盖（跨教师 IDOR）
             if not _can_touch(repo, user, existing):
@@ -42,7 +52,7 @@ def create(
             if not confirm:
                 raise AppError(
                     "CONFLICT_STALE",
-                    "同一课程/周次/课次/班级的任务已存在；确认覆盖请带 confirm=true",
+                    "同一班级的同一课题（周次/课次相同）已存在；确认覆盖请带 confirm=true",
                     {"taskId": int(existing["id"])},
                 )
             # 需求 BS-10：重复建课时提示冲突，确认后才允许（这里按"更新已有任务"处理）
@@ -52,7 +62,7 @@ def create(
                 target_id=str(existing["id"]), detail={**data, "dueDate": due_text, "confirmed": True},
                 ip=ip, trace_id=trace_id,
             )
-            return _item(repo.get_task(int(existing["id"])), date.today())
+            return _item(repo.get_task(int(existing["id"])), date.today()), False
         task_id = repo.insert_task(
             data["course"], data["week"], data["session"], data["title"], data["class_name"],
             int(user.get("id") or 0), due_text,
@@ -62,7 +72,7 @@ def create(
             target_id=str(task_id), detail={**data, "dueDate": due_text},
             ip=ip, trace_id=trace_id,
         )
-    return _item(repo.get_task(task_id), date.today())
+    return _item(repo.get_task(task_id), date.today()), True
 
 
 def rollback(

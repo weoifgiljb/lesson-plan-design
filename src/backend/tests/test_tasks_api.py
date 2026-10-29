@@ -174,14 +174,33 @@ class TestTasksApi(unittest.TestCase):
         self._login("teacher1")
 
 
+    def test_client_cannot_choose_status(self) -> None:
+        # 状态由服务端推导：客户端指定非 draft 必须 422，而不是被静默忽略
+        response = self._create(status="passed")
+        self.assertEqual(response.status_code, 422, response.text)
+        draft = self._create(status="draft")
+        self.assertEqual(draft.status_code, 201, draft.text)
+        self.assertEqual(draft.json()["status"], "draft")
+
+    def test_same_class_allows_different_topics(self) -> None:
+        # 用户反馈的 bug：同一班级、同一周次/课次换一个课题，应当能各自建任务
+        first = self._create()
+        self.assertEqual(first.status_code, 201, first.text)
+        second = self._create(title="同班的另一个课题")
+        self.assertEqual(second.status_code, 201, second.text)
+        self.assertNotEqual(second.json()["taskId"], first.json()["taskId"])
+        listed = self.client.get("/api/v1/tasks").json()
+        self.assertGreaterEqual(listed["total"], 2)
+
     def test_confirm_updates_existing_task(self) -> None:
         first = self._create()
         self.assertEqual(first.status_code, 201, first.text)
-        self.assertEqual(self._create(title="改过的题目").status_code, 409)
-        confirmed = self._create(title="改过的题目", confirm=True)
+        # 完全相同的身份（课程/周次/课次/班级/课题）才算重复
+        self.assertEqual(self._create().status_code, 409)
+        confirmed = self._create(confirm=True)
         self.assertEqual(confirmed.status_code, 200, confirmed.text)
         self.assertEqual(confirmed.json()["taskId"], first.json()["taskId"])
-        self.assertEqual(confirmed.json()["title"], "改过的题目")
+        self.assertEqual(confirmed.json()["title"], "一级考证辅导2")
 
     def test_rollback_moves_status_back_and_audits(self) -> None:
         created = self._create().json()
