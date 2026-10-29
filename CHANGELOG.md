@@ -6,21 +6,24 @@
 
 ### 新增
 
+- **FE-01 数据基座 + 真实概览**：`RequestError.status`、`useApiRequest`/`usePagedQuery`、下载/日期工具、教案内容→结构剖面映射；`/dashboard` 接 `stats/plans/reviews/tasks` 与 plan/review 详情，教师/组长/管理员分区降级。
+- **开发种子账号**：`scripts/seed_frontend_dev.py` 创建 `teacher01/lead01/admin01`（本地 dev 密码 `Lesson2026`），可选导入有效契约包、任务与样例；不修改后端源码。
 - **平台端 UI v1.1「教案校样台」**：单一松绿主题、228px 标签式侧栏、56px 命令栏、自绘线性图标、命令面板、指标账本、审查队列与 DEV 概览预览（`/preview/overview`）。
-- **three.js 教案结构剖面**：三维目标、八步流程与证据链的三层剖面；手写指针旋转、悬停说明、自动旋转/重置；无 WebGL、窄屏、chunk 失败或上下文丢失时降级为等距 SVG。仅在 DEV 预览挂载，生产包不含 `three`。
+- **three.js 教案结构剖面**：三维目标、八步流程与证据链的三层剖面；手写指针旋转、悬停说明、自动旋转/重置；无 WebGL、窄屏、chunk 失败或上下文丢失时降级为等距 SVG。真实 `/dashboard` 使用懒加载 three chunk，预览 fixture 不进生产。
 - **前端设计验收页 v1.1**：色彩与对比度、排版尺度、控件、数据展示、3D 规范、四态与响应式检查；截图脚本覆盖 1440/1280/390 与 2D 兜底，并断言 body 无横向溢出。
 
 ### 变更
 
 - A「墨蓝」主题与 A/B 切换退役；`tokens.css` 只保留 `:root`，色板由 `styles/palette.ts` 与单测锁定。
 - 登录页改为深松绿「书桌」分栏 + 纸面表单；共享组件（Table/Metric/Evidence/Diff/State/Chart）按新令牌重做。
-- 生产构建仍只注册登录/403/404 与外壳；业务页面与真实 `/dashboard` 留待 FE-01…FE-09。
+- `/` 与登录后默认进入 `/dashboard`；预览/设计页仅 DEV；`/dashboard` 生产注册。
+- 生产构建包含 Dashboard 与懒加载 three chunk；预览 fixture、`/preview/overview` 与 `/styleguide` 不进入生产路由。
 
 ### 测试
 
-- 前端 `npm run test`：9 个文件、27 条用例通过（含色板同步、对比度、结构模型、2D 兜底、指标格式化、命令过滤）。
-- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；生产包无预览路由、演示数据与 three chunk。
-- 仓库 `run_backend_gate.py`：block 0（架构 warn 2、契约 warn 1 为既有计划内项）。
+- 前端 `npm run test`：15 个文件、43 条用例通过（色板同步、对比度、结构模型、2D 兜底、指标格式化、命令过滤、请求状态、分页、日期/下载、教案结构映射、概览四态）。
+- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 登录/真实概览/3D/退出通过（需后端与种子数据）；Dashboard 38.47 KB（gzip 13.88），three 懒加载 531.72 KB（gzip 134.27）。
+- 仓库 `run_backend_gate.py`：block 0，171 tests（架构 warn 2、契约 warn 1 为既有计划内项）；cherry-pick `6230ed3` 修复审查日期边界跨天变红。
 
 ## v1.1.0 — 2026-10-26
 

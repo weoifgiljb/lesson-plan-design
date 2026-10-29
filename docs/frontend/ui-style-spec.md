@@ -134,7 +134,7 @@
 - **降级**：无 WebGL、`?diagram=2d`、视口 <900、chunk 加载失败、`webglcontextlost` 时使用 `StructureDiagram.vue` 等距 SVG；窄屏隐藏 SVG 标签，由图例与结构清单承担信息。
 - **性能**：DPR≤2、30fps、离屏/页面隐藏暂停、卸载时释放几何/材质/renderer/上下文；入场只跑一次 520ms，`prefers-reduced-motion` 下直接终态。
 - **无障碍**：canvas `aria-hidden`，不承载唯一信息；`<details>` 结构清单包含八步、分钟、证据与缺项原因，键盘/读屏可用。
-- **生产边界**：本轮 `/preview/overview` 只在 DEV 注册，`three` 与 fixture 不进入生产包；真实 `/dashboard` 在 FE-02 接线后复用同一组件。
+- **生产边界**：`/preview/overview` 只在 DEV 注册，fixture 不进入生产；FE-01 起真实 `/dashboard` 复用同一组件，`three` 为懒加载生产 chunk，首屏不阻塞。
 
 ## 8. 动效
 
