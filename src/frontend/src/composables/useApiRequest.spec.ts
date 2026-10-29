@@ -31,6 +31,17 @@ describe('useApiRequest', () => {
     expect(request.data.value).toBe(2)
   })
 
+  it('keeps old data during a silent refresh', async () => {
+    const loader = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2)
+    const request = useApiRequest(loader)
+    await request.load()
+    expect(request.data.value).toBe(1)
+    const pending = request.load({ keepData: true })
+    expect(request.data.value).toBe(1)
+    await pending
+    expect(request.data.value).toBe(2)
+  })
+
   it('calls the unauthorized handler and exposes status', async () => {
     const onUnauthorized = vi.fn()
     const loader = vi.fn().mockRejectedValue(

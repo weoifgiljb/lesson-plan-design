@@ -29,6 +29,8 @@ const props = withDefaults(
     queueDescription: string
     primaryLabel: string
     loading?: boolean
+    refreshing?: boolean
+    freshness?: string
     error?: RequestError | null
     partialNotice?: string
     forceFallback?: boolean
@@ -38,6 +40,8 @@ const props = withDefaults(
   {
     scopeLabel: '',
     loading: false,
+    refreshing: false,
+    freshness: '',
     error: null,
     partialNotice: '',
     forceFallback: false,
@@ -135,10 +139,13 @@ function clearFilters(): void {
   <div class="overview page">
     <PageHeader :title="greeting" :description="description">
       <template #meta>
-        <p class="overview-date">{{ dateLabel }}</p>
+        <p class="overview-date">
+          {{ dateLabel }}
+          <span v-if="freshness" class="overview-freshness">· {{ freshness }}</span>
+        </p>
       </template>
       <template #actions>
-        <el-button type="primary" :loading="loading" @click="emit('primary')">
+        <el-button type="primary" :loading="loading || refreshing" @click="emit('primary')">
           {{ primaryLabel }}
         </el-button>
       </template>
@@ -326,6 +333,10 @@ function clearFilters(): void {
   font-family: var(--lpp-font-numeric);
   font-size: var(--lpp-font-xs);
   font-variant-numeric: tabular-nums;
+}
+
+.overview-freshness {
+  color: var(--lpp-text-muted);
 }
 
 .hero {

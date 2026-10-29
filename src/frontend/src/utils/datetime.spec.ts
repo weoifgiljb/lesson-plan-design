@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDate, formatDateTime, formatOverdue, overdueDays } from './datetime'
+import { formatDate, formatDateTime, formatOverdue, formatTime, overdueDays } from './datetime'
 
 describe('datetime', () => {
   it('formats UTC ISO in local Chinese format and falls back', () => {
@@ -8,6 +8,11 @@ describe('datetime', () => {
     expect(formatted).toMatch(/2026/)
     expect(formatDate('not-a-date')).toBe('—')
     expect(formatDateTime(null)).toBe('—')
+  })
+
+  it('formats the freshness time in local time', () => {
+    expect(formatTime(new Date(2026, 9, 29, 10, 5, 9))).toContain('10:05')
+    expect(formatTime('bad')).toBe('—')
   })
 
   it('computes overdue by natural day and does not treat no due date as overdue', () => {

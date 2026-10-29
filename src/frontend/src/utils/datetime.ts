@@ -21,6 +21,13 @@ const SHORT_DATETIME_FORMAT = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 })
 
+const TIME_FORMAT = new Intl.DateTimeFormat('zh-CN', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+})
+
 function parse(value: string | null | undefined): Date | null {
   if (!value) return null
   const date = new Date(value)
@@ -40,6 +47,11 @@ export function formatDateTime(value: string | null | undefined, fallback = '—
 export function formatShortDateTime(value: string | null | undefined, fallback = '—'): string {
   const date = parse(value)
   return date ? SHORT_DATETIME_FORMAT.format(date) : fallback
+}
+
+export function formatTime(value: Date | string, fallback = '—'): string {
+  const date = value instanceof Date ? value : parse(value)
+  return date ? TIME_FORMAT.format(date) : fallback
 }
 
 const FULL_DATE_FORMAT = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'full' })

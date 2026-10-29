@@ -56,7 +56,7 @@ try {
     if (overflow > 1) throw new Error(`${viewport.name}: body overflows by ${overflow}px`)
 
     const target = `${outDir}/dashboard-${viewport.name}.png`
-    await page.screenshot({ path: target, fullPage: true })
+    await page.screenshot({ path: target, fullPage: false })
     console.log('saved', target)
 
     await page.getByRole('button', { name: '退出', exact: true }).click()

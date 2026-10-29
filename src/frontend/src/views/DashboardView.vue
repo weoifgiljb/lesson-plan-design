@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import type { RequestError } from '@/api/client-error'
 import { getPlan, listPlans } from '@/api/plans'
@@ -10,7 +10,7 @@ import OverviewBoard from '@/components/overview/OverviewBoard.vue'
 import type { OverviewActivity, OverviewQueueRow, OverviewTodo } from '@/components/overview/types'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
-import { formatDateTime, formatFullDate, formatOverdue, formatShortDateTime } from '@/utils/datetime'
+import { formatDateTime, formatFullDate, formatOverdue, formatShortDateTime, formatTime } from '@/utils/datetime'
 import { toLessonStructure } from '@/utils/plan-structure'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -40,13 +40,15 @@ const reviewId = ref<number | null>(null)
 const planDetail = useApiRequest(() => getPlan(planId.value as number))
 const reviewDetail = useApiRequest(() => getReview(reviewId.value as number))
 const booting = ref(true)
+const refreshing = ref(false)
+const refreshedAt = ref<Date | null>(null)
+const REFRESH_MS = 15_000
+let inFlight = false
+let timer: number | undefined
 
-const loading = computed(
-  () =>
-    booting.value ||
-    stats.loading.value ||
-    plans.loading.value ||
-    (isReviewer.value && (reviews.loading.value || tasks.loading.value)),
+const loading = computed(() => booting.value)
+const freshness = computed(() =>
+  refreshedAt.value ? `数据更新于 ${formatTime(refreshedAt.value)}，每 15 秒自动刷新` : '',
 )
 const coreError = computed<RequestError | null>(() => stats.error.value ?? plans.error.value)
 
@@ -218,33 +220,87 @@ const greeting = computed(() => {
 })
 const dateLabel = computed(() => formatFullDate(new Date()))
 
-async function loadAll(): Promise<void> {
-  booting.value = true
-  planDetail.data.value = null
-  planDetail.error.value = null
-  reviewDetail.data.value = null
-  reviewDetail.error.value = null
-  reviewId.value = null
-  const jobs: Promise<unknown>[] = [stats.load(), plans.load()]
-  if (isReviewer.value) jobs.push(reviews.load(), tasks.load())
-  await Promise.allSettled(jobs)
+async function loadAll(options: { silent?: boolean } = {}): Promise<void> {
+  if (inFlight) return
+  inFlight = true
+  const silent = options.silent === true
+  if (silent) refreshing.value = true
+  else booting.value = true
 
-  const firstPlan = plans.data.value?.items[0]
-  planId.value = firstPlan?.planId ?? null
-  if (planId.value) await planDetail.load()
-
-  if (isReviewer.value) {
-    const matched = reviews.data.value?.items.find(
-      (review) => review.planId === planId.value,
-    )
-    reviewId.value = matched?.reviewId ?? null
-    if (reviewId.value) await reviewDetail.load()
+  if (!silent) {
+    planDetail.data.value = null
+    planDetail.error.value = null
+    reviewDetail.data.value = null
+    reviewDetail.error.value = null
+    reviewId.value = null
   }
-  booting.value = false
+
+  try {
+    const jobs: Promise<unknown>[] = [
+      stats.load({ keepData: silent }),
+      plans.load({ keepData: silent }),
+    ]
+    if (isReviewer.value) {
+      jobs.push(reviews.load({ keepData: silent }), tasks.load({ keepData: silent }))
+    }
+    await Promise.allSettled(jobs)
+
+    const firstPlan = plans.data.value?.items[0]
+    const nextPlanId = firstPlan?.planId ?? null
+    const planChanged =
+      planId.value !== nextPlanId ||
+      planDetail.data.value?.currentVersion?.versionNo !== firstPlan?.versionNo
+    if (planChanged) {
+      planId.value = nextPlanId
+      planDetail.data.value = null
+      planDetail.error.value = null
+    }
+    if (planId.value && (!silent || planChanged || !planDetail.data.value)) {
+      await planDetail.load({ keepData: silent })
+    }
+
+    if (isReviewer.value) {
+      const matched = reviews.data.value?.items.find(
+        (review) => review.planId === planId.value,
+      )
+      const nextReviewId = matched?.reviewId ?? null
+      const reviewChanged = reviewId.value !== nextReviewId
+      if (reviewChanged) {
+        reviewId.value = nextReviewId
+        reviewDetail.data.value = null
+        reviewDetail.error.value = null
+      }
+      if (reviewId.value && (!silent || reviewChanged || !reviewDetail.data.value)) {
+        await reviewDetail.load({ keepData: silent })
+      }
+    }
+    refreshedAt.value = new Date()
+  } finally {
+    booting.value = false
+    refreshing.value = false
+    inFlight = false
+  }
+}
+
+function refreshSilently(): void {
+  if (document.visibilityState === 'visible') void loadAll({ silent: true })
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible') refreshSilently()
 }
 
 onMounted(() => {
   void loadAll()
+  timer = window.setInterval(refreshSilently, REFRESH_MS)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  window.addEventListener('focus', refreshSilently)
+})
+
+onBeforeUnmount(() => {
+  if (timer) window.clearInterval(timer)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('focus', refreshSilently)
 })
 </script>
 
@@ -263,10 +319,12 @@ onMounted(() => {
     :queue-description="queueDescription"
     primary-label="刷新概览"
     :loading="loading"
+    :refreshing="refreshing"
+    :freshness="freshness"
     :error="coreError"
     :partial-notice="partialNotice"
     footer-note="数据来自当前账号可见范围；指标以分子/分母为准，完整口径与下钻见统计看板任务。"
-    @primary="loadAll"
-    @retry="loadAll"
+    @primary="loadAll()"
+    @retry="loadAll()"
   />
 </template>

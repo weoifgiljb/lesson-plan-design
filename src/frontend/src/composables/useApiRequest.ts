@@ -14,8 +14,8 @@ export interface UseApiRequestResult<T> {
   data: Ref<T | null>
   loading: Ref<boolean>
   error: Ref<RequestError | null>
-  load: () => Promise<T | null>
-  reload: () => Promise<T | null>
+  load: (options?: { keepData?: boolean }) => Promise<T | null>
+  reload: (options?: { keepData?: boolean }) => Promise<T | null>
 }
 
 /**
@@ -54,11 +54,11 @@ export function useApiRequest<T>(
     if (router) void router.replace('/403')
   }
 
-  async function load(): Promise<T | null> {
+  async function load(options: { keepData?: boolean } = {}): Promise<T | null> {
     const current = ++sequence
     loading.value = true
     error.value = null
-    data.value = null
+    if (!options.keepData) data.value = null
     try {
       const result = await loader()
       if (current !== sequence) return null
