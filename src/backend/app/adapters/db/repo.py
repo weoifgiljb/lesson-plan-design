@@ -336,16 +336,20 @@ class Repo:
     # ---------- 任务 ----------
     def insert_task(
         self, course: str, week: int, session: int, title: str, class_name: str,
-        owner_id: int, due_date: str | None,
+        owner_id: int, due_date: str | None, group_name: str = "",
     ) -> int:
         try:
             cursor = self.conn.execute(
-                "INSERT INTO task (course, week, session, title, class_name, owner_id, due_date, status, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)",
-                (course, int(week), int(session), title, class_name, owner_id, due_date, clock.now_iso()),
+                "INSERT INTO task (course, week, session, title, class_name, owner_id, due_date,"
+                " group_name, status, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)",
+                (
+                    course, int(week), int(session), title, class_name, owner_id, due_date,
+                    group_name, clock.now_iso(),
+                ),
             )
         except sqlite3.IntegrityError as exc:
-            raise AppError("CONFLICT_STALE", "同一课程/周次/课次/班级的任务已存在") from exc
+            raise AppError("CONFLICT_STALE", "同一班级的同一课题（周次/课次相同）已存在") from exc
         return int(cursor.lastrowid or 0)
 
     def update_task(self, task_id: int, *, title: str, due_date: str | None) -> None:
@@ -380,7 +384,7 @@ class Repo:
     def list_tasks(
         self, scope: dict[str, Any], filters: dict[str, Any], limit: int, offset: int
     ) -> tuple[list[dict[str, Any]], int]:
-        condition, params = self._scope_condition(scope, "t.owner_id")
+        condition, params = self._task_scope_condition(scope)
         extra, more = self._task_where(filters)
         where = " AND ".join([condition, extra])
         joins = (
@@ -557,7 +561,7 @@ class Repo:
     def stats_tasks(
         self, scope: dict[str, Any], filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
-        condition, params = self._scope_condition(scope, "t.owner_id")
+        condition, params = self._task_scope_condition(scope)
         extra, more = self._task_where(filters)
         return self._group(
             "SELECT t.status AS key, COUNT(*) AS total FROM task t"
@@ -622,6 +626,18 @@ class Repo:
             where.append("p.created_at < ?")
             params.append(str(filters["created_before"]))
         return " AND ".join(where), params
+
+    def _task_scope_condition(self, scope: dict[str, Any]) -> tuple[str, list[Any]]:
+        """任务可见范围：本人的 + 本组的（组长建的任务组内教师也要能看到并推进）。"""
+        owner_id = scope.get("owner_id")
+        group_name = scope.get("group_name")
+        if owner_id is not None and group_name:
+            return "(t.owner_id = ? OR t.group_name = ?)", [int(owner_id), str(group_name)]
+        if owner_id is not None:
+            return "t.owner_id = ?", [int(owner_id)]
+        if group_name:
+            return "t.group_name = ?", [str(group_name)]
+        return "1 = 1", []
 
     def _scope_condition(
         self, scope: dict[str, Any], owner_column: str = "p.owner_id"

@@ -27,6 +27,20 @@ def scope_for(user: dict[str, Any]) -> dict[str, Any]:
     return {"owner_id": int(user.get("id") or 0)}
 
 
+def task_scope_for(user: dict[str, Any]) -> dict[str, Any]:
+    """任务可见范围：管理员全部、组长本组、教师本人 + 本组（组长建的任务要能推进）。"""
+    role = str(user.get("role") or "")
+    if role == "admin":
+        return {}
+    group = str(user.get("group_name") or "").strip()
+    owner_id = int(user.get("id") or 0)
+    if role == "lead":
+        return {"group_name": group} if group else {"owner_id": owner_id}
+    if group:
+        return {"owner_id": owner_id, "group_name": group}
+    return {"owner_id": owner_id}
+
+
 def can_view(
     role: str, user_id: int, user_group: str, owner_id: int, owner_group: str
 ) -> bool:

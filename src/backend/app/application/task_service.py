@@ -65,7 +65,7 @@ def create(
             return _item(repo.get_task(int(existing["id"])), date.today()), False
         task_id = repo.insert_task(
             data["course"], data["week"], data["session"], data["title"], data["class_name"],
-            int(user.get("id") or 0), due_text,
+            int(user.get("id") or 0), due_text, str(user.get("group_name") or ""),
         )
         audit_service.record(
             repo, actor_id=int(user.get("id") or 0), action="task.create", target_type="task",
@@ -109,7 +109,7 @@ def list_tasks(
     repo: Repo, user: dict[str, Any], *, filters: dict[str, Any], page: int | None, page_size: int | None
 ) -> dict[str, Any]:
     actual_page, actual_size, offset = library.page_params(page, page_size)
-    rows, total = repo.list_tasks(library.scope_for(user), filters, actual_size, offset)
+    rows, total = repo.list_tasks(library.task_scope_for(user), filters, actual_size, offset)
     today = date.today()
     return {
         "items": [_item(row, today) for row in rows],
@@ -125,10 +125,7 @@ def package(
     task = repo.get_task(task_id)
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    if not library.can_view(
-        str(user.get("role") or ""), int(user.get("id") or 0), str(user.get("group_name") or ""),
-        int(task["owner_id"]), str(task["owner_group"] or ""),
-    ):
+    if not _can_touch(repo, user, task):
         raise AppError("FORBIDDEN", "无权访问该任务")
     template = engine.draft_plan(int(task["week"]), int(task["session"]), str(task["title"]), str(task["course"]))
     if not template:
@@ -153,14 +150,14 @@ def _nearest_sample(repo: Repo, task: dict[str, Any]) -> int | None:
 
 
 def _can_touch(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> bool:
-    """组长只能动本组任务，教师只能动自己的任务。"""
-    return library.can_view(
-        str(user.get("role") or ""),
-        int(user.get("id") or 0),
-        str(user.get("group_name") or ""),
-        int(task["owner_id"]),
-        str(task.get("owner_group") or ""),
-    )
+    """本人的任务、或本组任务（组长建的任务组内教师可推进）；管理员全部。"""
+    if str(user.get("role") or "") == "admin":
+        return True
+    if int(user.get("id") or 0) == int(task["owner_id"]):
+        return True
+    group = str(user.get("group_name") or "").strip()
+    task_group = str(task.get("group_name") or task.get("owner_group") or "").strip()
+    return bool(group) and group == task_group
 
 
 def _item(task: dict[str, Any] | None, today: date) -> dict[str, Any]:

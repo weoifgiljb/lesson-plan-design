@@ -182,6 +182,31 @@ class TestTasksApi(unittest.TestCase):
         self.assertEqual(draft.status_code, 201, draft.text)
         self.assertEqual(draft.json()["status"], "draft")
 
+    def test_lead_task_visible_to_group_teacher(self) -> None:
+        # 需求 BS-10：组长建的任务组内教师可见并可推进；其他组看不到
+        lead_csrf = self._login("lead1")
+        created = self.client.post(
+            "/api/v1/tasks",
+            json={
+                "course": "信息技术", "week": 3, "session": 1, "title": "组长布置的课",
+                "className": "计算机1班",
+            },
+            headers={"X-CSRF-Token": lead_csrf},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        task_id = created.json()["taskId"]
+
+        self._login("teacher1")  # 计算机组
+        mine = self.client.get("/api/v1/tasks").json()
+        self.assertIn(task_id, [item["taskId"] for item in mine["items"]])
+        self.assertEqual(self.client.get(f"/api/v1/tasks/{task_id}/package").status_code, 200)
+
+        self._login("teacher2")  # 英语组
+        other = self.client.get("/api/v1/tasks").json()
+        self.assertNotIn(task_id, [item["taskId"] for item in other["items"]])
+        self.assertEqual(self.client.get(f"/api/v1/tasks/{task_id}/package").status_code, 403)
+        self._login("teacher1")
+
     def test_same_class_allows_different_topics(self) -> None:
         # 用户反馈的 bug：同一班级、同一周次/课次换一个课题，应当能各自建任务
         first = self._create()
