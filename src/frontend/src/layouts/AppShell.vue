@@ -26,6 +26,7 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
+const canUseTasks = computed(() => session.role === 'teacher' || session.role === 'lead')
 
 const drawerOpen = ref(false)
 const paletteOpen = ref(false)
@@ -53,7 +54,12 @@ const groups = computed<NavGroup[]>(() => [
   {
     label: '教案',
     items: [
-      { label: '任务', icon: 'tasks', ready: false },
+      {
+        label: '任务',
+        icon: 'tasks',
+        to: canUseTasks.value ? '/tasks' : undefined,
+        ready: canUseTasks.value,
+      },
       { label: '教案库', icon: 'plans', ready: false },
       { label: '审查', icon: 'reviews', ready: false },
       { label: '导出', icon: 'exports', ready: false },
@@ -98,6 +104,16 @@ const commands = computed<CommandItem[]>(() => {
       keywords: 'dashboard overview 工作台',
     },
   ]
+  if (canUseTasks.value) {
+    list.push({
+      id: 'tasks',
+      title: '任务',
+      group: '页面',
+      hint: '/tasks',
+      to: '/tasks',
+      keywords: 'task 建课 任务包',
+    })
+  }
   if (isDev) {
     list.push(
       {
