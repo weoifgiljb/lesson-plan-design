@@ -32,7 +32,9 @@ def _ensure(repo: Repo, username: str, display_name: str, role: str, password: s
     if existing is None:
         repo.insert_user(username, display_name, role, security.hash_password(password))
         return f"created {username} ({role})"
+    # 已存在：口令与角色/姓名都要同步，否则"降级/升级账号"会静默失败（R2-2）
     repo.set_password(int(existing["id"]), security.hash_password(password))
+    repo.set_login_identity(int(existing["id"]), role, display_name)
     return f"updated {username} ({role})"
 
 

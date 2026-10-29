@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import Depends
 from fastapi.testclient import TestClient
@@ -124,6 +125,30 @@ class TestAuthApi(unittest.TestCase):
         # 关键回归：锁到期后正确口令必须能登录（修复前这里恒为 429，账号被永久锁死）
         ok = self._login()
         self.assertEqual(ok.status_code, 200, ok.text)
+
+    def test_concurrent_failures_cannot_bypass_lock(self) -> None:
+        # R2-1 回归：并发错口令时"读-改-写"会丢更新，8 次并发只记 1 次失败 → 锁定被绕过
+        def attempt(_: int) -> int:
+            return self.client.post(
+                "/api/v1/auth/login",
+                json={"username": "teacher1", "password": "wrong-pass1"},
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            codes = list(pool.map(attempt, range(8)))
+        self.assertTrue(all(code in (401, 429) for code in codes), codes)
+        self.assertIn(429, codes, codes)
+        connection = open_database(self.db_file)
+        try:
+            row = connection.execute(
+                "SELECT failed_count, locked_until FROM user WHERE username = 'teacher1'"
+            ).fetchone()
+        finally:
+            connection.close()
+        self.assertGreaterEqual(int(row[0]), 5)
+        self.assertTrue(row[1])
+        # 锁定期内正确口令也必须被拒
+        self.assertEqual(self._login().status_code, 429)
 
     def test_logout_requires_csrf_and_blocks_replay(self) -> None:
         login = self._login()

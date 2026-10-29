@@ -186,11 +186,15 @@ def _persist(
     sync: dict[str, Any] | None = None,
     guard: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
 ) -> ImportResult:
+    written: list[tuple[int, int]] = []
+
     def audit_rollback(exc: BaseException) -> None:
-        # 事务已回滚：拒绝审计/冲突日志必须在事务外单独写，否则也会被回滚掉
+        # 事务已回滚：拒绝审计/冲突日志与已落盘文件都要在事务外补写/清理，否则会留下孤儿
         code = exc.code if isinstance(exc, AppError) else "INTERNAL"
         message = exc.message if isinstance(exc, AppError) else str(exc)
         details = exc.details if isinstance(exc, AppError) else {}
+        for plan_id_, version_no_ in written:
+            storage.remove_version_files(plan_id_, version_no_)
         audit_service.record(
             repo,
             actor_id=actor_id,
@@ -232,6 +236,7 @@ def _persist(
             ip=ip,
             trace_id=trace_id,
             sync=sync,
+            written=written,
         )
 
 
@@ -248,6 +253,7 @@ def _write_version(
     ip: str,
     trace_id: str,
     sync: dict[str, Any] | None = None,
+    written: list[tuple[int, int]] | None = None,
 ) -> ImportResult:
     version_no = repo.next_version_no(plan_id)
     engine_version = engine.engine_version()
@@ -276,6 +282,9 @@ def _write_version(
     repo.insert_overrides(review_id, list(report.get("overrides") or []))
     repo.set_current_version(plan_id, version_id)
     repo.insert_sync_event("version", plan_id, version_id)
+    if written is not None:
+        # 落盘发生的目录先登记：事务回滚时由 on_rollback 回调清理，避免孤儿文件
+        written.append((plan_id, version_no))
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
     if sync is not None:
