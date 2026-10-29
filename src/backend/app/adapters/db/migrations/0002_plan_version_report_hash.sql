@@ -1,13 +1,15 @@
 -- 0002：幂等键落到数据库 + 放行记录归属到具体审查
 --
--- 1) plan_version 增加 report_sha256，并建 (plan_id, plan_hash, report_sha256) 唯一索引：
---    应用层"先查后插"之外，再由数据库兜底，避免并发下同一契约包产生两版。
--- 2) override 原表把 finding_id 设为全局 UNIQUE，不同教案的同名 finding 会静默丢放行记录；
---    重建为 (review_id, finding_id) 唯一，并补 review_id 归属。
---
--- 迁移只前进；版本号由 connection.initialize() 在脚本执行成功后推进。
+-- 注意：plan_version 上有"不可更新"触发器，直接 UPDATE 回填会 ABORT；
+-- 因此先临时移除触发器、回填、再原样重建。整篇用 BEGIN/COMMIT 包住，
+-- 失败时整篇回滚（不会留下"加了列但没回填"的半成品库）。
+
+BEGIN;
 
 ALTER TABLE plan_version ADD COLUMN report_sha256 TEXT NOT NULL DEFAULT '';
+
+DROP TRIGGER IF EXISTS plan_version_no_update;
+DROP TRIGGER IF EXISTS plan_version_no_delete;
 
 UPDATE plan_version
 SET report_sha256 = COALESCE(
@@ -16,6 +18,16 @@ SET report_sha256 = COALESCE(
     ''
 )
 WHERE report_sha256 = '';
+
+CREATE TRIGGER plan_version_no_update BEFORE UPDATE ON plan_version
+BEGIN
+    SELECT RAISE(ABORT, 'plan_version is immutable');
+END;
+
+CREATE TRIGGER plan_version_no_delete BEFORE DELETE ON plan_version
+BEGIN
+    SELECT RAISE(ABORT, 'plan_version is immutable');
+END;
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_plan_version_report
     ON plan_version (plan_id, plan_hash, report_sha256);
@@ -47,3 +59,5 @@ DROP TABLE override;
 ALTER TABLE override_new RENAME TO override;
 
 CREATE INDEX IF NOT EXISTS idx_override_review ON override (review_id);
+
+COMMIT;
