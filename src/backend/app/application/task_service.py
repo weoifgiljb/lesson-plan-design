@@ -20,15 +20,18 @@ def create(
         payload.get("title"), payload.get("className", ""),
     )
     due = payload.get("dueDate")
+    owner_id = int(user.get("id") or 0)
     with repo.transaction():
-        if repo.find_task(data["course"], data["week"], data["session"], data["class_name"]):
-            raise AppError("CONFLICT_STALE", "同一课程/周次/课次/班级的任务已存在")
+        if repo.find_task(
+            owner_id, data["course"], data["week"], data["session"], data["class_name"], data["title"]
+        ):
+            raise AppError("CONFLICT_STALE", "同一教师/课程/周次/课次/班级/课题的任务已存在")
         task_id = repo.insert_task(
             data["course"], data["week"], data["session"], data["title"], data["class_name"],
-            int(user.get("id") or 0), due.isoformat() if due else None,
+            owner_id, due.isoformat() if due else None,
         )
         audit_service.record(
-            repo, actor_id=int(user.get("id") or 0), action="task.create", target_type="task",
+            repo, actor_id=owner_id, action="task.create", target_type="task",
             target_id=str(task_id), detail={**data, "dueDate": due.isoformat() if due else None},
             ip=ip, trace_id=trace_id,
         )

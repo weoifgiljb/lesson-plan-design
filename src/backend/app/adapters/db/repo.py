@@ -294,16 +294,17 @@ class Repo:
                 (course, int(week), int(session), title, class_name, owner_id, due_date, clock.now_iso()),
             )
         except sqlite3.IntegrityError as exc:
-            raise AppError("CONFLICT_STALE", "同一课程/周次/课次/班级的任务已存在") from exc
+            raise AppError("CONFLICT_STALE", "同一教师/课程/周次/课次/班级/课题的任务已存在") from exc
         return int(cursor.lastrowid or 0)
 
     def find_task(
-        self, course: str, week: int, session: int, class_name: str
+        self, owner_id: int, course: str, week: int, session: int, class_name: str, title: str
     ) -> dict[str, Any] | None:
         return _row(
             self.conn.execute(
-                "SELECT * FROM task WHERE course = ? AND week = ? AND session = ? AND class_name = ?",
-                (course, int(week), int(session), class_name),
+                "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
+                " AND class_name = ? AND title = ?",
+                (int(owner_id), course, int(week), int(session), class_name, title),
             ).fetchone()
         )
 

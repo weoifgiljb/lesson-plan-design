@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS task (
     due_date TEXT,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'reviewing', 'passed', 'exported')),
     created_at TEXT NOT NULL,
-    UNIQUE (course, week, session, class_name)
+    UNIQUE (owner_id, course, week, session, class_name, title)
 );
 
 CREATE TABLE IF NOT EXISTS plan (

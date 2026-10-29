@@ -42,9 +42,31 @@ class TestDatabaseSchema(unittest.TestCase):
         return int(user), int(plan), int(version)
 
     def test_schema_version_and_pragmas(self) -> None:
-        self.assertEqual(current_version(self.conn), 1)
+        self.assertEqual(current_version(self.conn), 2)
         self.assertEqual(self.conn.execute("PRAGMA journal_mode").fetchone()[0], "wal")
         self.assertEqual(self.conn.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+
+    def test_task_identity_allows_same_class_different_title(self) -> None:
+        user, _, _ = self._seed()
+        self.conn.execute(
+            "INSERT INTO task (course, week, session, title, class_name, owner_id, status, created_at)"
+            " VALUES ('信息技术', 3, 1, '第一课', '计算机1班', ?, 'draft', ?)",
+            (user, clock.now_iso()),
+        )
+        self.conn.execute(
+            "INSERT INTO task (course, week, session, title, class_name, owner_id, status, created_at)"
+            " VALUES ('信息技术', 3, 1, '第二课', '计算机1班', ?, 'draft', ?)",
+            (user, clock.now_iso()),
+        )
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) FROM task WHERE week = 3").fetchone()[0], 2
+        )
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute(
+                "INSERT INTO task (course, week, session, title, class_name, owner_id, status, created_at)"
+                " VALUES ('信息技术', 3, 1, '第二课', '计算机1班', ?, 'draft', ?)",
+                (user, clock.now_iso()),
+            )
 
     def test_plan_version_is_immutable(self) -> None:
         _, _, version = self._seed()

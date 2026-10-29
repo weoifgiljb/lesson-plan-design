@@ -79,6 +79,22 @@ class TestTasksApi(unittest.TestCase):
         self.assertEqual(past.status_code, 201, past.text)
         self.assertTrue(past.json()["overdue"])
 
+    def test_same_class_can_have_different_lessons(self) -> None:
+        first = self._create(title="第一课")
+        self.assertEqual(first.status_code, 201, first.text)
+        second = self._create(title="第二课")
+        self.assertEqual(second.status_code, 201, second.text)
+        self.assertNotEqual(first.json()["taskId"], second.json()["taskId"])
+        duplicate = self._create(title="第二课")
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(self.client.get("/api/v1/tasks").json()["total"], 2)
+
+    def test_same_task_allowed_for_different_teacher(self) -> None:
+        self.assertEqual(self._create().status_code, 201)
+        self.csrf = self._login("teacher2")
+        self.assertEqual(self._create().status_code, 201)
+        self.assertEqual(self.client.get("/api/v1/tasks").json()["total"], 1)
+
     def test_list_scope_order_and_filters(self) -> None:
         self._create(dueDate=(date.today() + timedelta(days=5)).isoformat())
         self._create(title="第二课", session=2, dueDate=(date.today() + timedelta(days=1)).isoformat())
