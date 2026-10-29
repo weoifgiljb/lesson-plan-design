@@ -49,6 +49,11 @@ def import_package(
     plan_hash = engine.plan_hash(plan)
     report_sha256 = storage.sha256_bytes(files[REPORT_NAME])
     plan_id, previous_round, duplicate = _prior_state(repo, owner_id, plan, plan_hash, report_sha256)
+    if duplicate is None and guard is not None:
+        # 乐观锁预检：旧客户端推的是旧轮次包，必须先给"头版本已变"的 409 + 差异，
+        # 否则会被下面的轮次校验抢先判成 422（TC-08-01 真实场景）。
+        # 事务内仍会复检一次，防并发。
+        guard(plan, report)
     verdict = _evaluate(
         manifest, files, plan, report, plan_hash, report_sha256, validation, previous_round, duplicate
     )

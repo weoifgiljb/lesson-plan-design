@@ -134,6 +134,18 @@ class TestSyncApi(unittest.TestCase):
         self.assertNotEqual(head["headHash"], self.first_hash)
         self.assertEqual(len(self.client.get("/api/v1/sync/pull?since=0").json()["items"]), 2)
 
+    def test_old_round_package_gets_409_not_422(self) -> None:
+        # TC-08-01 真实场景：平台已到 v2，客户端仍停在 v1（round 1 的包）
+        previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
+        second = self._package(2, "第二次同步修订", previous)
+        self.assertEqual(self._push(second, self.first_hash).status_code, 201)
+        stale = self._push(self._package(1, "旧客户端仍在 v1", None), self.first_hash)
+        self.assertEqual(stale.status_code, 409, stale.text)
+        details = stale.json()["details"]
+        self.assertEqual(details["headVersion"], 2)
+        self.assertEqual(details["baseHash"], self.first_hash)
+        self.assertIn("changes", details)
+
     def test_stale_base_hash_returns_409(self) -> None:
         previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
         second = self._package(2, "第二次同步修订", previous)

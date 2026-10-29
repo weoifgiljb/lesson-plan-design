@@ -101,8 +101,19 @@ def _check_base_hash(
     changes = []
     if board is not None:
         changes = diff.summarize(diff.diff_plans(json.loads(board["content_json"]), plan))
-    # 冲突日志与审计不能在这里写：本函数运行在写事务内，回滚会把它们一起丢掉，
-    # 统一由 _persist 的 audit_rollback 在事务外补写。
+    # 预检路径（事务外）这一笔会落库；事务内复检路径上它会被回滚，
+    # 由 _persist 的 audit_rollback 在事务外补写，两处不会重复。
+    repo.insert_sync_log("push", package_sha256, expected, "conflict", "CONFLICT_STALE", actor_id)
+    audit_service.record(
+        repo,
+        actor_id=actor_id,
+        action="sync.push.conflict",
+        target_type="plan",
+        target_id=str(existing["id"]),
+        detail={"headHash": expected, "baseHash": base_hash, "changes": changes},
+        ip=ip,
+        trace_id=trace_id,
+    )
     raise AppError(
         "CONFLICT_STALE",
         "服务端头版本已变化，请先拉取或改用本地为准上传新版本",
