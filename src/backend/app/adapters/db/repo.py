@@ -94,14 +94,24 @@ class Repo:
         )
 
     def insert_user(
-        self, username: str, display_name: str, role: str, password_hash: str, group_name: str = ""
+        self, username: str, display_name: str, role: str, password_hash: str, group_name: str = "",
+        must_change_password: bool = False,
     ) -> int:
         cursor = self.conn.execute(
-            "INSERT INTO user (username, display_name, group_name, role, password_hash, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (username, display_name, group_name, role, password_hash, clock.now_iso()),
+            "INSERT INTO user (username, display_name, group_name, role, password_hash,"
+            " must_change_password, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                username, display_name, group_name, role, password_hash,
+                1 if must_change_password else 0, clock.now_iso(),
+            ),
         )
         return int(cursor.lastrowid or 0)
+
+    def set_must_change_password(self, user_id: int, flag: bool) -> None:
+        self.conn.execute(
+            "UPDATE user SET must_change_password = ? WHERE id = ?",
+            (1 if flag else 0, int(user_id)),
+        )
 
     def set_password(self, user_id: int, password_hash: str) -> None:
         self.conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))

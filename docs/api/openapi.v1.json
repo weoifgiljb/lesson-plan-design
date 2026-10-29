@@ -108,6 +108,45 @@
         }
       }
     },
+    "/api/v1/me/password": {
+      "post": {
+        "summary": "Change Password",
+        "operationId": "change_password_api_v1_me_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Change Password Api V1 Me Password Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "原口令不正确"
+          },
+          "403": {
+            "description": "缺少或错误的 CSRF token"
+          },
+          "422": {
+            "description": "新口令不符合强度要求"
+          }
+        }
+      }
+    },
     "/api/v1/plans/import": {
       "post": {
         "summary": "Import Plan",
@@ -2247,6 +2286,24 @@
         ],
         "title": "LoginPayload"
       },
+      "PasswordChange": {
+        "properties": {
+          "oldPassword": {
+            "type": "string",
+            "title": "Oldpassword"
+          },
+          "newPassword": {
+            "type": "string",
+            "title": "Newpassword"
+          }
+        },
+        "type": "object",
+        "required": [
+          "oldPassword",
+          "newPassword"
+        ],
+        "title": "PasswordChange"
+      },
       "TaskCreate": {
         "properties": {
           "course": {
@@ -2281,6 +2338,17 @@
               }
             ],
             "title": "Duedate"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
           }
         },
         "type": "object",

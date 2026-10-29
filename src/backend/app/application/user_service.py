@@ -8,8 +8,50 @@ from app.adapters import clock
 from app.adapters.db.repo import Repo
 from app.application import audit_service, session_service
 from app.config import LOGIN_LOCK_MINUTES, LOGIN_MAX_FAILURES
-from app.domain import auth, roles, security
+from app.domain import auth, roles, security, user_rules
 from app.domain.errors import AppError
+
+
+def change_password(
+    repo: Repo,
+    user: dict[str, Any],
+    *,
+    old_password: str,
+    new_password: str,
+    ip: str = "",
+    trace_id: str = "",
+) -> None:
+    """本人改密（BS-05 首次改密）：校验原口令与强度，成功后清除 must_change_password。"""
+    if not security.verify_password(old_password, str(user.get("password_hash") or "")):
+        audit_service.record(
+            repo,
+            actor_id=int(user.get("id") or 0),
+            action="user.password_failed",
+            target_type="user",
+            target_id=str(user.get("id") or ""),
+            detail={"reason": "old_password_mismatch"},
+            ip=ip,
+            trace_id=trace_id,
+        )
+        raise AppError("AUTH_REQUIRED", "原口令不正确")
+    problem = security.password_problem(new_password)
+    if problem:
+        raise AppError("PAYLOAD_REJECTED", problem)
+    if new_password == old_password:
+        raise AppError("PAYLOAD_REJECTED", "新口令不能与原口令相同")
+    with repo.transaction():
+        repo.set_password(int(user["id"]), security.hash_password(new_password))
+        repo.set_must_change_password(int(user["id"]), False)
+        audit_service.record(
+            repo,
+            actor_id=int(user.get("id") or 0),
+            action="user.password_changed",
+            target_type="user",
+            target_id=str(user["id"]),
+            detail={},
+            ip=ip,
+            trace_id=trace_id,
+        )
 
 
 def create_user(
@@ -29,11 +71,13 @@ def create_user(
     problem = security.password_problem(password)
     if problem:
         raise AppError("PAYLOAD_REJECTED", problem)
+    data = user_rules.validate(username, display_name, group_name)
     with repo.transaction():
-        if repo.user_by_username(username) is not None:
-            raise AppError("CONFLICT_STALE", f"用户名已存在：{username}")
+        if repo.user_by_username(data["username"]) is not None:
+            raise AppError("CONFLICT_STALE", f"用户名已存在：{data['username']}")
         user_id = repo.insert_user(
-            username, display_name, role, security.hash_password(password), group_name
+            data["username"], data["display_name"], role, security.hash_password(password),
+            data["group_name"], must_change_password=True,
         )
         audit_service.record(
             repo,
@@ -41,7 +85,7 @@ def create_user(
             action="user.create",
             target_type="user",
             target_id=str(user_id),
-            detail={"username": username, "role": role, "group": group_name},
+            detail={"username": data["username"], "role": role, "group": data["group_name"]},
             ip=ip,
             trace_id=trace_id,
         )
