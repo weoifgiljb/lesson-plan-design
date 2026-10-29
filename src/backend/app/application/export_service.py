@@ -76,22 +76,29 @@ def _export_one(
         existing = repo.get_export_job(int(existing["id"]))
     if existing is not None and existing.get("docx_path") and storage.export_path(int(existing["id"])).exists():
         return _job_payload(existing), False, True
-    return _perform_export(repo, user, row, plan, engine_version, ip, trace_id)
+    if existing is not None:
+        # 产物文件丢了：把旧的 succeeded 记录标 failed，否则唯一索引会挡住重新导出（永久 404）
+        repo.update_export_job(int(existing["id"]), "failed")
+    return _perform_export(repo, user, row, plan, report, engine_version, ip, trace_id)
 
 
 def _gate_problem(row: dict[str, Any], plan: dict[str, Any], report: dict[str, Any]) -> dict[str, Any] | None:
     status = row.get("review_status")
     if status not in export_rules.ALLOWED_REPORT_STATUS:
         return _failed(int(row["version_id"]), "REPORT_INCONSISTENT", f"审查状态不允许导出：{status}")
-    verdict = export_rules.gate(engine.validate_plan(plan), report)
-    if verdict.ok:
+    verdict = engine.export_gate(plan, report)
+    if verdict.get("ok"):
         return None
-    return _failed(int(row["version_id"]), verdict.code, verdict.message)
+    return _failed(
+        int(row["version_id"]),
+        str(verdict.get("code") or "REPORT_INCONSISTENT"),
+        str(verdict.get("message") or "导出前门禁未通过"),
+    )
 
 
 def _perform_export(
     repo: Repo, user: dict[str, Any], row: dict[str, Any], plan: dict[str, Any],
-    engine_version: str, ip: str, trace_id: str,
+    report: dict[str, Any], engine_version: str, ip: str, trace_id: str,
 ) -> tuple[dict[str, Any], bool, bool]:
     version_id = int(row["version_id"])
     report_sha = str(row.get("report_sha256") or "")
@@ -99,7 +106,13 @@ def _perform_export(
     job_id = repo.create_export_job(
         version_id, engine_version, int(user.get("id") or 0), "pending", report_sha256=report_sha
     )
-    result = engine.export_docx(plan, storage.export_path(job_id), base_dir=base_dir)
+    result = engine.export_docx(
+        plan,
+        storage.export_path(job_id),
+        base_dir=base_dir,
+        independence=str(report.get("independence") or report.get("reviewer") or "") or None,
+        strict_metadata=False,
+    )
     if not result.get("ok"):
         return _fail_job(repo, user, row, job_id, result.get("code", "INTERNAL"),
                          result.get("message", "导出失败"), ip, trace_id)
@@ -110,23 +123,19 @@ def _perform_export(
         return _fail_job(repo, user, row, job_id, "MEDIA_MISSING", "；".join(warnings), ip, trace_id)
     data = storage.export_path(job_id).read_bytes()
     digest = storage.sha256_bytes(data)
-    if not repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest):
+    with repo.transaction():
+        updated = repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
+        if updated:
+            _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
+    if not updated:
         storage.export_path(job_id).unlink(missing_ok=True)
         repo.update_export_job(job_id, "failed")
         existing = repo.find_export_job(version_id, engine_version)
         if existing is not None:
             return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
         return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
-    _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
-    return {
-        "planVersionId": version_id,
-        "exportId": job_id,
-        "status": "succeeded",
-        "engineVersion": engine_version,
-        "docxSha256": digest,
-        "planHash": row["plan_hash"],
-        "reportHash": report_sha,
-    }, True, False
+    # 统一 DTO：新建成功项与复用项、详情返回同一形状
+    return _job_payload(repo.get_export_job(job_id)), True, False
 
 
 def _fail_job(

@@ -2,6 +2,7 @@
 """插件端引擎接入：全后端唯一修改 sys.path 的地方，保证两端哈希与校验一致。"""
 from __future__ import annotations
 
+import logging
 import os
 import re
 import sys
@@ -14,6 +15,8 @@ PLUGIN_SCRIPTS = REPO_ROOT / "plugins" / "lesson-plan-design" / "skills" / "less
 FORMATTING_SCRIPTS = REPO_ROOT / "plugins" / "lesson-plan-design" / "skills" / "formatting-lesson-docx" / "scripts"
 FOOTER_PATH = PLUGIN_SCRIPTS / "docx_export" / "footer.py"
 ENGINE_VERSION_RE = re.compile(r"^\s*ENGINE_VERSION\s*=\s*\"([^\"]+)\"", re.M)
+
+logger = logging.getLogger("lpp")
 
 
 @lru_cache(maxsize=1)
@@ -38,8 +41,19 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     return _lib().export_gate(plan, report)
 
 
-def export_docx(plan: dict[str, Any], output: Path, base_dir: Path | None = None) -> dict[str, Any]:
-    """调用插件 export_docx 生成 DOCX；先写临时文件，成功后再原子替换。"""
+def export_docx(
+    plan: dict[str, Any],
+    output: Path,
+    base_dir: Path | None = None,
+    *,
+    independence: str | None = None,
+    strict_metadata: bool = False,
+) -> dict[str, Any]:
+    """调用插件 export_docx 生成 DOCX；先写临时文件，成功后再原子替换。
+
+    `independence` 让平台产物与插件 CLI 一致（审校方式标注）；
+    异常文本只进服务端日志，不回给客户端（避免泄露服务器绝对路径）。
+    """
     temporary = output.with_name(output.name + ".tmp")
     try:
         target = str(FORMATTING_SCRIPTS)
@@ -49,12 +63,19 @@ def export_docx(plan: dict[str, Any], output: Path, base_dir: Path | None = None
         from export_docx import export_docx_result  # noqa: PLC0415
 
         output.parent.mkdir(parents=True, exist_ok=True)
-        result = export_docx_result(plan, temporary, base_dir=base_dir)
+        result = export_docx_result(
+            plan,
+            temporary,
+            base_dir=base_dir,
+            independence=independence,
+            strict_metadata=strict_metadata,
+        )
         os.replace(temporary, output)
     except Exception as exc:  # noqa: BLE001 - 适配层统一转成可展示错误
+        logger.warning("export_docx failed: %s", exc)
         temporary.unlink(missing_ok=True)
         output.unlink(missing_ok=True)
-        return {"ok": False, "code": "INTERNAL", "message": f"导出失败：{exc}"[:300]}
+        return {"ok": False, "code": "INTERNAL", "message": "导出失败（详见服务端日志）"}
     finally:
         temporary.unlink(missing_ok=True)
     return {"ok": True, "result": result}

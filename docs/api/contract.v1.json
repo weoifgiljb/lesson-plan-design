@@ -684,6 +684,25 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/audit/export",
+      "summary": "审计 CSV 导出",
+      "auth": true,
+      "roles": [
+        "admin",
+        "lead"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/stats/export.csv",
       "summary": "统计指标 CSV 导出",
       "auth": true,

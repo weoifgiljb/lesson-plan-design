@@ -53,13 +53,9 @@ def store_version_files(plan_id: int, version_no: int, files: dict[str, bytes]) 
     root = files_dir()
     base = f"plans/{plan_id}/{version_no}"
     stored: dict[str, str] = {}
-    try:
-        for name, data in files.items():
-            write_bytes(root, f"{base}/{name}", data)
-            stored[name] = sha256_bytes(data)
-    except Exception:
-        remove_version_files(plan_id, version_no)
-        raise
+    for name, data in files.items():
+        write_bytes(root, f"{base}/{name}", data)
+        stored[name] = sha256_bytes(data)
     return stored
 
 
