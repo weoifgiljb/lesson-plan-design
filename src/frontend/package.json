@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "smoke": "node scripts/smoke-dashboard.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
