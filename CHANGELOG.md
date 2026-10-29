@@ -8,6 +8,7 @@
 
 - **FE-01 数据基座 + 真实概览**：`RequestError.status`、`useApiRequest`/`usePagedQuery`、下载/日期工具、教案内容→结构剖面映射；`/dashboard` 接 `stats/plans/reviews/tasks` 与 plan/review 详情，教师/组长/管理员分区降级。
 - **FE-02 真实任务页**：`/tasks` 接 `listTasks`、`createTask`、`downloadTaskPackage`；课程/周次/状态筛选、分页、逾期标识、创建校验、任务包下载；教师/组长可用，管理员 403；新建弹窗状态只读“待生成”，由导入/审查/导出自动推进。
+- **概览近实时刷新**：`/dashboard` 每 15 秒静默刷新，窗口聚焦/回到前台立即刷新；待办、队列、指标与动态同步更新，并显示“数据更新于 HH:mm:ss”。
 - **任务唯一键修复**：任务唯一键改为 `(owner_id, course, week, session, class_name, title)`，同一班级可建不同课题、不同教师可建同一任务；schema v2 迁移已有 SQLite。
 - **开发种子账号**：`scripts/seed_frontend_dev.py` 创建 `teacher01/lead01/admin01`（本地 dev 密码 `Lesson2026`），可选导入有效契约包、任务与样例；不修改后端源码。
 - **平台端 UI v1.1「教案校样台」**：单一松绿主题、228px 标签式侧栏、56px 命令栏、自绘线性图标、命令面板、指标账本、审查队列；固定演示数据只保留在 DEV `/styleguide`。
@@ -24,8 +25,8 @@
 
 ### 测试
 
-- 前端 `npm run test`：16 个文件、46 条用例通过（含任务页渲染/下载/只读状态、请求状态、分页、日期、结构映射、概览四态）。
-- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 与 `npm run smoke:tasks` 通过（需后端与种子数据）；TasksView 8.82 KB（gzip 3.78），Dashboard 32.44 KB（gzip 11.91），three 懒加载 531.75 KB（gzip 134.29）。
+- 前端 `npm run test`：16 个文件、48 条用例通过（含任务页渲染/下载/只读状态、静默刷新、请求状态、分页、日期、结构映射、概览四态）。
+- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 与 `npm run smoke:tasks` 通过（需后端与种子数据）；TasksView 8.82 KB（gzip 3.78），Dashboard 33.64 KB（gzip 12.34），three 懒加载 531.75 KB（gzip 134.29）。
 - 仓库 `run_backend_gate.py`：block 0，172 tests（架构 warn 2、契约 warn 1 为既有计划内项）；含同班不同课、不同教师同任务、schema v2 迁移测试；另含 `6230ed3` 审查日期边界修复。
 - 数据库：`PRAGMA user_version=2`；v1→v2 任务表重建保留数据，外键检查为空。
 
