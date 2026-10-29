@@ -49,6 +49,11 @@ def import_package(
     plan_hash = engine.plan_hash(plan)
     report_sha256 = storage.sha256_bytes(files[REPORT_NAME])
     plan_id, previous_round, duplicate = _prior_state(repo, owner_id, plan, plan_hash, report_sha256)
+    if duplicate is None and guard is not None:
+        # 乐观锁预检：旧客户端推的是旧轮次包，必须先给"头版本已变"的 409 + 差异，
+        # 否则会被下面的轮次校验抢先判成 422（TC-08-01 真实场景）。
+        # 事务内仍会复检一次，防并发。
+        guard(plan, report)
     verdict = _evaluate(
         manifest, files, plan, report, plan_hash, report_sha256, validation, previous_round, duplicate
     )
@@ -56,9 +61,6 @@ def import_package(
         return _reject(repo, verdict, actor_id, ip, trace_id, sync=sync)
     if duplicate is not None:
         return _duplicate(repo, duplicate, actor_id, ip, trace_id, sync=sync)
-    if guard is not None:
-        # 复校通过后才做同步乐观锁判定，避免未校验字段（如 week 为数组）打穿成 500。
-        guard(plan, report)
     return _persist(
         repo,
         files=files,
@@ -72,6 +74,7 @@ def import_package(
         trace_id=trace_id,
         previous_round=previous_round,
         sync=sync,
+        guard=guard,
     )
 
 
@@ -181,27 +184,45 @@ def _persist(
     trace_id: str,
     previous_round: int,
     sync: dict[str, Any] | None = None,
+    guard: Callable[[dict[str, Any], dict[str, Any]], None] | None = None,
 ) -> ImportResult:
+    written: list[tuple[int, int]] = []
+
     def audit_rollback(exc: BaseException) -> None:
-        # 事务已回滚：拒绝审计必须在事务外单独写，否则也会被回滚掉
+        # 事务已回滚：拒绝审计/冲突日志与已落盘文件都要在事务外补写/清理，否则会留下孤儿
         code = exc.code if isinstance(exc, AppError) else "INTERNAL"
         message = exc.message if isinstance(exc, AppError) else str(exc)
+        details = exc.details if isinstance(exc, AppError) else {}
+        for plan_id_, version_no_ in written:
+            storage.remove_version_files(plan_id_, version_no_)
         audit_service.record(
             repo,
             actor_id=actor_id,
-            action="plan.import.rejected",
+            action="sync.push.conflict" if code == "CONFLICT_STALE" and sync else "plan.import.rejected",
             target_type="plan",
             target_id="",
             detail={"code": code, "message": message, "stage": "persist", "planHash": plan_hash},
             ip=ip,
             trace_id=trace_id,
         )
+        if sync is not None:
+            repo.insert_sync_log(
+                str(sync.get("direction") or "push"),
+                str(sync.get("package_sha256") or ""),
+                str(details.get("headHash") or plan_hash),
+                "conflict" if code == "CONFLICT_STALE" else "rejected",
+                code,
+                int(sync.get("operator_id") or 0) or None,
+            )
 
     with repo.transaction(audit_rollback):
         plan_id = repo.find_or_create_plan(owner_id, plan)
         existing = repo.find_version(plan_id, plan_hash, report_sha256)
         if existing is not None:
             return _duplicate(repo, existing, actor_id, ip, trace_id, sync=sync)
+        if guard is not None:
+            # 乐观锁判定放进事务内、duplicate 复检之后：并发同包时后到一方按"重复"返回 200
+            guard(plan, report)
         _ensure_round(repo, plan_id, previous_round, sync, plan_hash)
         return _write_version(
             repo,
@@ -215,6 +236,7 @@ def _persist(
             ip=ip,
             trace_id=trace_id,
             sync=sync,
+            written=written,
         )
 
 
@@ -231,6 +253,7 @@ def _write_version(
     ip: str,
     trace_id: str,
     sync: dict[str, Any] | None = None,
+    written: list[tuple[int, int]] | None = None,
 ) -> ImportResult:
     version_no = repo.next_version_no(plan_id)
     engine_version = engine.engine_version()
@@ -259,6 +282,9 @@ def _write_version(
     repo.insert_overrides(review_id, list(report.get("overrides") or []))
     repo.set_current_version(plan_id, version_id)
     repo.insert_sync_event("version", plan_id, version_id)
+    if written is not None:
+        # 落盘发生的目录先登记：事务回滚时由 on_rollback 回调清理，避免孤儿文件
+        written.append((plan_id, version_no))
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
     if sync is not None:

@@ -50,11 +50,11 @@ def _verify(
     repo: Repo, user: dict[str, Any], password: str, ip: str, trace_id: str
 ) -> tuple[dict[str, Any], str, str]:
     if not security.verify_password(password, str(user["password_hash"])):
-        count, lock = auth.next_failure(int(user["failed_count"]), LOGIN_MAX_FAILURES)
-        locked_until = clock.iso_after(LOGIN_LOCK_MINUTES / 60) if lock else None
-        repo.record_login_failure(int(user["id"]), count, locked_until)
+        # 计数走单条原子 UPDATE：并发登录时"读-改-写"会丢更新，锁定可被绕过（R2-1）
+        locked_until = clock.iso_after(LOGIN_LOCK_MINUTES / 60)
+        count = repo.bump_login_failure(int(user["id"]), LOGIN_MAX_FAILURES, locked_until)
         _audit(repo, int(user["id"]), "auth.login.failed", {"reason": "bad_password", "count": count}, ip, trace_id)
-        if lock:
+        if count >= LOGIN_MAX_FAILURES:
             raise AppError("RATE_LIMITED", "连续失败次数过多，账号已锁定 10 分钟")
         raise AppError("AUTH_REQUIRED", "用户名或口令错误")
     repo.reset_login_failure(int(user["id"]))

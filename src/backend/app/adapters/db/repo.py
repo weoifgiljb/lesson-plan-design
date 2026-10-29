@@ -96,6 +96,27 @@ class Repo:
     def set_password(self, user_id: int, password_hash: str) -> None:
         self.conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))
 
+    def set_login_identity(self, user_id: int, role: str, display_name: str) -> None:
+        """建号脚本重置账号时同步角色与姓名：否则"降级管理员"会静默失败（R2-2）。"""
+        self.conn.execute(
+            "UPDATE user SET role = ?, display_name = ? WHERE id = ?",
+            (role, display_name, int(user_id)),
+        )
+
+    def bump_login_failure(self, user_id: int, limit: int, locked_until: str | None) -> int:
+        """原子自增失败计数，达到上限时同时写入锁定时间，返回自增后的计数。
+
+        不能用"先读 failed_count 再写回"：并发登录时多个请求读到同一个旧值，
+        计数会丢更新，5 次失败锁定可被并行请求绕过（第 2 轮评审 R2-1）。
+        """
+        row = self.conn.execute(
+            "UPDATE user SET failed_count = failed_count + 1,"
+            " locked_until = CASE WHEN failed_count + 1 >= ? THEN ? ELSE locked_until END"
+            " WHERE id = ? RETURNING failed_count",
+            (int(limit), locked_until, int(user_id)),
+        ).fetchone()
+        return int(row["failed_count"]) if row is not None else 0
+
     def record_login_failure(self, user_id: int, failed_count: int, locked_until: str | None) -> None:
         self.conn.execute(
             "UPDATE user SET failed_count = ?, locked_until = ? WHERE id = ?",
@@ -352,6 +373,26 @@ class Repo:
                 (plan_id,),
             ).fetchone()
         )
+
+    def pull_events(
+        self, scope: dict[str, Any], since: int, limit: int
+    ) -> list[dict[str, Any]]:
+        """按同步事件游标增量拉取：入库=version、软删除=deleted（删除也能传播）。"""
+        where, params = self._pull_where(scope)
+        sql = " ".join(
+            (
+                "SELECT e.id AS event_id, e.kind, e.plan_id, e.plan_version_id, e.created_at AS event_at,"
+                " pv.version_no, pv.plan_hash, pv.content_json, pv.created_at,"
+                " p.content_title, p.owner_id, p.deleted_at, u.display_name AS teacher",
+                "FROM sync_event e JOIN plan p ON p.id = e.plan_id JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN plan_version pv ON pv.id = e.plan_version_id",
+                "WHERE e.id > ?",
+                where,
+                "ORDER BY e.id LIMIT ?",
+            )
+        )
+        rows = self.conn.execute(sql, (int(since), *params, int(limit))).fetchall()
+        return [dict(row) for row in rows]
 
     def pull_versions(
         self, scope: dict[str, Any], since: int, limit: int
