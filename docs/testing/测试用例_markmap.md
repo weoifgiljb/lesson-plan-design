@@ -13,7 +13,7 @@
 | 插件端运行环境 | Windows 11，Python 3.12，仓库根 `<仓库根目录>` |
 | 插件端解释器 | 优先 `py -3`；`python` 不可用时按 FR-08 自适应 |
 | 平台端入口 | TODO：待 2027.03 平台端联调后提供；当前为 `http://127.0.0.1:8000` 占位 |
-| 平台端账号 | 教师 `teacher01`、组长 `lead01`、管理员 `admin01`（密码 TODO：待环境搭建后提供） |
+| 平台端账号 | 教师 `teacher01`、组长 `lead01`、管理员 `admin01`；本地 dev 密码 `Lesson2026`（由 `scripts/seed_frontend_dev.py` 创建） |
 | 数据库 | SQLite 测试库 `test.db`（平台端实现后提供） |
 | 页面导航 | 登录后左侧菜单：概览 / 任务 / 教案库 / 审查中心 / 导出中心 / 样例库 / 统计 / 管理 |
 | 样例教案 | `plugins/lesson-plan-design/skills/lesson-plan-design/examples/信息技术0201.json` |

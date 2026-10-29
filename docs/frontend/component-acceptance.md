@@ -68,7 +68,7 @@
 - [ ] `prefers-reduced-motion` 下不自动旋转、无入场动画；拖拽仍可用。
 - [ ] 离开视口/切后台暂停渲染；卸载后无残留 `requestAnimationFrame`。
 - [ ] 3D canvas 不承载唯一信息；结构清单键盘/读屏可得。
-- [ ] 生产 `dist` 不含 fixture 数据（教师名/队列）与 three chunk；`/preview/overview` 不注册（外壳可能保留不可达的 DEV 入口文案）。
+- [ ] 生产 `dist` 不含 fixture 数据（教师名/队列），`/preview/overview` 不注册；真实 `/dashboard` 含懒加载 three chunk（首屏不阻塞）。
 
 ## 5. 响应式
 
@@ -93,11 +93,11 @@
 
 | 页面 | 视口 | 结论 | 日期 |
 |---|---|---|---|
-| `/preview/overview` | 1440/1280/390 | 待用户确认 | — |
-| `/preview/overview?diagram=2d` | 1440/1280/390 | 待用户确认 | — |
-| `/styleguide` | 1440/1280/390 | 待用户确认 | — |
-| `/login` | 1440/1280/390 | 待用户确认 | — |
-| `/plans` 等业务页 | — | 未开始（FE-01…） | — |
+| `/preview/overview` | 1440/1280/390 | 通过 | 2026-10-29 |
+| `/preview/overview?diagram=2d` | 1440/1280/390 | 通过 | 2026-10-29 |
+| `/styleguide` | 1440/1280/390 | 通过 | 2026-10-29 |
+| `/login` | 1440/1280/390 | 通过 | 2026-10-29 |
+| `/plans` 等业务页 | — | FE-01 起按任务推进 | — |
 
 ## 8. 判定
 
