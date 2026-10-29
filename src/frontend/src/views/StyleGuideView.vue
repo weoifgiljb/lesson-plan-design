@@ -467,19 +467,23 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
           <caption class="sr-only">断点</caption>
           <thead><tr><th scope="col">视口</th><th scope="col">行为</th></tr></thead>
           <tbody>
-            <tr><td>≥1100</td><td>228px 侧栏展开；3D 与右侧栏并排</td></tr>
-            <tr><td>900–1099</td><td>侧栏抽屉；3D 降级为 2D 剖面</td></tr>
-            <tr><td>640–899</td><td>单列；表格容器内横向滚动</td></tr>
+            <tr><td>≥1440</td><td>完整侧栏、3D 与表格全列</td></tr>
+            <tr><td>1100–1439</td><td>228px 侧栏；&lt;1180 主视觉上下堆叠</td></tr>
+            <tr><td>900–1099</td><td>侧栏抽屉；3D 仍可用，主视觉单列</td></tr>
+            <tr><td>640–899</td><td>3D 降级 2D；单列；表格容器内滚动</td></tr>
             <tr><td>&lt;640</td><td>抽屉 280px；按钮不重叠；隐藏次要元信息</td></tr>
           </tbody>
         </table>
-        <ul class="a11y-list">
-          <li>正文与次文字对比度 ≥4.5:1，单测锁定。</li>
-          <li>焦点环 2px 实色松绿；Tab 顺序从跳过链接开始。</li>
-          <li>图标按钮有 aria-label；状态不只靠颜色。</li>
-          <li>3D canvas 不承载唯一信息，结构清单可键盘阅读。</li>
-          <li>reduced-motion 下关闭自动旋转、入场与图表动画。</li>
-        </ul>
+        <div class="a11y-col">
+          <h3 class="a11y-head">检查项</h3>
+          <ul class="a11y-list">
+            <li>正文与次文字对比度 ≥4.5:1，单测锁定。</li>
+            <li>焦点环 2px 实色松绿；Tab 顺序从跳过链接开始。</li>
+            <li>图标按钮有 aria-label；状态不只靠颜色。</li>
+            <li>3D canvas 不承载唯一信息，结构清单可键盘阅读。</li>
+            <li>reduced-motion 下关闭自动旋转、入场与图表动画。</li>
+          </ul>
+        </div>
       </div>
     </section>
 
@@ -803,16 +807,30 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
   gap: 24px;
 }
 
+.a11y-col {
+  min-width: 0;
+}
+
+.a11y-head {
+  margin: 0;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--lpp-border-strong);
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 600;
+  line-height: 1.65;
+}
+
 .a11y-list {
   margin: 0;
   padding: 0;
   list-style: none;
   font-size: var(--lpp-font-xs);
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .a11y-list li {
-  padding: 6px 0;
+  padding: 7px 10px;
   border-bottom: 1px dashed var(--lpp-border);
 }
 
