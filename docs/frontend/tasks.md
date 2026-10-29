@@ -64,9 +64,9 @@
 - `RequestError.status`；`useApiRequest`/`usePagedQuery`；`saveBlob`；日期工具。
 - 修正 `ReviewDetail.review` 类型；新增 `toLessonStructure`（真实教案内容 → 3D 剖面）。
 - `scripts/seed_frontend_dev.py`：teacher01/lead01/admin01 + 可选演示数据。
-- `/dashboard` 真实数据；`/` 与登录跳转；AppShell 概览启用；DEV 预览保留。
+- `/dashboard` 真实数据；`/` 与登录跳转；AppShell 概览/任务启用；预览入口移除。
 - 数据来源：stats + plans + reviews + tasks + plan/review detail；分区错误降级。
-- 测试/冒烟/截图/后端口径；生产预览路由 404、fixture 不进生产、three 懒加载 chunk。
+- 测试/冒烟/截图/后端口径；生产 `/styleguide` 404、fixture 不进真实页面、three 懒加载 chunk。
 
 ## 6. FE-01 验收命令
 
@@ -83,6 +83,7 @@ npm run test
 npm run build
 npm run dev
 npm run smoke
+npm run smoke:tasks
 cd ../..
 py -3 scripts/run_backend_gate.py
 ```
@@ -92,5 +93,6 @@ py -3 scripts/run_backend_gate.py
 | 任务 | 状态 |
 |---|---|
 | FE-01 | 完成（待联调验收） |
-| FE-02…FE-08 | 待开工 |
+| FE-02 | 完成（待联调验收；含同班不同课唯一键修复） |
+| FE-03…FE-08 | 待开工 |
 | FE-09 | 待联调 |

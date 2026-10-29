@@ -7,6 +7,8 @@
 ### 新增
 
 - **FE-01 数据基座 + 真实概览**：`RequestError.status`、`useApiRequest`/`usePagedQuery`、下载/日期工具、教案内容→结构剖面映射；`/dashboard` 接 `stats/plans/reviews/tasks` 与 plan/review 详情，教师/组长/管理员分区降级。
+- **FE-02 真实任务页**：`/tasks` 接 `listTasks`、`createTask`、`downloadTaskPackage`；课程/周次/状态筛选、分页、逾期标识、创建校验、任务包下载；教师/组长可用，管理员 403。
+- **任务唯一键修复**：任务唯一键改为 `(owner_id, course, week, session, class_name, title)`，同一班级可建不同课题、不同教师可建同一任务；schema v2 迁移已有 SQLite。
 - **开发种子账号**：`scripts/seed_frontend_dev.py` 创建 `teacher01/lead01/admin01`（本地 dev 密码 `Lesson2026`），可选导入有效契约包、任务与样例；不修改后端源码。
 - **平台端 UI v1.1「教案校样台」**：单一松绿主题、228px 标签式侧栏、56px 命令栏、自绘线性图标、命令面板、指标账本、审查队列；固定演示数据只保留在 DEV `/styleguide`。
 - **three.js 教案结构剖面**：三维目标、八步流程与证据链的三层剖面；手写指针旋转、悬停说明、自动旋转/重置；无 WebGL、窄屏、chunk 失败或上下文丢失时降级为等距 SVG。真实 `/dashboard` 使用懒加载 three chunk，真实系统不展示 fixture。
@@ -16,14 +18,16 @@
 
 - A「墨蓝」主题与 A/B 切换退役；`tokens.css` 只保留 `:root`，色板由 `styles/palette.ts` 与单测锁定。
 - 登录页改为深松绿「书桌」分栏 + 纸面表单；共享组件（Table/Metric/Evidence/Diff/State/Chart）按新令牌重做。
-- `/` 与登录后默认进入 `/dashboard`；设计验收页仅 DEV；`/dashboard` 生产注册。
-- 生产构建包含 Dashboard 与懒加载 three chunk；fixture 页面 `/styleguide` 不进入生产路由。
+- `/` 与登录后默认进入 `/dashboard`；`/tasks` 注册；设计验收页仅 DEV；`/styleguide` 是唯一 fixture 页面。
+- 生产构建包含 Dashboard、TasksView 与懒加载 three chunk；fixture 页面 `/styleguide` 不进入生产路由。
+- 删除 `/preview/overview` 与假数据预览入口；真实系统只使用接口数据。
 
 ### 测试
 
-- 前端 `npm run test`：15 个文件、43 条用例通过（色板同步、对比度、结构模型、2D 兜底、指标格式化、命令过滤、请求状态、分页、日期/下载、教案结构映射、概览四态）。
-- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 登录/真实概览/3D/退出通过（需后端与种子数据）；Dashboard 38.47 KB（gzip 13.88），three 懒加载 531.72 KB（gzip 134.27）。
-- 仓库 `run_backend_gate.py`：block 0，171 tests（架构 warn 2、契约 warn 1 为既有计划内项）；cherry-pick `6230ed3` 修复审查日期边界跨天变红。
+- 前端 `npm run test`：16 个文件、45 条用例通过（含任务页渲染/下载、请求状态、分页、日期、结构映射、概览四态）。
+- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 与 `npm run smoke:tasks` 通过（需后端与种子数据）；TasksView 8.56 KB（gzip 3.64），Dashboard 32.44 KB（gzip 11.91），three 懒加载 531.75 KB（gzip 134.29）。
+- 仓库 `run_backend_gate.py`：block 0，172 tests（架构 warn 2、契约 warn 1 为既有计划内项）；含同班不同课、不同教师同任务、schema v2 迁移测试；另含 `6230ed3` 审查日期边界修复。
+- 数据库：`PRAGMA user_version=2`；v1→v2 任务表重建保留数据，外键检查为空。
 
 ## v1.1.0 — 2026-10-26
 

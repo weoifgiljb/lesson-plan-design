@@ -1,6 +1,6 @@
 # 前端设计与验收
 
-> 当前状态：**UI v1.1 已冻结（2026-10-29）**。FE-01（数据基座 + 真实 `/dashboard`）已完成，待联调验收；FE-02…FE-09 见 [tasks.md](tasks.md)。
+> 当前状态：**UI v1.1 已冻结（2026-10-29）**。FE-01（数据基座 + 真实 `/dashboard`）与 FE-02（真实 `/tasks`）已完成，待联调验收；FE-03…FE-09 见 [tasks.md](tasks.md)。
 
 ## 入口
 
@@ -43,8 +43,9 @@ npm run lint
 npm run test
 npm run build
 npm run check        # typecheck + lint + test
-npm run screenshots  # .qa/frontend-review/v1.1/{route}-{1440,1280,390}.png
+npm run screenshots  # .qa/frontend-review/v1.1/{styleguide,login}-{1440,1280,390}.png
 npm run smoke        # 需后端 + 种子数据；登录/概览/3D/退出
+npm run smoke:tasks  # 需后端 + 种子数据；任务列表/任务包下载/退出
 ```
 
 本机 npm cache 在沙箱外时，安装依赖加 workspace 缓存：
