@@ -19,7 +19,11 @@ class ExportRequest(BaseModel):
     planVersionIds: list[int]
 
 
-@router.post("/exports", status_code=201)
+@router.post(
+    "/exports",
+    status_code=201,
+    responses={200: {"description": "同一版本已有可复用产物，直接返回已有导出记录"}},
+)
 def create_exports(
     request: Request,
     response: Response,
@@ -45,7 +49,16 @@ def export_detail(
     return export_service.detail(context["repo"], context["user"], export_id)
 
 
-@router.get("/exports/{export_id}/download")
+@router.get(
+    "/exports/{export_id}/download",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "DOCX 产物",
+            "content": {DOCX_MEDIA: {"schema": {"type": "string", "format": "binary"}}},
+        }
+    },
+)
 def download_export(
     export_id: int, context: dict[str, Any] = Depends(require_role("teacher", "lead"))
 ) -> Response:

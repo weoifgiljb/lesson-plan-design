@@ -32,7 +32,7 @@ def build(
                     available=tasks_total > 0),
             _metric("expert_score", "专家评分", 0, 0, filters, available=False),
             _metric("export_seconds", "单份耗时", sum(export_seconds), len(export_seconds),
-                    filters, unit="秒", available=bool(export_seconds)),
+                    filters, unit="分钟", available=bool(export_seconds)),
             _metric("availability", "平台可用性", 0, 0, filters, available=False),
         ],
         "filters": filters,

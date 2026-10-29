@@ -81,6 +81,8 @@ class TestPermissionMatrix(unittest.TestCase):
         # 契约扩容时不写死数字：矩阵必须覆盖契约里的每一个端点
         paths = {(item["method"], item["path"]) for item in contract_endpoints()}
         self.assertGreaterEqual(len(paths), 31)
+        # 上游审计导出端点必须仍在矩阵里（合并时不能把这条断言丢掉）
+        self.assertIn(("GET", "/api/v1/audit/export"), paths)
 
     def test_unauthenticated_requests(self) -> None:
         anonymous = TestClient(create_app())
