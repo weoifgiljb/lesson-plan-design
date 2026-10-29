@@ -29,6 +29,22 @@ CREATE TABLE task (
 );
 """
 
+# 更早的基线（#21 之前）：plan_version 既没有 report_sha256，也没有 engine_version
+LEGACY_PLAN_VERSION_SQL = """
+DROP TABLE plan_version;
+CREATE TABLE plan_version (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL REFERENCES plan (id),
+    version_no INTEGER NOT NULL,
+    content_json TEXT NOT NULL,
+    plan_hash TEXT NOT NULL,
+    schema_version INTEGER NOT NULL,
+    rubric_version TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (plan_id, version_no)
+);
+"""
+
 SEED_SQL = """
 INSERT INTO user (username, display_name, group_name, role, password_hash, created_at)
 VALUES ('t1', '张老师', '计算机', 'teacher', 'x', '2026-10-26T00:00:00+00:00');
@@ -59,6 +75,7 @@ class TestRepairSchema(unittest.TestCase):
         conn = sqlite3.connect(self.db, isolation_level=None)
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
         conn.executescript(LEGACY_TASK_SQL)
+        conn.executescript(LEGACY_PLAN_VERSION_SQL)
         conn.executescript(SEED_SQL)
         conn.execute("PRAGMA user_version=2")
         return conn
@@ -121,5 +138,22 @@ class TestRepairSchema(unittest.TestCase):
             repair.repair(conn)
             initialize(conn)  # 版本已到位，不应再跑迁移或报错
             self.assertEqual(current_version(conn), SCHEMA_VERSION)
+        finally:
+            conn.close()
+
+    def test_repair_fixes_duplicate_column_state(self) -> None:
+        """迁移跑了一半（列已加、版本没推进）时，initialize 会报 duplicate column，repair 要能救回来。"""
+        conn = self._legacy_db()
+        try:
+            conn.execute("ALTER TABLE plan_version ADD COLUMN report_sha256 TEXT NOT NULL DEFAULT ''")
+            conn.execute("PRAGMA user_version=1")
+            with self.assertRaises(sqlite3.OperationalError):
+                initialize(conn)  # 0002 再次 ADD COLUMN → duplicate column name
+            log = repair.repair(conn)
+            self.assertIn("plan_version.engine_version", log["added_columns"])
+            state = repair.inspect(conn)
+            self.assertEqual(state["version"], SCHEMA_VERSION)
+            self.assertFalse(state["needs_repair"])
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM plan_version").fetchone()[0], 1)
         finally:
             conn.close()

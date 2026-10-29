@@ -44,6 +44,9 @@ ADD_COLUMN_SQL: dict[tuple[str, str], str] = {
     ("plan_version", "report_sha256"): (
         "ALTER TABLE plan_version ADD COLUMN report_sha256 TEXT NOT NULL DEFAULT ''"
     ),
+    ("plan_version", "engine_version"): (
+        "ALTER TABLE plan_version ADD COLUMN engine_version TEXT NOT NULL DEFAULT ''"
+    ),
     ("task", "assignee_id"): "ALTER TABLE task ADD COLUMN assignee_id INTEGER REFERENCES user (id)",
     ("task", "group_name"): "ALTER TABLE task ADD COLUMN group_name TEXT NOT NULL DEFAULT ''",
     ("task", "term"): "ALTER TABLE task ADD COLUMN term TEXT NOT NULL DEFAULT ''",
@@ -227,6 +230,9 @@ def repair(conn: sqlite3.Connection) -> dict[str, Any]:
     log: dict[str, Any] = {"added_columns": [], "rebuilt_task": False, "notes": []}
     database = conn.execute("PRAGMA database_list").fetchone()[2]
 
+    if conn.in_transaction:
+        # 上一次失败的 initialize() 可能留下未结束的事务，先清掉再开自己的
+        conn.execute("ROLLBACK")
     conn.execute("PRAGMA foreign_keys = OFF")
     conn.execute("BEGIN IMMEDIATE")
     committed = False
