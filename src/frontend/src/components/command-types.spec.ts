@@ -4,7 +4,7 @@ import { filterCommands } from './command-types'
 import type { CommandItem } from './command-types'
 
 const commands: CommandItem[] = [
-  { id: 'overview', title: '概览', group: '页面', keywords: 'overview 工作台', to: '/preview/overview' },
+  { id: 'overview', title: '概览', group: '页面', keywords: 'overview 工作台', to: '/dashboard' },
   { id: 'styleguide', title: '设计验收', group: '页面', keywords: 'design 令牌', to: '/styleguide' },
   { id: 'logout', title: '退出登录', group: '操作' },
 ]

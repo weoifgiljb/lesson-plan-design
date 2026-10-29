@@ -9,7 +9,7 @@
 - 主题：单一「松绿 · 砂岩」（A 墨蓝已退役）
 - 视口：1440 / 1280 / 390
 - 截图目录：`.qa/frontend-review/v1.1/`
-- 入口：`/preview/overview`、`/preview/overview?diagram=2d`、`/styleguide`、`/login`
+- 入口：`/styleguide`、`/login`（真实 `/dashboard` 在 FE-01 验收）
 
 ## v1.1 逐项反馈
 

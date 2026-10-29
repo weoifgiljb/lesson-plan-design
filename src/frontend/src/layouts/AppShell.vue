@@ -78,10 +78,7 @@ const groups = computed<NavGroup[]>(() => [
     ? [
         {
           label: '设计',
-          items: [
-            { label: '概览预览', icon: 'overview' as const, to: '/preview/overview', ready: true },
-            { label: '风格验收', icon: 'design' as const, to: '/styleguide', ready: true },
-          ],
+          items: [{ label: '风格验收', icon: 'design' as const, to: '/styleguide', ready: true }],
         },
       ]
     : []),
@@ -89,7 +86,6 @@ const groups = computed<NavGroup[]>(() => [
 
 const pageTitle = computed(() => route.meta.title ?? '平台端')
 const pageSection = computed(() => route.meta.section ?? '平台端')
-const isPreview = computed(() => route.path.startsWith('/preview'))
 
 const commands = computed<CommandItem[]>(() => {
   const list: CommandItem[] = [
@@ -104,14 +100,6 @@ const commands = computed<CommandItem[]>(() => {
   ]
   if (isDev) {
     list.push(
-      {
-        id: 'preview',
-        title: '概览预览',
-        group: '页面',
-        hint: '/preview/overview',
-        to: '/preview/overview',
-        keywords: 'preview fixture 设计回归',
-      },
       {
         id: 'styleguide',
         title: '设计验收',
@@ -306,11 +294,6 @@ onBeforeUnmount(() => {
           <span class="crumb__sep" aria-hidden="true">/</span>
           <strong>{{ pageTitle }}</strong>
         </div>
-
-        <span v-if="isPreview" class="preview-chip">
-          <i aria-hidden="true" />
-          设计预览 / 演示数据
-        </span>
 
         <div class="commandbar__spacer" />
 
@@ -600,27 +583,6 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 
-.preview-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid color-mix(in srgb, var(--lpp-accent) 32%, var(--lpp-border));
-  border-radius: var(--lpp-radius-tag);
-  background: color-mix(in srgb, var(--lpp-accent) 8%, white);
-  color: var(--lpp-accent-ink);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.preview-chip i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--lpp-accent);
-}
-
 .commandbar__spacer {
   flex: 1;
 }
@@ -748,10 +710,6 @@ onBeforeUnmount(() => {
   }
 
   .commandbar__user {
-    display: none;
-  }
-
-  .preview-chip {
     display: none;
   }
 

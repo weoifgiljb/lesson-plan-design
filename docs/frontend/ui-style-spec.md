@@ -2,7 +2,7 @@
 
 > 状态：**已冻结 v1.1（2026-10-29）**。用户在 2026-10-29 回复“没问题了”，第 11 节记录签字。
 >
-> 本轮范围：设计令牌、工作台外壳、登录、设计验收页与概览；FE-01 起真实 `/dashboard` 复用该套样式并接后端，`/preview/overview` 仅保留为 DEV 设计回归页。
+> 本轮范围：设计令牌、工作台外壳、登录、设计验收页与概览；FE-01 起真实 `/dashboard` 复用该套样式并接后端，固定演示数据只保留在 `/styleguide`，真实系统不展示 fixture。
 
 ## 1. 产品与受众
 
@@ -74,7 +74,7 @@
 
 ```
 ┌ 228 ┬────────────────────────────────────────────────────┐
-│ 品牌 │ 工作台 / 概览     搜索 Ctrl K   设计预览  用户     │ 56
+│ 品牌 │ 工作台 / 概览     搜索 Ctrl K   用户             │ 56
 │      ├────────────────────────────────────────────────────┤
 │ 工作台│ 页标题 + 说明                        主操作        │
 │  概览●│ ┌────────────────────────┬───────────────────────┐ │
@@ -134,7 +134,7 @@
 - **降级**：无 WebGL、`?diagram=2d`、视口 <900、chunk 加载失败、`webglcontextlost` 时使用 `StructureDiagram.vue` 等距 SVG；窄屏隐藏 SVG 标签，由图例与结构清单承担信息。
 - **性能**：DPR≤2、30fps、离屏/页面隐藏暂停、卸载时释放几何/材质/renderer/上下文；入场只跑一次 520ms，`prefers-reduced-motion` 下直接终态。
 - **无障碍**：canvas `aria-hidden`，不承载唯一信息；`<details>` 结构清单包含八步、分钟、证据与缺项原因，键盘/读屏可用。
-- **生产边界**：`/preview/overview` 只在 DEV 注册，fixture 不进入生产；FE-01 起真实 `/dashboard` 复用同一组件，`three` 为懒加载生产 chunk，首屏不阻塞。
+- **生产边界**：`/styleguide` 是唯一允许 fixture 的页面，只在 DEV 注册；FE-01 起真实 `/dashboard` 走接口，`three` 为懒加载生产 chunk，首屏不阻塞。
 
 ## 8. 动效
 
@@ -152,12 +152,12 @@
 ## 10. 验收方式
 
 1. 启动前端：`cd src/frontend && npm run dev`（本机 `http://127.0.0.1:5174`）。
-2. 打开 `/dashboard`（FE-01 起真实概览，需登录）、`/preview/overview`（DEV fixture 回归）、`/styleguide`（设计验收）、`/login`（登录）。
-3. 看 1440/1280/390 三档；结构剖面另看 `/preview/overview?diagram=2d`。
+2. 打开 `/dashboard`（FE-01 起真实概览，需登录）、`/styleguide`（设计验收，允许 fixture）、`/login`（登录）。
+3. 看 1440/1280/390 三档；3D 结构在 `/dashboard` 用真实教案内容，在 `/styleguide` 用固定演示数据。
 4. 按 `component-acceptance.md` 逐项检查；反馈写入 `review-notes.md`。
 5. 命令：`npm run typecheck`、`npm run lint`、`npm run test`、`npm run build`、`npm run screenshots`；仓库根 `py -3 scripts/run_backend_gate.py`。
 
-截图目录：`.qa/frontend-review/v1.1/`（`{overview,overview-2d,styleguide,login}-{1440,1280,390}.png`）。
+截图目录：`.qa/frontend-review/v1.1/`（`{styleguide,login}-{1440,1280,390}.png`）；真实 dashboard 截图在 `.qa/frontend-review/fe-01/`。
 
 ## 11. 冻结决定（v1.1）
 
@@ -169,12 +169,12 @@
 | 字号基准 | 正文 14 / 表格 13 / 标题 20 / 主标题 28 | 2026-10-29 冻结 |
 | 圆角 | 4 / 6 / 10 / 14 | 2026-10-29 冻结 |
 | 表格密度 | 行高 44、表头 40、透明表头底 | 2026-10-29 冻结 |
-| 3D | 三层剖面 + 2D 兜底；DEV 预览；FE-01 起真实 dashboard 复用，生产懒加载 | 2026-10-29 冻结 |
+| 3D | 三层剖面 + 2D 兜底；真实 dashboard 使用；`/styleguide` 使用固定演示数据；生产懒加载 | 2026-10-29 冻结 |
 | 签字 | 用户 2026-10-29 回复：“没问题了” | 2026-10-29 |
 
 ## 12. 已知边界
 
-- `/preview/overview` 仍是 **DEV 设计回归页**；FE-01 起真实概览走 `/dashboard`，预览 fixture 不进生产。
+- 真实系统页面只走接口；固定演示数据只保留在 `/styleguide`，不进真实系统导航与生产。
 - FE-01 起真实 dashboard 使用 three.js，生产构建会出现懒加载 three chunk；首屏不阻塞。
 - 业务页面按 FE-02…FE-09 任务推进；队列/指标/待办以真实接口为准，空数据不伪造。
 - 移动端表格保留横向滚动，不做卡片化（联调任务再评估）。

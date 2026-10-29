@@ -16,18 +16,6 @@ const viewports = [
 
 const routes = [
   {
-    name: 'overview',
-    path: '/preview/overview',
-    waitFor: '[data-structure-ready="true"]',
-    readySelector: '[data-structure-ready="true"]',
-  },
-  {
-    name: 'overview-2d',
-    path: '/preview/overview?diagram=2d',
-    waitFor: '.structure-diagram',
-    readySelector: '[data-structure-ready="true"]',
-  },
-  {
     name: 'styleguide',
     path: '/styleguide',
     waitFor: '[data-structure-ready="true"]',

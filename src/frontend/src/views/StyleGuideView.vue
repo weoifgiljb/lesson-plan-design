@@ -202,7 +202,7 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
         </p>
       </template>
       <template #actions>
-        <el-button @click="router.push('/preview/overview')">查看概览预览</el-button>
+        <el-button @click="router.push('/dashboard')">查看真实概览</el-button>
       </template>
     </PageHeader>
 

@@ -8,7 +8,7 @@ const router = useRouter()
 const isDev = import.meta.env.DEV
 
 function back(): void {
-  void router.push(isDev ? '/preview/overview' : '/login')
+  void router.push(isDev ? '/dashboard' : '/login')
 }
 </script>
 

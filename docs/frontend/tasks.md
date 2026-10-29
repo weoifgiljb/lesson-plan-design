@@ -8,7 +8,7 @@
 
 | 任务 | 分支 | 页面 | 主要 API 函数 | 依赖 | 验收/用例 |
 |---|---|---|---|---|---|
-| **FE-01 基座 + 真实概览** | `feature/fe-01-foundation-dashboard` | `/dashboard`；DEV `/preview/overview` | `getStatsSummary`、`listPlans`、`getPlan`、`listReviews`、`getReview`、`listTasks` | fe-00 | TC-12-01 首段 |
+| **FE-01 基座 + 真实概览** | `feature/fe-01-foundation-dashboard` | `/dashboard` | `getStatsSummary`、`listPlans`、`getPlan`、`listReviews`、`getReview`、`listTasks` | fe-00 | TC-12-01 首段 |
 | FE-02 任务 | `feature/fe-02-tasks` | `/tasks` | `listTasks`、`createTask`、`downloadTaskPackage` | FE-01 | TC-11-01 |
 | FE-03 教案库与详情 | `feature/fe-03-plans` | `/plans`、`/plans/:id` | `listPlans`、`importPlan`、`getPlan`、`listPlanVersions`、`diffPlan`、`deletePlan` | FE-01 | TC-06-01/02/03/04/06 |
 | FE-04 审查中心 | `feature/fe-04-reviews` | `/reviews`、`/reviews/:id` | `listReviews`、`getReview` | FE-03（回链） | TC-07-01/02/03、TC-09-01 |

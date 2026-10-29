@@ -2,7 +2,7 @@
 
 > 与 `ui-style-spec.md` 配套。UI v1.1 已于 2026-10-29 冻结；设计验收结论见 `.qa/reviews/frontend-fe00-ui-refresh-2026-10-28.md`，接后端验收见 `.qa/reviews/frontend-fe-01-2026-10-29.md`。
 >
-> FE-01 起真实 `/dashboard` 接后端；`/preview/overview` 保留为仅 DEV 的构图回归页。业务页面 FE-02…FE-09 按任务板推进。
+> FE-01 起真实 `/dashboard` 接后端；`/styleguide` 是唯一允许固定演示数据的 DEV 页面。业务页面 FE-02…FE-09 按任务板推进。
 
 ## 1. Element Plus 组件
 
@@ -68,7 +68,7 @@
 - [ ] `prefers-reduced-motion` 下不自动旋转、无入场动画；拖拽仍可用。
 - [ ] 离开视口/切后台暂停渲染；卸载后无残留 `requestAnimationFrame`。
 - [ ] 3D canvas 不承载唯一信息；结构清单键盘/读屏可得。
-- [ ] 生产 `dist` 不含 fixture 数据（教师名/队列），`/preview/overview` 不注册；真实 `/dashboard` 含懒加载 three chunk（首屏不阻塞）。
+- [ ] 生产 `dist` 不含 fixture 数据（教师名/队列），`/styleguide` 不注册；真实 `/dashboard` 含懒加载 three chunk（首屏不阻塞）。
 
 ## 5. 响应式
 
@@ -93,12 +93,11 @@
 
 | 页面 | 视口 | 结论 | 日期 |
 |---|---|---|---|
-| `/preview/overview` | 1440/1280/390 | 通过 | 2026-10-29 |
-| `/preview/overview?diagram=2d` | 1440/1280/390 | 通过 | 2026-10-29 |
 | `/styleguide` | 1440/1280/390 | 通过 | 2026-10-29 |
 | `/login` | 1440/1280/390 | 通过 | 2026-10-29 |
 | `/dashboard`（FE-01 真实概览） | 1440/1280/390 | 待联调确认 | 2026-10-29 |
-| `/plans` 等业务页 | — | FE-02 起按任务推进 | — |
+| `/tasks`（FE-02） | 1440/1280/390 | 开发中 | — |
+| `/plans` 等业务页 | — | FE-03 起按任务推进 | — |
 
 ## 8. 判定
 

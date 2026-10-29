@@ -7,11 +7,11 @@
 | 地址 | 用途 | 生产 |
 |---|---|---|
 | `http://127.0.0.1:5174/dashboard` | 真实概览（需登录；FE-01） | 注册 |
-| `http://127.0.0.1:5174/preview/overview` | 概览设计回归（fixture） | 不注册 |
-| `http://127.0.0.1:5174/styleguide` | 设计系统与验收页 | 不注册 |
+| `http://127.0.0.1:5174/tasks` | 真实任务（FE-02，需登录） | 注册 |
+| `http://127.0.0.1:5174/styleguide` | 设计系统与验收页（fixture 仅此页） | 不注册 |
 | `http://127.0.0.1:5174/login` | 登录 | 注册 |
 
-`/preview/overview` 只使用 `src/dev/overview-fixtures.ts` 的虚构数据，不发请求；生产构建不包含预览路由与演示数据。真实 `/dashboard` 走 `/api/v1/*`，3D 结构由真实教案内容生成，`three` 为懒加载生产 chunk。
+真实系统页面只走 `/api/v1/*`，不使用 fixture；`/styleguide` 是唯一允许固定演示数据的入口，生产不注册。真实 `/dashboard` 的 3D 结构由真实教案内容生成，`three` 为懒加载生产 chunk。
 
 本地首次联调先建账号与演示数据（仅 dev）：
 
@@ -68,7 +68,7 @@ npm run screenshots
 - 用 `prefers-reduced-motion: reduce` 固定动效；
 - 等待 `[data-structure-ready="true"]` 与字体；
 - 断言页面 body 无横向溢出；
-- 覆盖 `/preview/overview`、`?diagram=2d`、`/styleguide`、`/login` × 1440/1280/390；
+- 覆盖 `/styleguide`、`/login` × 1440/1280/390；
 - 收集 console/page error（忽略 WebGL/THREE 的常规警告）。
 
 ## 类型生成（契约变更后）
@@ -90,7 +90,7 @@ py -3 scripts/run_backend_gate.py
 
 ## 本轮边界
 
-- FE-01 只做数据基座 + 真实概览；任务/教案/审查/导出/统计/样例/管理按 FE-02…FE-09 逐任务推进。
+- FE-01/02 只做数据基座、真实概览与任务页；教案/审查/导出/统计/样例/管理按 FE-03…FE-09 逐任务推进。
 - 导出历史、样例预览/下载、引擎切换是已知后端缺口，不在前端伪造接口。
 - 不做暗色主题、国际化、外部字体。
 - 移动端表格保留容器内横向滚动，不卡片化（联调任务再评估）。

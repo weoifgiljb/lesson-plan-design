@@ -28,18 +28,11 @@ const children: RouteRecordRaw[] = [
 ]
 
 if (isDev) {
-  children.push(
-    {
-      path: 'preview/overview',
-      component: () => import('@/views/OverviewPreviewView.vue'),
-      meta: { public: true, title: '概览预览', section: '设计' },
-    },
-    {
-      path: 'styleguide',
-      component: () => import('@/views/StyleGuideView.vue'),
-      meta: { public: true, title: '设计验收', section: '设计' },
-    },
-  )
+  children.push({
+    path: 'styleguide',
+    component: () => import('@/views/StyleGuideView.vue'),
+    meta: { public: true, title: '设计验收', section: '设计' },
+  })
 }
 
 const routes: RouteRecordRaw[] = [
