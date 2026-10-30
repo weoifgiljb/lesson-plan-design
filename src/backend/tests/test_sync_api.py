@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import threading
 import unittest
 import zipfile
 
@@ -292,6 +293,28 @@ class TestSyncApi(unittest.TestCase):
         ).json()
         self.assertTrue(head["exists"], head)
         self.assertEqual(head["planId"], self.plan_id)
+
+
+    def test_concurrent_different_packages_settle_on_conflict(self) -> None:
+        # R3-3 回归：并发推不同包时，落败方必须是 409（不能因"轮次已变但头没变"返回 422）
+        previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
+        barrier = threading.Barrier(4)
+        results: list[int] = []
+        lock = threading.Lock()
+
+        def worker(index: int) -> None:
+            package = self._package(2, f"并发修订-{index}", previous)
+            barrier.wait()
+            response = self._push(package, self.first_hash)
+            with lock:
+                results.append(response.status_code)
+
+        threads = [threading.Thread(target=worker, args=(index,)) for index in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(sorted(results), [201, 409, 409, 409], results)
 
 
 if __name__ == "__main__":

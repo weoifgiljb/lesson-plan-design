@@ -280,6 +280,8 @@ def _write_version(
     )
     repo.insert_findings(review_id, list(report.get("findings") or []))
     repo.insert_overrides(review_id, list(report.get("overrides") or []))
+    # 先推进头版本再落审查：并发下另一个请求若读到"头还是旧版"，会走 409；
+    # 反过来（先落审查、后推头）会让它看到"轮次已变但头没变"，误判成 422（R3-3）。
     repo.set_current_version(plan_id, version_id)
     repo.insert_sync_event("version", plan_id, version_id)
     if written is not None:
