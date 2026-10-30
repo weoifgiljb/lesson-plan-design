@@ -12,7 +12,8 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "screenshots": "node scripts/screenshots.mjs",
     "smoke": "node scripts/smoke-dashboard.mjs",
-    "smoke:tasks": "node scripts/smoke-tasks.mjs"
+    "smoke:tasks": "node scripts/smoke-tasks.mjs",
+    "smoke:plans": "node scripts/smoke-plans.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

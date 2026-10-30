@@ -60,7 +60,7 @@ const groups = computed<NavGroup[]>(() => [
         to: canUseTasks.value ? '/tasks' : undefined,
         ready: canUseTasks.value,
       },
-      { label: '教案库', icon: 'plans', ready: false },
+      { label: '教案库', icon: 'plans', to: '/plans', ready: true },
       { label: '审查', icon: 'reviews', ready: false },
       { label: '导出', icon: 'exports', ready: false },
     ],
@@ -112,6 +112,16 @@ const commands = computed<CommandItem[]>(() => {
       hint: '/tasks',
       to: '/tasks',
       keywords: 'task 建课 任务包',
+    })
+  }
+  if (session.user) {
+    list.push({
+      id: 'plans',
+      title: '教案库',
+      group: '页面',
+      hint: '/plans',
+      to: '/plans',
+      keywords: 'plan 教案 版本 差异',
     })
   }
   if (isDev) {

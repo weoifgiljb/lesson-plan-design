@@ -30,6 +30,16 @@ const children: RouteRecordRaw[] = [
     component: () => import('@/views/TasksView.vue'),
     meta: { title: '任务', section: '教案', roles: ['teacher', 'lead'] },
   },
+  {
+    path: 'plans',
+    component: () => import('@/views/PlansView.vue'),
+    meta: { title: '教案库', section: '教案' },
+  },
+  {
+    path: 'plans/:id',
+    component: () => import('@/views/PlanDetailView.vue'),
+    meta: { title: '教案详情', section: '教案' },
+  },
 ]
 
 if (isDev) {
