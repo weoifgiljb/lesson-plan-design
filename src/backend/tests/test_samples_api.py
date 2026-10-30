@@ -103,6 +103,24 @@ class TestSamplesApi(unittest.TestCase):
         # 正常边界仍然可用
         self.assertEqual(self.client.get("/api/v1/samples?week=30&session=20").status_code, 200)
 
+    def test_tampered_sample_download_is_rejected(self) -> None:
+        # R3-N1：文件被篡改/替换后，详情可标红但下载必须拒绝（不能把坏 JSON 给插件端）
+        csrf = self._login("admin1")
+        sample_id = self._upload(self.plan, csrf).json()["sampleId"]
+        connection = open_database(self.db_file)
+        try:
+            path = connection.execute("SELECT json_path FROM sample").fetchone()[0]
+        finally:
+            connection.close()
+        tampered = json.loads(json.dumps(self.plan))
+        tampered["contentTitle"] = "被替换的课题"
+        (storage.files_dir() / path).write_bytes(
+            json.dumps(tampered, ensure_ascii=False).encode("utf-8")
+        )
+        response = self.client.get(f"/api/v1/samples/{sample_id}/download")
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "HASH_MISMATCH")
+
     def test_sample_detail_and_download(self) -> None:
         csrf = self._login("admin1")
         created = self._upload(self.plan, csrf).json()

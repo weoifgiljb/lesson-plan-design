@@ -128,11 +128,16 @@ def detail(repo: Repo, sample_id: int) -> dict[str, Any]:
 
 
 def download(repo: Repo, sample_id: int) -> tuple[dict[str, Any], bytes]:
-    """下载原始样例 JSON，插件端可直接使用。"""
+    """下载原始样例 JSON，插件端可直接使用；被篡改/替换的样例必须拒绝（R3-N1）。"""
     row = repo.get_sample(int(sample_id))
     if row is None:
         raise AppError("NOT_FOUND", "样例不存在")
     raw = storage.read_sample(str(row["json_path"]))
     if raw is None:
         raise AppError("NOT_FOUND", "样例文件缺失")
+    plan, problem = archive.read_json({"plan.json": raw}, "plan.json")
+    if problem is not None or plan is None:
+        raise AppError("HASH_MISMATCH", "样例文件不可解析，拒绝下载")
+    if engine.plan_hash(plan) != str(row["plan_hash"]):
+        raise AppError("HASH_MISMATCH", "样例文件与登记哈希不一致，拒绝下载")
     return _item(row), raw
