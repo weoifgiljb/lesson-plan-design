@@ -46,6 +46,7 @@ def push(
     files: dict[str, bytes],
     package_bytes: bytes,
     base_hash: str,
+    plan_id: int | None = None,
     ip: str = "",
     trace_id: str = "",
 ) -> dict[str, Any]:
@@ -56,6 +57,10 @@ def push(
         "package_sha256": package_sha256,
         "operator_id": actor_id,
     }
+
+    if plan_id is not None:
+        # 有客户端锚点：直接按 id 校验（改周次/标题或删除后重推也不会绕过乐观锁）
+        _check_base_hash_by_id(repo, user, plan_id, base_hash, package_sha256, ip, trace_id)
 
     def guard(plan: dict[str, Any], report: dict[str, Any]) -> None:
         _check_base_hash(repo, actor_id, plan, base_hash, package_sha256, ip, trace_id)
@@ -80,6 +85,63 @@ def push(
         "headVersion": head_payload["headVersion"],
         "headHash": head_payload["headHash"],
     }
+
+
+def _check_base_hash_by_id(
+    repo: Repo,
+    user: dict[str, Any],
+    plan_id: int,
+    base_hash: str,
+    package_sha256: str,
+    ip: str,
+    trace_id: str,
+) -> None:
+    """有客户端锚点 planId 时按 id 校验：改名/改周次或删除后重推都不会绕过乐观锁。"""
+    row = repo.get_plan(int(plan_id), include_deleted=True)
+    if row is None:
+        raise AppError("NOT_FOUND", "教案不存在")
+    allowed = library.can_view(
+        str(user.get("role") or ""),
+        int(user.get("id") or 0),
+        str(user.get("group_name") or ""),
+        int(row["owner_id"]),
+        str(row.get("owner_group") or ""),
+    )
+    if not allowed:
+        raise AppError("FORBIDDEN", "无权访问该教案")
+    if row.get("deleted_at") is not None:
+        repo.insert_sync_log(
+            "push", package_sha256, str(row.get("plan_hash") or ""), "conflict",
+            "CONFLICT_DELETED", int(user.get("id") or 0),
+        )
+        raise AppError("CONFLICT_DELETED", "该教案已在服务端删除，请先拉取或改用新教案")
+    head = repo.plan_head(int(plan_id))
+    expected = str(head["plan_hash"]) if head is not None else ""
+    if base_hash and base_hash == expected:
+        return
+    repo.insert_sync_log(
+        "push", package_sha256, expected, "conflict", "CONFLICT_STALE", int(user.get("id") or 0)
+    )
+    audit_service.record(
+        repo,
+        actor_id=int(user.get("id") or 0),
+        action="sync.push.conflict",
+        target_type="plan",
+        target_id=str(plan_id),
+        detail={"headHash": expected, "baseHash": base_hash},
+        ip=ip,
+        trace_id=trace_id,
+    )
+    raise AppError(
+        "CONFLICT_STALE",
+        "服务端头版本已变化，请先拉取或改用本地为准上传新版本",
+        {
+            "headVersion": int(head["version_no"]) if head is not None else 0,
+            "headHash": expected,
+            "baseHash": base_hash,
+            "planId": int(plan_id),
+        },
+    )
 
 
 def _check_base_hash(

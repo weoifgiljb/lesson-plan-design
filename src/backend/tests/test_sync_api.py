@@ -82,6 +82,14 @@ class TestSyncApi(unittest.TestCase):
             headers={"X-CSRF-Token": csrf or self.csrf},
         )
 
+    def _push_with_plan(self, plan_id: int, files: dict[str, bytes], base_hash: str):
+        return self.client.post(
+            "/api/v1/sync/push",
+            files={"file": ("pkg.zip", self._zip(files), "application/zip")},
+            data={"baseHash": base_hash, "planId": str(plan_id)},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+
     def _sync_log(self) -> list[dict]:
         connection = open_database(self.db_file)
         try:
@@ -315,6 +323,35 @@ class TestSyncApi(unittest.TestCase):
         for thread in threads:
             thread.join()
         self.assertEqual(sorted(results), [201, 409, 409, 409], results)
+
+
+    def test_plan_id_anchor_blocks_stale_base_hash(self) -> None:
+        # R3-F2：带 planId 时按 id 校验，baseHash 过期必须 409 且 details 带 planId
+        previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
+        first = self._package(2, "第二版", previous)
+        self.assertEqual(self._push(first, self.first_hash).status_code, 201)
+        second_report = json.loads(first["plan.review.json"])
+        third = self._package(3, "第三版", second_report)
+        stale = self._push_with_plan(self.plan_id, third, self.first_hash)
+        self.assertEqual(stale.status_code, 409, stale.text)
+        self.assertEqual(stale.json()["details"]["planId"], self.plan_id)
+
+    def test_plan_id_anchor_rejects_deleted_plan(self) -> None:
+        csrf = self.client.cookies.get("lpp_csrf")
+        deleted = self.client.delete(f"/api/v1/plans/{self.plan_id}", headers={"X-CSRF-Token": csrf})
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
+        package = self._package(2, "删除后重推", previous)
+        response = self._push_with_plan(self.plan_id, package, self.first_hash)
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertEqual(response.json()["code"], "CONFLICT_DELETED")
+
+    def test_plan_id_anchor_allows_fresh_push(self) -> None:
+        head = self.client.get(f"/api/v1/sync/head?planId={self.plan_id}").json()
+        previous = load_json_bytes(read_package_dir("valid-package")["plan.review.json"])
+        package = self._package(2, "基于最新头版本", previous)
+        response = self._push_with_plan(self.plan_id, package, head["headHash"])
+        self.assertEqual(response.status_code, 201, response.text)
 
 
 if __name__ == "__main__":
