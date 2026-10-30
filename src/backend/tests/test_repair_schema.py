@@ -166,6 +166,28 @@ class TestRepairSchema(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_repair_handles_missing_override_and_duplicate_jobs(self) -> None:
+        # 缺 override 表要能建出来；重复 succeeded 要先标 failed 再建唯一索引（与 0005 一致）
+        conn = sqlite3.connect(":memory:", isolation_level=None)
+        try:
+            conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            conn.executescript("DROP TABLE override;")
+            conn.executescript(SEED_SQL)
+            conn.executescript(
+                "INSERT INTO export_job (plan_version_id, engine_version, status, operator_id, created_at)"
+                " VALUES (1, '1.0.0', 'succeeded', 1, '2026-10-26'),"
+                "        (1, '1.0.0', 'succeeded', 1, '2026-10-26');"
+            )
+            self.assertIn("override", repair.inspect(conn)["missing_tables"])
+            repair.repair(conn)
+            statuses = [row[0] for row in conn.execute("SELECT status FROM export_job ORDER BY id")]
+            self.assertEqual(statuses, ["failed", "succeeded"])
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(override)")]
+            self.assertIn("review_id", columns)
+            self.assertFalse(repair.inspect(conn)["needs_repair"])
+        finally:
+            conn.close()
+
     def test_repair_is_idempotent(self) -> None:
         conn = self._legacy_db()
         try:

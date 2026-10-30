@@ -25,9 +25,21 @@ from app.adapters.db.connection import SCHEMA_VERSION, current_version, set_vers
 TASK_KEY_COLUMNS = ("course", "week", "session", "class_name", "title")
 
 # 迁移 0003 才建的表：修复脚本自己补齐，未跑过 initialize() 也能对齐
-REQUIRED_TABLES = ("sync_event",)
+REQUIRED_TABLES = ("sync_event", "override")
 
 CREATE_TABLE_SQL: dict[str, str] = {
+    "override": (
+        "CREATE TABLE IF NOT EXISTS override ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " review_id INTEGER NOT NULL REFERENCES review (id),"
+        " finding_id TEXT NOT NULL,"
+        " teacher_id INTEGER REFERENCES user (id),"
+        " reason TEXT NOT NULL,"
+        " approved_at TEXT NOT NULL,"
+        " plan_hash TEXT NOT NULL,"
+        " UNIQUE (review_id, finding_id)"
+        ")"
+    ),
     "sync_event": (
         "CREATE TABLE IF NOT EXISTS sync_event ("
         " id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -137,6 +149,13 @@ OVERRIDE_COPY_SQL = (
 )
 
 OVERRIDE_INDEX_SQL = "CREATE INDEX IF NOT EXISTS idx_override_review ON override (review_id)"
+
+DEDUPE_EXPORT_SUCCEEDED_SQL = (
+    "UPDATE export_job SET status = 'failed'"
+    " WHERE status = 'succeeded' AND id NOT IN ("
+    "   SELECT MAX(id) FROM export_job WHERE status = 'succeeded'"
+    "   GROUP BY plan_version_id, engine_version, report_sha256)"
+)
 
 TASK_TABLE_SQL = (
     "CREATE TABLE task_rebuilt ("
@@ -366,15 +385,21 @@ def _index_ok(conn: sqlite3.Connection, name: str) -> bool:
 def _override_ok(conn: sqlite3.Connection) -> bool:
     if not _table_exists(conn, "override"):
         return False
-    return "review_id" in _columns(conn, "override")
+    if "review_id" not in _columns(conn, "override"):
+        return False
+    ddl = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'override'"
+    ).fetchone()
+    return ddl is not None and "UNIQUE (review_id, finding_id)" in str(ddl[0])
 
 
 def _rebuild_override(conn: sqlite3.Connection) -> None:
     """v1 的 override 只有 finding_id 全局唯一；按 review_id 重建并保留可用行。"""
     conn.execute("DROP TABLE IF EXISTS override_rebuilt")
     conn.execute(OVERRIDE_TABLE_SQL)
-    conn.execute(OVERRIDE_COPY_SQL)
-    conn.execute("DROP TABLE override")
+    if _table_exists(conn, "override"):
+        conn.execute(OVERRIDE_COPY_SQL)
+        conn.execute("DROP TABLE override")
     conn.execute("ALTER TABLE override_rebuilt RENAME TO override")
     conn.execute(OVERRIDE_INDEX_SQL)
 
@@ -408,6 +433,8 @@ def _create_missing_indexes(conn: sqlite3.Connection) -> None:
             continue
         if _index_exists(conn, name):
             conn.execute(DROP_INDEX_SQL[name])
+        if name == "ux_export_job_succeeded":
+            conn.execute(DEDUPE_EXPORT_SUCCEEDED_SQL)
         conn.execute(sql)
 
 
