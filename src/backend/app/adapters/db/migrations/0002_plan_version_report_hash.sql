@@ -29,8 +29,11 @@ BEGIN
     SELECT RAISE(ABORT, 'plan_version is immutable');
 END;
 
+-- 空串是"还没有审查报告"的哨兵，不能进唯一键：同 plan 同 hash 的多个未评审版本
+-- 在 v1 里是合法状态，用普通唯一索引会让老库升级直接失败（R3-3）。
 CREATE UNIQUE INDEX IF NOT EXISTS ux_plan_version_report
-    ON plan_version (plan_id, plan_hash, report_sha256);
+    ON plan_version (plan_id, plan_hash, report_sha256)
+    WHERE report_sha256 <> '';
 
 CREATE TABLE override_new (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,11 +46,20 @@ CREATE TABLE override_new (
     UNIQUE (review_id, finding_id)
 );
 
+-- 放行记录归属：优先挂到"同一教师"的教案审查（内容哈希相同不代表同一份教案），
+-- 找不到再退回同哈希的任意审查，避免跨教案/跨教师错配（R3-2）。
 INSERT INTO override_new (id, review_id, finding_id, teacher_id, reason, approved_at, plan_hash)
 SELECT o.id,
-       (SELECT MIN(r.id) FROM review r
-          JOIN plan_version pv ON pv.id = r.plan_version_id
-         WHERE pv.plan_hash = o.plan_hash),
+       COALESCE(
+           (SELECT MIN(r.id) FROM review r
+              JOIN plan_version pv ON pv.id = r.plan_version_id
+              JOIN plan p ON p.id = pv.plan_id
+             WHERE pv.plan_hash = o.plan_hash
+               AND (o.teacher_id IS NULL OR p.owner_id = o.teacher_id)),
+           (SELECT MIN(r.id) FROM review r
+              JOIN plan_version pv ON pv.id = r.plan_version_id
+             WHERE pv.plan_hash = o.plan_hash)
+       ),
        o.finding_id, o.teacher_id, o.reason, o.approved_at, o.plan_hash
 FROM override o
 WHERE EXISTS (
@@ -59,5 +71,9 @@ DROP TABLE override;
 ALTER TABLE override_new RENAME TO override;
 
 CREATE INDEX IF NOT EXISTS idx_override_review ON override (review_id);
+
+-- 版本号在同一个事务里推进：避免"迁移已提交、user_version 没跟上"导致重启时报
+-- duplicate column、库永久卡死（R3-1）。runner 之后会再写一次，幂等。
+PRAGMA user_version=2;
 
 COMMIT;

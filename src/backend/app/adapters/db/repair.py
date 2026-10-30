@@ -67,6 +67,7 @@ CREATE_INDEX_SQL: dict[str, str] = {
     "ux_plan_version_report": (
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_plan_version_report"
         " ON plan_version (plan_id, plan_hash, report_sha256)"
+        " WHERE report_sha256 <> ''"
     ),
     "ux_export_job_succeeded": (
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_export_job_succeeded"
@@ -89,6 +90,53 @@ CREATE_INDEX_SQL: dict[str, str] = {
         " ON task (course, week, session, class_name, title)"
     ),
 }
+
+INDEX_SPECS: dict[str, tuple[tuple[str, ...], bool]] = {
+    # 索引名 -> (期望列, 是否要求部分索引 WHERE)
+    "ux_plan_version_report": (("plan_id", "plan_hash", "report_sha256"), True),
+    "ux_export_job_succeeded": (("plan_version_id", "engine_version", "report_sha256"), True),
+}
+
+DROP_INDEX_SQL: dict[str, str] = {
+    "ux_plan_version_report": "DROP INDEX IF EXISTS ux_plan_version_report",
+    "ux_export_job_succeeded": "DROP INDEX IF EXISTS ux_export_job_succeeded",
+}
+
+INDEX_INFO_SQL: dict[str, str] = {
+    "ux_plan_version_report": "PRAGMA index_info(ux_plan_version_report)",
+    "ux_export_job_succeeded": "PRAGMA index_info(ux_export_job_succeeded)",
+}
+
+OVERRIDE_TABLE_SQL = (
+    "CREATE TABLE override_rebuilt ("
+    " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    " review_id INTEGER NOT NULL REFERENCES review (id),"
+    " finding_id TEXT NOT NULL,"
+    " teacher_id INTEGER REFERENCES user (id),"
+    " reason TEXT NOT NULL,"
+    " approved_at TEXT NOT NULL,"
+    " plan_hash TEXT NOT NULL,"
+    " UNIQUE (review_id, finding_id)"
+    ")"
+)
+
+OVERRIDE_COPY_SQL = (
+    "INSERT INTO override_rebuilt (id, review_id, finding_id, teacher_id, reason, approved_at, plan_hash)"
+    " SELECT o.id, COALESCE("
+    "   (SELECT MIN(r.id) FROM review r"
+    "      JOIN plan_version pv ON pv.id = r.plan_version_id"
+    "      JOIN plan p ON p.id = pv.plan_id"
+    "     WHERE pv.plan_hash = o.plan_hash AND (o.teacher_id IS NULL OR p.owner_id = o.teacher_id)),"
+    "   (SELECT MIN(r.id) FROM review r"
+    "      JOIN plan_version pv ON pv.id = r.plan_version_id"
+    "     WHERE pv.plan_hash = o.plan_hash))"
+    " , o.finding_id, o.teacher_id, o.reason, o.approved_at, o.plan_hash"
+    " FROM override o"
+    " WHERE EXISTS (SELECT 1 FROM review r JOIN plan_version pv ON pv.id = r.plan_version_id"
+    "   WHERE pv.plan_hash = o.plan_hash)"
+)
+
+OVERRIDE_INDEX_SQL = "CREATE INDEX IF NOT EXISTS idx_override_review ON override (review_id)"
 
 TASK_TABLE_SQL = (
     "CREATE TABLE task_rebuilt ("
@@ -155,6 +203,7 @@ TABLE_INFO_SQL: dict[str, str] = {
     "task": "PRAGMA table_info(task)",
     "export_job": "PRAGMA table_info(export_job)",
     "sample": "PRAGMA table_info(sample)",
+    "override": "PRAGMA table_info(override)",
 }
 
 TASK_DDL_SQL = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task'"
@@ -206,7 +255,7 @@ def inspect(conn: sqlite3.Connection) -> dict[str, Any]:
     missing_indexes = [
         name
         for name, sql in CREATE_INDEX_SQL.items()
-        if _table_exists(conn, _table_of(sql)) and not _index_exists(conn, name)
+        if _table_exists(conn, _table_of(sql)) and not _index_ok(conn, name)
     ]
     key = _task_key(conn) if _table_exists(conn, "task") else ()
     return {
@@ -217,11 +266,13 @@ def inspect(conn: sqlite3.Connection) -> dict[str, Any]:
         "missing_indexes": missing_indexes,
         "task_key": key,
         "task_key_ok": key == TASK_KEY_COLUMNS,
+        "override_ok": _override_ok(conn),
         "needs_repair": bool(
             missing_columns
             or missing_tables
             or missing_indexes
             or (key and not key == TASK_KEY_COLUMNS)
+            or not _override_ok(conn)
             or current_version(conn) != SCHEMA_VERSION
         ),
     }
@@ -229,7 +280,12 @@ def inspect(conn: sqlite3.Connection) -> dict[str, Any]:
 
 def repair(conn: sqlite3.Connection) -> dict[str, Any]:
     """执行修复；调用方负责先备份。返回步骤日志。"""
-    log: dict[str, Any] = {"added_columns": [], "rebuilt_task": False, "notes": []}
+    log: dict[str, Any] = {
+        "added_columns": [],
+        "rebuilt_task": False,
+        "rebuilt_override": False,
+        "notes": [],
+    }
     database = conn.execute("PRAGMA database_list").fetchone()[2]
 
     if conn.in_transaction:
@@ -244,6 +300,9 @@ def repair(conn: sqlite3.Connection) -> dict[str, Any]:
         if _table_exists(conn, "task") and _task_key(conn) != TASK_KEY_COLUMNS:
             _rebuild_task(conn)
             log["rebuilt_task"] = True
+        if not _override_ok(conn):
+            _rebuild_override(conn)
+            log["rebuilt_override"] = True
         _backfill(conn)
         _create_missing_indexes(conn)
         _assert_foreign_keys(conn)
@@ -284,6 +343,42 @@ def _rebuild_task(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE task_rebuilt RENAME TO task")
 
 
+def _index_ok(conn: sqlite3.Connection, name: str) -> bool:
+    if not _index_exists(conn, name):
+        return False
+    spec = INDEX_SPECS.get(name)
+    if spec is None:
+        return True
+    expected, need_partial = spec
+    rows = conn.execute(INDEX_INFO_SQL[name]).fetchall()
+    columns = tuple(str(row[2]) for row in rows)
+    if columns != expected:
+        return False
+    if need_partial:
+        ddl = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?", (name,)
+        ).fetchone()
+        if ddl is None or "WHERE" not in str(ddl[0]).upper():
+            return False
+    return True
+
+
+def _override_ok(conn: sqlite3.Connection) -> bool:
+    if not _table_exists(conn, "override"):
+        return False
+    return "review_id" in _columns(conn, "override")
+
+
+def _rebuild_override(conn: sqlite3.Connection) -> None:
+    """v1 的 override 只有 finding_id 全局唯一；按 review_id 重建并保留可用行。"""
+    conn.execute("DROP TABLE IF EXISTS override_rebuilt")
+    conn.execute(OVERRIDE_TABLE_SQL)
+    conn.execute(OVERRIDE_COPY_SQL)
+    conn.execute("DROP TABLE override")
+    conn.execute("ALTER TABLE override_rebuilt RENAME TO override")
+    conn.execute(OVERRIDE_INDEX_SQL)
+
+
 def _backfill(conn: sqlite3.Connection) -> None:
     _backfill_plan_version(conn)
     if "group_name" in _columns(conn, "task"):
@@ -307,8 +402,13 @@ def _backfill_plan_version(conn: sqlite3.Connection) -> None:
 
 def _create_missing_indexes(conn: sqlite3.Connection) -> None:
     for name, sql in CREATE_INDEX_SQL.items():
-        if _table_exists(conn, _table_of(sql)) and not _index_exists(conn, name):
-            conn.execute(sql)
+        if not _table_exists(conn, _table_of(sql)):
+            continue
+        if _index_ok(conn, name):
+            continue
+        if _index_exists(conn, name):
+            conn.execute(DROP_INDEX_SQL[name])
+        conn.execute(sql)
 
 
 def _assert_foreign_keys(conn: sqlite3.Connection) -> None:

@@ -122,6 +122,50 @@ class TestRepairSchema(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_repair_rebuilds_override_and_indexes(self) -> None:
+        # P1-1/P1-2：v1 的 override 要按 review_id 重建；旧的两列 export 索引要升级为三列部分索引
+        conn = self._legacy_db()
+        try:
+            conn.executescript(
+                "DROP TABLE override;"
+                "CREATE TABLE override ("
+                " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                " finding_id TEXT NOT NULL UNIQUE,"
+                " teacher_id INTEGER REFERENCES user (id),"
+                " reason TEXT NOT NULL,"
+                " approved_at TEXT NOT NULL,"
+                " plan_hash TEXT NOT NULL);"
+                "INSERT INTO override (finding_id, teacher_id, reason, approved_at, plan_hash)"
+                " VALUES ('F1', 1, '理由足够长的说明', '2026-10-26', 'hash-1');"
+                "CREATE UNIQUE INDEX ux_export_job_succeeded"
+                " ON export_job (plan_version_id, engine_version) WHERE status = 'succeeded';"
+            )
+            repair.repair(conn)
+            columns = [row[1] for row in conn.execute("PRAGMA table_info(override)")]
+            self.assertIn("review_id", columns)
+            ddl = conn.execute("SELECT sql FROM sqlite_master WHERE name = 'override'").fetchone()[0]
+            self.assertIn("UNIQUE (review_id, finding_id)", ddl)
+            # 写入语句必须能编译（ON CONFLICT 目标存在）
+            conn.execute(
+                "EXPLAIN INSERT INTO override (review_id, finding_id, teacher_id, reason,"
+                " approved_at, plan_hash) VALUES (1, 'F1', 1, 'reason long enough',"
+                " '2026-10-26', 'hash-1')"
+                " ON CONFLICT (review_id, finding_id) DO UPDATE SET reason = excluded.reason"
+            )
+            export_ddl = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'ux_export_job_succeeded'"
+            ).fetchone()[0]
+            self.assertIn("report_sha256", export_ddl)
+            info = [row[2] for row in conn.execute("PRAGMA index_info(ux_export_job_succeeded)")]
+            self.assertEqual(info, ["plan_version_id", "engine_version", "report_sha256"])
+            plan_ddl = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name = 'ux_plan_version_report'"
+            ).fetchone()[0]
+            self.assertIn("WHERE report_sha256 <> ''", plan_ddl)
+            self.assertFalse(repair.inspect(conn)["needs_repair"])
+        finally:
+            conn.close()
+
     def test_repair_is_idempotent(self) -> None:
         conn = self._legacy_db()
         try:
