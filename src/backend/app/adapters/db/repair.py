@@ -44,6 +44,7 @@ ADD_COLUMN_SQL: dict[tuple[str, str], str] = {
     ("plan_version", "report_sha256"): (
         "ALTER TABLE plan_version ADD COLUMN report_sha256 TEXT NOT NULL DEFAULT ''"
     ),
+    ("user", "group_name"): "ALTER TABLE user ADD COLUMN group_name TEXT NOT NULL DEFAULT ''",
     ("plan_version", "engine_version"): (
         "ALTER TABLE plan_version ADD COLUMN engine_version TEXT NOT NULL DEFAULT ''"
     ),
@@ -149,6 +150,7 @@ BACKFILL_TASK_GROUP_SQL = (
 
 
 TABLE_INFO_SQL: dict[str, str] = {
+    "user": "PRAGMA table_info(user)",
     "plan_version": "PRAGMA table_info(plan_version)",
     "task": "PRAGMA table_info(task)",
     "export_job": "PRAGMA table_info(export_job)",
