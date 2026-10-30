@@ -254,7 +254,16 @@ class TestSyncApi(unittest.TestCase):
         self.assertEqual(deleted.status_code, 200, deleted.text)
         items = self.client.get("/api/v1/sync/pull?since=0").json()["items"]
         self.assertTrue(items)
-        self.assertTrue(items[0]["deleted"])
+        # 只有 kind=deleted 才是墓碑；历史 version 事件不能被标成 deleted（R3-F1）
+        tombstones = [item for item in items if item["kind"] == "deleted"]
+        self.assertEqual(len(tombstones), 1, items)
+        self.assertEqual(tombstones[0]["planId"], self.plan_id)
+        self.assertNotIn("content", tombstones[0])
+        versions = [item for item in items if item["kind"] == "version"]
+        self.assertTrue(versions, items)
+        self.assertTrue(all(item["deleted"] is False for item in versions), versions)
+        # 教案已删可通过 planDeleted 表达
+        self.assertTrue(all(item["planDeleted"] for item in items), items)
 
     def test_delete_propagates_after_cursor(self) -> None:
         # 先把游标推到最新，再删除；下一次 pull 必须能拉到 deleted 事件（P24 R1 的核心场景）
