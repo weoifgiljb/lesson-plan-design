@@ -1109,22 +1109,18 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "审计 CSV（UTF-8 BOM；X-Total 为匹配总数，X-Truncated 表示是否截断）",
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "查询参数非法"
           }
         }
       }

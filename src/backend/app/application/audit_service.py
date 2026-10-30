@@ -95,6 +95,9 @@ def export_csv(
 
 def _csv_cell(value: Any) -> str:
     text = "" if value is None else str(value)
+    # 公式注入防护：Excel/WPS 会把 = + - @ 开头的单元格当公式执行（R3-N1）
+    if text[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        text = "'" + text
     if any(ch in text for ch in ',"\n\r'):
         return '"' + text.replace('"', '""') + '"'
     return text

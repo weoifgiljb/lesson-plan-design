@@ -39,7 +39,17 @@ def list_audit(
     )
 
 
-@router.get("/audit/export")
+@router.get(
+    "/audit/export",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "审计 CSV（UTF-8 BOM；X-Total 为匹配总数，X-Truncated 表示是否截断）",
+            "content": {"text/csv": {"schema": {"type": "string", "format": "binary"}}},
+        },
+        422: {"description": "查询参数非法"},
+    },
+)
 def export_audit(
     request: Request,
     context: dict[str, Any] = Depends(require_role("admin", "lead")),
