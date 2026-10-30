@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.1 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-10-29",
+  "updatedAt": "2026-10-30",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -102,6 +102,12 @@
       "http": 500,
       "zh": "服务端错误",
       "scene": "未预期异常，附 traceId"
+    },
+    {
+      "code": "SERVICE_UNAVAILABLE",
+      "http": 503,
+      "zh": "依赖不可用",
+      "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）或磁盘不可写"
     }
   ],
   "endpoints": [

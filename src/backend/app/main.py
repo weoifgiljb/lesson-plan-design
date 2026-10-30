@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
 from app.api.errors import register_error_handlers
+from app.domain.errors import AppError
 from app.api.routers import (
     audit,
     auth,
@@ -34,13 +35,25 @@ logger = logging.getLogger("lpp")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db_lock = threading.Lock()
+    app.state.db_error = ""
     try:
         bootstrap = open_database()
         bootstrap.close()
-    except Exception:  # noqa: BLE001 - 启动失败要让健康检查报告 down 而不是进程消失
-        logger.warning("database init failed; health check will report down")
+    except Exception as exc:  # noqa: BLE001 - 启动失败要让健康检查报告 down 而不是进程消失
+        # 把原因留给 /health：早期分支建的库会因为跳号迁移缺列，需要先跑 repair_schema
+        app.state.db_error = f"{type(exc).__name__}: {exc}"
+        logger.warning("database init failed: %s", app.state.db_error)
     # 每请求独立连接（WAL 下多连接安全），写事务仍由同一把锁串行化
-    app.state.repo_factory = lambda: Repo(open_database(), app.state.db_lock)
+    def _repo_factory() -> Repo:
+        if app.state.db_error:
+            raise AppError(
+                "SERVICE_UNAVAILABLE",
+                "数据库结构未对齐，请先运行 py -3 scripts/repair_schema.py --apply",
+                {"reason": app.state.db_error},
+            )
+        return Repo(open_database(), app.state.db_lock)
+
+    app.state.repo_factory = _repo_factory
     yield
 
 
