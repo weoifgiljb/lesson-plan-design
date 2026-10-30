@@ -306,6 +306,24 @@ class Repo:
             raise AppError("CONFLICT_STALE", "同一课题的样例已存在") from exc
         return int(cursor.lastrowid or 0)
 
+    def list_users(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM user ORDER BY id"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def count_samples(self) -> int:
+        row = self.conn.execute("SELECT COUNT(*) FROM sample").fetchone()
+        return int(row[0])
+
+    def list_assets(self, attach_to: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT id, kind, path, sha256, caption, attach_to FROM asset"
+            " WHERE attach_to = ? ORDER BY id",
+            (attach_to,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def get_sample(self, sample_id: int) -> dict[str, Any] | None:
         return _row(self.conn.execute("SELECT * FROM sample WHERE id = ?", (sample_id,)).fetchone())
 
