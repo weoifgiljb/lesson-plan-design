@@ -36,6 +36,59 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
     return payload
 
 
+def records(
+    repo: Repo,
+    user: dict[str, Any],
+    *,
+    filters: dict[str, Any] | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> dict[str, Any]:
+    """下钻：与 summary 同一套范围/筛选，逐条返回可定位的记录。"""
+    raw_filters = dict(filters or {})
+    window = {
+        "course": raw_filters.get("course"),
+        "week": raw_filters.get("week"),
+        "class": raw_filters.get("class"),
+        "teacher": raw_filters.get("teacher"),
+        "created_from": timerange.start_of(raw_filters["date_from"]) if raw_filters.get("date_from") else None,
+        "created_before": timerange.end_exclusive(raw_filters["date_to"]) if raw_filters.get("date_to") else None,
+    }
+    actual_page, actual_size, offset = library.page_params(page, page_size)
+    scope = library.scope_for(user)
+    rows = repo.stats_plans(scope, window)
+    total = len(rows)
+    window_rows = rows[offset : offset + actual_size]
+    rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in window_rows}))
+    items = []
+    for row in window_rows:
+        detail = _record(row, rounds.get(int(row["plan_id"]), []))
+        items.append(
+            {
+                "planId": int(row["plan_id"]),
+                "reviewId": int(row["review_id"]) if row.get("review_id") is not None else None,
+                "course": row.get("course") or "",
+                "week": int(row.get("week") or 0),
+                "session": int(row.get("session") or 0),
+                "teacher": row.get("teacher") or "",
+                "versionNo": int(row.get("version_no") or 0),
+                "reviewStatus": row.get("review_status") or "",
+                "structureOk": bool(detail["structure_ok"]),
+                "evidenceOk": bool(detail["evidence_ok"]),
+                "openBlocking": int(detail["open_blocking"]),
+                "createdAt": row.get("plan_created_at"),
+            }
+        )
+    return {
+        "items": items,
+        "page": actual_page,
+        "pageSize": actual_size,
+        "total": total,
+        "filters": _filters_payload(raw_filters),
+        "scope": _scope_name(str(user.get("role") or "")),
+    }
+
+
 def _record(row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
     content = json.loads(row["content_json"]) if row.get("content_json") else {}
     structure_ok = bool(content) and engine.validate_plan(content).get("ok") is True
