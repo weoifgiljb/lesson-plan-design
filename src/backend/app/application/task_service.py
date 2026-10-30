@@ -35,19 +35,24 @@ def create(
         )
     due = payload.get("dueDate")
     due_text = due.isoformat() if due else None
+    # 归属校验放在事务外：越权审计必须真正落库（事务内 raise 会把审计一起回滚，R3-F2）
+    probe = repo.find_task(
+        data["course"], data["week"], data["session"], data["class_name"], data["title"]
+    )
+    if probe is not None and not _can_touch(repo, user, probe):
+        audit_service.record(
+            repo, actor_id=int(user.get("id") or 0), action="authz.denied",
+            target_type="task", target_id=str(probe["id"]),
+            detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
+            ip=ip, trace_id=trace_id,
+        )
+        raise AppError("FORBIDDEN", "该任务属于其他教师，不能覆盖")
     with repo.transaction():
         existing = repo.find_task(
             data["course"], data["week"], data["session"], data["class_name"], data["title"]
         )
         if existing is not None:
-            # 归属校验：别人的任务不能被 confirm 覆盖（跨教师 IDOR）
             if not _can_touch(repo, user, existing):
-                audit_service.record(
-                    repo, actor_id=int(user.get("id") or 0), action="authz.denied",
-                    target_type="task", target_id=str(existing["id"]),
-                    detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
-                    ip=ip, trace_id=trace_id,
-                )
                 raise AppError("FORBIDDEN", "该任务属于其他教师，不能覆盖")
             if not confirm:
                 raise AppError(

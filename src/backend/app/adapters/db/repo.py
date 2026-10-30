@@ -430,7 +430,11 @@ class Repo:
     def attach_task_for_plan(
         self, plan_id: int, plan: dict[str, Any], status: str, task_id: int | None = None
     ) -> int | None:
-        owner = self.conn.execute("SELECT owner_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        owner = self.conn.execute(
+            "SELECT p.owner_id, u.group_name AS owner_group FROM plan p"
+            " JOIN user u ON u.id = p.owner_id WHERE p.id = ?",
+            (plan_id,),
+        ).fetchone()
         if owner is None:
             return None
         if task_id is not None:
@@ -439,10 +443,13 @@ class Repo:
             if task is None or int(task["owner_id"]) != int(owner["owner_id"]):
                 return None
         else:
-            # 启发式匹配：把班级纳入条件；命中 0 条或跨班多条都不静默挑一条
+            # 启发式匹配：本人或本组的任务（组长布置的课组内教师也要能推进），
+            # 命中 0 条或跨班多条都不静默挑一条
             class_name = str(plan.get("className") or plan.get("class") or "")
+            group_name = str(owner["owner_group"] or "")
             params: list[Any] = [
                 int(owner["owner_id"]),
+                group_name,
                 str(plan.get("course") or ""),
                 int(plan.get("week") or 0),
                 int(plan.get("session") or 0),
@@ -450,13 +457,15 @@ class Repo:
             ]
             if class_name:
                 sql = (
-                    "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
+                    "SELECT * FROM task WHERE (owner_id = ? OR group_name = ?)"
+                    " AND course = ? AND week = ? AND session = ?"
                     " AND title = ? AND class_name = ? ORDER BY id LIMIT 2"
                 )
                 params.append(class_name)
             else:
                 sql = (
-                    "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
+                    "SELECT * FROM task WHERE (owner_id = ? OR group_name = ?)"
+                    " AND course = ? AND week = ? AND session = ?"
                     " AND title = ? ORDER BY id LIMIT 2"
                 )
             rows = self.conn.execute(sql, params).fetchall()
@@ -572,7 +581,7 @@ class Repo:
         self, scope: dict[str, Any], filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
         condition, params = self._task_scope_condition(scope)
-        extra, more = self._task_where(filters)
+        extra, more = self._stats_task_where(filters)
         return self._group(
             "SELECT t.status AS key, COUNT(*) AS total FROM task t"
             " LEFT JOIN user u ON u.id = t.owner_id"
@@ -600,7 +609,7 @@ class Repo:
         )
         return self._group(sql, (*params, *more))
 
-    def _task_where(self, filters: dict[str, Any] | None) -> tuple[str, list[Any]]:
+    def _stats_task_where(self, filters: dict[str, Any] | None) -> tuple[str, list[Any]]:
         where = ["1 = 1"]
         params: list[Any] = []
         data = dict(filters or {})

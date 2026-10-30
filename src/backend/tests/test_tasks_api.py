@@ -89,6 +89,71 @@ class TestTasksApi(unittest.TestCase):
         listing = self.client.get("/api/v1/tasks").json()
         self.assertEqual(listing["total"], 3)
         self.assertEqual([item["session"] for item in listing["items"]], [2, 1, 3])
+        self.assertEqual(self.client.get("/api/v1/tasks?course=英语").json()["total"], 0)
+
+    def test_status_filter_actually_filters(self) -> None:
+        # R3-F1：repo 里两套 _task_where 互相覆盖，曾导致 ?status= 恒返回全部
+        draft = self._create().json()["taskId"]
+        passed = self._create(title="已过的课", session=2).json()["taskId"]
+        connection = open_database(self.db_file)
+        try:
+            connection.execute("UPDATE task SET status = 'passed' WHERE id = ?", (passed,))
+        finally:
+            connection.close()
+        self.assertEqual(self.client.get("/api/v1/tasks?status=draft").json()["total"], 1)
+        self.assertEqual(self.client.get("/api/v1/tasks?status=passed").json()["total"], 1)
+        self.assertEqual(self.client.get("/api/v1/tasks?status=exported").json()["total"], 0)
+        self.assertEqual(self.client.get("/api/v1/tasks?status=bogus").json()["total"], 0)
+        self.assertIn(draft, [item["taskId"] for item in self.client.get("/api/v1/tasks?status=draft").json()["items"]])
+
+    def test_group_teacher_import_advances_lead_task(self) -> None:
+        # R3-F3：组长布置的课，组内教师入库后任务状态也要推进
+        lead_csrf = self._login("lead1")
+        created = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班"},
+            headers={"X-CSRF-Token": lead_csrf},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        teacher_csrf = self._login("teacher1")
+        imported = self.client.post(
+            "/api/v1/plans/import",
+            files={"file": ("valid.zip", package_zip("valid-0201.zip"), "application/zip")},
+            headers={"X-CSRF-Token": teacher_csrf},
+        )
+        self.assertEqual(imported.status_code, 201, imported.text)
+        listing = self.client.get("/api/v1/tasks").json()
+        statuses = {item["taskId"]: item["status"] for item in listing["items"]}
+        self.assertEqual(statuses.get(created.json()["taskId"]), "passed")
+
+    def test_cross_teacher_confirm_is_denied_and_audited(self) -> None:
+        # R3-F2：越权审计不能被事务回滚掉
+        mine = self._create().json()
+        other_csrf = self._login("teacher2")
+        denied = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班"},
+            params={"confirm": "true"},
+            headers={"X-CSRF-Token": other_csrf},
+        )
+        self.assertEqual(denied.status_code, 403, denied.text)
+        connection = open_database(self.db_file)
+        try:
+            rows = Repo(connection).list_audit(200)
+            actions = [row["action"] for row in rows]
+            targets = [row["target_id"] for row in rows]
+        finally:
+            connection.close()
+        self.assertIn("authz.denied", actions)
+        self.assertIn(str(mine["taskId"]), targets)
+        self._login("teacher1")
+
+    def test_list_scope_for_other_group(self) -> None:
+        self._create(dueDate=(date.today() + timedelta(days=5)).isoformat())
+        self._create(title="第二课", session=2, dueDate=(date.today() + timedelta(days=1)).isoformat())
+        self._create(title="无截止课", session=3, dueDate=None)
         self._login("teacher2")
         self.assertEqual(self.client.get("/api/v1/tasks").json()["total"], 0)
         self._login("lead1")
