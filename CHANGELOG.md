@@ -8,6 +8,7 @@
 
 - **FE-01 数据基座 + 真实概览**：`RequestError.status`、`useApiRequest`/`usePagedQuery`、下载/日期工具、教案内容→结构剖面映射；`/dashboard` 接 `stats/plans/reviews/tasks` 与 plan/review 详情，教师/组长/管理员分区降级。
 - **FE-02 真实任务页**：`/tasks` 接 `listTasks`、`createTask`、`downloadTaskPackage`；课程/周次/状态筛选、分页、逾期标识、创建校验、任务包下载；教师/组长可用，管理员 403；新建弹窗状态只读“待生成”，由导入/审查/导出自动推进。
+- **FE-03 教案库与详情**：`/plans` 接 `listPlans`、`importPlan`；`/plans/:id` 接 `getPlan`、`listPlanVersions`、`diffPlan`、`deletePlan`；课程/周次/课次/状态/教师筛选、ZIP 导入、版本历史、字段级差异、软删除。
 - **概览近实时刷新**：`/dashboard` 每 15 秒静默刷新，窗口聚焦/回到前台立即刷新；待办、队列、指标与动态同步更新，并显示“数据更新于 HH:mm:ss”。
 - **任务唯一键修复**：任务唯一键改为 `(owner_id, course, week, session, class_name, title)`，同一班级可建不同课题、不同教师可建同一任务；schema v2 迁移已有 SQLite。
 - **开发种子账号**：`scripts/seed_frontend_dev.py` 创建 `teacher01/lead01/admin01`（本地 dev 密码 `Lesson2026`），可选导入有效契约包、任务与样例；不修改后端源码。
@@ -19,14 +20,14 @@
 
 - A「墨蓝」主题与 A/B 切换退役；`tokens.css` 只保留 `:root`，色板由 `styles/palette.ts` 与单测锁定。
 - 登录页改为深松绿「书桌」分栏 + 纸面表单；共享组件（Table/Metric/Evidence/Diff/State/Chart）按新令牌重做。
-- `/` 与登录后默认进入 `/dashboard`；`/tasks` 注册；设计验收页仅 DEV；`/styleguide` 是唯一 fixture 页面。
-- 生产构建包含 Dashboard、TasksView 与懒加载 three chunk；fixture 页面 `/styleguide` 不进入生产路由。
+- `/` 与登录后默认进入 `/dashboard`；`/tasks`、`/plans`、`/plans/:id` 注册；设计验收页仅 DEV；`/styleguide` 是唯一 fixture 页面。
+- 生产构建包含 Dashboard、TasksView、PlansView、PlanDetailView 与懒加载 three chunk；fixture 页面 `/styleguide` 不进入生产路由。
 - 删除 `/preview/overview` 与假数据预览入口；真实系统只使用接口数据。
 
 ### 测试
 
-- 前端 `npm run test`：16 个文件、48 条用例通过（含任务页渲染/下载/只读状态、静默刷新、请求状态、分页、日期、结构映射、概览四态）。
-- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke` 与 `npm run smoke:tasks` 通过（需后端与种子数据）；TasksView 8.82 KB（gzip 3.78），Dashboard 33.64 KB（gzip 12.34），three 懒加载 531.75 KB（gzip 134.29）。
+- 前端 `npm run test`：18 个文件、51 条用例通过（含任务页、教案列表/导入/详情/版本差异、静默刷新、请求状态、分页、日期、结构映射）。
+- 前端 `npm run typecheck` / `npm run lint` / `npm run build` 通过；`npm run smoke`、`npm run smoke:tasks`、`npm run smoke:plans` 通过（需后端与种子数据）；PlansView 6.05 KB（gzip 2.80），PlanDetailView 8.98 KB（gzip 3.79），Dashboard 17.09 KB（gzip 6.83），three 懒加载 531.72 KB（gzip 134.27）。
 - 仓库 `run_backend_gate.py`：block 0，172 tests（架构 warn 2、契约 warn 1 为既有计划内项）；含同班不同课、不同教师同任务、schema v2 迁移测试；另含 `6230ed3` 审查日期边界修复。
 - 数据库：`PRAGMA user_version=2`；v1→v2 任务表重建保留数据，外键检查为空。
 
