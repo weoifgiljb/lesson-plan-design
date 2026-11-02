@@ -10,6 +10,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+logger = logging.getLogger("lpp")
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PLUGIN_SCRIPTS = REPO_ROOT / "plugins" / "lesson-plan-design" / "skills" / "lesson-plan-design" / "scripts"
 FORMATTING_SCRIPTS = REPO_ROOT / "plugins" / "lesson-plan-design" / "skills" / "formatting-lesson-docx" / "scripts"
@@ -39,6 +41,15 @@ def validate_plan(plan: dict[str, Any]) -> dict[str, Any]:
 
 def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str, Any]:
     return _lib().export_gate(plan, report)
+
+
+def score_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    """结构贴近分（0–100）：复用插件的五维评分，失败时降级为 0 分而不是 500。"""
+    try:
+        return _lib().score_against_examples(plan)
+    except Exception as exc:  # noqa: BLE001 - 适配层统一兜底
+        logger.warning("score_plan failed: %s", exc)
+        return {"score": 0, "maxScore": 100, "level": "", "dimensions": []}
 
 
 def export_docx(

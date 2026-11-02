@@ -71,3 +71,16 @@ def export_path(job_id: int) -> Path:
 
 def read_export(job_id: int) -> bytes:
     return export_path(job_id).read_bytes()
+
+
+def write_sample(plan_hash: str, data: bytes) -> str:
+    relative = f"samples/{plan_hash}.json"
+    write_bytes(files_dir(), relative, data)
+    return relative
+
+
+def read_sample(relative: str) -> bytes | None:
+    path = safe_path(files_dir(), relative)
+    if not path.exists():
+        return None
+    return path.read_bytes()

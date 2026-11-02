@@ -273,6 +273,86 @@ class Repo:
             )
         )
         return _row(self.conn.execute(sql, (job_id,)).fetchone())
+
+    # ---------- 样例库 ----------
+    def find_sample(self, course: str, week: int, session: int, title: str) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT * FROM sample WHERE course = ? AND week = ? AND session = ? AND title = ?",
+                (course, int(week), int(session), title),
+            ).fetchone()
+        )
+
+    def insert_sample(
+        self,
+        course: str,
+        week: int,
+        session: int,
+        title: str,
+        json_path: str,
+        plan_hash: str,
+        *,
+        score: int = 0,
+        engine_version: str = "",
+        rule_version: str = "",
+    ) -> int:
+        try:
+            cursor = self.conn.execute(
+                "INSERT INTO sample (course, week, session, title, json_path, plan_hash, valid,"
+                " score, engine_version, rule_version) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)",
+                (
+                    course, int(week), int(session), title, json_path, plan_hash,
+                    int(score), engine_version, rule_version,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise AppError("CONFLICT_STALE", "同一课题的样例已存在") from exc
+        return int(cursor.lastrowid or 0)
+
+    def list_users(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM user ORDER BY id"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def count_samples(self) -> int:
+        row = self.conn.execute("SELECT COUNT(*) FROM sample").fetchone()
+        return int(row[0])
+
+    def list_assets(self, attach_to: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT id, kind, path, sha256, caption, attach_to FROM asset"
+            " WHERE attach_to = ? ORDER BY id",
+            (attach_to,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_sample(self, sample_id: int) -> dict[str, Any] | None:
+        return _row(self.conn.execute("SELECT * FROM sample WHERE id = ?", (sample_id,)).fetchone())
+
+    def list_samples(
+        self, filters: dict[str, Any], limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        for column, key in (("course", "course"), ("week", "week"), ("session", "session")):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if filters.get("q"):
+            escaped = str(filters["q"]).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            where.append("title LIKE ? ESCAPE '\\'")
+            params.append(f"%{escaped}%")
+        condition = " AND ".join(where)
+        count_sql = " ".join(("SELECT COUNT(*) AS total FROM sample WHERE", condition))
+        count = self.conn.execute(count_sql, params).fetchone()
+        rows_sql = " ".join(
+            ("SELECT * FROM sample WHERE", condition, "ORDER BY id DESC LIMIT ? OFFSET ?")
+        )
+        rows = self.conn.execute(rows_sql, (*params, int(limit), int(offset))).fetchall()
+        return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
+
     # ---------- 统计 ----------
     def stats_plans(self, scope: dict[str, Any], filters: dict[str, Any]) -> list[dict[str, Any]]:
         condition, params = self._scope_condition(scope)
