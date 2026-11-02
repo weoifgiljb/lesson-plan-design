@@ -18,6 +18,7 @@ def change_password(
     *,
     old_password: str,
     new_password: str,
+    session_id: int | None = None,
     ip: str = "",
     trace_id: str = "",
 ) -> None:
@@ -42,6 +43,9 @@ def change_password(
     with repo.transaction():
         repo.set_password(int(user["id"]), security.hash_password(new_password))
         repo.set_must_change_password(int(user["id"]), False)
+        if session_id is not None:
+            # 改密后其他设备的会话一律失效，避免口令泄露后旧 Cookie 继续可用（R3-F7）
+            repo.revoke_other_sessions(int(user["id"]), int(session_id))
         audit_service.record(
             repo,
             actor_id=int(user.get("id") or 0),

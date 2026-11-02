@@ -60,6 +60,9 @@ def create(
                     "同一班级的同一课题（周次/课次相同）已存在；确认覆盖请带 confirm=true",
                     {"taskId": int(existing["id"])},
                 )
+            if int(existing["owner_id"]) != int(user.get("id") or 0) and str(user.get("role")) != "admin":
+                # 组内共享只读+推进；覆盖（改标题/截止）限定本人或管理员（R3-F6）
+                raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理")
             # 需求 BS-10：重复建课时提示冲突，确认后才允许（这里按"更新已有任务"处理）
             repo.update_task(int(existing["id"]), title=data["title"], due_date=due_text)
             audit_service.record(

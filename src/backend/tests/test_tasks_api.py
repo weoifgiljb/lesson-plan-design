@@ -127,6 +127,38 @@ class TestTasksApi(unittest.TestCase):
         statuses = {item["taskId"]: item["status"] for item in listing["items"]}
         self.assertEqual(statuses.get(created.json()["taskId"]), "passed")
 
+    def test_group_teacher_cannot_overwrite_lead_task(self) -> None:
+        # R3-F6：组内共享=只读+推进，覆盖（改截止）只能本人或管理员
+        lead_csrf = self._login("lead1")
+        created = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班"},
+            headers={"X-CSRF-Token": lead_csrf},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        teacher_csrf = self._login("teacher1")
+        denied = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班", "dueDate": (date.today() + timedelta(days=9)).isoformat()},
+            params={"confirm": "true"},
+            headers={"X-CSRF-Token": teacher_csrf},
+        )
+        self.assertEqual(denied.status_code, 403, denied.text)
+
+    def test_task_package_declares_engine_version(self) -> None:
+        # R3-F12：任务包要带引擎版本与学期，便于插件端判断兼容性
+        created = self._create().json()
+        self._upload_sample()
+        response = self.client.get(f"/api/v1/tasks/{created['taskId']}/package")
+        self.assertEqual(response.status_code, 200, response.text)
+        with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+            meta = json.loads(archive.read("task.json").decode("utf-8"))
+        self.assertTrue(meta.get("engineVersion"))
+        self.assertIn("term", meta)
+        self.assertEqual(meta["expectedSchemaVersion"], 1)
+
     def test_cross_teacher_confirm_is_denied_and_audited(self) -> None:
         # R3-F2：越权审计不能被事务回滚掉
         mine = self._create().json()
@@ -310,6 +342,27 @@ class TestTasksApi(unittest.TestCase):
         self.assertEqual(lead.status_code, 200, lead.text)
         self.assertEqual(lead.json()["status"], "reviewing")
         self._login("teacher1")
+
+
+    def test_password_change_revokes_other_sessions(self) -> None:
+        # R3-F7：改密后旧会话必须失效（另一浏览器的 Cookie 不能继续用）
+        other = TestClient(self.client.app)
+        other.__enter__()
+        try:
+            login = other.post(
+                "/api/v1/auth/login", json={"username": "teacher1", "password": PASSWORD}
+            )
+            self.assertEqual(login.status_code, 200, login.text)
+            self.assertEqual(other.get("/api/v1/me").status_code, 200)
+            changed = self.client.post(
+                "/api/v1/me/password",
+                json={"oldPassword": PASSWORD, "newPassword": "Lesson2027"},
+                headers={"X-CSRF-Token": self.csrf},
+            )
+            self.assertEqual(changed.status_code, 200, changed.text)
+            self.assertEqual(other.get("/api/v1/me").status_code, 401)
+        finally:
+            other.__exit__(None, None, None)
 
 
 if __name__ == "__main__":

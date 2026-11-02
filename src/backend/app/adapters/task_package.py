@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from app.adapters import archive
+from app.adapters import archive, engine
 
 
 def build(task: dict[str, Any], template: dict[str, Any], sample_id: int | None) -> bytes:
@@ -20,6 +20,9 @@ def build(task: dict[str, Any], template: dict[str, Any], sample_id: int | None)
         "dueDate": task["due_date"],
         "status": task["status"],
         "sampleId": sample_id,
+        "term": str(task.get("term") or ""),
+        "engineVersion": engine.engine_version(),
+        "expectedSchemaVersion": 1,
     }
     return archive.build_zip(
         {

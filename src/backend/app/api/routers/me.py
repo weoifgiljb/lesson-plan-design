@@ -46,6 +46,7 @@ def change_password(
         context["user"],
         old_password=payload.oldPassword,
         new_password=payload.newPassword,
+        session_id=int(context["session"]["id"]),
         ip=client_ip(request),
         trace_id=trace_id(request),
     )

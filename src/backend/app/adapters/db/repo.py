@@ -163,6 +163,14 @@ class Repo:
             ).fetchone()
         )
 
+    def revoke_other_sessions(self, user_id: int, keep_session_id: int) -> int:
+        cursor = self.conn.execute(
+            "UPDATE user_session SET revoked_at = ? WHERE user_id = ? AND id <> ?"
+            " AND revoked_at IS NULL",
+            (clock.now_iso(), int(user_id), int(keep_session_id)),
+        )
+        return int(cursor.rowcount or 0)
+
     def revoke_session(self, session_id: int) -> None:
         self.conn.execute(
             "UPDATE user_session SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL",
