@@ -240,8 +240,8 @@
       "csrf": true,
       "idempotent": true,
       "status": [
-        201,
         200,
+        201,
         401,
         403,
         409,
@@ -446,8 +446,8 @@
       "csrf": true,
       "idempotent": true,
       "status": [
-        201,
         200,
+        201,
         401,
         403,
         409,
@@ -471,8 +471,8 @@
       "csrf": true,
       "idempotent": true,
       "status": [
-        201,
         200,
+        201,
         401,
         403,
         422
@@ -596,7 +596,7 @@
         403
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -652,7 +652,7 @@
         403
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "PUT",
@@ -687,6 +687,27 @@
       ],
       "client": "internal",
       "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/audit/export",
+      "summary": "审计 CSV 导出",
+      "auth": true,
+      "roles": [
+        "admin",
+        "lead"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "client": "ui",
+      "implemented": true,
+      "responseMediaType": "text/csv"
     }
   ]
 }
