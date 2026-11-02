@@ -51,3 +51,8 @@ def change_password(
         trace_id=trace_id(request),
     )
     return {"ok": True}
+
+
+class PasswordChange(BaseModel):
+    oldPassword: str
+    newPassword: str
