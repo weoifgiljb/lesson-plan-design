@@ -360,7 +360,8 @@ class Repo:
         where = " AND ".join([condition, "p.deleted_at IS NULL", extra])
         sql = " ".join(
             (
-                "SELECT p.id AS plan_id, p.created_at AS plan_created_at, pv.content_json, pv.plan_hash,"
+                "SELECT p.id AS plan_id, p.created_at AS plan_created_at, p.course, p.week,"
+                " p.session, u.display_name AS teacher, pv.content_json, pv.plan_hash,"
                 " pv.version_no, rv.id AS review_id, rv.status AS review_status, rv.round AS review_round,"
                 " rv.report_json, rv.report_sha256",
                 "FROM plan p JOIN user u ON u.id = p.owner_id",

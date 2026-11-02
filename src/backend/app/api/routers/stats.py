@@ -62,3 +62,21 @@ def stats_export_csv(
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="stats-summary.csv"'},
     )
+
+
+@router.get("/stats/records")
+def stats_records(
+    context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
+    course: str | None = None,
+    week: int | None = None,
+    class_name: str | None = Query(None, alias="class"),
+    teacher: str | None = None,
+    from_date: date | None = Query(None, alias="dateFrom"),
+    to_date: date | None = Query(None, alias="dateTo"),
+    page: int = 1,
+    page_size: int = Query(20, alias="pageSize"),
+) -> dict[str, Any]:
+    filters = _filters(course, week, class_name, teacher, from_date, to_date)
+    return stats_service.records(
+        context["repo"], context["user"], filters=filters, page=page, page_size=page_size
+    )
