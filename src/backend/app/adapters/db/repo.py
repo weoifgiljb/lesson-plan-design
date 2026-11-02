@@ -412,14 +412,15 @@ class Repo:
         return [dict(row) for row in rows]
 
     def find_plan_by_identity_scope(
-        self, scope: dict[str, Any], plan: dict[str, Any]
+        self, scope: dict[str, Any], plan: dict[str, Any], include_deleted: bool = False
     ) -> dict[str, Any] | None:
         where, params = self._pull_where(scope)
+        deleted_clause = "" if include_deleted else "AND p.deleted_at IS NULL"
         sql = " ".join(
             (
                 "SELECT p.* FROM plan p JOIN user u ON u.id = p.owner_id",
                 "WHERE p.course = ? AND p.week = ? AND p.session = ? AND p.content_title = ?",
-                "AND p.deleted_at IS NULL",
+                deleted_clause,
                 where,
                 "ORDER BY p.id DESC LIMIT 1",
             )
