@@ -26,13 +26,16 @@ from test_library_domain import TestLibraryRules, TestPlanDiff  # noqa: E402,F40
 from test_permissions import TestPermissionMatrix  # noqa: E402,F401
 from test_plans_api import TestPlansApi  # noqa: E402,F401
 from test_reviews_api import TestReviewsApi  # noqa: E402,F401
+from test_repair_schema import TestRepairSchema  # noqa: E402,F401
 from test_samples_api import TestSamplesApi  # noqa: E402,F401
 from test_security import TestSecurity  # noqa: E402,F401
 from test_stats_api import TestStatsApi  # noqa: E402,F401
 from test_stats_golden import TestStatsGolden  # noqa: E402,F401
 from test_storage import TestStorage  # noqa: E402,F401
 from test_sync_api import TestSyncApi  # noqa: E402,F401
+from test_tasks_api import TestTasksApi  # noqa: E402,F401
 from test_transaction import TestTransactionBoundary  # noqa: E402,F401
+from test_users_api import TestUsersApi  # noqa: E402,F401
 
 if __name__ == "__main__":
     import unittest

@@ -38,7 +38,11 @@ py -3 -m uvicorn app.main:app --app-dir src/backend --host 127.0.0.1 --port 8000
 ```powershell
 py -3 scripts/seed_users.py --admin admin1 --password 'Lesson2026' --name 管理员
 py -3 scripts/seed_users.py --teacher teacher1 --password 'Lesson2026' --name 张老师
+py -3 scripts/seed_users.py --lead lead1 --password 'Lesson2026' --name 王组长
 ```
+
+已存在的账号重复执行会同步口令、角色与显示名（不会静默保留旧角色）。新建账号带
+`mustChangePassword=true`，首次登录后需调用 `POST /api/v1/me/password` 改密。
 
 ## 测试
 
@@ -73,6 +77,22 @@ data/
 数据库用 SQLite 3（标准库 `sqlite3`，无 ORM、无外部服务），首次启动执行
 `app/adapters/db/schema.sql` 并把 `PRAGMA user_version` 置 1；后续结构变更按
 `app/adapters/db/migrations/000N_*.sql` 顺序升级。备份时停写后整目录复制 `data/`。
+
+### 旧库升级（早期分支建的库）
+
+迁移器只按 `user_version` 往前走。如果库是在早期分支上建的（例如只有 `SCHEMA_VERSION=2`
+的 `feature/fe-02-tasks`），版本号会跳过中间的迁移，启动时报
+`duplicate column name` 或 `no such column`，此时 `data/app.db` 需要先做一次结构对齐：
+
+```powershell
+py -3 scripts/repair_schema.py                 # 只检查，不改库
+py -3 scripts/repair_schema.py --apply         # 先备份到 data/backup/，再修复
+```
+
+脚本会补齐缺失的表/列/索引（含 `plan_version.report_sha256`、`plan_version.engine_version`、
+`user.group_name`、`task.assignee_id/group_name/term`、`sample.score/engine_version/rule_version`），
+按当前口径重建 `task` 唯一键，回填 `sync_event` 与任务归属组，最后把 `user_version`
+写到最新；可重复执行，失败时整篇回滚。修复后正常启动即可。
 
 ## 目录约定
 

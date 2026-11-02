@@ -30,4 +30,6 @@ def user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "displayName": str(user.get("display_name") or ""),
         "role": role,
         "roleLabel": roles.ROLE_LABELS.get(role, role),
+        # 建号/重置后为 True：前端应强制先改密（BS-05）
+        "mustChangePassword": bool(user.get("must_change_password")),
     }

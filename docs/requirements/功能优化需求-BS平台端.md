@@ -527,7 +527,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（29 个接口、14 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（35 个接口、14 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -557,8 +557,14 @@
 | GET | /api/v1/audit | 管理员、组长 | 审计查询 | 是 |
 | GET | /api/v1/users | 管理员 | 用户列表 | 是 |
 | POST | /api/v1/users | 管理员 | 新建用户与角色 | 否 |
+| GET | /api/v1/samples/{sample_id} | 登录 | 样例详情/预览 | 是 |
+| GET | /api/v1/samples/{sample_id}/download | 登录 | 下载样例 JSON | 是 |
+| GET | /api/v1/audit/export | 管理员、组长 | 审计 CSV 导出（X-Total / X-Truncated） | 是 |
+| GET | /api/v1/stats/export.csv | 登录（按范围） | 统计指标 CSV 导出 | 是 |
+| POST | /api/v1/tasks/{task_id}/rollback | 管理员、组长 | 任务状态人工回退（留痕） | 否 |
+| POST | /api/v1/me/password | 登录 | 本人改密（首次改密） | 否 |
 | GET | /api/v1/settings/engine | 管理员 | 引擎与模板版本 | 是 |
-| PUT | /api/v1/settings/engine | 管理员 | 切换引擎版本 | 否 |
+| PUT | /api/v1/settings/engine | 管理员 | 切换引擎版本（未实现） | 否 |
 | GET | /api/v1/health | 公开 | 健康检查 | 是 |
 
 ### 5.3 关键接口行为
@@ -571,16 +577,17 @@
 
 | 实体 | 关键字段 | 约束 |
 |---|---|---|
-| user | id、username、display_name、role、password_hash、active | username 唯一；role 三值 |
-| task | id、course、week、session、title、class_name、owner_id、due_date、status | 同课程周次课次班级唯一 |
+| user | id、username、display_name、group_name、role、password_hash、active、must_change_password、failed_count、locked_until | username 唯一；role 三值；group_name 用于组长/组内可见 |
+| task | id、course、week、session、title、class_name、owner_id、due_date、status、assignee_id、group_name、term | 课程 + 周次 + 课次 + 班级 + 课题唯一；status 四值；group_name 由创建者教研组回填 |
 | plan | id、task_id、owner_id、current_version_id、deleted_at | 软删除；归属校验 |
-| plan_version | id、plan_id、version_no、content_json、plan_hash、schema_version、rubric_version、source | plan_id + version_no 唯一；不可修改 |
+| plan_version | id、plan_id、version_no、content_json、plan_hash、report_sha256、schema_version、rubric_version、engine_version、source | plan_id + version_no 唯一；plan_id + plan_hash + report_sha256 部分唯一（空串哨兵不参与）；不可修改 |
 | review | id、plan_version_id、round、report_json、report_sha256、status、reviewer_mode | plan_version_id + round 唯一 |
 | finding | id、review_id、finding_id、severity、status、hypothesis | severity 三值；status 三值（open/waived/accepted） |
-| override | id、finding_id、teacher_id、reason、approved_at、plan_hash | finding_id 唯一 |
-| export_job | id、plan_version_id、engine_version、status、docx_path、docx_sha256、operator_id | 记录引擎版本 |
-| sample | id、course、week、session、title、json_path、plan_hash、valid | 课题 + 周次 + 课次唯一 |
-| asset | id、kind、path、sha256、caption、attach_to | 哈希校验 |
+| override | id、review_id、finding_id、teacher_id、reason、approved_at、plan_hash | review_id + finding_id 唯一（同一问题可在不同教案各自放行） |
+| export_job | id、plan_version_id、engine_version、status、docx_path、docx_sha256、report_sha256、operator_id | 版本 + 引擎 + 报告哈希唯一（仅 succeeded） |
+| sample | id、course、week、session、title、json_path、plan_hash、valid、score、engine_version、rule_version | 课题 + 周次 + 课次唯一；下载前校验哈希 |
+| asset | id、kind、path、sha256、caption、attach_to | 哈希校验（本期未接线） |
+| sync_event | id、kind、plan_id、plan_version_id、created_at | kind ∈ {version, deleted}；删除按事件传播 |
 | sync_log | id、direction、package_sha256、plan_hash、result、conflict_code、operator_id | 只追加 |
 | audit_log | id、actor_id、action、target_type、target_id、before_hash、after_hash、detail_json、ip | 只追加 |
 

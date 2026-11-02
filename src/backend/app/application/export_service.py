@@ -128,6 +128,19 @@ def _perform_export(
         updated = repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
         if updated:
             _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
+            # 任务状态随导出推进到 exported（BS-10 状态机）
+            task_id = repo.mark_task_exported(int(row["plan_id"]))
+            if task_id is not None:
+                audit_service.record(
+                    repo,
+                    actor_id=int(user.get("id") or 0),
+                    action="task.status",
+                    target_type="task",
+                    target_id=str(task_id),
+                    detail={"status": "exported", "planId": int(row["plan_id"])},
+                    ip=ip,
+                    trace_id=trace_id,
+                )
     if not updated:
         storage.export_path(job_id).unlink(missing_ok=True)
         repo.update_export_job(job_id, "failed")

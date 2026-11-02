@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import unittest
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -37,6 +38,32 @@ class TestHealth(unittest.TestCase):
         self.assertEqual(body["checks"]["database"], "ok")
         self.assertEqual(body["checks"]["engine"], "ok")
         self.assertTrue(response.headers.get("X-Trace-Id"))
+
+
+class TestHealthOnBrokenDatabase(unittest.TestCase):
+    def test_structure_mismatch_reports_503_with_hint(self) -> None:
+        # 旧库/版本错配时不能全站 500：健康检查与业务接口都应 503 并给修复指引
+        import sqlite3
+
+        with tempdir() as root:
+            env = isolated_data_dir(Path(root))
+            env.__enter__()
+            try:
+                db = Path(root) / "app.db"
+                conn = sqlite3.connect(db)
+                conn.execute("PRAGMA user_version=99")
+                conn.execute("CREATE TABLE t (id INTEGER)")
+                conn.commit()
+                conn.close()
+                with TestClient(create_app(), raise_server_exceptions=False) as client:
+                    health = client.get("/api/v1/health")
+                    self.assertEqual(health.status_code, 503, health.text)
+                    self.assertEqual(health.json()["code"], "SERVICE_UNAVAILABLE")
+                    self.assertIn("repair_schema.py", health.json()["message"])
+                    tasks = client.get("/api/v1/tasks")
+                    self.assertEqual(tasks.status_code, 503, tasks.text)
+            finally:
+                env.__exit__(None, None, None)
 
 
 class TestOpenApiSnapshot(unittest.TestCase):

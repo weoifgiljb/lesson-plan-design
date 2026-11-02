@@ -184,5 +184,48 @@ class TestAuthApi(unittest.TestCase):
         self.assertEqual(allowed.status_code, 200, allowed.text)
 
 
+    def test_change_password_flow(self) -> None:
+        # 本人改密：建号后 mustChangePassword=true，改密成功后清零，旧口令失效
+        admin = self._login("admin1")
+        admin_csrf = admin.json()["csrfToken"]
+        created = self.client.post(
+            "/api/v1/users",
+            json={"username": "newbie", "displayName": "新老师", "role": "teacher", "password": PASSWORD},
+            headers={"X-CSRF-Token": admin_csrf},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        login = self._login("newbie")
+        self.assertEqual(login.status_code, 200, login.text)
+        self.assertTrue(login.json()["user"]["mustChangePassword"])
+        csrf = login.json()["csrfToken"]
+
+        wrong = self.client.post(
+            "/api/v1/me/password",
+            json={"oldPassword": "WrongPass1", "newPassword": "Another2026"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(wrong.status_code, 401, wrong.text)
+        weak = self.client.post(
+            "/api/v1/me/password",
+            json={"oldPassword": PASSWORD, "newPassword": "short"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(weak.status_code, 422, weak.text)
+        ok = self.client.post(
+            "/api/v1/me/password",
+            json={"oldPassword": PASSWORD, "newPassword": "Another2026"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(ok.status_code, 200, ok.text)
+        me = self.client.get("/api/v1/me").json()
+        self.assertFalse(me["user"]["mustChangePassword"])
+        self.assertIn("user.password_changed", self._audit_actions())
+        self.assertEqual(
+            self.client.post("/api/v1/auth/logout", headers={"X-CSRF-Token": csrf}).status_code, 200
+        )
+        self.assertEqual(self._login("newbie").status_code, 401)  # 旧口令失效
+        self.assertEqual(self._login("newbie", "Another2026").status_code, 200)
+
+
 if __name__ == "__main__":
     unittest.main()
