@@ -9,6 +9,24 @@ from app.domain.errors import AppError
 
 STATUSES = {"draft", "reviewing", "passed", "exported"}
 TASK_RANK = {"draft": 0, "reviewing": 1, "passed": 2, "exported": 3}
+QUADRANTS = {
+    "urgent_important",
+    "important_not_urgent",
+    "urgent_not_important",
+    "not_urgent_not_important",
+}
+DEFAULT_QUADRANT = "important_not_urgent"
+
+
+def validate_quadrant(value: Any, *, default: str = DEFAULT_QUADRANT) -> str:
+    quadrant = str(value or default)
+    if quadrant not in QUADRANTS:
+        raise AppError("PAYLOAD_REJECTED", f"未知象限：{quadrant}")
+    return quadrant
+
+
+def is_active(status: str, discarded_at: str | None) -> bool:
+    return status not in {"passed", "exported"} and discarded_at is None
 
 
 def validate(course: str, week: int, session: int, title: str, class_name: str) -> dict[str, Any]:

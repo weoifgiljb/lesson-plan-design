@@ -35,9 +35,18 @@ CREATE TABLE IF NOT EXISTS task (
     owner_id INTEGER NOT NULL REFERENCES user (id),
     due_date TEXT,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'reviewing', 'passed', 'exported')),
+    quadrant TEXT NOT NULL DEFAULT 'important_not_urgent'
+        CHECK (quadrant IN ('urgent_important', 'important_not_urgent',
+                            'urgent_not_important', 'not_urgent_not_important')),
+    board_position INTEGER NOT NULL DEFAULT 0,
+    board_version INTEGER NOT NULL DEFAULT 0,
+    discarded_at TEXT,
     created_at TEXT NOT NULL,
     UNIQUE (owner_id, course, week, session, class_name, title)
 );
+
+CREATE INDEX IF NOT EXISTS idx_task_board
+    ON task (owner_id, quadrant, board_position);
 
 CREATE TABLE IF NOT EXISTS plan (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

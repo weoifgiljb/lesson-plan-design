@@ -95,6 +95,79 @@ class TestTasksApi(unittest.TestCase):
         self.assertEqual(self._create().status_code, 201)
         self.assertEqual(self.client.get("/api/v1/tasks").json()["total"], 1)
 
+    def test_board_excludes_completed_and_discarded(self) -> None:
+        created = self._create(quadrant="urgent_important").json()
+        board = self.client.get("/api/v1/tasks/board")
+        self.assertEqual(board.status_code, 200, board.text)
+        self.assertEqual(board.json()["total"], 1)
+        self.assertEqual(board.json()["items"][0]["quadrant"], "urgent_important")
+        self.assertTrue(board.json()["items"][0]["canEdit"])
+
+        connection = open_database(self.db_file)
+        connection.execute("UPDATE task SET status = 'passed' WHERE id = ?", (created["taskId"],))
+        connection.close()
+        self.assertEqual(self.client.get("/api/v1/tasks/board").json()["total"], 0)
+        self.assertEqual(self.client.get("/api/v1/tasks").json()["total"], 1)
+
+        connection = open_database(self.db_file)
+        connection.execute("UPDATE task SET status = 'draft' WHERE id = ?", (created["taskId"],))
+        connection.close()
+        discarded = self.client.post(
+            f"/api/v1/tasks/{created['taskId']}/discard",
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(discarded.status_code, 200, discarded.text)
+        self.assertTrue(discarded.json()["discarded"])
+        self.assertEqual(self.client.get("/api/v1/tasks/board").json()["total"], 0)
+        self.assertEqual(self.client.get("/api/v1/tasks?discarded=true").json()["total"], 1)
+
+        restored = self.client.post(
+            f"/api/v1/tasks/{created['taskId']}/restore",
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertFalse(restored.json()["discarded"])
+        self.assertEqual(self.client.get("/api/v1/tasks/board").json()["total"], 1)
+
+    def test_move_reorders_and_rejects_stale_version(self) -> None:
+        first = self._create(title="任务A", quadrant="important_not_urgent").json()
+        self._create(title="任务B", quadrant="important_not_urgent")
+        moved = self.client.patch(
+            f"/api/v1/tasks/{first['taskId']}/board",
+            json={"quadrant": "urgent_important", "position": 0, "boardVersion": first["boardVersion"]},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(moved.status_code, 200, moved.text)
+        self.assertEqual(moved.json()["quadrant"], "urgent_important")
+        self.assertEqual(moved.json()["boardPosition"], 0)
+        stale = self.client.patch(
+            f"/api/v1/tasks/{first['taskId']}/board",
+            json={"quadrant": "not_urgent_not_important", "position": 0, "boardVersion": first["boardVersion"]},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(stale.status_code, 409, stale.text)
+        self.assertEqual(stale.json()["code"], "CONFLICT_STALE")
+        board = self.client.get("/api/v1/tasks/board").json()
+        self.assertEqual(board["total"], 2)
+        self.assertEqual(board["counts"]["urgent_important"], 1)
+
+    def test_lead_cannot_move_other_teacher_task(self) -> None:
+        created = self._create().json()
+        self.csrf = self._login("lead1")
+        response = self.client.patch(
+            f"/api/v1/tasks/{created['taskId']}/board",
+            json={"quadrant": "urgent_important", "position": 0, "boardVersion": created["boardVersion"]},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(response.status_code, 403, response.text)
+        board = self.client.get("/api/v1/tasks/board").json()
+        self.assertEqual(board["items"][0]["canEdit"], False)
+
+    def test_invalid_quadrant_is_rejected(self) -> None:
+        response = self._create(quadrant="somewhere")
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "PAYLOAD_REJECTED")
+
     def test_list_scope_order_and_filters(self) -> None:
         self._create(dueDate=(date.today() + timedelta(days=5)).isoformat())
         self._create(title="第二课", session=2, dueDate=(date.today() + timedelta(days=1)).isoformat())

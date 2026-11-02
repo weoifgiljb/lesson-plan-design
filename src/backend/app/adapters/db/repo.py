@@ -285,13 +285,17 @@ class Repo:
     # ---------- 任务 ----------
     def insert_task(
         self, course: str, week: int, session: int, title: str, class_name: str,
-        owner_id: int, due_date: str | None,
+        owner_id: int, due_date: str | None, quadrant: str, board_position: int,
     ) -> int:
         try:
             cursor = self.conn.execute(
-                "INSERT INTO task (course, week, session, title, class_name, owner_id, due_date, status, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)",
-                (course, int(week), int(session), title, class_name, owner_id, due_date, clock.now_iso()),
+                "INSERT INTO task (course, week, session, title, class_name, owner_id, due_date,"
+                " quadrant, board_position, status, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?)",
+                (
+                    course, int(week), int(session), title, class_name, owner_id, due_date,
+                    quadrant, int(board_position), clock.now_iso(),
+                ),
             )
         except sqlite3.IntegrityError as exc:
             raise AppError("CONFLICT_STALE", "同一教师/课程/周次/课次/班级/课题的任务已存在") from exc
@@ -343,15 +347,90 @@ class Repo:
         ).fetchall()
         return [dict(row) for row in rows], int(count["total"] if count is not None else 0)
 
+    def list_board_tasks(
+        self, scope: dict[str, Any], filters: dict[str, Any], limit: int = 500
+    ) -> list[dict[str, Any]]:
+        condition, params = self._scope_condition(scope, "t.owner_id")
+        extra, more = self._task_where(filters)
+        where = " AND ".join(
+            [condition, extra, "t.status NOT IN ('passed', 'exported')", "t.discarded_at IS NULL"]
+        )
+        rows = self.conn.execute(
+            " ".join(
+                (
+                    "SELECT t.*, u.display_name AS teacher, u.group_name AS owner_group",
+                    " FROM task t JOIN user u ON u.id = t.owner_id",
+                    "WHERE",
+                    where,
+                    "ORDER BY t.quadrant ASC, t.board_position ASC, t.id ASC LIMIT ?",
+                )
+            ),
+            (*params, *more, int(limit)),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def _task_where(self, filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["1 = 1"]
         params: list[Any] = []
-        for column, key in (("t.course", "course"), ("t.week", "week"), ("t.status", "status")):
+        for column, key in (
+            ("t.course", "course"),
+            ("t.week", "week"),
+            ("t.status", "status"),
+            ("t.quadrant", "quadrant"),
+            ("u.display_name", "teacher"),
+        ):
             value = filters.get(key)
             if value not in (None, ""):
                 where.append(f"{column} = ?")
                 params.append(value)
+        discarded = filters.get("discarded")
+        if discarded is True:
+            where.append("t.discarded_at IS NOT NULL")
+        elif discarded is False:
+            where.append("t.discarded_at IS NULL")
         return " AND ".join(where), params
+
+    def next_board_position(self, owner_id: int, quadrant: str) -> int:
+        row = self.conn.execute(
+            "SELECT COALESCE(MAX(board_position), -1) + 1 AS next FROM task"
+            " WHERE owner_id = ? AND quadrant = ? AND status NOT IN ('passed', 'exported')"
+            " AND discarded_at IS NULL",
+            (int(owner_id), quadrant),
+        ).fetchone()
+        return int(row["next"] if row is not None else 0)
+
+    def task_ids_in_quadrant(self, owner_id: int, quadrant: str) -> list[int]:
+        rows = self.conn.execute(
+            "SELECT id FROM task WHERE owner_id = ? AND quadrant = ?"
+            " AND status NOT IN ('passed', 'exported') AND discarded_at IS NULL"
+            " ORDER BY board_position ASC, id ASC",
+            (int(owner_id), quadrant),
+        ).fetchall()
+        return [int(row["id"]) for row in rows]
+
+    def update_task_board(
+        self, task_id: int, quadrant: str, position: int, board_version: int
+    ) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE task SET quadrant = ?, board_position = ?, board_version = board_version + 1"
+            " WHERE id = ? AND board_version = ?",
+            (quadrant, int(position), int(task_id), int(board_version)),
+        )
+        return bool(cursor.rowcount)
+
+    def update_task_positions(self, task_ids: list[int]) -> None:
+        for position, task_id in enumerate(task_ids):
+            self.conn.execute(
+                "UPDATE task SET board_position = ? WHERE id = ?",
+                (position, int(task_id)),
+            )
+
+    def set_task_discarded(self, task_id: int, discarded_at: str | None) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE task SET discarded_at = ?, board_version = board_version + 1 WHERE id = ?",
+            (discarded_at, int(task_id)),
+        )
+        return bool(cursor.rowcount)
 
     def attach_task_for_plan(self, plan_id: int, plan: dict[str, Any], status: str) -> int | None:
         owner = self.conn.execute("SELECT owner_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
@@ -360,7 +439,7 @@ class Repo:
         task = _row(
             self.conn.execute(
                 "SELECT * FROM task WHERE owner_id = ? AND course = ? AND week = ? AND session = ?"
-                " AND title = ? ORDER BY id DESC LIMIT 1",
+                " AND title = ? AND discarded_at IS NULL ORDER BY id DESC LIMIT 1",
                 (
                     int(owner["owner_id"]),
                     str(plan.get("course") or ""),
@@ -476,7 +555,7 @@ class Repo:
         return self._group(
             "SELECT t.status AS key, COUNT(*) AS total FROM task t"
             " LEFT JOIN user u ON u.id = t.owner_id"
-            f" WHERE {condition} GROUP BY t.status",
+            f" WHERE {condition} AND t.discarded_at IS NULL GROUP BY t.status",
             params,
         )
 

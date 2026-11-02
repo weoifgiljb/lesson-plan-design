@@ -42,9 +42,63 @@ class TestDatabaseSchema(unittest.TestCase):
         return int(user), int(plan), int(version)
 
     def test_schema_version_and_pragmas(self) -> None:
-        self.assertEqual(current_version(self.conn), 2)
+        self.assertEqual(current_version(self.conn), 3)
         self.assertEqual(self.conn.execute("PRAGMA journal_mode").fetchone()[0], "wal")
         self.assertEqual(self.conn.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+
+    def test_v2_database_migrates_to_board_schema(self) -> None:
+        path = self.root / "v2.db"
+        connection = sqlite3.connect(path)
+        connection.executescript(
+            """
+            CREATE TABLE user (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                display_name TEXT NOT NULL,
+                group_name TEXT NOT NULL DEFAULT '',
+                role TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                must_change_password INTEGER NOT NULL DEFAULT 0,
+                failed_count INTEGER NOT NULL DEFAULT 0,
+                locked_until TEXT,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE task (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                course TEXT NOT NULL,
+                week INTEGER NOT NULL,
+                session INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                class_name TEXT NOT NULL DEFAULT '',
+                owner_id INTEGER NOT NULL REFERENCES user (id),
+                due_date TEXT,
+                status TEXT NOT NULL DEFAULT 'draft',
+                created_at TEXT NOT NULL,
+                UNIQUE (owner_id, course, week, session, class_name, title)
+            );
+            INSERT INTO user (username, display_name, role, password_hash, created_at)
+                VALUES ('t1', '张老师', 'teacher', 'x', '2026-10-30T00:00:00+00:00');
+            INSERT INTO task (course, week, session, title, class_name, owner_id, due_date, status, created_at)
+                VALUES ('信息技术', 3, 1, '旧任务', '计算机1班', 1, '2020-01-01', 'draft',
+                        '2026-10-30T00:00:00+00:00');
+            PRAGMA user_version=2;
+            """
+        )
+        connection.close()
+
+        migrated = open_database(path)
+        try:
+            self.assertEqual(current_version(migrated), 3)
+            columns = {row[1] for row in migrated.execute("PRAGMA table_info(task)")}
+            self.assertTrue({"quadrant", "board_position", "board_version", "discarded_at"} <= columns)
+            row = migrated.execute("SELECT * FROM task WHERE id = 1").fetchone()
+            self.assertEqual(row["quadrant"], "urgent_important")
+            self.assertEqual(row["board_position"], 1)
+            self.assertEqual(row["board_version"], 0)
+            self.assertIsNone(row["discarded_at"])
+        finally:
+            migrated.close()
 
     def test_task_identity_allows_same_class_different_title(self) -> None:
         user, _, _ = self._seed()

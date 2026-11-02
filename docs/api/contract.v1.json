@@ -179,6 +179,25 @@
       "implemented": true
     },
     {
+      "method": "GET",
+      "path": "/api/v1/tasks/board",
+      "summary": "任务四象限看板",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
       "method": "POST",
       "path": "/api/v1/tasks",
       "summary": "创建任务",
@@ -194,6 +213,70 @@
         401,
         403,
         409,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/tasks/{id}/board",
+      "summary": "移动任务到象限/排序",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/{id}/discard",
+      "summary": "废弃任务",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/{id}/restore",
+      "summary": "恢复已废弃任务",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404,
         422
       ],
       "client": "ui",

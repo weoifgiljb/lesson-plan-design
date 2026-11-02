@@ -21,6 +21,13 @@ class TaskCreate(BaseModel):
     title: str
     className: str = ""
     dueDate: date | None = None
+    quadrant: str | None = None
+
+
+class TaskMove(BaseModel):
+    quadrant: str
+    position: int
+    boardVersion: int
 
 
 @router.get("/tasks")
@@ -29,13 +36,36 @@ def list_tasks(
     course: str | None = None,
     week: int | None = None,
     status: str | None = None,
+    quadrant: str | None = None,
+    teacher: str | None = None,
+    discarded: bool | None = None,
     page: int = 1,
     page_size: int = Query(20, alias="pageSize"),
 ) -> dict[str, Any]:
     return task_service.list_tasks(
         context["repo"], context["user"],
-        filters={"course": course, "week": week, "status": status},
+        filters={
+            "course": course,
+            "week": week,
+            "status": status,
+            "quadrant": quadrant,
+            "teacher": teacher,
+            "discarded": discarded,
+        },
         page=page, page_size=page_size,
+    )
+
+
+@router.get("/tasks/board")
+def task_board(
+    context: dict[str, Any] = Depends(require_role("teacher", "lead")),
+    course: str | None = None,
+    week: int | None = None,
+    teacher: str | None = None,
+) -> dict[str, Any]:
+    return task_service.board(
+        context["repo"], context["user"],
+        filters={"course": course, "week": week, "teacher": teacher},
     )
 
 
@@ -47,6 +77,43 @@ def create_task(
 ) -> dict[str, Any]:
     return task_service.create(
         context["repo"], context["user"], payload.model_dump(),
+        ip=_client_ip(request), trace_id=_trace_id(request),
+    )
+
+
+@router.patch("/tasks/{task_id}/board")
+def move_task(
+    request: Request,
+    task_id: int,
+    payload: TaskMove,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
+) -> dict[str, Any]:
+    return task_service.move(
+        context["repo"], context["user"], task_id, payload.model_dump(),
+        ip=_client_ip(request), trace_id=_trace_id(request),
+    )
+
+
+@router.post("/tasks/{task_id}/discard")
+def discard_task(
+    request: Request,
+    task_id: int,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
+) -> dict[str, Any]:
+    return task_service.discard(
+        context["repo"], context["user"], task_id,
+        ip=_client_ip(request), trace_id=_trace_id(request),
+    )
+
+
+@router.post("/tasks/{task_id}/restore")
+def restore_task(
+    request: Request,
+    task_id: int,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
+) -> dict[str, Any]:
+    return task_service.restore(
+        context["repo"], context["user"], task_id,
         ip=_client_ip(request), trace_id=_trace_id(request),
     )
 

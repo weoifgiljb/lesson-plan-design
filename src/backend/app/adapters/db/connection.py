@@ -8,7 +8,7 @@ from pathlib import Path
 from app.config import db_path
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
@@ -32,11 +32,13 @@ def initialize(conn: sqlite3.Connection) -> None:
     version = current_version(conn)
     if version == 0:
         conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-        conn.execute("PRAGMA user_version=2")
+        conn.execute("PRAGMA user_version=3")
         return
     if version < SCHEMA_VERSION:
-        _migrate_task_identity(conn)
-        conn.execute("PRAGMA user_version=2")
+        if version < 2:
+            _migrate_task_identity(conn)
+        _migrate_task_board(conn)
+        conn.execute("PRAGMA user_version=3")
 
 
 def _migrate_task_identity(conn: sqlite3.Connection) -> None:
@@ -74,6 +76,33 @@ def _migrate_task_identity(conn: sqlite3.Connection) -> None:
         if conn.in_transaction:
             conn.execute("ROLLBACK")
         conn.execute("PRAGMA foreign_keys=ON")
+
+
+def _migrate_task_board(conn: sqlite3.Connection) -> None:
+    """v2 -> v3：任务增加四象限、看板顺序与废弃标记。"""
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        conn.execute(
+            "ALTER TABLE task ADD COLUMN quadrant TEXT NOT NULL DEFAULT 'important_not_urgent'"
+            " CHECK (quadrant IN ('urgent_important', 'important_not_urgent',"
+            " 'urgent_not_important', 'not_urgent_not_important'))"
+        )
+        conn.execute("ALTER TABLE task ADD COLUMN board_position INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE task ADD COLUMN board_version INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE task ADD COLUMN discarded_at TEXT")
+        conn.execute("UPDATE task SET board_position = id")
+        conn.execute(
+            "UPDATE task SET quadrant = 'urgent_important'"
+            " WHERE due_date IS NOT NULL AND substr(due_date, 1, 10) < date('now')"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_task_board"
+            " ON task (owner_id, quadrant, board_position)"
+        )
+        conn.execute("COMMIT")
+    finally:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
 
 
 def open_database(path: Path | None = None) -> sqlite3.Connection:

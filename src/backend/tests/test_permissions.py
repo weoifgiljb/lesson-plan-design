@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""权限矩阵（契约驱动）：29 个接口 × 未登录 × 3 角色。"""
+"""权限矩阵（契约驱动）：33 个接口 × 未登录 × 3 角色。"""
 from __future__ import annotations
 
 import json
@@ -75,10 +75,14 @@ class TestPermissionMatrix(unittest.TestCase):
             return target.get(path, headers=headers)
         if method == "DELETE":
             return target.delete(path, headers=headers)
+        if method == "PATCH":
+            return target.patch(path, json={}, headers=headers)
+        if method == "PUT":
+            return target.put(path, json={}, headers=headers)
         return target.post(path, json={}, headers=headers)
 
     def test_all_endpoints_are_covered_by_matrix(self) -> None:
-        self.assertEqual(len(contract_endpoints()), 29)
+        self.assertEqual(len(contract_endpoints()), 33)
 
     def test_unauthenticated_requests(self) -> None:
         anonymous = TestClient(create_app())

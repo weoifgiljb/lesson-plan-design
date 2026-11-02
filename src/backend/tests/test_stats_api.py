@@ -112,6 +112,11 @@ class TestStatsApi(unittest.TestCase):
             " VALUES ('信息技术', 2, 1, '任务A', ?, 'exported', datetime('now'))",
             (self.teacher1,),
         )
+        self.repo.conn.execute(
+            "INSERT INTO task (course, week, session, title, owner_id, status, discarded_at, created_at)"
+            " VALUES ('信息技术', 2, 1, '废弃任务', ?, 'draft', datetime('now'), datetime('now'))",
+            (self.teacher1,),
+        )
 
     def _login(self, username: str) -> None:
         response = self.client.post("/api/v1/auth/login", json={"username": username, "password": PASSWORD})

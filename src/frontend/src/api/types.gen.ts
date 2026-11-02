@@ -1,4 +1,4 @@
-// openapi-sha256: 286b9ffd20e5c9738b9dd806a738d06d88b58af0e4025163859c58098874f1c2
+// openapi-sha256: cdebbcb6c0f5492dce722f2f3751c98425e657e39721fd61ae2c85028f3dce0f
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface BodyCreateSampleApiV1SamplesPost {
@@ -34,6 +34,13 @@ export interface TaskCreate {
   title: string
   className?: string
   dueDate?: string | null
+  quadrant?: string | null
+}
+
+export interface TaskMove {
+  quadrant: string
+  position: number
+  boardVersion: number
 }
 
 export interface UserCreate {
@@ -77,6 +84,10 @@ export type SyncPullApiV1SyncPullGetResponse = Record<string, unknown>
 export type SyncPushApiV1SyncPushPostResponse = Record<string, unknown>
 export type ListTasksApiV1TasksGetResponse = Record<string, unknown>
 export type CreateTaskApiV1TasksPostResponse = Record<string, unknown>
+export type TaskBoardApiV1TasksBoardGetResponse = Record<string, unknown>
+export type MoveTaskApiV1TasksTaskIdBoardPatchResponse = Record<string, unknown>
+export type DiscardTaskApiV1TasksTaskIdDiscardPostResponse = Record<string, unknown>
 export type TaskPackageApiV1TasksTaskIdPackageGetResponse = Record<string, unknown>
+export type RestoreTaskApiV1TasksTaskIdRestorePostResponse = Record<string, unknown>
 export type ListUsersApiV1UsersGetResponse = Record<string, unknown>
 export type CreateUserApiV1UsersPostResponse = Record<string, unknown>
