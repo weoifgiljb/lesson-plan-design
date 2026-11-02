@@ -220,6 +220,8 @@ function discard(task: TaskItem): void {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1px;
+  height: 420px;
+  margin: 6px 0 22px;
   overflow: hidden;
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
@@ -230,6 +232,7 @@ function discard(task: TaskItem): void {
   --quadrant-tone: var(--lpp-border-strong);
   display: flex;
   min-width: 0;
+  min-height: 0;
   flex-direction: column;
   background: var(--lpp-surface);
   box-shadow: inset 3px 0 0 var(--quadrant-tone);
@@ -305,14 +308,14 @@ function discard(task: TaskItem): void {
 
 .quadrant__list {
   flex: 1;
-  min-height: 250px;
-  max-height: 430px;
+  min-height: 0;
   padding: 10px 12px 12px;
   overflow: auto;
 }
 
 .quadrant-board--compact .quadrant-sheet {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  height: 420px;
 }
 
 .quadrant-board--compact .quadrant__head {
@@ -333,9 +336,13 @@ function discard(task: TaskItem): void {
   padding: 7px 8px 9px;
 }
 
+.quadrant-board--compact .quadrant__list.is-empty {
+  min-height: 0;
+}
+
 .quadrant__list.is-empty {
   display: grid;
-  flex: 0 0 auto;
+  flex: 1;
   min-height: 160px;
   margin: 10px 12px 12px 15px;
   padding: 0;
@@ -516,6 +523,11 @@ function discard(task: TaskItem): void {
 @media (max-width: 1180px) {
   .quadrant-sheet {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: 520px;
+  }
+
+  .quadrant-board--compact .quadrant-sheet {
+    height: 420px;
   }
 }
 
@@ -523,6 +535,7 @@ function discard(task: TaskItem): void {
   .quadrant-sheet,
   .quadrant-board--compact .quadrant-sheet {
     grid-template-columns: minmax(0, 1fr);
+    height: auto;
   }
 
   .quadrant__list,
@@ -531,7 +544,8 @@ function discard(task: TaskItem): void {
     max-height: none;
   }
 
-  .quadrant__list.is-empty {
+  .quadrant__list.is-empty,
+  .quadrant-board--compact .quadrant__list.is-empty {
     min-height: 92px;
   }
 }
@@ -544,3 +558,4 @@ function discard(task: TaskItem): void {
   }
 }
 </style>
+
