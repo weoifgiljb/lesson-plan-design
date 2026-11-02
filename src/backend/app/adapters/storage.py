@@ -8,7 +8,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from app.config import files_dir
+from app.config import exports_dir, files_dir
 from app.domain.errors import AppError
 
 
@@ -63,3 +63,11 @@ def remove_version_files(plan_id: int, version_no: int) -> None:
     target = files_dir() / f"plans/{plan_id}/{version_no}"
     if target.exists():
         shutil.rmtree(target, ignore_errors=True)
+
+
+def export_path(job_id: int) -> Path:
+    return exports_dir() / f"{job_id}.docx"
+
+
+def read_export(job_id: int) -> bytes:
+    return export_path(job_id).read_bytes()

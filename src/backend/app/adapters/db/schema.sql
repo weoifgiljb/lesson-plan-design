@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS export_job (
     created_at TEXT NOT NULL
 );
 
+-- report_sha256 列与 ux_export_job_succeeded 索引由迁移 0005 添加（v1 结构不再回改）
+
 CREATE TABLE IF NOT EXISTS sample (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     course TEXT NOT NULL,

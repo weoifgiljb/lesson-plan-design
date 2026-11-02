@@ -201,7 +201,69 @@ class Repo:
         ).fetchone()
         return int(row["total"]) if row is not None else 0
 
-    # ---------- 教案库 ----------
+    def version_by_id(self, version_id: int) -> dict[str, Any] | None:
+        sql = " ".join(
+            (
+                "SELECT pv.id AS version_id, pv.plan_id, pv.version_no, pv.plan_hash, pv.content_json,"
+                " pv.engine_version, p.content_title, p.owner_id, p.deleted_at,"
+                " u.display_name AS teacher, u.group_name AS owner_group,"
+                " rv.id AS review_id, rv.round AS review_round, rv.status AS review_status,"
+                " rv.report_json, rv.report_sha256",
+                "FROM plan_version pv JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
+                self.LATEST_REVIEW_JOIN,
+                "WHERE pv.id = ?",
+            )
+        )
+        return _row(self.conn.execute(sql, (version_id,)).fetchone())
+
+    # ---------- 导出 ----------
+    def find_export_job(
+        self, version_id: int, engine_version: str, report_sha256: str = ""
+    ) -> dict[str, Any] | None:
+        """复用键 = 版本 + 引擎 + 报告哈希：换了审查报告必须重导，不能拿旧产物（R2-N3）。"""
+        return _row(
+            self.conn.execute(
+                "SELECT * FROM export_job WHERE plan_version_id = ? AND engine_version = ?"
+                " AND report_sha256 = ? AND status = 'succeeded' ORDER BY id DESC LIMIT 1",
+                (version_id, engine_version, report_sha256),
+            ).fetchone()
+        )
+
+    def create_export_job(
+        self, version_id: int, engine_version: str, operator_id: int, status: str,
+        docx_path: str = "", docx_sha256: str = "", report_sha256: str = "",
+    ) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO export_job (plan_version_id, engine_version, report_sha256, status,"
+            " docx_path, docx_sha256, operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (version_id, engine_version, report_sha256, status, docx_path, docx_sha256,
+             operator_id, clock.now_iso()),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def update_export_job(
+        self, job_id: int, status: str, docx_path: str = "", docx_sha256: str = ""
+    ) -> bool:
+        try:
+            self.conn.execute(
+                "UPDATE export_job SET status = ?, docx_path = ?, docx_sha256 = ? WHERE id = ?",
+                (status, docx_path, docx_sha256, job_id),
+            )
+        except sqlite3.IntegrityError:
+            return False
+        return True
+
+    def get_export_job(self, job_id: int) -> dict[str, Any] | None:
+        sql = " ".join(
+            (
+                "SELECT j.*, pv.plan_id, pv.version_no, pv.plan_hash, p.content_title, p.owner_id,"
+                " u.display_name AS teacher, u.group_name AS owner_group",
+                "FROM export_job j JOIN plan_version pv ON pv.id = j.plan_version_id",
+                "JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
+                "WHERE j.id = ?",
+            )
+        )
+        return _row(self.conn.execute(sql, (job_id,)).fetchone())
     # 同一版本可能有多轮审查（schema 允许），列表/详情只取最新一轮，避免 JOIN 放大行数。
     LATEST_REVIEW_JOIN = (
         "LEFT JOIN review rv ON rv.id = ("
