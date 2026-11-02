@@ -63,12 +63,12 @@ def query(
 
 def export_csv(
     repo: Repo, user: dict[str, Any], *, filters: dict[str, Any], limit: int = 10000
-) -> str:
+) -> tuple[str, int, bool]:
     """导出 CSV：列与查询一致，含全部字段；只读，不改审计行。"""
     window = dict(filters)
     window["created_from"] = timerange.start_of(filters["date_from"]) if filters.get("date_from") else None
     window["created_before"] = timerange.end_exclusive(filters["date_to"]) if filters.get("date_to") else None
-    rows, _total = repo.list_audit_entries(library.scope_for(user), window, int(limit), 0)
+    rows, total = repo.list_audit_entries(library.scope_for(user), window, int(limit), 0)
     lines = [",".join(CSV_COLUMNS)]
     for row in rows:
         entry = _entry(row)
@@ -89,11 +89,15 @@ def export_csv(
             json.dumps(entry["detail"], ensure_ascii=False, sort_keys=True),
         )
         lines.append(",".join(_csv_cell(value) for value in values))
-    return "\n".join(lines) + "\n"
+    truncated = int(total) > len(rows)
+    return "\n".join(lines) + "\n", int(total), truncated
 
 
 def _csv_cell(value: Any) -> str:
     text = "" if value is None else str(value)
+    # 公式注入防护：Excel/WPS 会把 = + - @ 开头的单元格当公式执行（R3-N1）
+    if text[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        text = "'" + text
     if any(ch in text for ch in ',"\n\r'):
         return '"' + text.replace('"', '""') + '"'
     return text

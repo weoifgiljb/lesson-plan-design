@@ -226,12 +226,15 @@ class Repo:
         return _row(self.conn.execute(sql, (version_id,)).fetchone())
 
     # ---------- 导出 ----------
-    def find_export_job(self, version_id: int, engine_version: str) -> dict[str, Any] | None:
+    def find_export_job(
+        self, version_id: int, engine_version: str, report_sha256: str = ""
+    ) -> dict[str, Any] | None:
+        """复用键 = 版本 + 引擎 + 报告哈希：换了审查报告必须重导，不能拿旧产物（R2-N3）。"""
         return _row(
             self.conn.execute(
                 "SELECT * FROM export_job WHERE plan_version_id = ? AND engine_version = ?"
-                " AND status = 'succeeded' ORDER BY id DESC LIMIT 1",
-                (version_id, engine_version),
+                " AND report_sha256 = ? AND status = 'succeeded' ORDER BY id DESC LIMIT 1",
+                (version_id, engine_version, report_sha256),
             ).fetchone()
         )
 
@@ -615,14 +618,15 @@ class Repo:
         return [dict(row) for row in rows]
 
     def find_plan_by_identity_scope(
-        self, scope: dict[str, Any], plan: dict[str, Any]
+        self, scope: dict[str, Any], plan: dict[str, Any], include_deleted: bool = False
     ) -> dict[str, Any] | None:
         where, params = self._pull_where(scope)
+        deleted_clause = "" if include_deleted else "AND p.deleted_at IS NULL"
         sql = " ".join(
             (
                 "SELECT p.* FROM plan p JOIN user u ON u.id = p.owner_id",
                 "WHERE p.course = ? AND p.week = ? AND p.session = ? AND p.content_title = ?",
-                "AND p.deleted_at IS NULL",
+                deleted_clause,
                 where,
                 "ORDER BY p.id DESC LIMIT 1",
             )

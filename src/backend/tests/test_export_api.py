@@ -12,6 +12,7 @@ from support import isolated_data_dir, package_zip, tempdir
 
 from app.adapters import storage
 from app.adapters.db.connection import open_database
+from app.adapters.db.repo import Repo
 from app.domain import security
 from app.main import create_app
 
@@ -204,6 +205,21 @@ class TestExportApi(unittest.TestCase):
         self.assertEqual(set(item), set(detail))
         download = self.client.get(f"/api/v1/exports/{item['exportId']}/download")
         self.assertEqual(download.status_code, 200)
+
+
+    def test_reuse_key_includes_report_hash(self) -> None:
+        # R3-N3 回归：复用键必须带报告哈希，换报告不能命中旧 job
+        item = self._export([self.version_id]).json()["items"][0]
+        connection = open_database(self.db_file)
+        try:
+            repo = Repo(connection)
+            same = repo.find_export_job(self.version_id, item["engineVersion"], item["reportHash"])
+            other = repo.find_export_job(self.version_id, item["engineVersion"], "another-report")
+        finally:
+            connection.close()
+        self.assertIsNotNone(same)
+        self.assertEqual(int(same["id"]), int(item["exportId"]))
+        self.assertIsNone(other)
 
 
 if __name__ == "__main__":
