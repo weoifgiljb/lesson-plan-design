@@ -55,11 +55,22 @@ try {
     await page.waitForURL('**/plans/*', { timeout: 15000 })
     await page.waitForSelector('[data-structure-ready="true"]', { timeout: 20000 })
     await page.waitForTimeout(700)
+    if (viewport.name !== '390') {
+      await page.getByRole('button', { name: '简化' }).click()
+      await page.waitForSelector('.structure-diagram', { timeout: 5000 })
+      await page.getByRole('button', { name: '3D' }).click()
+      await page.waitForSelector('.structure-canvas[data-structure-ready="true"]', { timeout: 15000 })
+    }
     const detailOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     )
     if (detailOverflow > 1) throw new Error(`${viewport.name}: detail overflow by ${detailOverflow}px`)
     await page.screenshot({ path: `${outDir}/plan-detail-${viewport.name}.png` })
+
+    await page.goto(`${page.url()}/content`, { waitUntil: 'networkidle' })
+    await page.waitForSelector('.markdown-body h1', { timeout: 15000 })
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: `${outDir}/plan-content-${viewport.name}.png` })
 
     await page.getByRole('button', { name: '退出', exact: true }).click()
     await page.waitForURL('**/login', { timeout: 10000 })

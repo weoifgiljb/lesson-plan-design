@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus from 'element-plus'
+import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import PlanDetailView from './PlanDetailView.vue'
@@ -34,6 +35,7 @@ const plan = {
 
 describe('PlanDetailView', () => {
   it('renders versions and runs a version diff', async () => {
+    setActivePinia(createPinia())
     getPlan.mockResolvedValue({
       plan,
       currentVersion: {
@@ -88,6 +90,7 @@ describe('PlanDetailView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('一级考证辅导2')
+    expect(wrapper.text()).toContain('教案正文')
     expect(wrapper.text()).toContain('版本历史')
     expect(wrapper.text()).toContain('v2')
     const diffButton = wrapper.findAll('button').find((item) => item.text() === '对比')

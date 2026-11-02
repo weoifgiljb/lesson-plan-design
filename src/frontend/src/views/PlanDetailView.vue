@@ -5,7 +5,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import type { DiffResult, PlanVersion } from '@/api/models'
-import { deletePlan, diffPlan, getPlan, listPlanVersions } from '@/api/plans'
+import { deletePlan, diffPlan, getPlan, importPlan, listPlanVersions } from '@/api/plans'
+import { getReview, listReviews } from '@/api/reviews'
 import DataTable from '@/components/DataTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
@@ -14,20 +15,30 @@ import StatusTag from '@/components/StatusTag.vue'
 import StructurePanel from '@/components/StructurePanel.vue'
 import type { TableColumn } from '@/components/table-types'
 import { useApiRequest } from '@/composables/useApiRequest'
+import { useSessionStore } from '@/stores/session'
 import { formatDateTime } from '@/utils/datetime'
 import { toLessonStructure } from '@/utils/plan-structure'
 
 const route = useRoute()
 const router = useRouter()
+const session = useSessionStore()
 const planId = Number(route.params.id)
+const canImport = computed(() => session.role === 'teacher' || session.role === 'lead')
+const isReviewer = computed(() => session.role === 'teacher' || session.role === 'lead')
 
 const detail = useApiRequest(() => getPlan(planId))
 const versionsRequest = useApiRequest(() => listPlanVersions(planId))
+const reviews = useApiRequest(() => listReviews({ page: 1, pageSize: 50 }))
+const reviewId = ref<number | null>(null)
+const reviewDetail = useApiRequest(() => getReview(reviewId.value as number))
+const booting = ref(true)
 
 const plan = computed(() => detail.data.value?.plan ?? null)
-const structure = computed(() => (detail.data.value ? toLessonStructure(detail.data.value) : null))
+const structure = computed(() =>
+  detail.data.value ? toLessonStructure(detail.data.value, reviewDetail.data.value) : null,
+)
 const versions = computed(() => versionsRequest.data.value?.items ?? [])
-const loading = computed(() => detail.loading.value)
+const loading = computed(() => booting.value)
 const error = computed(() => detail.error.value)
 const versionsState = computed<'ready' | 'loading' | 'error'>(() =>
   versionsRequest.loading.value ? 'loading' : versionsRequest.error.value ? 'error' : 'ready',
@@ -39,6 +50,8 @@ const diff = ref<DiffResult | null>(null)
 const diffError = ref<RequestError | null>(null)
 const diffLoading = ref(false)
 const deleting = ref(false)
+const importing = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 const versionColumns: TableColumn[] = [
   { key: 'versionNo', label: '版本', width: 72 },
@@ -135,12 +148,62 @@ function versionStatus(version: PlanVersion): string {
   return version.status ? String(version.status) : ''
 }
 
+function openVersionPicker(): void {
+  fileInput.value?.click()
+}
+
+async function onVersionFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (!file.name.toLowerCase().endsWith('.zip')) {
+    ElMessage.error('只接受 .zip 契约包')
+    input.value = ''
+    return
+  }
+  importing.value = true
+  try {
+    const result = await importPlan(file)
+    ElMessage.success(
+      result.duplicate
+        ? `契约包已存在，当前为第 ${result.versionNo} 版`
+        : `新版本 v${result.versionNo} 已入库`,
+    )
+    if (result.planId === planId) await loadAll()
+    else await router.push(`/plans/${result.planId}`)
+  } catch (caught) {
+    handleError(caught, '上传新版本失败')
+  } finally {
+    importing.value = false
+    input.value = ''
+  }
+}
+
 function backToList(): void {
   void router.push('/plans')
 }
 
+function openContent(): void {
+  void router.push(`/plans/${planId}/content`)
+}
+
 async function loadAll(): Promise<void> {
-  await Promise.allSettled([detail.load(), versionsRequest.load()])
+  booting.value = true
+  try {
+    await Promise.allSettled([detail.load(), versionsRequest.load()])
+    if (!isReviewer.value) return
+    await reviews.load()
+    const matched = reviews.data.value?.items.find((review) => review.planId === planId)
+    const nextReviewId = matched?.reviewId ?? null
+    if (reviewId.value !== nextReviewId) {
+      reviewId.value = nextReviewId
+      reviewDetail.data.value = null
+      reviewDetail.error.value = null
+    }
+    if (reviewId.value) await reviewDetail.load()
+  } finally {
+    booting.value = false
+  }
 }
 
 onMounted(() => {
@@ -169,7 +232,19 @@ onMounted(() => {
         </p>
       </template>
       <template #actions>
+        <input
+          ref="fileInput"
+          class="hidden-file"
+          type="file"
+          accept=".zip,application/zip"
+          aria-label="上传新版本"
+          @change="onVersionFile"
+        />
         <el-button @click="backToList">返回教案库</el-button>
+        <el-button v-if="plan" type="primary" @click="openContent">教案正文</el-button>
+        <el-button v-if="plan && canImport" :loading="importing" @click="openVersionPicker">
+          上传新版本
+        </el-button>
         <el-button v-if="plan" type="danger" plain :loading="deleting" @click="removePlan">
           删除
         </el-button>
@@ -443,6 +518,10 @@ onMounted(() => {
   line-height: 1.6;
 }
 
+.hidden-file {
+  display: none;
+}
+
 .inline-error {
   margin-bottom: 8px;
   color: var(--lpp-danger);
@@ -493,3 +572,4 @@ onMounted(() => {
   }
 }
 </style>
+

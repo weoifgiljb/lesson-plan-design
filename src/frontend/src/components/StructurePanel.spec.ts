@@ -42,4 +42,20 @@ describe('StructurePanel', () => {
     expect(wrapper.text()).toContain('缺项')
     wrapper.unmount()
   })
+
+  it('opens a goal and evidence item from the structure list', async () => {
+    const wrapper = mount(StructurePanel, {
+      props: { structure: DEMO_STRUCTURE },
+    })
+    const goal = wrapper.findAll('button').find((item) => item.text().includes('知识目标'))
+    expect(goal).toBeTruthy()
+    await goal!.trigger('click')
+    expect(wrapper.find('.structure-caption').text()).toContain('三维目标 / 知识目标')
+
+    const evidence = wrapper.findAll('button').find((item) => item.text().includes('哈希匹配'))
+    expect(evidence).toBeTruthy()
+    await evidence!.trigger('click')
+    expect(wrapper.find('.structure-caption').text()).toContain('证据链 / 哈希匹配')
+    wrapper.unmount()
+  })
 })

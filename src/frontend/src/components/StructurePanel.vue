@@ -6,6 +6,7 @@ import StructureCanvas from '@/components/StructureCanvas.vue'
 import StructureDiagram from '@/components/StructureDiagram.vue'
 import type { LessonStructure, StructureStep } from '@/components/structure/model'
 import { buildStructureModel, formatStepCaption } from '@/components/structure/model'
+import type { StructureFocus } from '@/components/structure/scene'
 import { canUseWebGL, prefersReducedMotion } from '@/components/structure/webgl'
 
 const props = withDefaults(
@@ -44,18 +45,38 @@ const activeStep = computed<StructureStep | undefined>(
 const caption = computed(() =>
   activeStep.value ? formatStepCaption(activeStep.value) : '暂无结构数据',
 )
+const focus = ref<StructureFocus | null>(null)
+const focusCaption = computed(() => {
+  if (!focus.value || focus.value.kind === 'step') return ''
+  const text = focus.value.text.length > 120 ? `${focus.value.text.slice(0, 120)}…` : focus.value.text
+  return `${focus.value.title} / ${text}`
+})
 const hashLabel = computed(() => {
   const hash = props.structure.planHash
   return hash.length > 12 ? `${hash.slice(0, 12)}…` : hash
 })
-const goalSummary = computed(
-  () =>
-    `${props.structure.goals.knowledge} / ${props.structure.goals.ability} / ${props.structure.goals.quality}`,
-)
+const goalItems = computed(() => [
+  { key: 'knowledge', label: '知识目标', text: props.structure.goals.knowledge },
+  { key: 'ability', label: '能力目标', text: props.structure.goals.ability },
+  { key: 'quality', label: '素质目标', text: props.structure.goals.quality },
+])
 const canShow3D = computed(() => webglSupported.value && !narrow.value && !failed.value)
 
-function onHover(step: StructureStep | null): void {
-  if (step) activeKey.value = step.key
+function onFocus(next: StructureFocus | null): void {
+  focus.value = next
+  if (next?.step) activeKey.value = next.step.key
+}
+
+function focusGoal(item: { label: string; text: string }): void {
+  focus.value = { kind: 'goal', title: `三维目标 / ${item.label}`, text: item.text || '未填写' }
+}
+
+function focusEvidence(item: { label: string; reason: string }): void {
+  focus.value = {
+    kind: 'evidence',
+    title: `证据链 / ${item.label}`,
+    text: item.reason || '通过',
+  }
 }
 
 function onReady(): void {
@@ -175,7 +196,7 @@ onBeforeUnmount(() => {
         :auto-rotate="autoRotate"
         :reduced-motion="reducedMotion"
         @ready="onReady"
-        @hover="onHover"
+        @hover="onFocus"
         @error="onError"
       />
       <div v-if="mode === '3d'" class="structure-axis" aria-hidden="true">
@@ -202,7 +223,7 @@ onBeforeUnmount(() => {
 
     <p class="structure-caption" aria-live="off">
       <span class="structure-caption__dot" aria-hidden="true" />
-      {{ caption }}
+      {{ focusCaption || caption }}
     </p>
 
     <div class="structure-legend" aria-label="图例">
@@ -231,13 +252,22 @@ onBeforeUnmount(() => {
         </div>
         <div>
           <h3>三维目标</h3>
-          <p class="structure-list__goal">{{ goalSummary }}</p>
+          <ul class="structure-list__focus">
+            <li v-for="item in goalItems" :key="item.key">
+              <button type="button" @click="focusGoal(item)">
+                <span>{{ item.label }}</span>
+                <em>{{ item.text || '未填写' }}</em>
+              </button>
+            </li>
+          </ul>
           <h3>证据链</h3>
           <ul v-if="structure.evidence.length" class="structure-list__evidence-list">
             <li v-for="item in structure.evidence" :key="item.key" :class="{ 'is-bad': !item.ok }">
-              <span>{{ item.ok ? '通过' : '缺项' }}</span>
-              {{ item.label }}
-              <em v-if="!item.ok">{{ item.reason }}</em>
+              <button type="button" @click="focusEvidence(item)">
+                <span>{{ item.ok ? '通过' : '缺项' }}</span>
+                {{ item.label }}
+                <em v-if="!item.ok">{{ item.reason }}</em>
+              </button>
             </li>
           </ul>
           <p v-else class="structure-list__goal">该教案还没有可展示的审查证据。</p>
@@ -259,11 +289,23 @@ onBeforeUnmount(() => {
 }
 
 .structure-head {
+  position: relative;
+  z-index: 3;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--lpp-space-4);
   padding: 14px 16px 10px;
+  background: var(--lpp-surface);
+}
+
+.structure-controls {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
 }
 
 .structure-title {
@@ -362,6 +404,7 @@ onBeforeUnmount(() => {
   height: var(--structure-height);
   min-height: 300px;
   padding: 0 10px;
+  overflow: hidden;
 }
 
 .structure-axis {
@@ -592,6 +635,51 @@ onBeforeUnmount(() => {
   line-height: 1.55;
 }
 
+.structure-list__focus,
+.structure-list__evidence-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.structure-list__focus li,
+.structure-list__evidence-list li {
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.structure-list button {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.structure-list button:hover {
+  color: var(--lpp-primary);
+}
+
+.structure-list button:focus-visible {
+  outline: 2px solid var(--lpp-primary);
+  outline-offset: 2px;
+}
+
+.structure-list__focus em,
+.structure-list__evidence-list em {
+  display: block;
+  flex-basis: 100%;
+  padding-left: 30px;
+  color: var(--lpp-text-muted);
+  font-style: normal;
+}
+
 .structure-list__evidence-list li span {
   color: var(--lpp-success);
   font-weight: 600;
@@ -601,12 +689,8 @@ onBeforeUnmount(() => {
   color: var(--lpp-danger);
 }
 
-.structure-list__evidence-list em {
-  display: block;
-  flex-basis: 100%;
-  padding-left: 30px;
+.structure-list__evidence-list li.is-bad em {
   color: var(--lpp-danger);
-  font-style: normal;
 }
 
 @media (max-width: 1180px) {

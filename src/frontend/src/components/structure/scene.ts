@@ -3,11 +3,20 @@ import * as THREE from 'three'
 import type { LessonStructure, StructureStep } from './model'
 import { GROUP_COLORS, STRUCTURE_COLORS } from './palette'
 
+export type StructureFocusKind = 'step' | 'goal' | 'evidence'
+
+export interface StructureFocus {
+  kind: StructureFocusKind
+  title: string
+  text: string
+  step?: StructureStep
+}
+
 export interface StructureSceneOptions {
   reducedMotion: boolean
   autoRotate: boolean
   onReady: () => void
-  onHover: (step: StructureStep | null) => void
+  onHover: (focus: StructureFocus | null) => void
   onError: (error: unknown) => void
 }
 
@@ -72,9 +81,13 @@ export function createStructureScene(
 
   const assemblies: Assembly[] = []
   const flowMeshes: THREE.Mesh[] = []
+  const goalMeshes: THREE.Mesh[] = []
+  const evidenceMeshes: THREE.Mesh[] = []
+  const hitMeshes: THREE.Mesh[] = []
+  const focusByMesh = new Map<THREE.Mesh, StructureFocus>()
   const disposables: { dispose: () => void }[] = []
   const materials: THREE.Material[] = []
-  let hovered = -1
+  let hoveredFocus: StructureFocus | null = null
   let disposed = false
   let ready = false
   let running = false
@@ -103,6 +116,32 @@ export function createStructureScene(
   function trackGeometry(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
     disposables.push(geometry)
     return geometry
+  }
+
+  function addHitProxy(
+    parent: THREE.Group,
+    x: number,
+    y: number,
+    z: number,
+    width: number,
+    height: number,
+    depth: number,
+    focus: StructureFocus,
+  ): void {
+    const geometry = trackGeometry(new THREE.BoxGeometry(width, height, depth))
+    const material = trackMaterial(
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        colorWrite: false,
+      }),
+    )
+    const mesh = new THREE.Mesh(geometry, material)
+    mesh.position.set(x, y, z)
+    parent.add(mesh)
+    hitMeshes.push(mesh)
+    focusByMesh.set(mesh, focus)
   }
 
   function addSheet(
@@ -167,7 +206,24 @@ export function createStructureScene(
     )
     const mesh = new THREE.Mesh(geometry, material)
     mesh.position.set(-2.4 + index * 1.2, 0.07, 0.55)
+    mesh.userData.evidenceIndex = index
     evidenceLayer.add(mesh)
+    evidenceMeshes.push(mesh)
+    const evidenceFocus: StructureFocus = {
+      kind: 'evidence',
+      title: `证据链 / ${item.label}`,
+      text: item.ok ? item.reason || '通过' : `缺项：${item.reason || '未通过'}`,
+    }
+    focusByMesh.set(mesh, evidenceFocus)
+    addHitProxy(evidenceLayer, -2.4 + index * 1.2, 0.16, 0.55, 0.8, 0.4, 0.8, evidenceFocus)
+  })
+  const evidencePassed = structure.evidence.filter((item) => item.ok).length
+  addHitProxy(evidenceLayer, 0, -0.02, 0, 5.8, 0.12, 3.0, {
+    kind: 'evidence',
+    title: '证据链',
+    text: structure.evidence.length
+      ? `${evidencePassed} / ${structure.evidence.length} 项通过；悬停/点击方块查看单项`
+      : '未接入审查证据',
   })
 
   // 流程层
@@ -196,6 +252,12 @@ export function createStructureScene(
     mesh.userData.stepIndex = index
     flowLayer.add(mesh)
     flowMeshes.push(mesh)
+    focusByMesh.set(mesh, {
+      kind: 'step',
+      title: step.title,
+      text: step.evidence || `${step.minutes} 分钟`,
+      step,
+    })
   })
 
   // 目标层
@@ -213,7 +275,21 @@ export function createStructureScene(
     )
     const mesh = new THREE.Mesh(geometry, material)
     mesh.position.set(-1.85 + index * 1.85, 0.11, 0)
+    mesh.userData.goalIndex = index
     goalsLayer.add(mesh)
+    goalMeshes.push(mesh)
+    const goal = [
+      { label: '知识目标', text: structure.goals.knowledge },
+      { label: '能力目标', text: structure.goals.ability },
+      { label: '素质目标', text: structure.goals.quality },
+    ][index]
+    const goalFocus: StructureFocus = {
+      kind: 'goal',
+      title: `三维目标 / ${goal?.label ?? '目标'}`,
+      text: goal?.text || '未填写',
+    }
+    focusByMesh.set(mesh, goalFocus)
+    addHitProxy(goalsLayer, -1.85 + index * 1.85, 0.16, 0, 1.6, 0.5, 0.8, goalFocus)
   })
 
   // 四角连接柱
@@ -257,12 +333,14 @@ export function createStructureScene(
     }
   }
 
-  function setHovered(index: number): void {
-    if (index === hovered) return
-    hovered = index
-    flowMeshes.forEach((mesh, meshIndex) => {
+  function setHovered(focus: StructureFocus | null): void {
+    if (focus === hoveredFocus) return
+    hoveredFocus = focus
+    const meshes = [...flowMeshes, ...goalMeshes, ...evidenceMeshes, ...hitMeshes]
+    meshes.forEach((mesh) => {
       const material = mesh.material as THREE.MeshStandardMaterial
-      if (meshIndex === index) {
+      if (!(material instanceof THREE.MeshStandardMaterial)) return
+      if (focus && focusByMesh.get(mesh) === focus) {
         material.emissive.set(STRUCTURE_COLORS.hover)
         material.emissiveIntensity = 0.4
       } else {
@@ -270,11 +348,11 @@ export function createStructureScene(
         material.emissiveIntensity = 0
       }
     })
-    options.onHover(index >= 0 ? structure.steps[index] : null)
+    options.onHover(focus)
     render()
   }
 
-  function pick(event: PointerEvent): number | null {
+  function pick(event: PointerEvent): StructureFocus | null {
     const rect = renderer.domElement.getBoundingClientRect()
     if (!rect.width || !rect.height) return null
     const raycaster = new THREE.Raycaster()
@@ -283,10 +361,12 @@ export function createStructureScene(
       -((event.clientY - rect.top) / rect.height) * 2 + 1,
     )
     raycaster.setFromCamera(point, camera)
-    const hits = raycaster.intersectObjects(flowMeshes, false)
+    const hits = raycaster.intersectObjects(
+      [...flowMeshes, ...goalMeshes, ...evidenceMeshes, ...hitMeshes],
+      false,
+    )
     if (!hits.length) return null
-    const index = hits[0].object.userData.stepIndex
-    return typeof index === 'number' ? index : null
+    return focusByMesh.get(hits[0].object as THREE.Mesh) ?? null
   }
 
   function rotateBy(dx: number, dy: number): void {
@@ -303,7 +383,7 @@ export function createStructureScene(
     if (!autoRotate || options.reducedMotion) return
     stopAutoRotate()
     resumeTimer = window.setTimeout(() => {
-      if (!disposed && !hovered && !dragging) {
+      if (!disposed && !hoveredFocus && !dragging) {
         autoRotate = true
         lastFrame = 0
       }
@@ -331,7 +411,7 @@ export function createStructureScene(
       rotateBy(dx * 0.008, dy * 0.005)
       return
     }
-    setHovered(pick(event) ?? -1)
+    setHovered(pick(event))
   }
 
   function onPointerUp(event: PointerEvent): void {
@@ -340,12 +420,12 @@ export function createStructureScene(
     if (renderer.domElement.hasPointerCapture(event.pointerId)) {
       renderer.domElement.releasePointerCapture(event.pointerId)
     }
-    if (!moved) setHovered(pick(event) ?? -1)
+    if (!moved) setHovered(pick(event))
     if (options.autoRotate && !options.reducedMotion) scheduleAutoRotate()
   }
 
   function onPointerLeave(): void {
-    if (!dragging) setHovered(-1)
+    if (!dragging) setHovered(null)
   }
 
   function tick(now: number): void {
@@ -367,7 +447,7 @@ export function createStructureScene(
       if (!animating) assemblies.length = 0
     }
 
-    if (autoRotate && !dragging && !hovered) {
+    if (autoRotate && !dragging && !hoveredFocus) {
       root.rotation.y += (delta / 1000) * 0.16
       animating = true
     }
@@ -463,3 +543,5 @@ export function createStructureScene(
     },
   }
 }
+
+

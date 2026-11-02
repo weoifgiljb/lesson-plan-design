@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import type { LessonStructure, StructureStep } from './structure/model'
-import type { StructureSceneHandle } from './structure/scene'
+import type { LessonStructure } from './structure/model'
+import type { StructureFocus, StructureSceneHandle } from './structure/scene'
 import { canUseWebGL } from './structure/webgl'
 
 const props = withDefaults(
@@ -16,7 +16,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (event: 'ready'): void
-  (event: 'hover', step: StructureStep | null): void
+  (event: 'hover', focus: StructureFocus | null): void
   (event: 'error', error: unknown): void
 }>()
 
@@ -45,8 +45,8 @@ async function init(): Promise<void> {
         ready.value = true
         emit('ready')
       },
-      onHover: (step) => {
-        if (!disposed) emit('hover', step)
+      onHover: (focus) => {
+        if (!disposed) emit('hover', focus)
       },
       onError: (error) => {
         if (disposed) return
