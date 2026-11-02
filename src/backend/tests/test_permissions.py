@@ -66,6 +66,8 @@ class TestPermissionMatrix(unittest.TestCase):
                 return throwaway.post(path, json={"username": "teacher1", "password": PASSWORD})
         if method == "GET":
             return target.get(path, headers=headers)
+        if method == "DELETE":
+            return target.delete(path, headers=headers)
         return target.post(path, json={}, headers=headers)
 
     def test_all_endpoints_are_covered_by_matrix(self) -> None:

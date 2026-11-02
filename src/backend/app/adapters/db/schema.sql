@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS user (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
     display_name TEXT NOT NULL,
+    group_name TEXT NOT NULL DEFAULT '',
     role TEXT NOT NULL CHECK (role IN ('teacher', 'lead', 'admin')),
     password_hash TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
