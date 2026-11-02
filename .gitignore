@@ -9,3 +9,7 @@ work-plan.docx
 /.dsh/
 /.codex_audio_tmp/
 *.wav
+/data/
+*.db
+*.db-wal
+*.db-shm
