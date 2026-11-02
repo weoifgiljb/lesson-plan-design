@@ -7,9 +7,39 @@ from typing import Any
 from app.adapters import clock
 from app.adapters.db.repo import Repo
 from app.application import audit_service, session_service
-from app.config import LOGIN_LOCK_MINUTES, LOGIN_MAX_FAILURES
+from app.config import LOGIN_LOCK_MINUTES, LOGIN_MAX_FAILURES, allow_registration
 from app.domain import auth, roles, security, user_rules
 from app.domain.errors import AppError
+
+
+def register(
+    repo: Repo,
+    *,
+    username: str,
+    display_name: str,
+    password: str,
+    group_name: str = "",
+    ip: str = "",
+    trace_id: str = "",
+) -> dict[str, Any]:
+    """自助注册：只开放教师角色，建号即启用，失败原因与建号接口一致。"""
+    if not allow_registration():
+        raise AppError("FORBIDDEN", "平台已关闭自助注册，请联系管理员建号")
+    created = create_user(
+        repo,
+        username=username,
+        display_name=display_name,
+        role="teacher",
+        password=password,
+        group_name=group_name,
+        actor_id=None,
+        ip=ip,
+        trace_id=trace_id,
+    )
+    user = repo.user_by_id(int(created))
+    if user is None:
+        raise AppError("INTERNAL", "注册后未能读回账号")
+    return user
 
 
 def change_password(
@@ -43,6 +73,8 @@ def change_password(
     with repo.transaction():
         repo.set_password(int(user["id"]), security.hash_password(new_password))
         repo.set_must_change_password(int(user["id"]), False)
+        # 令牌版本自增：已签发的 JWT 立即失效（改密后旧 token 不能再访问）
+        repo.bump_token_version(int(user["id"]))
         if session_id is not None:
             # 改密后其他设备的会话一律失效，避免口令泄露后旧 Cookie 继续可用（R3-F7）
             repo.revoke_other_sessions(int(user["id"]), int(session_id))

@@ -57,6 +57,7 @@ ADD_COLUMN_SQL: dict[tuple[str, str], str] = {
         "ALTER TABLE plan_version ADD COLUMN report_sha256 TEXT NOT NULL DEFAULT ''"
     ),
     ("user", "group_name"): "ALTER TABLE user ADD COLUMN group_name TEXT NOT NULL DEFAULT ''",
+    ("user", "token_version"): "ALTER TABLE user ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1",
     ("plan_version", "engine_version"): (
         "ALTER TABLE plan_version ADD COLUMN engine_version TEXT NOT NULL DEFAULT ''"
     ),

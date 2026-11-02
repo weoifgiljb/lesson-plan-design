@@ -24,6 +24,10 @@ LOGIN_MAX_FAILURES = 5
 LOGIN_LOCK_MINUTES = 10
 MIN_PASSWORD_LENGTH = 8
 
+JWT_TTL_MINUTES = 120
+JWT_DEV_SECRET = "lpp-dev-secret-change-me"
+ALLOW_REGISTRATION = True
+
 
 def data_dir() -> Path:
     return Path(os.environ.get("LPP_DATA_DIR", str(DEFAULT_DATA_DIR))).resolve()
@@ -55,3 +59,15 @@ def cookie_secure() -> bool:
 
 def session_ttl_hours() -> int:
     return int(os.environ.get("LPP_SESSION_TTL_HOURS", SESSION_TTL_HOURS))
+
+
+def jwt_secret() -> str:
+    return os.environ.get("LPP_JWT_SECRET", JWT_DEV_SECRET)
+
+
+def jwt_ttl_minutes() -> int:
+    return int(os.environ.get("LPP_JWT_TTL_MINUTES", JWT_TTL_MINUTES))
+
+
+def allow_registration() -> bool:
+    return os.environ.get("LPP_ALLOW_REGISTRATION", "1" if ALLOW_REGISTRATION else "0") == "1"

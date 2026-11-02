@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.1 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-10-30",
+  "updatedAt": "2026-11-02",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -843,6 +843,74 @@
       ],
       "client": "ui",
       "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "summary": "自助注册（教师）",
+      "auth": false,
+      "roles": [],
+      "csrf": false,
+      "idempotent": false,
+      "status": [
+        201,
+        403,
+        409,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/token",
+      "summary": "用户名口令换 Bearer 令牌",
+      "auth": false,
+      "roles": [],
+      "csrf": false,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        429,
+        422
+      ],
+      "client": "api",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "summary": "当前身份（含认证方式）",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401
+      ],
+      "client": "api",
+      "implemented": true
+    }
+  ],
+  "authSchemes": [
+    {
+      "name": "cookieSession",
+      "type": "cookie",
+      "detail": "lpp_session + X-CSRF-Token（浏览器）"
+    },
+    {
+      "name": "bearerJwt",
+      "type": "http",
+      "scheme": "bearer",
+      "format": "JWT",
+      "detail": "Authorization: Bearer <token>，HS256，默认 120 分钟；改密后 token_version 自增使旧令牌失效"
     }
   ]
 }

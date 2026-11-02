@@ -10,7 +10,7 @@ from app.config import db_path
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 MIGRATION_NAME = re.compile(r"^(\d{4})_.*\.sql$")
 
 

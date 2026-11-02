@@ -96,6 +96,117 @@
         }
       }
     },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Register",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "注册成功，返回账号与访问令牌",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Api V1 Auth Register Post"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "平台已关闭自助注册"
+          },
+          "409": {
+            "description": "用户名已存在"
+          },
+          "422": {
+            "description": "用户名/口令/显示名不符合要求"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/token": {
+      "post": {
+        "summary": "Token",
+        "operationId": "token_api_v1_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "用户名口令换取 Bearer 令牌",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Token Api V1 Auth Token Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "用户名或口令错误"
+          },
+          "403": {
+            "description": "账号已停用"
+          },
+          "429": {
+            "description": "连续失败次数过多，账号锁定中"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Whoami",
+        "operationId": "whoami_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Whoami Api V1 Auth Me Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录、令牌无效或已失效"
+          }
+        }
+      }
+    },
     "/api/v1/me": {
       "get": {
         "summary": "Me",
@@ -2483,6 +2594,42 @@
         ],
         "title": "PasswordChange"
       },
+      "RegisterPayload": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "title": "Username"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Displayname"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          },
+          "groupName": {
+            "type": "string",
+            "maxLength": 64,
+            "title": "Groupname",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "displayName",
+          "password"
+        ],
+        "title": "RegisterPayload"
+      },
       "TaskCreate": {
         "properties": {
           "course": {
@@ -2538,6 +2685,28 @@
           "title"
         ],
         "title": "TaskCreate"
+      },
+      "TokenPayload": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "TokenPayload"
       },
       "UserCreate": {
         "properties": {

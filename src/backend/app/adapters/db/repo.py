@@ -113,6 +113,16 @@ class Repo:
             (1 if flag else 0, int(user_id)),
         )
 
+    def bump_token_version(self, user_id: int) -> int:
+        """改密/重置后自增，使已签发的 JWT 全部失效。"""
+        self.conn.execute(
+            "UPDATE user SET token_version = token_version + 1 WHERE id = ?", (int(user_id),)
+        )
+        row = self.conn.execute(
+            "SELECT token_version FROM user WHERE id = ?", (int(user_id),)
+        ).fetchone()
+        return int(row[0] if row else 1)
+
     def set_password(self, user_id: int, password_hash: str) -> None:
         self.conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))
 

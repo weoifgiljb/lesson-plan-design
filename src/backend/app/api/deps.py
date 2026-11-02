@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 from fastapi import Depends, Request, Response
 
-from app.application import audit_service, session_service
+from app.application import audit_service, session_service, token_service
 from app.api.request_info import client_ip, trace_id
 from app.config import CSRF_COOKIE, CSRF_HEADER, SESSION_COOKIE, cookie_secure, session_ttl_hours
 from app.domain import auth, roles
@@ -26,12 +26,20 @@ def get_repo(request: Request):
 
 
 def current_context(request: Request, repo=Depends(get_repo)) -> dict[str, Any]:
+    """两种认证方式：浏览器用会话 Cookie，客户端/插件用 Authorization: Bearer <JWT>。
+
+    JWT 请求没有 Cookie，因此也不做 CSRF 校验（见 require_csrf*）；令牌自带的
+    token_version 与库内不一致时立即失效（改密/重置后）。
+    """
     token = request.cookies.get(SESSION_COOKIE, "")
-    resolved = session_service.resolve(repo, token)
-    if resolved is None:
+    resolved = session_service.resolve(repo, token) if token else None
+    if resolved is not None:
+        session, user = resolved
+        return {"session": session, "user": user, "repo": repo, "auth": "cookie"}
+    user = token_service.identity_from_header(repo, request.headers.get("Authorization", ""))
+    if user is None:
         raise AppError("AUTH_REQUIRED", "未登录或会话已失效")
-    session, user = resolved
-    return {"session": session, "user": user, "repo": repo}
+    return {"session": {}, "user": user, "repo": repo, "auth": "jwt"}
 
 
 def require_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:
@@ -50,6 +58,8 @@ def require_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:
 def require_csrf(
     request: Request, context: dict[str, Any] = Depends(current_context)
 ) -> dict[str, Any]:
+    if context.get("auth") == "jwt":
+        return context
     provided = request.headers.get(CSRF_HEADER, "")
     expected = str(context["session"].get("csrf_token") or "")
     if not auth.csrf_matches(expected, provided):
@@ -64,11 +74,12 @@ def require_csrf_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:
     def dependency(
         request: Request, context: dict[str, Any] = Depends(current_context)
     ) -> dict[str, Any]:
-        provided = request.headers.get(CSRF_HEADER, "")
-        expected = str(context["session"].get("csrf_token") or "")
-        if not auth.csrf_matches(expected, provided):
-            _audit_denied(request, context, "csrf_failed")
-            raise AppError("FORBIDDEN", "CSRF 校验失败")
+        if context.get("auth") != "jwt":
+            provided = request.headers.get(CSRF_HEADER, "")
+            expected = str(context["session"].get("csrf_token") or "")
+            if not auth.csrf_matches(expected, provided):
+                _audit_denied(request, context, "csrf_failed")
+                raise AppError("FORBIDDEN", "CSRF 校验失败")
         role = str(context["user"].get("role") or "")
         if not roles.allowed(role, allowed_roles):
             _audit_denied(request, context, "role_denied", {"role": role, "allowed": list(allowed_roles)})
