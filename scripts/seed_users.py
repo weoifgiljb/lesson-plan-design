@@ -3,7 +3,7 @@
 
 用法：
     py -3 scripts/seed_users.py --admin admin1 --password 'Lesson2026' --name 管理员
-    py -3 scripts/seed_users.py --teacher teacher1 --password 'Lesson2026' --name 张老师 --group 计算机
+    py -3 scripts/seed_users.py --lead lead1 --password 'Lesson2026' --name 王组长
 
 幂等：用户名已存在时只更新口令哈希与角色，不重复插入。口令必须满足
 `security.password_problem` 的强度规则（长度不少于 8）。
@@ -42,12 +42,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="创建或重置平台账号")
     parser.add_argument("--admin", help="管理员用户名")
     parser.add_argument("--teacher", help="教师用户名")
+    parser.add_argument("--lead", help="组长用户名（本组可见/可推进）")
     parser.add_argument("--password", required=True, help="口令（不少于 8 位）")
     parser.add_argument("--name", default="", help="显示名，默认与用户名相同")
-    parser.add_argument("--group", default="", help="所属教研组（教师用）")
     args = parser.parse_args()
-    if not args.admin and not args.teacher:
-        parser.error("至少给 --admin 或 --teacher")
+    if not args.admin and not args.teacher and not args.lead:
+        parser.error("至少给 --admin / --teacher / --lead 之一")
 
     conn = open_database()
     try:
@@ -57,6 +57,8 @@ def main() -> int:
             done.append(_ensure(repo, args.admin, args.name or args.admin, "admin", args.password))
         if args.teacher:
             done.append(_ensure(repo, args.teacher, args.name or args.teacher, "teacher", args.password))
+        if args.lead:
+            done.append(_ensure(repo, args.lead, args.name or args.lead, "lead", args.password))
     finally:
         conn.close()
     for line in done:
