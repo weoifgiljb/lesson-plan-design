@@ -13,6 +13,18 @@ from app.domain import auth, roles
 from app.domain.errors import AppError
 
 
+def _request_ip(request: Request) -> str:
+    from app.api.request_info import client_ip
+
+    return client_ip(request)
+
+
+def _request_trace(request: Request) -> str:
+    from app.api.request_info import trace_id
+
+    return trace_id(request)
+
+
 def get_repo(request: Request):
     """每请求独立连接：写事务由 db_lock 串行化，读请求不再与写事务共用连接（P19-3）。"""
     factory = getattr(request.app.state, "repo_factory", None)
@@ -37,9 +49,23 @@ def current_context(request: Request, repo=Depends(get_repo)) -> dict[str, Any]:
         session, user = resolved
         enforce_password_change(request, {"user": user, "auth": "cookie"})
         return {"session": session, "user": user, "repo": repo, "auth": "cookie"}
-    user = token_service.identity_from_header(repo, request.headers.get("Authorization", ""))
+    header = request.headers.get("Authorization", "")
+    user = token_service.identity_from_header(repo, header) if header else None
     if user is None:
-        raise AppError("AUTH_REQUIRED", "未登录或会话已失效")
+        if not header:
+            raise AppError("AUTH_REQUIRED", "未登录或会话已失效")
+        # 带令牌但校验失败：留一条可检索的审计（不落令牌原文），便于发现伪造/过期客户端
+        audit_service.record(
+            repo,
+            actor_id=None,
+            action="auth.token.rejected",
+            target_type="user",
+            target_id="",
+            detail={"reason": "invalid_token", "path": request.url.path},
+            ip=_request_ip(request),
+            trace_id=_request_trace(request),
+        )
+        raise AppError("AUTH_REQUIRED", "令牌无效或已失效")
     enforce_password_change(request, {"user": user, "auth": "jwt"})
     return {"session": {}, "user": user, "repo": repo, "auth": "jwt"}
 
@@ -48,6 +74,7 @@ def current_context(request: Request, repo=Depends(get_repo)) -> dict[str, Any]:
 PASSWORD_ALLOWED_PATHS = frozenset(
     {
         "/api/v1/me/password",
+        "/api/v1/me",
         "/api/v1/auth/me",
         "/api/v1/auth/logout",
         "/api/v1/auth/token",

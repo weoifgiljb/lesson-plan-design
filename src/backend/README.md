@@ -52,6 +52,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/auth/me -Headers @{ Authorization
 - 新注册/新建账号带 `mustChangePassword=true`：除 `/auth/me`、`/me/password`、`/auth/logout` 外，其它接口一律 403 `PASSWORD_CHANGE_REQUIRED`；Bearer 客户端改密成功后响应里直接给新的 `accessToken`。
 - 令牌失败（伪造/过期/版本不匹配）统一 401；`/auth/token` 会写 `auth.token` 审计（含 IP 与 traceId）。
 - `POST /api/v1/auth/logout` 对 JWT 是空操作（无状态），客户端丢弃令牌即可。
+- 反向代理：uvicorn 默认信任 `X-Forwarded-For` 改写客户端 IP，**未部署在可信代理后面时请加 `--no-proxy-headers`**，否则来源 IP 可被伪造（登录锁定与注册限速按 IP 计数）。
 - 相关环境变量：`LPP_JWT_SECRET`（**生产必须设置**，默认值只用于开发）、`LPP_JWT_TTL_MINUTES`、`LPP_ALLOW_REGISTRATION`（置 `0` 关闭自助注册）。
 
 ## 建号

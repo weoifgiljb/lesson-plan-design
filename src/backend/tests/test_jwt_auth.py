@@ -264,5 +264,39 @@ class TestJwtAuth(unittest.TestCase):
             os.environ.pop("LPP_ENV", None)
 
 
+    def test_must_change_password_keeps_bootstrap_endpoints(self) -> None:
+        # 前端登录守卫用 /me 取身份：未改密时 /me 必须放行，否则会"登录→403→回登录"死循环
+        self._register()
+        token = self._token()
+        self.assertEqual(
+            self.client.get("/api/v1/me", headers=self._bearer(token)).status_code, 200
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/auth/me", headers=self._bearer(token)).status_code, 200
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/tasks", headers=self._bearer(token)).status_code, 403
+        )
+        changed = self.client.post(
+            "/api/v1/me/password",
+            json={"oldPassword": PASSWORD, "newPassword": "Lesson2027"},
+            headers=self._bearer(token),
+        )
+        self.assertEqual(changed.status_code, 200, changed.text)
+        self.assertTrue(changed.json().get("accessToken"))
+
+    def test_duplicate_username_uses_dedicated_code(self) -> None:
+        self.assertEqual(self._register(username="dup1").status_code, 201)
+        again = self._register(username="dup1")
+        self.assertEqual(again.status_code, 409, again.text)
+        self.assertEqual(again.json()["code"], "USERNAME_TAKEN")
+
+    def test_health_exposes_dev_secret_warning(self) -> None:
+        response = self.client.get("/api/v1/health")
+        self.assertEqual(response.status_code, 200, response.text)
+        body = response.json()
+        self.assertEqual(body["checks"]["security"], "degraded")
+        self.assertTrue(body["configWarnings"])
+
 if __name__ == "__main__":
     unittest.main()

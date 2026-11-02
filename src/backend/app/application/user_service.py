@@ -40,6 +40,16 @@ def register(
     user = repo.user_by_id(int(created))
     if user is None:
         raise AppError("INTERNAL", "注册后未能读回账号")
+    audit_service.record(
+        repo,
+        actor_id=None,
+        action="user.register",
+        target_type="user",
+        target_id=str(created),
+        detail={"username": str(user.get("username") or ""), "source": "self_service"},
+        ip=ip,
+        trace_id=trace_id,
+    )
     return user
 
 
@@ -109,7 +119,7 @@ def create_user(
     data = user_rules.validate(username, display_name, group_name)
     with repo.transaction():
         if repo.user_by_username(data["username"]) is not None:
-            raise AppError("CONFLICT_STALE", f"用户名已存在：{data['username']}")
+            raise AppError("USERNAME_TAKEN", f"用户名已存在：{data['username']}")
         user_id = repo.insert_user(
             data["username"], data["display_name"], role, security.hash_password(password),
             data["group_name"], must_change_password=True,

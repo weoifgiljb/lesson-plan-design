@@ -103,6 +103,16 @@ def register(
 ) -> dict[str, Any]:
     ip = _client_ip(request)
     if not rate_limit.allow(f"register:{ip}", register_max_per_hour()):
+        audit_service.record(
+            repo,
+            actor_id=None,
+            action="auth.register.rate_limited",
+            target_type="user",
+            target_id="",
+            detail={"path": "/api/v1/auth/register"},
+            ip=ip,
+            trace_id=_trace_id(request),
+        )
         raise AppError("RATE_LIMITED", "注册过于频繁，请稍后再试")
     user = user_service.register(
         repo,
