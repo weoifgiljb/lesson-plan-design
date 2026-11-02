@@ -44,6 +44,7 @@ async def sync_push(
     response: Response,
     file: UploadFile = File(...),
     base_hash: str = Form("", alias="baseHash"),
+    plan_id: int | None = Form(None, alias="planId"),
     context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
 ) -> dict[str, Any]:
     actor_id = int(context["user"]["id"])
@@ -66,6 +67,7 @@ async def sync_push(
         files=files,
         package_bytes=data,
         base_hash=base_hash,
+        plan_id=plan_id,
         ip=_client_ip(request),
         trace_id=_trace_id(request),
     )

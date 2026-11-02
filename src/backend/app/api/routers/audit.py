@@ -39,7 +39,17 @@ def list_audit(
     )
 
 
-@router.get("/audit/export")
+@router.get(
+    "/audit/export",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "审计 CSV（UTF-8 BOM；X-Total 为匹配总数，X-Truncated 表示是否截断）",
+            "content": {"text/csv": {"schema": {"type": "string", "format": "binary"}}},
+        },
+        422: {"description": "查询参数非法"},
+    },
+)
 def export_audit(
     request: Request,
     context: dict[str, Any] = Depends(require_role("admin", "lead")),
@@ -58,19 +68,37 @@ def export_audit(
         "date_from": from_date,
         "date_to": to_date,
     }
-    csv_text = audit_service.export_csv(context["repo"], context["user"], filters=filters)
+    csv_text, total, truncated = audit_service.export_csv(
+        context["repo"], context["user"], filters=filters
+    )
     audit_service.record(
         context["repo"],
         actor_id=int(context["user"]["id"]),
         action="audit.export",
         target_type="audit",
         target_id="",
-        detail={"rows": max(csv_text.count("\n") - 1, 0)},
+        detail={
+            "rows": max(csv_text.count("\n") - 1, 0),
+            "total": total,
+            "truncated": truncated,
+            "filters": {
+                "action": action,
+                "actor": actor,
+                "targetType": target_type,
+                "targetId": target_id,
+                "dateFrom": from_date.isoformat() if from_date else None,
+                "dateTo": to_date.isoformat() if to_date else None,
+            },
+        },
         ip=client_ip(request),
         trace_id=trace_id(request),
     )
     return Response(
         content="\ufeff" + csv_text,
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="audit-export.csv"'},
+        headers={
+            "Content-Disposition": 'attachment; filename="audit-export.csv"',
+            "X-Total": str(total),
+            "X-Truncated": "true" if truncated else "false",
+        },
     )

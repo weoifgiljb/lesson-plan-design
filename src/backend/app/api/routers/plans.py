@@ -15,7 +15,19 @@ from app.domain.errors import AppError
 router = APIRouter()
 
 
-@router.post("/plans/import", status_code=201)
+@router.post(
+    "/plans/import",
+    status_code=201,
+    responses={
+        200: {"description": "同一契约包已导入，返回 duplicate=true"},
+        401: {"description": "未登录"},
+        403: {"description": "角色不允许"},
+        409: {"description": "版本冲突（headVersion / baseHash / 差异摘要）"},
+        413: {"description": "契约包超过上限"},
+        415: {"description": "上传类型不是 zip"},
+        422: {"description": "契约或结构校验失败"},
+    },
+)
 async def import_plan(
     request: Request,
     response: Response,

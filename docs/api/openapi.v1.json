@@ -55,15 +55,17 @@
               }
             }
           },
+          "401": {
+            "description": "用户名或口令错误"
+          },
+          "403": {
+            "description": "账号已停用"
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "请求体校验失败"
+          },
+          "429": {
+            "description": "连续失败次数过多，账号锁定中"
           }
         }
       }
@@ -84,6 +86,12 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "未登录或会话已失效"
+          },
+          "403": {
+            "description": "缺少或错误的 CSRF token"
           }
         }
       }
@@ -104,6 +112,9 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "未登录或会话已失效"
           }
         }
       }
@@ -135,15 +146,26 @@
               }
             }
           },
+          "200": {
+            "description": "同一契约包已导入，返回 duplicate=true"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "角色不允许"
+          },
+          "409": {
+            "description": "版本冲突（headVersion / baseHash / 差异摘要）"
+          },
+          "413": {
+            "description": "契约包超过上限"
+          },
+          "415": {
+            "description": "上传类型不是 zip"
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "契约或结构校验失败"
           }
         }
       }
@@ -1109,22 +1131,18 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "审计 CSV（UTF-8 BOM；X-Total 为匹配总数，X-Truncated 表示是否截断）",
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "查询参数非法"
           }
         }
       }
@@ -1803,6 +1821,17 @@
             "type": "string",
             "title": "Basehash",
             "default": ""
+          },
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
           }
         },
         "type": "object",
