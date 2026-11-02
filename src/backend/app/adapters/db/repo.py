@@ -75,6 +75,9 @@ class Repo:
     def user_by_username(self, username: str) -> dict[str, Any] | None:
         return _row(self.conn.execute("SELECT * FROM user WHERE username = ?", (username,)).fetchone())
 
+    def user_by_id(self, user_id: int) -> dict[str, Any] | None:
+        return _row(self.conn.execute("SELECT * FROM user WHERE id = ?", (user_id,)).fetchone())
+
     def user_by_display_name(self, display_name: str) -> dict[str, Any] | None:
         return _row(
             self.conn.execute("SELECT * FROM user WHERE display_name = ? AND active = 1", (display_name,)).fetchone()
@@ -90,6 +93,27 @@ class Repo:
 
     def set_password(self, user_id: int, password_hash: str) -> None:
         self.conn.execute("UPDATE user SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+
+    def set_login_identity(self, user_id: int, role: str, display_name: str) -> None:
+        """建号脚本重置账号时同步角色与姓名：否则"降级管理员"会静默失败（R2-2）。"""
+        self.conn.execute(
+            "UPDATE user SET role = ?, display_name = ? WHERE id = ?",
+            (role, display_name, int(user_id)),
+        )
+
+    def bump_login_failure(self, user_id: int, limit: int, locked_until: str | None) -> int:
+        """原子自增失败计数，达到上限时同时写入锁定时间，返回自增后的计数。
+
+        不能用"先读 failed_count 再写回"：并发登录时多个请求读到同一个旧值，
+        计数会丢更新，5 次失败锁定可被并行请求绕过（第 2 轮评审 R2-1）。
+        """
+        row = self.conn.execute(
+            "UPDATE user SET failed_count = failed_count + 1,"
+            " locked_until = CASE WHEN failed_count + 1 >= ? THEN ? ELSE locked_until END"
+            " WHERE id = ? RETURNING failed_count",
+            (int(limit), locked_until, int(user_id)),
+        ).fetchone()
+        return int(row["failed_count"]) if row is not None else 0
 
     def record_login_failure(self, user_id: int, failed_count: int, locked_until: str | None) -> None:
         self.conn.execute(

@@ -10,8 +10,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 
 from app.adapters.db.connection import open_database
+from app.adapters.db.repo import Repo
 from app.api.errors import register_error_handlers
-from app.api.routers import health
+from app.api.routers import auth, health, me
 
 logger = logging.getLogger("lpp")
 
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI):
         logger.warning("database init failed; health check will report down")
         app.state.db = None
         app.state.db_lock = threading.Lock()
+    # 每请求独立连接（WAL 下多连接安全），写事务仍由同一把锁串行化
+    app.state.repo_factory = lambda: Repo(open_database(), app.state.db_lock)
     yield
     if app.state.db is not None:
         app.state.db.close()
@@ -42,6 +45,8 @@ def create_app() -> FastAPI:
 
     register_error_handlers(application)
     application.include_router(health.router, prefix="/api/v1")
+    application.include_router(auth.router, prefix="/api/v1")
+    application.include_router(me.router, prefix="/api/v1")
     return application
 
 
