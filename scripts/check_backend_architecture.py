@@ -142,7 +142,12 @@ def _check_error_codes(files, app, errors_file):
     tree = common.parse(errors_file)
     codes = common.constant_strings(tree, "ERROR_CODES") if tree is not None else set()
     if not codes:
-        problems.append(common.problem("BA-10", errors_file, 0, "domain/errors.py 必须定义 ERROR_CODES 常量表"))
+        # 错误码目录允许单独成文件：domain/error_codes.py
+        catalog_file = errors_file.parent / "error_codes.py"
+        catalog_tree = common.parse(catalog_file)
+        codes = common.constant_strings(catalog_tree, "ERROR_CODES") if catalog_tree is not None else set()
+    if not codes:
+        problems.append(common.problem("BA-10", errors_file, 0, "domain/errors.py 或 domain/error_codes.py 必须定义 ERROR_CODES 常量表"))
         return problems
     for path in files:
         if path == errors_file:

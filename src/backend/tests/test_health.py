@@ -71,7 +71,8 @@ class TestOpenApiSnapshot(unittest.TestCase):
         self.assertTrue(SNAPSHOT.is_file(), "运行 py -3 scripts/run_backend_gate.py --update-contract 生成快照")
         snapshot = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
         current = create_app().openapi()
-        self.assertEqual(snapshot["paths"].keys(), current["paths"].keys())
+        # 深比较：路径、参数、状态码、schema、securitySchemes 漂移都要被发现
+        self.assertEqual(snapshot, current)
 
 
 if __name__ == "__main__":

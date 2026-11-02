@@ -27,6 +27,8 @@ _REASONS = {
     "algorithm": "不支持的签名算法",
     "expired": "令牌已过期",
     "issued": "令牌签发时间异常",
+    "claims": "令牌载荷字段不合法",
+    "issuer": "令牌签发方不匹配",
 }
 
 
@@ -71,7 +73,11 @@ def decode(token: str, secret: str, *, now: int | None = None) -> tuple[dict[str
     if len(parts) != 3:
         return None, _REASONS["format"]
     header, body, signature = parts
-    if not hmac.compare_digest(_sign(f"{header}.{body}", secret), signature):
+    if not (header.isascii() and body.isascii() and signature.isascii()):
+        return None, _REASONS["format"]
+    if not hmac.compare_digest(
+        _sign(f"{header}.{body}", secret).encode("ascii"), signature.encode("ascii")
+    ):
         return None, _REASONS["signature"]
     raw_header, raw_body = _b64decode(header), _b64decode(body)
     if raw_header is None or raw_body is None:
@@ -82,10 +88,22 @@ def decode(token: str, secret: str, *, now: int | None = None) -> tuple[dict[str
     if not isinstance(payload, dict):
         return None, _REASONS["decode"]
     current = int(now if now is not None else time.time())
+    subject = payload.get("sub")
+    if not isinstance(subject, int) or isinstance(subject, bool) or subject <= 0:
+        return None, _REASONS["claims"]
+    version = payload.get("tv")
+    if not isinstance(version, int) or isinstance(version, bool):
+        return None, _REASONS["claims"]
+    if payload.get("iss") != "lpp":
+        return None, _REASONS["issuer"]
     expires_at = payload.get("exp")
-    if not isinstance(expires_at, int) or expires_at <= current:
+    if not isinstance(expires_at, int) or isinstance(expires_at, bool):
+        return None, _REASONS["claims"]
+    if expires_at <= current:
         return None, _REASONS["expired"]
     issued_at = payload.get("iat")
-    if isinstance(issued_at, int) and issued_at > current + 300:
+    if not isinstance(issued_at, int) or isinstance(issued_at, bool):
+        return None, _REASONS["claims"]
+    if issued_at > current + 300:
         return None, _REASONS["issued"]
     return payload, ""

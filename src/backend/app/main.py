@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
 from app.api.errors import register_error_handlers
+from app.config import security_config_problems, strict_config
 from app.domain.errors import AppError
 from app.api.routers import (
     audit,
@@ -36,6 +37,10 @@ logger = logging.getLogger("lpp")
 async def lifespan(app: FastAPI):
     app.state.db_lock = threading.Lock()
     app.state.db_error = ""
+    problems = security_config_problems()
+    app.state.config_problems = problems
+    if problems and strict_config():
+        raise RuntimeError("安全配置不完整：" + "；".join(problems))
     try:
         bootstrap = open_database()
         bootstrap.close()
@@ -57,8 +62,26 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def _openapi_with_bearer(application: FastAPI) -> dict[str, Any]:
+    """在生成的 OpenAPI 里补上 Bearer(JWT) 安全方案，便于 /docs 直接试。"""
+    schema = FastAPI.openapi(application)
+    components = schema.setdefault("components", {})
+    schemes = components.setdefault("securitySchemes", {})
+    schemes.setdefault(
+        "bearerJwt",
+        {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Authorization: Bearer <accessToken>（HS256，默认 120 分钟）",
+        },
+    )
+    return schema
+
+
 def create_app() -> FastAPI:
     application = FastAPI(title="校标教案双端平台", version="0.1.0", lifespan=lifespan)
+    application.openapi = lambda: _openapi_with_bearer(application)
 
     @application.middleware("http")
     async def trace_middleware(request: Request, call_next):

@@ -24,14 +24,15 @@ def register(
 ) -> dict[str, Any]:
     """自助注册：只开放教师角色，建号即启用，失败原因与建号接口一致。"""
     if not allow_registration():
-        raise AppError("FORBIDDEN", "平台已关闭自助注册，请联系管理员建号")
+        raise AppError("REGISTRATION_CLOSED", "平台已关闭自助注册，请联系管理员建号")
     created = create_user(
         repo,
         username=username,
         display_name=display_name,
         role="teacher",
         password=password,
-        group_name=group_name,
+        # 自助注册不允许自选教研组：组成员关系只能由管理员分配，否则可跨组看/下载他人任务
+        group_name="",
         actor_id=None,
         ip=ip,
         trace_id=trace_id,
@@ -73,8 +74,6 @@ def change_password(
     with repo.transaction():
         repo.set_password(int(user["id"]), security.hash_password(new_password))
         repo.set_must_change_password(int(user["id"]), False)
-        # 令牌版本自增：已签发的 JWT 立即失效（改密后旧 token 不能再访问）
-        repo.bump_token_version(int(user["id"]))
         if session_id is not None:
             # 改密后其他设备的会话一律失效，避免口令泄露后旧 Cookie 继续可用（R3-F7）
             repo.revoke_other_sessions(int(user["id"]), int(session_id))
@@ -155,9 +154,26 @@ def list_users(
     }
 
 
+def verify_credentials(
+    repo: Repo, username: str, password: str, *, ip: str = "", trace_id: str = ""
+) -> dict[str, Any]:
+    """校验账号口令（含锁定/失败计数），成功时不创建会话，供换令牌等无 Cookie 场景使用。"""
+    return _authenticate(repo, username, password, ip, trace_id)
+
+
 def login(
     repo: Repo, username: str, password: str, *, ip: str = "", trace_id: str = ""
 ) -> tuple[dict[str, Any], str, str]:
+    """网页登录：校验口令并创建会话，返回 (user, session_token, csrf_token)。"""
+    user = _authenticate(repo, username, password, ip, trace_id)
+    token, csrf_token = session_service.create(repo, int(user["id"]))
+    _audit(repo, int(user["id"]), "auth.login", {}, ip, trace_id)
+    return user, token, csrf_token
+
+
+def _authenticate(
+    repo: Repo, username: str, password: str, ip: str, trace_id: str
+) -> dict[str, Any]:
     user = repo.user_by_username(username)
     if user is None:
         _audit(repo, None, "auth.login.failed", {"username": username, "reason": "unknown_user"}, ip, trace_id)
@@ -176,9 +192,7 @@ def login(
     return _verify(repo, user, password, ip, trace_id)
 
 
-def _verify(
-    repo: Repo, user: dict[str, Any], password: str, ip: str, trace_id: str
-) -> tuple[dict[str, Any], str, str]:
+def _verify(repo: Repo, user: dict[str, Any], password: str, ip: str, trace_id: str) -> dict[str, Any]:
     if not security.verify_password(password, str(user["password_hash"])):
         # 计数走单条原子 UPDATE：并发登录时"读-改-写"会丢更新，锁定可被绕过（R2-1）
         locked_until = clock.iso_after(LOGIN_LOCK_MINUTES / 60)
@@ -188,9 +202,7 @@ def _verify(
             raise AppError("RATE_LIMITED", "连续失败次数过多，账号已锁定 10 分钟")
         raise AppError("AUTH_REQUIRED", "用户名或口令错误")
     repo.reset_login_failure(int(user["id"]))
-    token, csrf_token = session_service.create(repo, int(user["id"]))
-    _audit(repo, int(user["id"]), "auth.login", {}, ip, trace_id)
-    return user, token, csrf_token
+    return user
 
 
 def _audit(

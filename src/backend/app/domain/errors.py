@@ -1,27 +1,10 @@
 # -*- coding: utf-8 -*-
-"""平台端错误码与业务异常：错误码表是唯一来源，HTTP 状态由它推导。"""
+"""业务异常：错误码表见 app/domain/error_codes.py，HTTP 状态由它推导。"""
 from __future__ import annotations
 
 from typing import Any
 
-ERROR_CODES = {
-    "AUTH_REQUIRED": 401,
-    "FORBIDDEN": 403,
-    "NOT_FOUND": 404,
-    "CONFLICT_STALE": 409,
-    "CONFLICT_DELETED": 409,
-    "HASH_MISMATCH": 422,
-    "SCHEMA_UNSUPPORTED": 422,
-    "STRUCTURE_INVALID": 422,
-    "REPORT_INCONSISTENT": 422,
-    "MEDIA_MISSING": 422,
-    "PAYLOAD_REJECTED": 422,
-    "UNSUPPORTED_MEDIA": 415,
-    "PAYLOAD_TOO_LARGE": 413,
-    "RATE_LIMITED": 429,
-    "SERVICE_UNAVAILABLE": 503,
-    "INTERNAL": 500,
-}
+from app.domain.error_codes import ERROR_CODES  # noqa: F401 - 兼容旧引用，目录见 error_codes.py
 
 
 class AppError(Exception):

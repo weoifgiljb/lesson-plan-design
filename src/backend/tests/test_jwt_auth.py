@@ -10,6 +10,7 @@ from support import isolated_data_dir, tempdir
 
 from app.adapters import clock
 from app.adapters.db.connection import open_database
+from app.config import register_max_per_hour
 from app.domain import security, tokens
 from app.main import create_app
 
@@ -137,6 +138,7 @@ class TestJwtAuth(unittest.TestCase):
     def test_bearer_write_skips_csrf_but_checks_role(self) -> None:
         self._register()
         token = self._token()
+        token = self._complete_first_password_change(token)
         created = self.client.post(
             "/api/v1/tasks",
             json={"course": "信息技术", "week": 3, "session": 1, "title": "JWT 建课"},
@@ -159,6 +161,107 @@ class TestJwtAuth(unittest.TestCase):
             ).status_code,
             403,
         )
+
+
+    def _complete_first_password_change(self, token: str, new_password: str = "Lesson2027") -> str:
+        changed = self.client.post(
+            "/api/v1/me/password",
+            json={"oldPassword": PASSWORD, "newPassword": new_password},
+            headers=self._bearer(token),
+        )
+        self.assertEqual(changed.status_code, 200, changed.text)
+        fresh = changed.json().get("accessToken")
+        self.assertTrue(fresh, changed.text)
+        return str(fresh)
+
+    def test_registration_requires_password_change_first(self) -> None:
+        self._register()
+        token = self._token()
+        blocked = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 3, "session": 1, "title": "未改密"},
+            headers=self._bearer(token),
+        )
+        self.assertEqual(blocked.status_code, 403, blocked.text)
+        self.assertEqual(blocked.json()["code"], "PASSWORD_CHANGE_REQUIRED")
+        # 身份查询仍放行
+        self.assertEqual(
+            self.client.get("/api/v1/auth/me", headers=self._bearer(token)).status_code, 200
+        )
+
+    def test_bearer_can_change_password_and_gets_new_token(self) -> None:
+        self._register()
+        token = self._token()
+        fresh = self._complete_first_password_change(token)
+        self.assertEqual(
+            self.client.get("/api/v1/auth/me", headers=self._bearer(token)).status_code, 401
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/auth/me", headers=self._bearer(fresh)).status_code, 200
+        )
+
+    def test_registration_ignores_group_name(self) -> None:
+        response = self.client.post(
+            "/api/v1/auth/register",
+            json={"username": "spy1", "displayName": "新老师", "password": PASSWORD,
+                  "groupName": "数学组"},
+        )
+        self.assertEqual(response.status_code, 201, response.text)
+        connection = open_database(self.db_file)
+        try:
+            row = connection.execute(
+                "SELECT group_name, must_change_password FROM user WHERE username = 'spy1'"
+            ).fetchone()
+        finally:
+            connection.close()
+        self.assertEqual(row[0], "")
+        self.assertEqual(int(row[1]), 1)
+
+    def test_non_ascii_and_bad_claims_return_401(self) -> None:
+        self._register()
+        token = self._token()
+        # httpx 不接受非 ASCII 头，直接在 domain 层验证：非法签名必须返回原因而不是抛异常
+        broken = token.rsplit(".", 1)[0] + ".签名"
+        payload, problem = tokens.decode(broken, "lpp-dev-secret-change-me")
+        self.assertIsNone(payload)
+        self.assertTrue(problem)
+        bad_subject = tokens.issue(
+            {"sub": {"x": 1}, "tv": 1, "iss": "lpp", "exp": clock.timestamp() + 60},
+            "lpp-dev-secret-change-me",
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/auth/me", headers=self._bearer(bad_subject)).status_code, 401
+        )
+        wrong_issuer = tokens.issue(
+            {"sub": 1, "tv": 1, "iss": "other", "exp": clock.timestamp() + 60},
+            "lpp-dev-secret-change-me",
+        )
+        self.assertEqual(
+            self.client.get("/api/v1/auth/me", headers=self._bearer(wrong_issuer)).status_code, 401
+        )
+
+    def test_register_rate_limit(self) -> None:
+        from app.application import rate_limit
+
+        rate_limit.reset()
+        codes = []
+        for index in range(register_max_per_hour() + 1):
+            response = self._register(username=f"bulk{index}")
+            codes.append(response.status_code)
+        self.assertIn(429, codes, codes)
+        rate_limit.reset()
+
+    def test_production_requires_explicit_secret(self) -> None:
+        import os
+
+        os.environ["LPP_ENV"] = "production"
+        try:
+            from app.config import security_config_problems, strict_config
+
+            self.assertTrue(strict_config())
+            self.assertTrue(security_config_problems())
+        finally:
+            os.environ.pop("LPP_ENV", None)
 
 
 if __name__ == "__main__":

@@ -48,13 +48,15 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/auth/me -Headers @{ Authorization
 ```
 
 - 算法 HS256，默认有效期 120 分钟；载荷含 `sub`（用户 id）、`role`、`tv`（令牌版本）、`exp`。
-- 改密或管理员重置口令会把 `user.token_version` 加一，**已签发的令牌立即失效**；会话 Cookie 同理（改密撤销本人其他会话）。
+- 改密或管理员重置口令（`scripts/seed_users.py`）会把 `user.token_version` 加一，**已签发的令牌立即失效**；会话 Cookie 同理（改密撤销本人其他会话）。
+- 新注册/新建账号带 `mustChangePassword=true`：除 `/auth/me`、`/me/password`、`/auth/logout` 外，其它接口一律 403 `PASSWORD_CHANGE_REQUIRED`；Bearer 客户端改密成功后响应里直接给新的 `accessToken`。
+- 令牌失败（伪造/过期/版本不匹配）统一 401；`/auth/token` 会写 `auth.token` 审计（含 IP 与 traceId）。
 - `POST /api/v1/auth/logout` 对 JWT 是空操作（无状态），客户端丢弃令牌即可。
 - 相关环境变量：`LPP_JWT_SECRET`（**生产必须设置**，默认值只用于开发）、`LPP_JWT_TTL_MINUTES`、`LPP_ALLOW_REGISTRATION`（置 `0` 关闭自助注册）。
 
 ## 建号
 
-平台没有自助注册，第一个账号用受控脚本创建（幂等，已存在则重置口令）：
+默认开放教师自助注册（`POST /api/v1/auth/register`，可用 `LPP_ALLOW_REGISTRATION=0` 关闭）；首个管理员仍用受控脚本创建（幂等，已存在则重置口令并让旧令牌失效）：
 
 ```powershell
 py -3 scripts/seed_users.py --admin admin1 --password 'Lesson2026' --name 管理员
@@ -84,6 +86,11 @@ py -3 scripts/run_backend_gate.py
 | `LPP_MAX_PACKAGE_BYTES` | `52428800`（50 MB） | 契约包大小上限 |
 | `LPP_COOKIE_SECURE` | `0` | 生产环境置 `1`，Cookie 只走 HTTPS |
 | `LPP_SESSION_TTL_HOURS` | `8` | 会话有效期 |
+| `LPP_JWT_SECRET` | 内置开发密钥 | **生产必须设置**（≥32 字节）；`LPP_ENV=production` 时未设置/仍为默认值会拒绝启动 |
+| `LPP_JWT_TTL_MINUTES` | `120` | 令牌有效期（1–1440） |
+| `LPP_ALLOW_REGISTRATION` | `1` | 置 `0` 关闭自助注册 |
+| `LPP_REGISTER_MAX_PER_HOUR` | `10` | 单 IP 每小时注册上限 |
+| `LPP_ENV` | `dev` | 置 `production` 开启严格配置校验 |
 
 存储布局：
 

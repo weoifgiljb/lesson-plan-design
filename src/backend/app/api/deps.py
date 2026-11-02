@@ -35,11 +35,40 @@ def current_context(request: Request, repo=Depends(get_repo)) -> dict[str, Any]:
     resolved = session_service.resolve(repo, token) if token else None
     if resolved is not None:
         session, user = resolved
+        enforce_password_change(request, {"user": user, "auth": "cookie"})
         return {"session": session, "user": user, "repo": repo, "auth": "cookie"}
     user = token_service.identity_from_header(repo, request.headers.get("Authorization", ""))
     if user is None:
         raise AppError("AUTH_REQUIRED", "未登录或会话已失效")
+    enforce_password_change(request, {"user": user, "auth": "jwt"})
     return {"session": {}, "user": user, "repo": repo, "auth": "jwt"}
+
+
+#: must_change_password=1 时仍允许访问的路径（改密本身、身份查询、退出、健康检查）
+PASSWORD_ALLOWED_PATHS = frozenset(
+    {
+        "/api/v1/me/password",
+        "/api/v1/auth/me",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/token",
+        "/api/v1/auth/login",
+        "/api/v1/health",
+    }
+)
+
+
+def enforce_password_change(request: Request, context: dict[str, Any]) -> None:
+    """首次改密是服务端约束：未改密账号除改密/身份查询外一律 403。"""
+    user = context.get("user") or {}
+    if not user.get("must_change_password"):
+        return
+    if request.url.path in PASSWORD_ALLOWED_PATHS:
+        return
+    raise AppError(
+        "PASSWORD_CHANGE_REQUIRED",
+        "请先修改初始口令",
+        {"path": request.url.path},
+    )
 
 
 def require_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:

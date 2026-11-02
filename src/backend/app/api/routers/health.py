@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Response
 
+from app.api.responses import error_responses
 from app.api.deps import get_repo
 from app.application import health_service
 
 router = APIRouter()
 
 
-@router.get("/health", responses={503: {"description": "依赖不可用（数据库或磁盘）"}})
+@router.get("/health", responses=error_responses("SERVICE_UNAVAILABLE:依赖不可用（数据库或磁盘）"))
 def health(response: Response, repo=Depends(get_repo)) -> dict:
     payload = health_service.collect(repo)
     response.status_code = 200 if payload["ok"] else 503

@@ -18,12 +18,24 @@ class RegisterPayload(BaseModel):
     username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
     displayName: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=8, max_length=128)
-    groupName: str = Field(default="", max_length=64)
 
 
 class TokenPayload(BaseModel):
     username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
+
+
+class TokenOut(BaseModel):
+    accessToken: str
+    tokenType: str
+    expiresIn: int
+    expiresAt: str
+    user: dict[str, Any]
+
+
+class AuthMeOut(BaseModel):
+    user: dict[str, Any]
+    auth: str
 
 
 class UserOut(BaseModel):

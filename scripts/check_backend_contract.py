@@ -142,11 +142,14 @@ def _check_openapi(contract: dict, openapi_path: Path) -> list[dict]:
 
 
 def _domain_error_codes(errors_file: Path) -> set[str] | None:
-    tree = common.parse(errors_file)
-    if tree is None:
-        return None
-    codes = common.constant_strings(tree, "ERROR_CODES")
-    return codes or None
+    for candidate in (errors_file, errors_file.parent / "error_codes.py"):
+        tree = common.parse(candidate)
+        if tree is None:
+            continue
+        codes = common.constant_strings(tree, "ERROR_CODES")
+        if codes:
+            return codes
+    return None
 
 
 def _frontend_error_codes(errors_ts: Path) -> set[str] | None:
