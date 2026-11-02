@@ -25,12 +25,14 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
     rows = repo.stats_plans(scope, window)
     rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in rows}))
     records = [_record(row, rounds.get(int(row["plan_id"]), [])) for row in rows]
+    minutes, basis = _export_seconds(repo.stats_exports(scope, window))
     payload = stats.build(
         records,
         _counts(repo.stats_sync(scope, window)),
         _counts(repo.stats_tasks(scope, window)),
-        _export_seconds(repo.stats_exports(scope, window)),
+        minutes,
         _filters_payload(raw_filters),
+        export_basis=basis,
     )
     payload["scope"] = _scope_name(str(user.get("role") or ""))
     return payload
@@ -117,14 +119,19 @@ def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return {str(row["key"]): int(row["total"]) for row in rows}
 
 
-def _export_seconds(rows: list[dict[str, Any]]) -> list[float]:
-    """单份耗时：任务创建 → 导出完成，单位分钟（需求 BS-08/开题表 2）。"""
+def _export_seconds(rows: list[dict[str, Any]]) -> tuple[list[float], dict[str, int]]:
+    """单份耗时：任务创建 → 导出完成，单位分钟（需求 BS-08/开题表 2）。
+
+    没有关联系任务时回退到教案创建时间，这种情况单独计数，避免把两种口径混成一个均值。
+    """
     minutes = []
+    basis = {"task": 0, "plan": 0}
     for row in rows:
         start = datetime.fromisoformat(str(row["start_at"]))
         end = datetime.fromisoformat(str(row["export_created_at"]))
         minutes.append(max((end - start).total_seconds(), 0.0) / 60.0)
-    return minutes
+        basis["task" if int(row.get("from_task") or 0) else "plan"] += 1
+    return minutes, basis
 
 
 def export_csv(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None = None) -> str:
