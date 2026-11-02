@@ -227,7 +227,7 @@ src/
 
 新增 1 张实现表 `user_session`（可撤销会话，满足"退出后重放必须失效"），其余 12 张表按需求 §5.4；`user` 表增加 `group_name` 以支持"组长看本组"。
 
-**首批落地状态（2026-10-28）**：已实现 `health`、`auth/login`、`auth/logout`、`me`、`plans/import`、`plans` 列表/详情/版本链/差异/软删除、`reviews` 列表/详情（含证据链五项）、`sync/head`、`sync/pull`、`sync/push`（baseHash 409 + 游标 + sync_log）、`audit` 审计查询、`settings/engine`，以及 BS-07 的 `exports` 批量导出/状态/下载（门禁 + 插件 DOCX + 产物 SHA-256 + 复用），共 20 个接口；数据库与不可变触发器、zip 安全解包、插件引擎对照、domain 复校、幂等/并发/审计、范围权限、版本差异、证据链、同步冲突与导出测试均已通过。其余 9 个接口保持 `implemented=false`，由后续 BS-08/09/10 分支逐个翻转。
+**首批落地状态（2026-10-28）**：已实现 `health`、`auth/login`、`auth/logout`、`me`、`plans/import`、`plans` 列表/详情/版本链/差异/软删除、`reviews` 列表/详情（含证据链五项）、`sync/head`、`sync/pull`、`sync/push`（baseHash 409 + 游标 + sync_log）、`audit` 审计查询、`settings/engine`，BS-07 的 `exports` 批量导出/状态/下载（门禁 + 插件 DOCX + 产物 SHA-256 + 复用），以及 BS-08 的 `stats/summary`（教师本人/组长本组/管理员全量），共 21 个接口；数据库与不可变触发器、zip 安全解包、插件引擎对照、domain 复校、幂等/并发/审计、范围权限、版本差异、证据链、同步冲突与导出测试均已通过。其余 8 个接口保持 `implemented=false`，由后续 BS-09/10 分支逐个翻转。
 
 ## 5 前端分层与页面
 

@@ -17,6 +17,15 @@ def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
+PLAN_FILTER_KEYS = ("course", "week", "class", "teacher", "created_from", "created_before")
+
+
+def _has_plan_filters(filters: dict[str, Any] | None) -> bool:
+    if not filters:
+        return False
+    return any(filters.get(key) not in (None, "") for key in PLAN_FILTER_KEYS)
+
+
 class Repo:
     def __init__(self, conn: sqlite3.Connection, lock: threading.Lock | None = None) -> None:
         self.conn = conn
@@ -264,6 +273,141 @@ class Repo:
             )
         )
         return _row(self.conn.execute(sql, (job_id,)).fetchone())
+    # ---------- 统计 ----------
+    def stats_plans(self, scope: dict[str, Any], filters: dict[str, Any]) -> list[dict[str, Any]]:
+        condition, params = self._scope_condition(scope)
+        extra, more = self._stats_where(filters)
+        where = " AND ".join([condition, "p.deleted_at IS NULL", extra])
+        sql = " ".join(
+            (
+                "SELECT p.id AS plan_id, p.created_at AS plan_created_at, p.course, p.week,"
+                " p.session, u.display_name AS teacher, pv.content_json, pv.plan_hash,"
+                " pv.version_no, rv.id AS review_id, rv.status AS review_status, rv.round AS review_round,"
+                " rv.report_json, rv.report_sha256",
+                "FROM plan p JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
+                self.LATEST_REVIEW_JOIN,
+                "WHERE",
+                where,
+            )
+        )
+        return self._group(sql, (*params, *more))
+
+    def stats_rounds(self, plan_ids: list[int]) -> dict[int, list[int]]:
+        if not plan_ids:
+            return {}
+        placeholders = ",".join("?" for _ in plan_ids)
+        sql = " ".join(
+            (
+                "SELECT pv.plan_id AS plan_id, rv.round AS round FROM review rv",
+                "JOIN plan_version pv ON pv.id = rv.plan_version_id",
+                f"WHERE pv.plan_id IN ({placeholders}) ORDER BY pv.plan_id, rv.round",
+            )
+        )
+        rows = self.conn.execute(sql, tuple(int(item) for item in plan_ids)).fetchall()
+        grouped: dict[int, list[int]] = {}
+        for row in rows:
+            grouped.setdefault(int(row["plan_id"]), []).append(int(row["round"]))
+        return grouped
+
+    def stats_sync(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        # sync_log 没有教案维度（course/week/teacher）字段：带筛选时明确返回空，
+        # 让该指标 available=false，避免"筛选条件被回显、数字却是全量"的假一致。
+        if _has_plan_filters(filters):
+            return []
+        condition, params = self._scope_condition(scope, "s.operator_id")
+        return self._group(
+            "SELECT s.result AS key, COUNT(*) AS total FROM sync_log s"
+            " LEFT JOIN user u ON u.id = s.operator_id"
+            f" WHERE {condition} GROUP BY s.result",
+            params,
+        )
+
+    def stats_tasks(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        condition, params = self._scope_condition(scope, "t.owner_id")
+        extra, more = self._task_where(filters)
+        return self._group(
+            "SELECT t.status AS key, COUNT(*) AS total FROM task t"
+            " LEFT JOIN user u ON u.id = t.owner_id"
+            f" WHERE {condition} AND {extra} GROUP BY t.status",
+            (*params, *more),
+        )
+
+    def stats_exports(
+        self, scope: dict[str, Any], filters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        condition, params = self._scope_condition(scope)
+        extra, more = self._stats_where(dict(filters or {}))
+        sql = " ".join(
+            (
+                "SELECT j.created_at AS export_created_at,"
+                " COALESCE(t.created_at, p.created_at) AS start_at",
+                "FROM export_job j JOIN plan_version pv ON pv.id = j.plan_version_id",
+                "JOIN plan p ON p.id = pv.plan_id LEFT JOIN task t ON t.id = p.task_id",
+                "JOIN user u ON u.id = p.owner_id",
+                "WHERE j.status = 'succeeded' AND p.deleted_at IS NULL AND",
+                condition,
+                "AND",
+                extra,
+            )
+        )
+        return self._group(sql, (*params, *more))
+
+    def _task_where(self, filters: dict[str, Any] | None) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        data = dict(filters or {})
+        for column, key in (("t.course", "course"), ("t.week", "week"), ("t.class_name", "class"), ("u.display_name", "teacher")):
+            value = data.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if data.get("created_from"):
+            where.append("t.created_at >= ?")
+            params.append(str(data["created_from"]))
+        if data.get("created_before"):
+            where.append("t.created_at < ?")
+            params.append(str(data["created_before"]))
+        return " AND ".join(where), params
+
+    def _stats_where(self, filters: dict[str, Any]) -> tuple[str, list[Any]]:
+        where = ["1 = 1"]
+        params: list[Any] = []
+        class_name = filters.get("class")
+        if class_name not in (None, ""):
+            where.append("p.task_id IN (SELECT id FROM task WHERE class_name = ?)")
+            params.append(class_name)
+        for column, key in (("p.course", "course"), ("p.week", "week"), ("u.display_name", "teacher")):
+            value = filters.get(key)
+            if value not in (None, ""):
+                where.append(f"{column} = ?")
+                params.append(value)
+        if filters.get("created_from"):
+            where.append("p.created_at >= ?")
+            params.append(str(filters["created_from"]))
+        if filters.get("created_before"):
+            where.append("p.created_at < ?")
+            params.append(str(filters["created_before"]))
+        return " AND ".join(where), params
+
+    def _scope_condition(
+        self, scope: dict[str, Any], owner_column: str = "p.owner_id"
+    ) -> tuple[str, list[Any]]:
+        owner_id = scope.get("owner_id")
+        group_name = scope.get("group_name")
+        if owner_id is not None:
+            return f"{owner_column} = ?", [int(owner_id)]
+        if group_name:
+            return "u.group_name = ?", [str(group_name)]
+        return "1 = 1", []
+
+    def _group(self, sql: str, params: tuple[Any, ...] | list[Any]) -> list[dict[str, Any]]:
+        return [dict(row) for row in self.conn.execute(sql, params).fetchall()]
+
     # 同一版本可能有多轮审查（schema 允许），列表/详情只取最新一轮，避免 JOIN 放大行数。
     LATEST_REVIEW_JOIN = (
         "LEFT JOIN review rv ON rv.id = ("

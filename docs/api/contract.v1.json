@@ -538,7 +538,7 @@
         403
       ],
       "client": "ui",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -708,6 +708,46 @@
       "client": "ui",
       "implemented": true,
       "responseMediaType": "text/csv"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/stats/export.csv",
+      "summary": "统计指标 CSV 导出",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/stats/records",
+      "summary": "统计下钻（逐条记录）",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
     }
   ]
 }
