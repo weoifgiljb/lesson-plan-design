@@ -8,8 +8,9 @@
 
 | 任务 | 分支 | 页面 | 主要 API 函数 | 依赖 | 验收/用例 |
 |---|---|---|---|---|---|
-| **FE-01 基座 + 真实概览** | `feature/fe-01-foundation-dashboard` | `/dashboard` | `getStatsSummary`、`listPlans`、`getPlan`、`listReviews`、`getReview`、`listTasks` | fe-00 | TC-12-01 首段 |
+| **FE-01 基座 + 真实概览** | `feature/fe-01-foundation-dashboard` | `/dashboard` | `getStatsSummary`、`listPlans`、`getPlan`、`listReviews`、`getReview`、`getTaskBoard` | fe-00 | TC-12-01 首段 |
 | FE-02 任务 | `feature/fe-02-tasks` | `/tasks` | `listTasks`、`createTask`、`downloadTaskPackage` | FE-01 | TC-11-01 |
+| **FE-02b 四象限任务看板** | `feature/fe-02b-task-board` | `/dashboard`、`/tasks` | `getTaskBoard`、`moveTask`、`discardTask`、`restoreTask` | FE-02 + 后端 board API | TC-11-01 增补 |
 | FE-03 教案库与详情 | `feature/fe-03-plans` | `/plans`、`/plans/:id`、`/plans/:id/content` | `listPlans`、`importPlan`、`getPlan`、`listPlanVersions`、`diffPlan`、`deletePlan` | FE-01 | TC-06-01/02/03/04/06 |
 | FE-04 审查中心 | `feature/fe-04-reviews` | `/reviews`、`/reviews/:id` | `listReviews`、`getReview` | FE-03（回链） | TC-07-01/02/03、TC-09-01 |
 | FE-05 导出中心 | `feature/fe-05-exports` | `/exports`；详情导出入口 | `createExports`、`getExport`、`downloadExport` | FE-03 + 后端补 `versionId` | TC-10-01/02 |
@@ -42,7 +43,7 @@
 | 无导出列表接口 | 导出中心无法查历史 | FE-05 用 `localStorage` 队列保存 `exportId/planVersionId/createdAt`，按 `getExport` 刷新；不伪造服务端历史 |
 | 样例无预览/下载接口 | 样例页只能看元数据 | FE-07 只做列表/检索/管理员上传；预览下载列为后端待补 |
 | `PUT /settings/engine` 未实现 | 引擎页不能切换 | FE-08 只读展示；不显示可点的切换按钮 |
-| 无 dashboard 聚合接口 | 概览需多次请求 | FE-01 客户端并行聚合，分区降级；不新增后端接口 |
+| 无 dashboard 聚合接口 | 概览需多次请求 | FE-01 客户端并行聚合，分区降级；任务区用 `GET /tasks/board`（FE-02b 后端已补） |
 | 无初始管理员 | 新环境无法建号/登录 | FE-01 dev 种子脚本；生产首次管理员由运维命令创建设置 |
 | 管理员无 reviews/tasks 列表权限 | 概览队列/待办不可用 | FE-01 admin 概览改用 plans 队列；不请求已知 403 接口 |
 
@@ -95,5 +96,16 @@ py -3 scripts/run_backend_gate.py
 | FE-01 | 完成（待联调验收） |
 | FE-02 | 完成（待联调验收；含同班不同课唯一键修复） |
 | FE-03 | 完成（待联调验收） |
+| FE-02b | 完成（待联调验收；四象限、拖拽、废弃/恢复） |
 | FE-04…FE-08 | 待开工 |
 | FE-09 | 待联调 |
+
+## 8. FE-02b 四象限任务看板
+
+- 路由：`/tasks` 默认看板（4 列：紧急重要 / 重要不紧急 / 紧急不重要 / 不重要不紧急），可切列表；概览右侧为紧凑 2×2。
+- 拖动：只改象限与顺序，请求 `PATCH /api/v1/tasks/{id}/board`；`boardVersion` 冲突返回 409，前端回滚并重拉。
+- 状态：`draft` 待开始、`reviewing` 进行中、`passed`/`exported` 已完成；完成由导入/审查/导出自动推进，看板默认隐藏。
+- 废弃：`POST /api/v1/tasks/{id}/discard|restore`；看板隐藏，列表可恢复；废弃任务不计入任务完成率分母。
+- 数据：`schema v3` 增加 `quadrant/board_position/board_version/discarded_at`；旧任务按逾期回填 Q1，其余 Q2。
+- 权限：仅任务 owner 可拖动/废弃/恢复；组长可看本组，但他人任务 `canEdit=false`。
+- 新版手册参考：`docs/testing/reference/manual-v2/`（33 项 manifest + 脱敏 Markdown 样例；仅视觉/QA，不入库）。

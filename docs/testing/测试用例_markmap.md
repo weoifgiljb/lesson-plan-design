@@ -19,6 +19,7 @@
 | 样例教案 | `plugins/lesson-plan-design/skills/lesson-plan-design/examples/信息技术0201.json` |
 | 契约包 | `tests/fixtures/dual-end/platform/packages/` 下的 zip（本文件配套生成） |
 | 测试样例目录 | `tests/fixtures/dual-end/`（插件端 JSON、平台端契约包、期望结果与执行脚本） |
+| 手册格式参考 | `docs/testing/reference/manual-v2/`（33 项清单 + 脱敏 Markdown 样例；不直接入库） |
 
 **术语表**
 

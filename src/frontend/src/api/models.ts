@@ -169,6 +169,12 @@ export interface StatsSummary {
   scope: 'own' | 'group' | 'all'
 }
 
+export type TaskQuadrant =
+  | 'urgent_important'
+  | 'important_not_urgent'
+  | 'urgent_not_important'
+  | 'not_urgent_not_important'
+
 export interface TaskItem {
   taskId: number
   course: string
@@ -180,8 +186,21 @@ export interface TaskItem {
   status: 'draft' | 'reviewing' | 'passed' | 'exported' | string
   ownerId: number
   teacher?: string
+  quadrant: TaskQuadrant
+  boardPosition: number
+  boardVersion: number
+  discarded: boolean
+  discardedAt: string | null
+  canEdit: boolean
   overdue: boolean
   createdAt: string
+}
+
+export interface TaskBoard {
+  items: TaskItem[]
+  total: number
+  counts: Record<TaskQuadrant, number>
+  generatedAt: string
 }
 
 export interface SampleItem {

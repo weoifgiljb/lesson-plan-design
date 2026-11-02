@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import type { RequestError } from '@/api/client-error'
 import { getPlan, listPlans } from '@/api/plans'
 import { getReview, listReviews } from '@/api/reviews'
 import { getStatsSummary } from '@/api/stats'
-import { listTasks } from '@/api/tasks'
+import { discardTask, downloadTaskPackage, getTaskBoard, moveTask } from '@/api/tasks'
+import type { TaskItem, TaskQuadrant } from '@/api/models'
 import OverviewBoard from '@/components/overview/OverviewBoard.vue'
 import type { OverviewActivity, OverviewQueueRow, OverviewTodo } from '@/components/overview/types'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
-import { formatDateTime, formatFullDate, formatOverdue, formatShortDateTime, formatTime } from '@/utils/datetime'
+import { formatDateTime, formatFullDate, formatShortDateTime, formatTime } from '@/utils/datetime'
+import { saveBlob } from '@/utils/download'
 import { toLessonStructure } from '@/utils/plan-structure'
+
+const router = useRouter()
 
 const STATUS_LABELS: Record<string, string> = {
   passed: '通过',
@@ -34,7 +40,7 @@ const isReviewer = computed(() => session.role === 'teacher' || session.role ===
 const stats = useApiRequest(() => getStatsSummary({}))
 const plans = useApiRequest(() => listPlans({ page: 1, pageSize: 5 }))
 const reviews = useApiRequest(() => listReviews({ page: 1, pageSize: 50 }))
-const tasks = useApiRequest(() => listTasks({ page: 1, pageSize: 20 }))
+const board = useApiRequest(() => getTaskBoard())
 const planId = ref<number | null>(null)
 const reviewId = ref<number | null>(null)
 const planDetail = useApiRequest(() => getPlan(planId.value as number))
@@ -71,9 +77,8 @@ const repairCount = computed(
       (item) => item.reviewStatus === 'needs_repair' || item.reviewStatus === 'structure_invalid',
     ).length ?? 0,
 )
-const overdueCount = computed(
-  () => tasks.data.value?.items.filter((item) => item.overdue).length ?? 0,
-)
+const boardTasks = computed(() => board.data.value?.items ?? [])
+const overdueCount = computed(() => boardTasks.value.filter((item) => item.overdue).length)
 
 const description = computed(() => {
   if (session.role === 'admin') {
@@ -144,17 +149,6 @@ const todos = computed<OverviewTodo[]>(() => {
       due: '待审',
     })
   }
-  for (const task of tasks.data.value?.items ?? []) {
-    if (!task.overdue) continue
-    items.push({
-      id: `task-${task.taskId}`,
-      kind: '任务',
-      title: task.title,
-      detail: task.className ? `${task.className} / 第 ${task.week} 周` : `第 ${task.week} 周`,
-      due: formatOverdue(task.dueDate),
-      overdue: true,
-    })
-  }
   for (const plan of plans.data.value?.items ?? []) {
     if (plan.reviewStatus !== 'needs_repair' && plan.reviewStatus !== 'structure_invalid') continue
     items.push({
@@ -207,7 +201,7 @@ const partialNotice = computed(() => {
   const failures: string[] = []
   if (planDetail.error.value) failures.push(`结构剖面（${planDetail.error.value.code}）`)
   if (reviews.error.value && isReviewer.value) failures.push(`待办与队列（${reviews.error.value.code}）`)
-  if (tasks.error.value && isReviewer.value) failures.push(`任务待办（${tasks.error.value.code}）`)
+  if (board.error.value) failures.push(`任务看板（${board.error.value.code}）`)
   if (reviewDetail.error.value) failures.push(`证据链（${reviewDetail.error.value.code}）`)
   return failures.length ? `部分数据暂不可用：${failures.join('；')}。` : ''
 })
@@ -219,6 +213,59 @@ const greeting = computed(() => {
   return `${prefix}，${displayName.value}`
 })
 const dateLabel = computed(() => formatFullDate(new Date()))
+
+async function onBoardMove(payload: {
+  taskId: number
+  quadrant: TaskQuadrant
+  position: number
+  boardVersion: number
+}): Promise<void> {
+  try {
+    await moveTask(payload.taskId, {
+      quadrant: payload.quadrant,
+      position: payload.position,
+      boardVersion: payload.boardVersion,
+    })
+    await board.load({ keepData: true })
+  } catch (caught) {
+    const error = caught instanceof Error ? caught.message : '移动任务失败'
+    ElMessage.error(error)
+    await board.load({ keepData: true })
+  }
+}
+
+async function onBoardDiscard(task: TaskItem): Promise<void> {
+  try {
+    await ElMessageBox.confirm(`将「${task.title}」标记为已废弃？`, '废弃任务', {
+      type: 'warning',
+      confirmButtonText: '废弃',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    await discardTask(task.taskId)
+    ElMessage.success('任务已废弃')
+    await board.load({ keepData: true })
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '废弃任务失败')
+  }
+}
+
+async function onBoardDownload(task: TaskItem): Promise<void> {
+  try {
+    const blob = await downloadTaskPackage(task.taskId)
+    saveBlob(blob, `task-${task.taskId}-${task.week}-${task.session}.zip`)
+    ElMessage.success('任务包已下载')
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '下载任务包失败')
+  }
+}
+
+function openBoard(): void {
+  void router.push('/tasks')
+}
 
 async function loadAll(options: { silent?: boolean } = {}): Promise<void> {
   if (inFlight) return
@@ -241,7 +288,10 @@ async function loadAll(options: { silent?: boolean } = {}): Promise<void> {
       plans.load({ keepData: silent }),
     ]
     if (isReviewer.value) {
-      jobs.push(reviews.load({ keepData: silent }), tasks.load({ keepData: silent }))
+      jobs.push(
+        reviews.load({ keepData: silent }),
+        board.load({ keepData: silent }),
+      )
     }
     await Promise.allSettled(jobs)
 
@@ -314,6 +364,10 @@ onBeforeUnmount(() => {
     :structure="structure"
     :queue="queue"
     :todos="todos"
+    :board-tasks="boardTasks"
+    :board-loading="board.loading.value"
+    :board-error="board.error.value"
+    :board-visible="isReviewer"
     :activities="activities"
     :queue-title="queueTitle"
     :queue-description="queueDescription"
@@ -326,5 +380,9 @@ onBeforeUnmount(() => {
     footer-note="数据来自当前账号可见范围；指标以分子/分母为准，完整口径与下钻见统计看板任务。"
     @primary="loadAll()"
     @retry="loadAll()"
+    @board-move="onBoardMove"
+    @board-discard="onBoardDiscard"
+    @board-download="onBoardDownload"
+    @open-board="openBoard"
   />
 </template>

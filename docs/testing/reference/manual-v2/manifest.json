@@ -1,0 +1,233 @@
+[
+  {
+    "project": "项目一",
+    "task": "任务01",
+    "title": "C语言概述",
+    "hours": 1,
+    "file": "项目一-任务01-C语言概述.docx"
+  },
+  {
+    "project": "项目一",
+    "task": "任务02",
+    "title": "Dev-C++安装与使用",
+    "hours": 1,
+    "file": "项目一-任务02-Dev-C++安装与使用.docx"
+  },
+  {
+    "project": "项目一",
+    "task": "任务03",
+    "title": "我的第一个C程序",
+    "hours": 1,
+    "file": "项目一-任务03-我的第一个C程序.docx"
+  },
+  {
+    "project": "项目七",
+    "task": "任务01",
+    "title": "定义结构体类型",
+    "hours": 1,
+    "file": "项目七-任务01-定义结构体类型.docx"
+  },
+  {
+    "project": "项目七",
+    "task": "任务02",
+    "title": "定义结构体变量",
+    "hours": 2,
+    "file": "项目七-任务02-定义结构体变量.docx"
+  },
+  {
+    "project": "项目七",
+    "task": "任务03",
+    "title": "结构体变量的引用和初始化",
+    "hours": 1,
+    "file": "项目七-任务03-结构体变量的引用和初始化.docx"
+  },
+  {
+    "project": "项目七",
+    "task": "任务04",
+    "title": "结构体数组",
+    "hours": 1,
+    "file": "项目七-任务04-结构体数组.docx"
+  },
+  {
+    "project": "项目七",
+    "task": "任务05",
+    "title": "共用体",
+    "hours": 1,
+    "file": "项目七-任务05-共用体.docx"
+  },
+  {
+    "project": "项目三",
+    "task": "任务01",
+    "title": "关系运算和逻辑运算",
+    "hours": 2,
+    "file": "项目三-任务01-关系运算和逻辑运算.docx"
+  },
+  {
+    "project": "项目三",
+    "task": "任务02",
+    "title": "if语句的三种形式",
+    "hours": 2,
+    "file": "项目三-任务02-if语句的三种形式.docx"
+  },
+  {
+    "project": "项目三",
+    "task": "任务03",
+    "title": "多分支语句",
+    "hours": 2,
+    "file": "项目三-任务03-多分支语句.docx"
+  },
+  {
+    "project": "项目二",
+    "task": "任务01",
+    "title": "数据的表现形式",
+    "hours": 2,
+    "file": "项目二-任务01-数据的表现形式.docx"
+  },
+  {
+    "project": "项目二",
+    "task": "任务02",
+    "title": "庆祝神州十七发射圆满成功--数据的表现形式",
+    "hours": 4,
+    "file": "项目二-任务02-庆祝神州十七发射圆满成功--数据的表现形式.docx"
+  },
+  {
+    "project": "项目二",
+    "task": "任务03",
+    "title": "数据的输出语句",
+    "hours": 4,
+    "file": "项目二-任务03-数据的输出语句.docx"
+  },
+  {
+    "project": "项目二",
+    "task": "任务04",
+    "title": "运算符和表达式",
+    "hours": 4,
+    "file": "项目二-任务04-运算符和表达式.docx"
+  },
+  {
+    "project": "项目五",
+    "task": "任务01",
+    "title": "一维数组",
+    "hours": 2,
+    "file": "项目五-任务01-一维数组.docx"
+  },
+  {
+    "project": "项目五",
+    "task": "任务02",
+    "title": "二维数组",
+    "hours": 2,
+    "file": "项目五-任务02-二维数组.docx"
+  },
+  {
+    "project": "项目五",
+    "task": "任务03",
+    "title": "字符数组及字符串",
+    "hours": 3,
+    "file": "项目五-任务03-字符数组及字符串.docx"
+  },
+  {
+    "project": "项目八",
+    "task": "任务01",
+    "title": "指针与地址",
+    "hours": 1,
+    "file": "项目八-任务01-指针与地址.docx"
+  },
+  {
+    "project": "项目八",
+    "task": "任务02",
+    "title": "指向简单变量的指针",
+    "hours": 1,
+    "file": "项目八-任务02-指向简单变量的指针.docx"
+  },
+  {
+    "project": "项目八",
+    "task": "任务03",
+    "title": "指向一维数组的指针变量",
+    "hours": 1,
+    "file": "项目八-任务03-指向一维数组的指针变量.docx"
+  },
+  {
+    "project": "项目八",
+    "task": "任务04",
+    "title": "指向字符串的指针变量",
+    "hours": 1,
+    "file": "项目八-任务04-指向字符串的指针变量.docx"
+  },
+  {
+    "project": "项目八",
+    "task": "任务05",
+    "title": "指向二维数组的指针变量",
+    "hours": 1,
+    "file": "项目八-任务05-指向二维数组的指针变量.docx"
+  },
+  {
+    "project": "项目八",
+    "task": "任务06",
+    "title": "指向结构体的指针变量",
+    "hours": 1,
+    "file": "项目八-任务06-指向结构体的指针变量.docx"
+  },
+  {
+    "project": "项目六",
+    "task": "任务01",
+    "title": "函数的定义",
+    "hours": 1,
+    "file": "项目六-任务01-函数的定义.docx"
+  },
+  {
+    "project": "项目六",
+    "task": "任务02",
+    "title": "函数的调用",
+    "hours": 1,
+    "file": "项目六-任务02-函数的调用.docx"
+  },
+  {
+    "project": "项目六",
+    "task": "任务03",
+    "title": "函数的嵌套调用和递归调用",
+    "hours": 2,
+    "file": "项目六-任务03-函数的嵌套调用和递归调用.docx"
+  },
+  {
+    "project": "项目六",
+    "task": "任务04",
+    "title": "变量的作用域",
+    "hours": 1,
+    "file": "项目六-任务04-变量的作用域.docx"
+  },
+  {
+    "project": "项目四",
+    "task": "任务01",
+    "title": "while循环",
+    "hours": 1,
+    "file": "项目四-任务01-while循环.docx"
+  },
+  {
+    "project": "项目四",
+    "task": "任务02",
+    "title": "do...while循环",
+    "hours": 1,
+    "file": "项目四-任务02-do...while循环.docx"
+  },
+  {
+    "project": "项目四",
+    "task": "任务03",
+    "title": "for循环",
+    "hours": 1,
+    "file": "项目四-任务03-for循环.docx"
+  },
+  {
+    "project": "项目四",
+    "task": "任务04",
+    "title": "多重循环",
+    "hours": 1,
+    "file": "项目四-任务04-多重循环.docx"
+  },
+  {
+    "project": "项目四",
+    "task": "任务05",
+    "title": "break语句和continue语句",
+    "hours": 1,
+    "file": "项目四-任务05-break语句和continue语句.docx"
+  }
+]

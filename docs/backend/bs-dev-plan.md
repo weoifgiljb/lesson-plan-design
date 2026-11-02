@@ -245,7 +245,7 @@ src/
 
 ## 6 契约与版本
 
-- 权威契约：`docs/api/contract.v1.json`（29 个接口、14 个错误码、4 个版本字段、3 个角色）。
+- 权威契约：`docs/api/contract.v1.json`（33 个接口、14 个错误码、4 个版本字段、3 个角色）。
 - 实现进度：每个接口带 `implemented` 字段（缺省视为 `true`）。标记 `false` 的接口允许暂缺，闸门只报一条 warn；接口实现与 `implemented=true` 必须在同一 PR 翻转，否则 BC-02 block。
 - 生成快照：`docs/api/openapi.v1.json`，由 `py -3 scripts/run_backend_gate.py --update-contract` 生成；只允许随契约变更一起更新。
 - 前端类型：`src/frontend/src/api/types.gen.ts`，首行写快照哈希，闸门比对。
@@ -317,7 +317,7 @@ P1（BS-07～11）按月内滚动，P2（BS-12～16）在答辩前按需裁剪�
 - 黄金契约：`tests/fixtures/dual-end/platform/packages/*.zip` × `expected.json`（201/422 + 错误码）。
 - 负例矩阵：改字段、改哈希、删媒体、换版本、轮次回退、同轮重复、`waived` 无放行、zip 穿越、50 MB。
 - 幂等/并发：同包 3 次、并发 2 次，只产生 1 个版本。
-- 权限矩阵：3 角色 × 29 接口，401/403 可区分，越权写审计。
+- 权限矩阵：3 角色 × 33 接口，401/403 可区分，越权写审计。
 - 数据不可变：直接 UPDATE/DELETE `plan_version`/`audit_log` 必须报错。
 - 统计口径：20 份黄金数据，页面分子分母与 SQL 复算误差 0。
 

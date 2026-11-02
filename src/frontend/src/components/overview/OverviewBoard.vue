@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import type { RequestError } from '@/api/client-error'
-import type { Metric } from '@/api/models'
+import type { Metric, TaskItem, TaskQuadrant } from '@/api/models'
 import DataTable from '@/components/DataTable.vue'
 import MetricLedger from '@/components/MetricLedger.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -10,6 +10,7 @@ import SectionHeader from '@/components/SectionHeader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import StructurePanel from '@/components/StructurePanel.vue'
+import TaskQuadrantBoard from '@/components/tasks/TaskQuadrantBoard.vue'
 import type { TableColumn } from '@/components/table-types'
 import type { LessonStructure } from '@/components/structure/model'
 import type { OverviewActivity, OverviewQueueRow, OverviewTodo } from './types'
@@ -24,6 +25,10 @@ const props = withDefaults(
     structure: LessonStructure | null
     queue: OverviewQueueRow[]
     todos: OverviewTodo[]
+    boardTasks?: TaskItem[]
+    boardLoading?: boolean
+    boardError?: RequestError | null
+    boardVisible?: boolean
     activities: OverviewActivity[]
     queueTitle: string
     queueDescription: string
@@ -42,6 +47,10 @@ const props = withDefaults(
     loading: false,
     refreshing: false,
     freshness: '',
+    boardTasks: () => [],
+    boardLoading: false,
+    boardError: null,
+    boardVisible: true,
     error: null,
     partialNotice: '',
     forceFallback: false,
@@ -53,6 +62,10 @@ const props = withDefaults(
 const emit = defineEmits<{
   (event: 'primary'): void
   (event: 'retry'): void
+  (event: 'board-move', payload: { taskId: number; quadrant: TaskQuadrant; position: number; boardVersion: number }): void
+  (event: 'board-discard', task: TaskItem): void
+  (event: 'board-download', task: TaskItem): void
+  (event: 'open-board'): void
 }>()
 
 const LEDGER_KEYS = ['evidence_rate', 'structure_rate', 'defect_density', 'export_seconds']
@@ -187,9 +200,36 @@ function clearFilters(): void {
         <aside class="hero-side">
           <p v-if="partialNotice" class="partial-notice" role="status">{{ partialNotice }}</p>
 
-          <section class="side-block" aria-label="待办">
-            <SectionHeader title="待办" :meta="`${todos.length} 项`" />
-            <ol v-if="todos.length" class="todo-list">
+          <section v-if="boardVisible" class="side-block" aria-label="任务四象限">
+            <TaskQuadrantBoard
+              v-if="boardTasks.length || (!boardLoading && !boardError)"
+              compact
+              :tasks="boardTasks"
+              @move="(payload) => emit('board-move', payload)"
+              @discard="(task) => emit('board-discard', task)"
+              @download="(task) => emit('board-download', task)"
+              @open-board="emit('open-board')"
+            />
+            <StatePanel
+              v-else-if="boardLoading"
+              state="loading"
+              title="正在读取任务看板…"
+              description="只加载未结束任务。"
+            />
+            <StatePanel
+              v-else-if="boardError"
+              state="error"
+              :title="boardError.code"
+              :description="boardError.message"
+              :trace-id="boardError.traceId"
+            >
+              <template #action><el-button type="primary" @click="emit('retry')">重试</el-button></template>
+            </StatePanel>
+          </section>
+
+          <section v-if="todos.length" class="side-block" aria-label="审查与修复">
+            <SectionHeader title="审查 / 修复" :meta="`${todos.length} 项`" />
+            <ol class="todo-list">
               <li
                 v-for="todo in todos"
                 :key="todo.id"
@@ -204,7 +244,6 @@ function clearFilters(): void {
                 <span class="todo-due">{{ todo.due }}</span>
               </li>
             </ol>
-            <p v-else class="side-empty">当前没有待办。新的审查或逾期任务会出现在这里。</p>
           </section>
 
           <section class="side-block" aria-label="最近动态">

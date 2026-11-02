@@ -7,7 +7,7 @@ const username = process.env.LPP_USER || 'teacher01'
 const password = process.env.LPP_PASSWORD || 'Lesson2026'
 const outDir =
   process.env.SMOKE_DIR ||
-  fileURLToPath(new URL('../../../.qa/frontend-review/fe-02', import.meta.url))
+  fileURLToPath(new URL('../../../.qa/frontend-review/fe-04', import.meta.url))
 mkdirSync(outDir, { recursive: true })
 
 const viewports = [
@@ -41,9 +41,53 @@ try {
     await page.getByRole('button', { name: '登录' }).click()
     await page.waitForURL('**/dashboard', { timeout: 15000 })
     await page.goto(`${base}/tasks`, { waitUntil: 'networkidle' })
-    await page.waitForSelector('[aria-label="任务列表"]', { timeout: 15000 })
+    await page.waitForSelector('.quadrant-board', { timeout: 15000 })
     await page.waitForTimeout(300)
 
+    const cards = await page.locator('.task-card').count()
+    if (cards < 1) throw new Error(`${viewport.name}: expected at least one task card`)
+    const columns = await page.locator('.quadrant-grid').evaluate(
+      (element) => getComputedStyle(element).gridTemplateColumns.split(' ').length,
+    )
+    const expectedColumns = viewport.width >= 1181 ? 4 : viewport.width <= 900 ? 1 : 2
+    if (columns !== expectedColumns) {
+      throw new Error(`${viewport.name}: expected ${expectedColumns} board columns, got ${columns}`)
+    }
+
+    if (viewport.name === '1440') {
+      const source = page.locator('[data-quadrant="important_not_urgent"]')
+      const target = page.locator('[data-quadrant="not_urgent_not_important"]')
+      const sourceBefore = await source.locator('.task-card').count()
+      const targetBefore = await target.locator('.task-card').count()
+      if (sourceBefore < 1) throw new Error('drag source quadrant has no task card')
+      const handle = source.locator('.task-card__handle').first()
+      const targetList = target.locator('.quadrant__list')
+      const handleBox = await handle.boundingBox()
+      const targetBox = await targetList.boundingBox()
+      if (!handleBox || !targetBox) throw new Error('drag handles are not measurable')
+      await page.mouse.move(handleBox.x + 2, handleBox.y + handleBox.height / 2)
+      await page.mouse.down()
+      await page.waitForTimeout(200)
+      await page.mouse.move(handleBox.x + 2, handleBox.y + handleBox.height / 2 + 20, { steps: 8 })
+      await page.waitForTimeout(200)
+      await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+        steps: 20,
+      })
+      await page.waitForTimeout(200)
+      await page.mouse.up()
+      await page.waitForTimeout(1200)
+      const sourceAfter = await source.locator('.task-card').count()
+      const targetAfter = await target.locator('.task-card').count()
+      if (sourceAfter !== sourceBefore - 1 || targetAfter !== targetBefore + 1) {
+        throw new Error(
+          `drag did not move card: source ${sourceBefore} -> ${sourceAfter}, target ${targetBefore} -> ${targetAfter}`,
+        )
+      }
+    }
+
+    await page.getByRole('button', { name: '列表' }).click()
+    await page.waitForSelector('[aria-label="任务列表"]', { timeout: 15000 })
+    await page.waitForTimeout(300)
     const rows = await page.locator('.data-table tbody tr').count()
     if (rows < 1) throw new Error(`${viewport.name}: expected at least one task row`)
     if (viewport.name === '1440') {

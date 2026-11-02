@@ -43,6 +43,10 @@ export const client = {
     const response = await http.post<T>(path, body)
     return response.data
   },
+  async patch<T>(path: string, body?: unknown): Promise<T> {
+    const response = await http.patch<T>(path, body)
+    return response.data
+  },
   async put<T>(path: string, body?: unknown): Promise<T> {
     const response = await http.put<T>(path, body)
     return response.data
