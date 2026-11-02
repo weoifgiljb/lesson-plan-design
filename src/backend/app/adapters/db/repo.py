@@ -245,12 +245,15 @@ class Repo:
         return _row(self.conn.execute(sql, (version_id,)).fetchone())
 
     # ---------- 导出 ----------
-    def find_export_job(self, version_id: int, engine_version: str) -> dict[str, Any] | None:
+    def find_export_job(
+        self, version_id: int, engine_version: str, report_sha256: str = ""
+    ) -> dict[str, Any] | None:
+        """复用键 = 版本 + 引擎 + 报告哈希：换了审查报告必须重导，不能拿旧产物（R2-N3）。"""
         return _row(
             self.conn.execute(
                 "SELECT * FROM export_job WHERE plan_version_id = ? AND engine_version = ?"
-                " AND status = 'succeeded' ORDER BY id DESC LIMIT 1",
-                (version_id, engine_version),
+                " AND report_sha256 = ? AND status = 'succeeded' ORDER BY id DESC LIMIT 1",
+                (version_id, engine_version, report_sha256),
             ).fetchone()
         )
 
@@ -324,6 +327,24 @@ class Repo:
         except sqlite3.IntegrityError as exc:
             raise AppError("CONFLICT_STALE", "同一课题的样例已存在") from exc
         return int(cursor.lastrowid or 0)
+
+    def list_users(self) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT * FROM user ORDER BY id"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def count_samples(self) -> int:
+        row = self.conn.execute("SELECT COUNT(*) FROM sample").fetchone()
+        return int(row[0])
+
+    def list_assets(self, attach_to: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT id, kind, path, sha256, caption, attach_to FROM asset"
+            " WHERE attach_to = ? ORDER BY id",
+            (attach_to,),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def get_sample(self, sample_id: int) -> dict[str, Any] | None:
         return _row(self.conn.execute("SELECT * FROM sample WHERE id = ?", (sample_id,)).fetchone())
@@ -541,7 +562,8 @@ class Repo:
         where = " AND ".join([condition, "p.deleted_at IS NULL", extra])
         sql = " ".join(
             (
-                "SELECT p.id AS plan_id, p.created_at AS plan_created_at, pv.content_json, pv.plan_hash,"
+                "SELECT p.id AS plan_id, p.created_at AS plan_created_at, p.course, p.week,"
+                " p.session, u.display_name AS teacher, pv.content_json, pv.plan_hash,"
                 " pv.version_no, rv.id AS review_id, rv.status AS review_status, rv.round AS review_round,"
                 " rv.report_json, rv.report_sha256",
                 "FROM plan p JOIN user u ON u.id = p.owner_id",
@@ -890,14 +912,15 @@ class Repo:
         return [dict(row) for row in rows]
 
     def find_plan_by_identity_scope(
-        self, scope: dict[str, Any], plan: dict[str, Any]
+        self, scope: dict[str, Any], plan: dict[str, Any], include_deleted: bool = False
     ) -> dict[str, Any] | None:
         where, params = self._pull_where(scope)
+        deleted_clause = "" if include_deleted else "AND p.deleted_at IS NULL"
         sql = " ".join(
             (
                 "SELECT p.* FROM plan p JOIN user u ON u.id = p.owner_id",
                 "WHERE p.course = ? AND p.week = ? AND p.session = ? AND p.content_title = ?",
-                "AND p.deleted_at IS NULL",
+                deleted_clause,
                 where,
                 "ORDER BY p.id DESC LIMIT 1",
             )

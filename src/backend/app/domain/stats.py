@@ -11,6 +11,8 @@ def build(
     task_counts: dict[str, int],
     export_seconds: list[float],
     filters: dict[str, Any],
+    *,
+    export_basis: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     plans = len(records)
     structure_ok = sum(1 for item in records if item["structure_ok"])
@@ -32,7 +34,8 @@ def build(
                     available=tasks_total > 0),
             _metric("expert_score", "专家评分", 0, 0, filters, available=False),
             _metric("export_seconds", "单份耗时", sum(export_seconds), len(export_seconds),
-                    filters, unit="分钟", available=bool(export_seconds)),
+                    filters, unit="分钟", available=bool(export_seconds),
+                    basis=export_basis or {"task": 0, "plan": 0}),
             _metric("availability", "平台可用性", 0, 0, filters, available=False),
         ],
         "filters": filters,
@@ -48,15 +51,20 @@ def _metric(
     *,
     unit: str = "",
     available: bool = True,
+    basis: dict[str, int] | None = None,
 ) -> dict[str, Any]:
-    value = round(numerator / denominator, 4) if available and denominator else None
+    actual_denominator = denominator if available else 0
+    value = round(numerator / actual_denominator, 4) if actual_denominator else None
     return {
         "key": key,
         "label": label,
         "numerator": numerator if available else 0,
-        "denominator": denominator if available else 0,
+        "denominator": actual_denominator,
         "value": value,
         "unit": unit,
         "available": bool(available),
+        # 需求 BS-11：单条或少于 5 份样本只提示"样本不足"，不做跨教师结论
+        "sampleInsufficient": bool(available) and 0 < actual_denominator < 5,
+        **({"basis": basis} if basis is not None else {}),
         "filters": filters,
     }

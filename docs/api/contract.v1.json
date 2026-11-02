@@ -108,6 +108,12 @@
       "http": 503,
       "zh": "依赖不可用",
       "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）或磁盘不可写"
+    },
+    {
+      "code": "CONFLICT_DELETED",
+      "http": 409,
+      "zh": "教案已删除",
+      "scene": "带 planId 推送时目标教案已软删除，应先拉取或改用新教案"
     }
   ],
   "endpoints": [
@@ -243,8 +249,8 @@
       "csrf": true,
       "idempotent": true,
       "status": [
-        201,
         200,
+        201,
         401,
         403,
         409,
@@ -449,8 +455,8 @@
       "csrf": true,
       "idempotent": true,
       "status": [
-        201,
         200,
+        201,
         401,
         403,
         409,
@@ -474,8 +480,8 @@
       "csrf": true,
       "idempotent": true,
       "status": [
-        201,
         200,
+        201,
         401,
         403,
         422
@@ -750,10 +756,12 @@
       "status": [
         200,
         401,
-        403
+        403,
+        422
       ],
       "client": "ui",
-      "implemented": true
+      "implemented": true,
+      "responseMediaType": "text/csv"
     },
     {
       "method": "GET",
@@ -806,6 +814,27 @@
       ],
       "csrf": true,
       "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/stats/records",
+      "summary": "统计下钻（逐条记录）",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
       "status": [
         200,
         401,

@@ -30,6 +30,7 @@ from test_repair_schema import TestRepairSchema  # noqa: E402,F401
 from test_samples_api import TestSamplesApi  # noqa: E402,F401
 from test_security import TestSecurity  # noqa: E402,F401
 from test_stats_api import TestStatsApi  # noqa: E402,F401
+from test_stats_golden import TestStatsGolden  # noqa: E402,F401
 from test_storage import TestStorage  # noqa: E402,F401
 from test_sync_api import TestSyncApi  # noqa: E402,F401
 from test_tasks_api import TestTasksApi  # noqa: E402,F401

@@ -71,7 +71,8 @@ def _export_one(
     if problem is not None:
         _audit_failure(repo, user, version_id, problem["code"], problem["message"], row, ip, trace_id)
         return problem, False, False
-    existing = repo.find_export_job(version_id, engine_version)
+    # 复用键要带当前报告哈希：同一版本换了审查报告必须重导（R2-N3）
+    existing = repo.find_export_job(version_id, engine_version, str(row.get("report_sha256") or ""))
     if existing is not None:
         existing = repo.get_export_job(int(existing["id"]))
     if existing is not None and existing.get("docx_path") and storage.export_path(int(existing["id"])).exists():
@@ -143,7 +144,7 @@ def _perform_export(
     if not updated:
         storage.export_path(job_id).unlink(missing_ok=True)
         repo.update_export_job(job_id, "failed")
-        existing = repo.find_export_job(version_id, engine_version)
+        existing = repo.find_export_job(version_id, engine_version, report_sha)
         if existing is not None:
             return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
         return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False

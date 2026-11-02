@@ -175,6 +175,13 @@ class TestAuditApi(unittest.TestCase):
         actions = [item["action"] for item in self.client.get("/api/v1/audit?pageSize=100").json()["items"]]
         self.assertIn("audit.export", actions)
 
+    def test_export_headers_report_total(self) -> None:
+        self._login("admin1")
+        response = self.client.get("/api/v1/audit/export")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("X-Total", response.headers)
+        self.assertEqual(response.headers["X-Truncated"], "false")
+
     def test_export_csv_is_forbidden_for_teacher(self) -> None:
         self._login("teacher1")
         self.assertEqual(self.client.get("/api/v1/audit/export").status_code, 403)

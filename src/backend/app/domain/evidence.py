@@ -85,11 +85,17 @@ def _override_problem(report: dict[str, Any]) -> str | None:
         if not isinstance(item, dict):
             return "放行记录格式无效"
         finding_id = item.get("findingId")
-        if not finding_id or item.get("planHash") != report.get("planHash"):
+        # findingId 必须是字符串：对象/数组既不能当字典键（会 TypeError → 整页 500），
+        # 也不符合报告契约（R2 finding）
+        if not isinstance(finding_id, str) or not finding_id.strip():
+            return "放行记录的 findingId 不是字符串"
+        if item.get("planHash") != report.get("planHash"):
             return "放行记录缺少 findingId 或哈希不符"
-        if not str(item.get("teacher") or "").strip():
+        teacher = item.get("teacher")
+        if not isinstance(teacher, str) or not teacher.strip():
             return f"放行记录缺少教师：{finding_id}"
-        if len(str(item.get("reason") or "").strip()) < MIN_REASON:
+        reason = item.get("reason")
+        if not isinstance(reason, str) or len(reason.strip()) < MIN_REASON:
             return f"放行理由过短：{finding_id}"
         if not _is_member(item.get("kind"), {"teacher_override", "minor_acceptance"}):
             return f"放行类型无效：{finding_id}"

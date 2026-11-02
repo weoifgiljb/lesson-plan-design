@@ -25,15 +25,70 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
     rows = repo.stats_plans(scope, window)
     rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in rows}))
     records = [_record(row, rounds.get(int(row["plan_id"]), [])) for row in rows]
+    minutes, basis = _export_seconds(repo.stats_exports(scope, window))
     payload = stats.build(
         records,
         _counts(repo.stats_sync(scope, window)),
         _counts(repo.stats_tasks(scope, window)),
-        _export_seconds(repo.stats_exports(scope, window)),
+        minutes,
         _filters_payload(raw_filters),
+        export_basis=basis,
     )
     payload["scope"] = _scope_name(str(user.get("role") or ""))
     return payload
+
+
+def records(
+    repo: Repo,
+    user: dict[str, Any],
+    *,
+    filters: dict[str, Any] | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> dict[str, Any]:
+    """下钻：与 summary 同一套范围/筛选，逐条返回可定位的记录。"""
+    raw_filters = dict(filters or {})
+    window = {
+        "course": raw_filters.get("course"),
+        "week": raw_filters.get("week"),
+        "class": raw_filters.get("class"),
+        "teacher": raw_filters.get("teacher"),
+        "created_from": timerange.start_of(raw_filters["date_from"]) if raw_filters.get("date_from") else None,
+        "created_before": timerange.end_exclusive(raw_filters["date_to"]) if raw_filters.get("date_to") else None,
+    }
+    actual_page, actual_size, offset = library.page_params(page, page_size)
+    scope = library.scope_for(user)
+    rows = repo.stats_plans(scope, window)
+    total = len(rows)
+    window_rows = rows[offset : offset + actual_size]
+    rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in window_rows}))
+    items = []
+    for row in window_rows:
+        detail = _record(row, rounds.get(int(row["plan_id"]), []))
+        items.append(
+            {
+                "planId": int(row["plan_id"]),
+                "reviewId": int(row["review_id"]) if row.get("review_id") is not None else None,
+                "course": row.get("course") or "",
+                "week": int(row.get("week") or 0),
+                "session": int(row.get("session") or 0),
+                "teacher": row.get("teacher") or "",
+                "versionNo": int(row.get("version_no") or 0),
+                "reviewStatus": row.get("review_status") or "",
+                "structureOk": bool(detail["structure_ok"]),
+                "evidenceOk": bool(detail["evidence_ok"]),
+                "openBlocking": int(detail["open_blocking"]),
+                "createdAt": row.get("plan_created_at"),
+            }
+        )
+    return {
+        "items": items,
+        "page": actual_page,
+        "pageSize": actual_size,
+        "total": total,
+        "filters": _filters_payload(raw_filters),
+        "scope": _scope_name(str(user.get("role") or "")),
+    }
 
 
 def _record(row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
@@ -64,14 +119,19 @@ def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return {str(row["key"]): int(row["total"]) for row in rows}
 
 
-def _export_seconds(rows: list[dict[str, Any]]) -> list[float]:
-    """单份耗时：任务创建 → 导出完成，单位分钟（需求 BS-08/开题表 2）。"""
+def _export_seconds(rows: list[dict[str, Any]]) -> tuple[list[float], dict[str, int]]:
+    """单份耗时：任务创建 → 导出完成，单位分钟（需求 BS-08/开题表 2）。
+
+    没有关联系任务时回退到教案创建时间，这种情况单独计数，避免把两种口径混成一个均值。
+    """
     minutes = []
+    basis = {"task": 0, "plan": 0}
     for row in rows:
         start = datetime.fromisoformat(str(row["start_at"]))
         end = datetime.fromisoformat(str(row["export_created_at"]))
         minutes.append(max((end - start).total_seconds(), 0.0) / 60.0)
-    return minutes
+        basis["task" if int(row.get("from_task") or 0) else "plan"] += 1
+    return minutes, basis
 
 
 def export_csv(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None = None) -> str:

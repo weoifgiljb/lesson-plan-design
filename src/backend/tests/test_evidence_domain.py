@@ -107,6 +107,20 @@ class TestEvidenceChain(unittest.TestCase):
         result = chain(report(findings=["bad-item"], status="needs_repair"))
         self.assertIn("status_consistent", result["gaps"])
 
+    def test_bad_override_types_are_flagged_not_crashing(self) -> None:
+        # R2 回归：findingId / teacher / reason 不是字符串时抛 TypeError 会让整页 500
+        cases = [
+            {"findingId": {"k": "F1"}, "planHash": "hash-1", "teacher": "张老师", "reason": "理由足够长的说明", "kind": "teacher_override"},
+            {"findingId": ["F1"], "planHash": "hash-1", "teacher": "张老师", "reason": "理由足够长的说明", "kind": "teacher_override"},
+            {"findingId": "F1", "planHash": "hash-1", "teacher": {"n": "张"}, "reason": "理由足够长的说明", "kind": "teacher_override"},
+            {"findingId": "F1", "planHash": "hash-1", "teacher": "张老师", "reason": {"r": "足够长的理由文本"}, "kind": "teacher_override"},
+        ]
+        for override in cases:
+            with self.subTest(finding_id=override["findingId"]):
+                result = chain(report(overrides=[override]))
+                self.assertFalse(result["complete"], result)
+                self.assertIn("overrides_complete", result["gaps"])
+
     def test_bad_independence_is_flagged(self) -> None:
         result = chain(report(independence="robot", reviewer="robot"))
         self.assertIn("independence_valid", result["gaps"])

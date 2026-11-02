@@ -8,7 +8,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from support import isolated_data_dir, load_json_bytes, read_package_dir, tempdir
+from support import REPO_ROOT, isolated_data_dir, load_json_bytes, read_package_dir, tempdir
 
 from app.adapters import storage
 from app.adapters.db.connection import open_database
@@ -102,6 +102,77 @@ class TestSamplesApi(unittest.TestCase):
         self.assertEqual(self.client.get(f"/api/v1/samples/{huge}/download").status_code, 422)
         # 正常边界仍然可用
         self.assertEqual(self.client.get("/api/v1/samples?week=30&session=20").status_code, 200)
+
+    def test_seed_samples_matches_plugin_examples(self) -> None:
+        # 样例库要与插件自带黄金样例一一对应（需求目标 15 份，插件当前 7 份）
+        examples = sorted(
+            path
+            for path in (REPO_ROOT / "plugins/lesson-plan-design/skills/lesson-plan-design/examples").glob("*.json")
+            if path.name != "index.json"
+        )
+        self.assertTrue(examples, "插件样例目录为空")
+        csrf = self._login("admin1")
+        for path in examples:
+            response = self.client.post(
+                "/api/v1/samples",
+                files={"file": (path.name, path.read_bytes(), "application/json")},
+                headers={"X-CSRF-Token": csrf},
+            )
+            self.assertEqual(response.status_code, 201, f"{path.name}: {response.text}")
+        listing = self.client.get("/api/v1/samples?pageSize=50").json()
+        self.assertEqual(listing["total"], len(examples))
+        self.assertTrue(all(item["complete"] for item in listing["items"]), listing["items"])
+
+    def test_asset_hash_mismatch_marks_incomplete(self) -> None:
+        # BS-09: asset 表此前零引用；挂接资产哈希不符时样例必须标不完整
+        csrf = self._login("admin1")
+        sample_id = self._upload(self.plan, csrf).json()["sampleId"]
+        connection = open_database(self.db_file)
+        try:
+            connection.execute(
+                "INSERT INTO asset (kind, path, sha256, caption, attach_to)"
+                " VALUES ('media', 'media/demo.png', 'deadbeef', '教材截图', ?)",
+                (f"sample:{sample_id}",),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        (storage.files_dir() / "media").mkdir(parents=True, exist_ok=True)
+        (storage.files_dir() / "media" / "demo.png").write_bytes(b"real-bytes")
+        body = self.client.get(f"/api/v1/samples/{sample_id}").json()
+        self.assertFalse(body["complete"])
+        self.assertFalse(body["assetsOk"])
+        self.assertEqual(body["assetCount"], 1)
+        self.assertFalse(body["assets"][0]["hashMatched"])
+        # 哈希对上后恢复完整
+        connection = open_database(self.db_file)
+        try:
+            connection.execute(
+                "UPDATE asset SET sha256 = ? WHERE attach_to = ?",
+                (storage.sha256_bytes(b"real-bytes"), f"sample:{sample_id}"),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        self.assertTrue(self.client.get(f"/api/v1/samples/{sample_id}").json()["complete"])
+
+    def test_tampered_sample_download_is_rejected(self) -> None:
+        # R3-N1：文件被篡改/替换后，详情可标红但下载必须拒绝（不能把坏 JSON 给插件端）
+        csrf = self._login("admin1")
+        sample_id = self._upload(self.plan, csrf).json()["sampleId"]
+        connection = open_database(self.db_file)
+        try:
+            path = connection.execute("SELECT json_path FROM sample").fetchone()[0]
+        finally:
+            connection.close()
+        tampered = json.loads(json.dumps(self.plan))
+        tampered["contentTitle"] = "被替换的课题"
+        (storage.files_dir() / path).write_bytes(
+            json.dumps(tampered, ensure_ascii=False).encode("utf-8")
+        )
+        response = self.client.get(f"/api/v1/samples/{sample_id}/download")
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "HASH_MISMATCH")
 
     def test_sample_detail_and_download(self) -> None:
         csrf = self._login("admin1")

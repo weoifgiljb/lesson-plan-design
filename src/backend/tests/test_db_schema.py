@@ -81,6 +81,45 @@ class TestDatabaseSchema(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_v1_upgrade_keeps_data_and_attributes_overrides(self) -> None:
+        # R3-4/R3-2：带数据的 v1 库要能升级，且同名哈希的两个教案各自挂到自己的审查
+        target = self.root / "legacy-data.db"
+        conn = sqlite3.connect(str(target), isolation_level=None)
+        try:
+            conn.executescript(
+                Path(__file__).resolve().parents[1]
+                .joinpath("app/adapters/db/schema.sql")
+                .read_text(encoding="utf-8")
+            )
+            conn.execute("PRAGMA user_version=1")
+            conn.executescript(
+                "INSERT INTO user (id, username, display_name, role, password_hash, created_at)"
+                " VALUES (1, 't1', '张老师', 'teacher', 'x', '2026-10-26'),"
+                "        (2, 't2', '李老师', 'teacher', 'x', '2026-10-26');"
+                "INSERT INTO plan (id, owner_id, content_title, week, session, course, created_at)"
+                " VALUES (1, 1, '课题', 2, 1, '信息技术', '2026-10-26'),"
+                "        (2, 2, '课题', 2, 1, '信息技术', '2026-10-26');"
+                "INSERT INTO plan_version (id, plan_id, version_no, content_json, plan_hash,"
+                " schema_version, rubric_version, created_at)"
+                " VALUES (1, 1, 1, '{}', 'same-hash', 1, '1.0', '2026-10-26'),"
+                "        (2, 2, 1, '{}', 'same-hash', 1, '1.0', '2026-10-26');"
+                "INSERT INTO review (id, plan_version_id, round, report_json, report_sha256,"
+                " status, reviewer_mode, created_at)"
+                " VALUES (1, 1, 1, '{}', 'r1', 'passed', 'native', '2026-10-26'),"
+                "        (2, 2, 1, '{}', 'r2', 'passed', 'native', '2026-10-26');"
+                "INSERT INTO override (id, finding_id, teacher_id, reason, approved_at, plan_hash)"
+                " VALUES (1, 'F1', 1, '理由足够长的说明', '2026-10-26', 'same-hash'),"
+                "        (2, 'F2', 2, '理由足够长的说明', '2026-10-26', 'same-hash');"
+            )
+            initialize(conn)
+            self.assertEqual(current_version(conn), SCHEMA_VERSION)
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM plan_version").fetchone()[0], 2)
+            rows = dict(conn.execute("SELECT teacher_id, review_id FROM override").fetchall())
+            self.assertEqual(rows, {1: 1, 2: 2})
+            self.assertEqual(conn.execute("PRAGMA foreign_key_check").fetchall(), [])
+        finally:
+            conn.close()
+
     def test_plan_version_idempotency_key_is_unique(self) -> None:
         _, plan, _ = self._seed()
         self.conn.execute(

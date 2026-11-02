@@ -7,6 +7,7 @@ from typing import Any
 from app.adapters import archive, engine, storage
 from app.adapters.db.repo import Repo
 from app.application import audit_service
+from app.config import files_dir
 from app.domain import library, sample_rules
 from app.domain.errors import AppError
 
@@ -82,14 +83,39 @@ def list_samples(
     actual_page, actual_size, offset = library.page_params(page, page_size)
     rows, total = repo.list_samples(filters, actual_size, offset)
     return {
-        "items": [_item(row) for row in rows],
+        "items": [_item(repo, row) for row in rows],
         "page": actual_page,
         "pageSize": actual_size,
         "total": total,
     }
 
 
-def _item(row: dict[str, Any]) -> dict[str, Any]:
+def _asset_status(repo: Repo, sample_id: int) -> tuple[bool, list[dict[str, Any]]]:
+    """挂接在本样例上的资产：文件在且哈希对才算完整（asset 表此前零引用）。"""
+    rows = repo.list_assets(f"sample:{int(sample_id)}")
+    statuses: list[dict[str, Any]] = []
+    ok = True
+    for row in rows:
+        target = files_dir() / str(row["path"])
+        exists = target.is_file()
+        digest = storage.sha256_bytes(target.read_bytes()) if exists else ""
+        matched = exists and digest == str(row["sha256"])
+        ok = ok and matched
+        statuses.append(
+            {
+                "assetId": int(row["id"]),
+                "kind": str(row["kind"]),
+                "path": str(row["path"]),
+                "sha256": str(row["sha256"]),
+                "exists": exists,
+                "hashMatched": matched,
+                "caption": str(row.get("caption") or ""),
+            }
+        )
+    return ok, statuses
+
+
+def _item(repo: Repo, row: dict[str, Any]) -> dict[str, Any]:
     raw = storage.read_sample(str(row["json_path"]))
     complete = False
     valid = False
@@ -101,6 +127,8 @@ def _item(row: dict[str, Any]) -> dict[str, Any]:
             validation = engine.validate_plan(plan)
             valid = validation.get("ok") is True
             rule_version = str(validation.get("ruleVersion") or "")
+    assets_ok, assets = _asset_status(repo, int(row["id"]))
+    complete = complete and assets_ok
     return {
         "sampleId": int(row["id"]),
         "course": row["course"],
@@ -113,6 +141,9 @@ def _item(row: dict[str, Any]) -> dict[str, Any]:
         "ruleVersion": str(row.get("rule_version") or rule_version),
         "engineVersion": str(row.get("engine_version") or ""),
         "complete": complete,
+        "assetCount": len(assets),
+        "assetsOk": assets_ok,
+        "assets": assets,
     }
 
 
@@ -124,15 +155,20 @@ def detail(repo: Repo, sample_id: int) -> dict[str, Any]:
     raw = storage.read_sample(str(row["json_path"]))
     plan, problem = archive.read_json({"plan.json": raw or b""}, "plan.json")
     content = plan if problem is None and plan is not None else None
-    return {**_item(row), "content": content}
+    return {**_item(repo, row), "content": content}
 
 
 def download(repo: Repo, sample_id: int) -> tuple[dict[str, Any], bytes]:
-    """下载原始样例 JSON，插件端可直接使用。"""
+    """下载原始样例 JSON，插件端可直接使用；被篡改/替换的样例必须拒绝（R3-N1）。"""
     row = repo.get_sample(int(sample_id))
     if row is None:
         raise AppError("NOT_FOUND", "样例不存在")
     raw = storage.read_sample(str(row["json_path"]))
     if raw is None:
         raise AppError("NOT_FOUND", "样例文件缺失")
-    return _item(row), raw
+    plan, problem = archive.read_json({"plan.json": raw}, "plan.json")
+    if problem is not None or plan is None:
+        raise AppError("HASH_MISMATCH", "样例文件不可解析，拒绝下载")
+    if engine.plan_hash(plan) != str(row["plan_hash"]):
+        raise AppError("HASH_MISMATCH", "样例文件与登记哈希不一致，拒绝下载")
+    return _item(repo, row), raw
