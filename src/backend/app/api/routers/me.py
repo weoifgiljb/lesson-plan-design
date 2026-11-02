@@ -20,7 +20,7 @@ class PasswordChange(BaseModel):
     newPassword: str
 
 
-@router.get("/me")
+@router.get("/me", responses={401: {"description": "未登录或会话已失效"}})
 def me(context: dict[str, Any] = Depends(current_context)) -> dict[str, Any]:
     return {
         "user": schemas.user_payload(context["user"]),
