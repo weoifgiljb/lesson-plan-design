@@ -212,7 +212,7 @@ class Repo:
         return _row(
             self.conn.execute(
                 "SELECT plan_version.id AS version_id, plan_version.version_no AS version_no,"
-                " review.id AS review_id, plan_version.plan_id AS plan_id"
+                " plan_version.plan_hash AS plan_hash, review.id AS review_id, plan_version.plan_id AS plan_id"
                 " FROM plan_version JOIN review ON review.plan_version_id = plan_version.id"
                 " WHERE plan_version.plan_id = ? AND plan_version.plan_hash = ? AND review.report_sha256 = ?"
                 " ORDER BY plan_version.version_no DESC LIMIT 1",
@@ -228,15 +228,16 @@ class Repo:
 
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
-        report_sha256: str, schema_version: int, rubric_version: str,
+        report_sha256: str, schema_version: int, rubric_version: str, engine_version: str,
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
                 "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
-                " schema_version, rubric_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                " schema_version, rubric_version, engine_version, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     plan_id, version_no, content_json, plan_hash, report_sha256,
-                    schema_version, rubric_version, clock.now_iso(),
+                    schema_version, rubric_version, engine_version, clock.now_iso(),
                 ),
             )
             return int(cursor.lastrowid or 0), True
@@ -251,6 +252,8 @@ class Repo:
                 raise AppError("CONFLICT_STALE", "版本冲突，请重试") from exc
             return int(existing["id"]), False
 
+    def close(self) -> None:
+        self.conn.close()
     # ---------- 同步事件 ----------
     def insert_sync_event(self, kind: str, plan_id: int, plan_version_id: int | None = None) -> int:
         """写一条同步事件：version=新增版本、deleted=软删除；pull 用事件 id 作游标。"""

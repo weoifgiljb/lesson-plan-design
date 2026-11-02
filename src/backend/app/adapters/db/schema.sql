@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS plan_version (
     plan_hash TEXT NOT NULL,
     schema_version INTEGER NOT NULL,
     rubric_version TEXT NOT NULL,
+    engine_version TEXT NOT NULL DEFAULT '',
     source TEXT NOT NULL DEFAULT 'import',
     created_at TEXT NOT NULL,
     UNIQUE (plan_id, version_no)

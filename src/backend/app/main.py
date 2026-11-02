@@ -12,25 +12,22 @@ from fastapi import FastAPI, Request
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
 from app.api.errors import register_error_handlers
-from app.api.routers import auth, health, me
+from app.api.routers import auth, health, me, plans
 
 logger = logging.getLogger("lpp")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.db_lock = threading.Lock()
     try:
-        app.state.db = open_database()
-        app.state.db_lock = threading.Lock()
+        bootstrap = open_database()
+        bootstrap.close()
     except Exception:  # noqa: BLE001 - 启动失败要让健康检查报告 down 而不是进程消失
         logger.warning("database init failed; health check will report down")
-        app.state.db = None
-        app.state.db_lock = threading.Lock()
     # 每请求独立连接（WAL 下多连接安全），写事务仍由同一把锁串行化
     app.state.repo_factory = lambda: Repo(open_database(), app.state.db_lock)
     yield
-    if app.state.db is not None:
-        app.state.db.close()
 
 
 def create_app() -> FastAPI:
@@ -47,6 +44,7 @@ def create_app() -> FastAPI:
     application.include_router(health.router, prefix="/api/v1")
     application.include_router(auth.router, prefix="/api/v1")
     application.include_router(me.router, prefix="/api/v1")
+    application.include_router(plans.router, prefix="/api/v1")
     return application
 
 

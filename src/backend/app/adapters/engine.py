@@ -2,6 +2,7 @@
 """插件端引擎接入：全后端唯一修改 sys.path 的地方，保证两端哈希与校验一致。"""
 from __future__ import annotations
 
+import re
 import sys
 from functools import lru_cache
 from pathlib import Path
@@ -9,6 +10,8 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PLUGIN_SCRIPTS = REPO_ROOT / "plugins" / "lesson-plan-design" / "skills" / "lesson-plan-design" / "scripts"
+FOOTER_PATH = PLUGIN_SCRIPTS / "docx_export" / "footer.py"
+ENGINE_VERSION_RE = re.compile(r"^\s*ENGINE_VERSION\s*=\s*\"([^\"]+)\"", re.M)
 
 
 @lru_cache(maxsize=1)
@@ -33,10 +36,18 @@ def export_gate(plan: dict[str, Any], report: dict[str, Any] | None) -> dict[str
     return _lib().export_gate(plan, report)
 
 
+def engine_version() -> str:
+    """从插件 footer 读取引擎版本；只读源码，不 import python-docx 依赖。"""
+    text = FOOTER_PATH.read_text(encoding="utf-8")
+    match = ENGINE_VERSION_RE.search(text)
+    return match.group(1) if match else ""
+
+
 def engine_versions() -> dict[str, Any]:
     try:
         lib = _lib()
         return {
+            "engineVersion": engine_version(),
             "rulesVersion": lib.RULES_VERSION,
             "rubricVersion": lib.RUBRIC_VERSION,
             "reviewSchemaVersion": lib.REVIEW_SCHEMA_VERSION,

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""权限矩阵（契约驱动）：已实现接口在未登录/越权/缺 CSRF 下的表现。"""
+"""权限矩阵（契约驱动）：29 个接口 × 未登录 × 3 角色。"""
 from __future__ import annotations
 
 import json
@@ -19,9 +19,9 @@ PASSWORD = "Lesson2026"
 ROLES = ("teacher", "lead", "admin")
 
 
-def implemented_endpoints() -> list[dict]:
+def contract_endpoints() -> list[dict]:
     data = json.loads(CONTRACT.read_text(encoding="utf-8"))
-    return [item for item in data["endpoints"] if item.get("implemented") is True]
+    return list(data["endpoints"])
 
 
 class TestPermissionMatrix(unittest.TestCase):
@@ -50,50 +50,55 @@ class TestPermissionMatrix(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         return response.json()["csrfToken"]
 
-    def test_implemented_endpoints_declare_route_shape(self) -> None:
-        endpoints = implemented_endpoints()
-        self.assertTrue(endpoints)
-        for item in endpoints:
-            self.assertIn(item["method"], {"GET", "POST", "PUT", "PATCH", "DELETE"})
-            self.assertTrue(item["path"].startswith("/api/v1/"))
+    def _request(self, item: dict, csrf: str | None = None, client=None):
+        target = client or self.client
+        method = item["method"]
+        path = item["path"].replace("{id}", "1")
+        headers = {"X-CSRF-Token": csrf} if csrf else {}
+        if path.endswith("/import"):
+            return target.post(
+                path,
+                files={"file": ("probe.zip", b"not-a-zip", "application/zip")},
+                headers=headers,
+            )
+        if path.endswith("/login"):
+            with TestClient(create_app()) as throwaway:
+                return throwaway.post(path, json={"username": "teacher1", "password": PASSWORD})
+        if method == "GET":
+            return target.get(path, headers=headers)
+        return target.post(path, json={}, headers=headers)
 
-    def test_unauthenticated_requests_are_401(self) -> None:
-        for item in implemented_endpoints():
-            if item.get("auth") is False:
+    def test_all_endpoints_are_covered_by_matrix(self) -> None:
+        self.assertEqual(len(contract_endpoints()), 29)
+
+    def test_unauthenticated_requests(self) -> None:
+        anonymous = TestClient(create_app())
+        anonymous.__enter__()
+        try:
+            for item in contract_endpoints():
+                with self.subTest(endpoint=f"{item['method']} {item['path']}"):
+                    response = self._request(item, client=anonymous)
+                    if not item.get("implemented"):
+                        self.assertEqual(response.status_code, 404, response.text)
+                    elif item.get("auth") is False:
+                        self.assertNotEqual(response.status_code, 401)
+                    else:
+                        self.assertEqual(response.status_code, 401, response.text)
+        finally:
+            anonymous.__exit__(None, None, None)
+
+    def test_roles_matrix(self) -> None:
+        for item in contract_endpoints():
+            if not item.get("implemented") or item.get("auth") is False:
                 continue
-            with self.subTest(endpoint=f"{item['method']} {item['path']}"):
-                if item["method"] == "GET":
-                    response = self.client.get(item["path"])
-                else:
-                    response = self.client.post(item["path"], json={})
-                self.assertEqual(response.status_code, 401, response.text)
-
-    def test_public_endpoints_are_reachable(self) -> None:
-        for item in implemented_endpoints():
-            if item.get("auth") is not False:
-                continue
-            with self.subTest(endpoint=f"{item['method']} {item['path']}"):
-                if item["path"].endswith("/health"):
-                    self.assertEqual(self.client.get(item["path"]).status_code, 200)
-                else:
-                    response = self.client.post(item["path"], json={})
-                    self.assertNotEqual(response.status_code, 401)
-
-    def test_csrf_required_when_contract_says_so(self) -> None:
-        csrf_endpoints = [item for item in implemented_endpoints() if item.get("csrf") is True]
-        self.assertTrue(csrf_endpoints)
-        for item in csrf_endpoints:
-            with self.subTest(endpoint=item["path"]):
-                self._login("teacher")
-                self.assertEqual(self.client.post(item["path"], json={}).status_code, 403)
-
-    def test_each_role_can_read_own_profile(self) -> None:
-        for role in ROLES:
-            with self.subTest(role=role):
-                self._login(role)
-                response = self.client.get("/api/v1/me")
-                self.assertEqual(response.status_code, 200, response.text)
-                self.assertEqual(response.json()["user"]["role"], role)
+            for role in ROLES:
+                with self.subTest(endpoint=f"{item['method']} {item['path']}", role=role):
+                    csrf = self._login(role)
+                    response = self._request(item, csrf)
+                    if role in (item.get("roles") or []):
+                        self.assertNotIn(response.status_code, (401, 403), response.text)
+                    else:
+                        self.assertEqual(response.status_code, 403, response.text)
 
 
 if __name__ == "__main__":

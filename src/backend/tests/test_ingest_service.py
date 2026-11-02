@@ -121,13 +121,13 @@ class TestIngestService(unittest.TestCase):
         files = read_package_dir("valid-package")
         results: list[ingest_service.ImportResult] = []
         errors: list[Exception] = []
-        barrier = threading.Barrier(2)
+        start = threading.Event()
 
         def worker() -> None:
             connection = open_database(self.db_path)
             try:
+                start.wait(5)
                 repo = Repo(connection)
-                barrier.wait()
                 results.append(ingest_service.import_package(repo, files=files, owner_id=self.owner))
             except Exception as exc:  # noqa: BLE001 - 收集线程内失败
                 errors.append(exc)
@@ -137,8 +137,10 @@ class TestIngestService(unittest.TestCase):
         threads = [threading.Thread(target=worker) for _ in range(2)]
         for thread in threads:
             thread.start()
+        start.set()
         for thread in threads:
-            thread.join()
+            thread.join(timeout=20)
+        self.assertFalse(any(thread.is_alive() for thread in threads), "并发导入线程未结束")
         self.assertEqual(errors, [])
         self.assertEqual(len(results), 2)
         self.assertEqual(self.repo.count_versions(results[0].plan_id), 1)

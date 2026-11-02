@@ -5,7 +5,7 @@
 | 文档编号 | LPP-BS-PLAN-001 |
 | 文档版本 | v1.0 |
 | 编制日期 | 2026-10-26 |
-| 关联需求 | 《功能优化需求-BS平台端》v1.1（LPP-BS-001） |
+| 关联需求 | 《功能优化需求-BS平台端》v1.2（LPP-BS-001） |
 | 关联规范 | `AGENTS.md`、`docs/dev/git-workflow.md`、`skills/code-standards/SKILL.md` |
 | 关联契约 | `docs/api/contract.v1.json`、`tests/fixtures/dual-end/` |
 | 关联闸门 | `docs/backend/backend-review-gate.md`、`scripts/run_backend_gate.py` |
@@ -227,7 +227,7 @@ src/
 
 新增 1 张实现表 `user_session`（可撤销会话，满足"退出后重放必须失效"），其余 12 张表按需求 §5.4。
 
-**首批落地范围（本批）**：`health`、入库管道（domain + application + 适配层）、数据库与不可变触发器、zip 安全解包、插件引擎对照；`auth/login`、`auth/logout`、`me` 与 `plans/import` 在后续两个 PR 内完成，`implemented` 随实现同批翻转。
+**首批落地状态（2026-10-28）**：已实现 `health`、`auth/login`、`auth/logout`、`me`、`plans/import` 五个接口；数据库与不可变触发器、zip 安全解包、插件引擎对照、domain 复校、幂等/并发/审计与 6 个黄金契约包测试均已通过。其余接口保持 `implemented=false`，由后续 BS-02/03/04/06 分支逐个翻转。
 
 ## 5 前端分层与页面
 
@@ -245,7 +245,7 @@ src/
 
 ## 6 契约与版本
 
-- 权威契约：`docs/api/contract.v1.json`（29 个接口、13 个错误码、4 个版本字段、3 个角色）。
+- 权威契约：`docs/api/contract.v1.json`（29 个接口、14 个错误码、4 个版本字段、3 个角色）。
 - 实现进度：每个接口带 `implemented` 字段（缺省视为 `true`）。标记 `false` 的接口允许暂缺，闸门只报一条 warn；接口实现与 `implemented=true` 必须在同一 PR 翻转，否则 BC-02 block。
 - 生成快照：`docs/api/openapi.v1.json`，由 `py -3 scripts/run_backend_gate.py --update-contract` 生成；只允许随契约变更一起更新。
 - 前端类型：`src/frontend/src/api/types.gen.ts`，首行写快照哈希，闸门比对。

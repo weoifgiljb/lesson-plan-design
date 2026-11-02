@@ -118,10 +118,75 @@
           }
         }
       }
+    },
+    "/api/v1/plans/import": {
+      "post": {
+        "summary": "Import Plan",
+        "operationId": "import_plan_api_v1_plans_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_plan_api_v1_plans_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Import Plan Api V1 Plans Import Post"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "同一契约包已导入，返回 duplicate=true"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "角色不允许"
+          },
+          "409": {
+            "description": "版本冲突（headVersion / baseHash / 差异摘要）"
+          },
+          "413": {
+            "description": "契约包超过上限"
+          },
+          "415": {
+            "description": "上传类型不是 zip"
+          },
+          "422": {
+            "description": "契约或结构校验失败"
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Body_import_plan_api_v1_plans_import_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_plan_api_v1_plans_import_post"
+      },
       "LoginPayload": {
         "properties": {
           "username": {

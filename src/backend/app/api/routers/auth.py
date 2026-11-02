@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from app.api import schemas
 from app.api.request_info import client_ip, trace_id
 from app.api.deps import clear_session_cookie, get_repo, require_csrf, set_session_cookie
-from app.application import session_service, user_service
+from app.application import audit_service, session_service, user_service
 
 router = APIRouter()
 
@@ -45,9 +45,19 @@ def login(
     },
 )
 def logout(
-    response: Response, context: dict[str, Any] = Depends(require_csrf)
+    request: Request, response: Response, context: dict[str, Any] = Depends(require_csrf)
 ) -> dict[str, Any]:
     session_service.revoke(context["repo"], int(context["session"]["id"]))
+    audit_service.record(
+        context["repo"],
+        actor_id=int(context["user"]["id"]),
+        action="auth.logout",
+        target_type="user",
+        target_id=str(context["user"]["id"]),
+        detail={},
+        ip=_client_ip(request),
+        trace_id=_trace_id(request),
+    )
     clear_session_cookie(response)
     return {"ok": True}
 

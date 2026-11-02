@@ -58,6 +58,26 @@ def require_csrf(
     return context
 
 
+def require_csrf_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:
+    """写接口的组合依赖：先校验会话与 CSRF，再校验角色。"""
+
+    def dependency(
+        request: Request, context: dict[str, Any] = Depends(current_context)
+    ) -> dict[str, Any]:
+        provided = request.headers.get(CSRF_HEADER, "")
+        expected = str(context["session"].get("csrf_token") or "")
+        if not auth.csrf_matches(expected, provided):
+            _audit_denied(request, context, "csrf_failed")
+            raise AppError("FORBIDDEN", "CSRF 校验失败")
+        role = str(context["user"].get("role") or "")
+        if not roles.allowed(role, allowed_roles):
+            _audit_denied(request, context, "role_denied", {"role": role, "allowed": list(allowed_roles)})
+            raise AppError("FORBIDDEN", "无权限执行该操作")
+        return context
+
+    return dependency
+
+
 def _audit_denied(
     request: Request, context: dict[str, Any], reason: str, extra: dict[str, Any] | None = None
 ) -> None:
