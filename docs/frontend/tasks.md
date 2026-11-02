@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|
 | **FE-01 基座 + 真实概览** | `feature/fe-01-foundation-dashboard` | `/dashboard` | `getStatsSummary`、`listPlans`、`getPlan`、`listReviews`、`getReview`、`listTasks` | fe-00 | TC-12-01 首段 |
 | FE-02 任务 | `feature/fe-02-tasks` | `/tasks` | `listTasks`、`createTask`、`downloadTaskPackage` | FE-01 | TC-11-01 |
-| FE-03 教案库与详情 | `feature/fe-03-plans` | `/plans`、`/plans/:id` | `listPlans`、`importPlan`、`getPlan`、`listPlanVersions`、`diffPlan`、`deletePlan` | FE-01 | TC-06-01/02/03/04/06 |
+| FE-03 教案库与详情 | `feature/fe-03-plans` | `/plans`、`/plans/:id`、`/plans/:id/content` | `listPlans`、`importPlan`、`getPlan`、`listPlanVersions`、`diffPlan`、`deletePlan` | FE-01 | TC-06-01/02/03/04/06 |
 | FE-04 审查中心 | `feature/fe-04-reviews` | `/reviews`、`/reviews/:id` | `listReviews`、`getReview` | FE-03（回链） | TC-07-01/02/03、TC-09-01 |
 | FE-05 导出中心 | `feature/fe-05-exports` | `/exports`；详情导出入口 | `createExports`、`getExport`、`downloadExport` | FE-03 + 后端补 `versionId` | TC-10-01/02 |
 | FE-06 统计看板 | `feature/fe-06-stats` | `/stats` | `getStatsSummary`；CSV 前端生成 | FE-03/04（下钻） | TC-10-03 |
