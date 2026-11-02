@@ -363,6 +363,106 @@ class Repo:
             params.append(str(filters["created_before"]))
         return " AND ".join(where), params
 
+    # ---------- 双端同步 ----------
+    def plan_head(self, plan_id: int) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.created_at, p.deleted_at"
+                " FROM plan_version pv JOIN plan p ON p.id = pv.plan_id"
+                " WHERE pv.plan_id = ? AND pv.id = p.current_version_id",
+                (plan_id,),
+            ).fetchone()
+        )
+
+    def pull_events(
+        self, scope: dict[str, Any], since: int, limit: int
+    ) -> list[dict[str, Any]]:
+        """按同步事件游标增量拉取：入库=version、软删除=deleted（删除也能传播）。"""
+        where, params = self._pull_where(scope)
+        sql = " ".join(
+            (
+                "SELECT e.id AS event_id, e.kind, e.plan_id, e.plan_version_id, e.created_at AS event_at,"
+                " pv.version_no, pv.plan_hash, pv.content_json, pv.created_at,"
+                " p.content_title, p.owner_id, p.deleted_at, u.display_name AS teacher",
+                "FROM sync_event e JOIN plan p ON p.id = e.plan_id JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN plan_version pv ON pv.id = e.plan_version_id",
+                "WHERE e.id > ?",
+                where,
+                "ORDER BY e.id LIMIT ?",
+            )
+        )
+        rows = self.conn.execute(sql, (int(since), *params, int(limit))).fetchall()
+        return [dict(row) for row in rows]
+
+    def pull_versions(
+        self, scope: dict[str, Any], since: int, limit: int
+    ) -> list[dict[str, Any]]:
+        where, params = self._pull_where(scope)
+        sql = " ".join(
+            (
+                "SELECT pv.id AS version_id, pv.plan_id, pv.version_no, pv.plan_hash, pv.content_json,"
+                " pv.created_at, p.content_title, p.owner_id, p.deleted_at, u.display_name AS teacher",
+                "FROM plan_version pv JOIN plan p ON p.id = pv.plan_id JOIN user u ON u.id = p.owner_id",
+                "WHERE pv.id > ?",
+                where,
+                "ORDER BY pv.id LIMIT ?",
+            )
+        )
+        rows = self.conn.execute(sql, (int(since), *params, int(limit))).fetchall()
+        return [dict(row) for row in rows]
+
+    def find_plan_by_identity_scope(
+        self, scope: dict[str, Any], plan: dict[str, Any], include_deleted: bool = False
+    ) -> dict[str, Any] | None:
+        where, params = self._pull_where(scope)
+        deleted_clause = "" if include_deleted else "AND p.deleted_at IS NULL"
+        sql = " ".join(
+            (
+                "SELECT p.* FROM plan p JOIN user u ON u.id = p.owner_id",
+                "WHERE p.course = ? AND p.week = ? AND p.session = ? AND p.content_title = ?",
+                deleted_clause,
+                where,
+                "ORDER BY p.id DESC LIMIT 1",
+            )
+        )
+        return _row(
+            self.conn.execute(
+                sql,
+                (
+                    str(plan.get("course") or ""),
+                    int(plan.get("week") or 0),
+                    int(plan.get("session") or 0),
+                    str(plan.get("contentTitle") or ""),
+                    *params,
+                ),
+            ).fetchone()
+        )
+
+    def insert_sync_log(
+        self,
+        direction: str,
+        package_sha256: str,
+        plan_hash: str,
+        result: str,
+        conflict_code: str,
+        operator_id: int | None,
+    ) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO sync_log (direction, package_sha256, plan_hash, result, conflict_code,"
+            " operator_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (direction, package_sha256, plan_hash, result, conflict_code, operator_id, clock.now_iso()),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def _pull_where(self, scope: dict[str, Any]) -> tuple[str, list[Any]]:
+        owner_id = scope.get("owner_id")
+        group_name = scope.get("group_name")
+        if owner_id is not None:
+            return "AND p.owner_id = ?", [int(owner_id)]
+        if group_name:
+            return "AND u.group_name = ?", [str(group_name)]
+        return "", []
+
     def soft_delete_plan(self, plan_id: int) -> bool:
         cursor = self.conn.execute(
             "UPDATE plan SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",

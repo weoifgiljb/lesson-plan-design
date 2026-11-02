@@ -8,14 +8,11 @@ from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFi
 
 from app.adapters import archive
 from app.api.deps import current_context, require_csrf_role
+from app.api.uploads import ACCEPTED_TYPES, read_limited
 from app.application import ingest_service, plan_service
-from app.config import max_package_bytes
 from app.domain.errors import AppError
 
 router = APIRouter()
-
-ACCEPTED_TYPES = {"application/zip", "application/x-zip-compressed", "application/octet-stream", ""}
-CHUNK_BYTES = 1024 * 1024
 
 
 @router.post(
@@ -39,7 +36,7 @@ async def import_plan(
 ) -> dict[str, Any]:
     if (file.content_type or "") not in ACCEPTED_TYPES:
         raise AppError("UNSUPPORTED_MEDIA", f"不接受的上传类型：{file.content_type}")
-    data = await _read_limited(file)
+    data = await read_limited(file)
     files = archive.read_package(data)
     result = ingest_service.import_package(
         context["repo"],
@@ -125,20 +122,6 @@ def delete_plan(
         ip=_client_ip(request),
         trace_id=_trace_id(request),
     )
-
-
-async def _read_limited(file: UploadFile) -> bytes:
-    """分块读取并在超过上限时立即中止，避免先整包进内存再判断。"""
-    limit = max_package_bytes()
-    buffer = bytearray()
-    while True:
-        chunk = await file.read(CHUNK_BYTES)
-        if not chunk:
-            break
-        buffer.extend(chunk)
-        if len(buffer) > limit:
-            raise AppError("PAYLOAD_TOO_LARGE", f"契约包超过 {limit} 字节")
-    return bytes(buffer)
 
 
 def _client_ip(request: Request) -> str:

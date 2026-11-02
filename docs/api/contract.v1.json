@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.1 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-10-28",
+  "updatedAt": "2026-10-30",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -102,6 +102,12 @@
       "http": 500,
       "zh": "服务端错误",
       "scene": "未预期异常，附 traceId"
+    },
+    {
+      "code": "CONFLICT_DELETED",
+      "http": 409,
+      "zh": "教案已删除",
+      "scene": "带 planId 推送时目标教案已软删除，应先拉取或改用新教案"
     }
   ],
   "endpoints": [
@@ -407,7 +413,7 @@
         403
       ],
       "client": "plugin",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "GET",
@@ -426,7 +432,7 @@
         403
       ],
       "client": "plugin",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "POST",
@@ -451,7 +457,7 @@
         429
       ],
       "client": "plugin",
-      "implemented": false
+      "implemented": true
     },
     {
       "method": "POST",
