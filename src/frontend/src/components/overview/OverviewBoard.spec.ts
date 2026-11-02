@@ -54,7 +54,7 @@ describe('OverviewBoard', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('还没有可展示的教案')
     expect(wrapper.text()).toContain('任务四象限')
-    expect(wrapper.text()).toContain('拖到这里')
+    expect(wrapper.findAll('.quadrant__list.is-empty').length).toBeGreaterThan(0)
     expect(wrapper.text()).toContain('还没有可展示的动态')
     expect(wrapper.text()).toContain('证据链完整率')
     expect(wrapper.text()).toContain('当前范围：本人')

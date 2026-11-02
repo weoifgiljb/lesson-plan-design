@@ -56,15 +56,6 @@ const boardQuery = useApiRequest(() =>
   }),
 )
 const boardTasks = computed(() => boardQuery.data.value?.items ?? [])
-const boardCounts = computed<Record<TaskQuadrant, number>>(
-  () =>
-    boardQuery.data.value?.counts ?? {
-      urgent_important: 0,
-      important_not_urgent: 0,
-      urgent_not_important: 0,
-      not_urgent_not_important: 0,
-    },
-)
 
 const state = computed<'ready' | 'loading' | 'error'>(() =>
   loading.value ? 'loading' : error.value ? 'error' : 'ready',
@@ -312,7 +303,7 @@ onMounted(() => {
       />
       <el-button @click="applyFilters">查询</el-button>
       <el-button text @click="resetFilters">重置</el-button>
-      <span class="board-total">进行中 {{ boardTasks.length }} 项</span>
+      <span class="board-total">{{ boardTasks.length }} 项未结束</span>
     </div>
 
     <template v-if="viewMode === 'board'">
@@ -334,14 +325,11 @@ onMounted(() => {
       <TaskQuadrantBoard
         v-else
         :tasks="boardTasks"
+        :show-header="false"
         @move="onMove"
         @discard="onDiscard"
         @download="download"
       />
-      <p class="board-legend">
-        数量：紧急重要 {{ boardCounts.urgent_important ?? 0 }} · 重要不紧急 {{ boardCounts.important_not_urgent ?? 0 }} ·
-        紧急不重要 {{ boardCounts.urgent_not_important ?? 0 }} · 不重要不紧急 {{ boardCounts.not_urgent_not_important ?? 0 }}
-      </p>
     </template>
 
     <DataTable
@@ -589,12 +577,6 @@ onMounted(() => {
 .is-overdue {
   color: var(--lpp-danger);
   font-weight: 600;
-}
-
-.board-legend {
-  color: var(--lpp-text-muted);
-  font-size: 12px;
-  line-height: 1.6;
 }
 
 .footnote {

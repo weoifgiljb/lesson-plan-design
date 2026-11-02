@@ -37,6 +37,7 @@ export type PaletteKey = keyof typeof PALETTE
 
 export const FONT_FAMILY =
   '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif'
+export const FONT_SERIF = '"Songti SC", "STSong", "SimSun", "Noto Serif CJK SC", serif'
 export const FONT_NUMERIC = '"Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif'
 export const FONT_MONO = '"Cascadia Mono", "SFMono-Regular", Consolas, monospace'
 

@@ -7,7 +7,7 @@ const username = process.env.LPP_USER || 'teacher01'
 const password = process.env.LPP_PASSWORD || 'Lesson2026'
 const outDir =
   process.env.SMOKE_DIR ||
-  fileURLToPath(new URL('../../../.qa/frontend-review/fe-04', import.meta.url))
+  fileURLToPath(new URL('../../../.qa/frontend-review/fe-02b', import.meta.url))
 mkdirSync(outDir, { recursive: true })
 
 const viewports = [
@@ -46,7 +46,7 @@ try {
 
     const cards = await page.locator('.task-card').count()
     if (cards < 1) throw new Error(`${viewport.name}: expected at least one task card`)
-    const columns = await page.locator('.quadrant-grid').evaluate(
+    const columns = await page.locator('.quadrant-sheet').evaluate(
       (element) => getComputedStyle(element).gridTemplateColumns.split(' ').length,
     )
     const expectedColumns = viewport.width >= 1181 ? 4 : viewport.width <= 900 ? 1 : 2
@@ -85,6 +85,10 @@ try {
       }
     }
 
+    const boardShot = `${outDir}/tasks-board-${viewport.name}.png`
+    await page.screenshot({ path: boardShot, fullPage: true })
+    console.log('saved', boardShot)
+
     await page.getByRole('button', { name: '列表' }).click()
     await page.waitForSelector('[aria-label="任务列表"]', { timeout: 15000 })
     await page.waitForTimeout(300)
@@ -105,7 +109,7 @@ try {
     )
     if (overflow > 1) throw new Error(`${viewport.name}: body overflows by ${overflow}px`)
 
-    const target = `${outDir}/tasks-${viewport.name}.png`
+    const target = `${outDir}/tasks-list-${viewport.name}.png`
     await page.screenshot({ path: target, fullPage: true })
     console.log('saved', target)
 

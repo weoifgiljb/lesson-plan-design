@@ -10,8 +10,9 @@ const props = withDefaults(
   defineProps<{
     tasks: TaskItem[]
     compact?: boolean
+    showHeader?: boolean
   }>(),
-  { compact: false },
+  { compact: false, showHeader: true },
 )
 
 const emit = defineEmits<{
@@ -75,18 +76,22 @@ function discard(task: TaskItem): void {
 </script>
 
 <template>
-  <section class="quadrant-board" :class="{ 'quadrant-board--compact': compact }" aria-label="任务四象限看板">
-    <div class="quadrant-board__head">
+  <section
+    class="quadrant-board"
+    :class="{ 'quadrant-board--compact': compact, 'quadrant-board--headless': !showHeader }"
+    aria-label="任务四象限看板"
+  >
+    <header v-if="showHeader" class="board-head">
       <div>
         <h3>任务四象限</h3>
-        <p>拖动调整象限；状态随任务流程自动推进。</p>
+        <p>先看重要与紧急，再决定今天先动哪一件。</p>
       </div>
       <button v-if="compact" type="button" class="board-link" @click="emit('open-board')">
         打开任务看板
       </button>
-    </div>
+    </header>
 
-    <div class="quadrant-grid">
+    <div class="quadrant-sheet">
       <section
         v-for="quadrant in QUADRANTS"
         :key="quadrant.key"
@@ -96,16 +101,20 @@ function discard(task: TaskItem): void {
         :aria-label="quadrant.label"
       >
         <header class="quadrant__head">
-          <div>
+          <div class="quadrant__heading">
             <h4>{{ quadrant.label }}</h4>
             <p>{{ quadrant.hint }}</p>
           </div>
-          <span class="quadrant__count">{{ totals[quadrant.key] }}</span>
+          <div class="quadrant__count" :aria-label="`${totals[quadrant.key]} 项`">
+            <strong>{{ totals[quadrant.key] }}</strong>
+            <span>项</span>
+          </div>
         </header>
 
         <draggable
           v-model="board[quadrant.key]"
           class="quadrant__list"
+          :class="{ 'is-empty': !board[quadrant.key].length }"
           :data-quadrant="quadrant.key"
           :group="{ name: 'task-board', pull: true, put: true }"
           item-key="taskId"
@@ -125,7 +134,10 @@ function discard(task: TaskItem): void {
               <div class="task-card__top">
                 <span class="task-card__handle" :aria-hidden="task.canEdit ? undefined : 'true'">⋮⋮</span>
                 <strong>{{ task.title }}</strong>
-                <el-dropdown trigger="click" @command="(command: string) => command === 'discard' ? discard(task) : command === 'download' ? emit('download', task) : moveTo(task, command as TaskQuadrant)">
+                <el-dropdown
+                  trigger="click"
+                  @command="(command: string) => command === 'discard' ? discard(task) : command === 'download' ? emit('download', task) : moveTo(task, command as TaskQuadrant)"
+                >
                   <button type="button" class="task-card__more" aria-label="任务操作">⋯</button>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -144,8 +156,8 @@ function discard(task: TaskItem): void {
                 </el-dropdown>
               </div>
               <p class="task-card__meta">
-                {{ task.course }}<span v-if="task.className"> · {{ task.className }}</span>
-                <span v-if="compact === false"> · {{ task.teacher }}</span>
+                {{ task.course }}<span v-if="task.className"> / {{ task.className }}</span>
+                <span v-if="!compact && task.teacher"> / {{ task.teacher }}</span>
               </p>
               <div class="task-card__bottom">
                 <span class="task-status" :class="`task-status--${task.status}`">{{ taskStatusLabel(task) }}</span>
@@ -154,7 +166,6 @@ function discard(task: TaskItem): void {
             </article>
           </template>
         </draggable>
-        <p v-if="!board[quadrant.key].length" class="quadrant__empty">拖到这里</p>
       </section>
     </div>
   </section>
@@ -165,67 +176,79 @@ function discard(task: TaskItem): void {
   min-width: 0;
 }
 
-.quadrant-board__head {
+.board-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
-.quadrant-board__head h3 {
-  font-size: var(--lpp-font-md);
+.board-head h3 {
+  color: var(--lpp-text);
+  font-family: var(--lpp-font-serif);
+  font-size: var(--lpp-font-lg);
   font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
 }
 
-.quadrant-board__head p {
+.board-head p {
   margin-top: 2px;
   color: var(--lpp-text-muted);
   font-size: var(--lpp-font-xs);
+  line-height: 1.5;
 }
 
 .board-link {
-  padding: 0;
+  flex: 0 0 auto;
+  padding: 0 0 1px;
   border: 0;
+  border-bottom: 1px solid var(--lpp-accent);
   background: transparent;
-  color: var(--lpp-primary);
+  color: var(--lpp-accent-ink);
   font-size: var(--lpp-font-xs);
   cursor: pointer;
 }
 
-.quadrant-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+.board-link:hover {
+  color: var(--lpp-primary);
+  border-bottom-color: var(--lpp-primary);
 }
 
-.quadrant-board--compact .quadrant-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.quadrant-sheet {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-border);
 }
 
 .quadrant {
+  --quadrant-tone: var(--lpp-border-strong);
+  display: flex;
   min-width: 0;
-  border: 1px solid var(--lpp-border);
-  border-top-width: 3px;
-  border-radius: var(--lpp-radius-card);
+  flex-direction: column;
   background: var(--lpp-surface);
-  overflow: hidden;
+  box-shadow: inset 3px 0 0 var(--quadrant-tone);
 }
 
 .quadrant--danger {
-  border-top-color: var(--lpp-danger);
+  --quadrant-tone: var(--lpp-danger);
 }
 
 .quadrant--primary {
-  border-top-color: var(--lpp-primary);
+  --quadrant-tone: var(--lpp-primary);
 }
 
 .quadrant--warning {
-  border-top-color: var(--lpp-warning);
+  --quadrant-tone: var(--lpp-warning);
 }
 
 .quadrant--muted {
-  border-top-color: var(--lpp-border-strong);
+  --quadrant-tone: var(--lpp-text-muted);
 }
 
 .quadrant__head {
@@ -233,113 +256,212 @@ function discard(task: TaskItem): void {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  padding: 9px 10px 7px;
+  padding: 13px 12px 11px 15px;
   border-bottom: 1px solid var(--lpp-border);
 }
 
+.quadrant__heading {
+  min-width: 0;
+}
+
 .quadrant__head h4 {
-  font-size: var(--lpp-font-xs);
+  overflow: hidden;
+  color: var(--lpp-text);
+  font-family: var(--lpp-font-serif);
+  font-size: 17px;
   font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .quadrant__head p {
-  margin-top: 1px;
+  margin-top: 2px;
   color: var(--lpp-text-muted);
-  font-size: 12px;
+  font-size: var(--lpp-font-xs);
+  line-height: 1.4;
 }
 
 .quadrant__count {
-  color: var(--lpp-text-muted);
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 2px;
+  color: var(--quadrant-tone);
+}
+
+.quadrant__count strong {
   font-family: var(--lpp-font-numeric);
-  font-size: var(--lpp-font-xs);
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.quadrant__count span {
+  color: var(--lpp-text-muted);
+  font-size: 11px;
 }
 
 .quadrant__list {
-  min-height: 92px;
-  max-height: 370px;
-  padding: 8px;
+  flex: 1;
+  min-height: 250px;
+  max-height: 430px;
+  padding: 10px 12px 12px;
   overflow: auto;
 }
 
-.quadrant-board--compact .quadrant__list {
-  max-height: 210px;
+.quadrant-board--compact .quadrant-sheet {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.quadrant__empty {
-  padding: 12px 2px;
+.quadrant-board--compact .quadrant__head {
+  padding: 10px 9px 8px 12px;
+}
+
+.quadrant-board--compact .quadrant__head h4 {
+  font-size: 15px;
+}
+
+.quadrant-board--compact .quadrant__count strong {
+  font-size: 19px;
+}
+
+.quadrant-board--compact .quadrant__list {
+  min-height: 96px;
+  max-height: 220px;
+  padding: 7px 8px 9px;
+}
+
+.quadrant__list.is-empty {
+  display: grid;
+  flex: 0 0 auto;
+  min-height: 160px;
+  margin: 10px 12px 12px 15px;
+  padding: 0;
+  place-items: center;
+  border: 1px dashed var(--lpp-border-strong);
+  border-radius: var(--lpp-radius-control);
   color: var(--lpp-text-muted);
-  font-size: 12px;
-  text-align: center;
+  font-size: var(--lpp-font-xs);
+}
+
+.quadrant__list.is-empty::before {
+  content: '拖到这里';
+}
+
+.quadrant-board--compact .quadrant__list.is-empty {
+  margin: 7px 8px 9px 12px;
 }
 
 .task-card {
-  padding: 8px;
+  padding: 9px 10px 8px;
   border: 1px solid var(--lpp-border);
+  border-left: 2px solid var(--quadrant-tone);
   border-radius: var(--lpp-radius-control);
   background: var(--lpp-surface);
-  box-shadow: 0 1px 2px rgba(23, 35, 30, 0.04);
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 .task-card + .task-card {
   margin-top: 7px;
 }
 
+.task-card:hover {
+  border-color: var(--lpp-border-strong);
+  border-left-color: var(--quadrant-tone);
+  background: var(--lpp-layer);
+}
+
 .task-card--ghost {
   opacity: 0.45;
 }
 
+.task-card--compact {
+  padding: 7px 8px 6px;
+}
+
 .task-card__top {
   display: flex;
-  align-items: flex-start;
-  gap: 5px;
   min-width: 0;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .task-card__handle {
   flex: 0 0 auto;
   color: var(--lpp-text-muted);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.45;
   cursor: grab;
   letter-spacing: -2px;
+  opacity: 0.55;
 }
 
 .task-card--readonly .task-card__handle {
   cursor: default;
-  opacity: 0.35;
+  opacity: 0.25;
 }
 
 .task-card__top strong {
+  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
   color: var(--lpp-text);
-  font-size: var(--lpp-font-xs);
-  font-weight: 500;
+  font-size: var(--lpp-font-sm);
+  font-weight: 600;
   line-height: 1.45;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.task-card--compact .task-card__top strong {
+  font-size: var(--lpp-font-xs);
+  line-height: 1.4;
+  -webkit-line-clamp: 1;
+}
+
+.task-card__top :deep(.el-dropdown) {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .task-card__more {
   flex: 0 0 auto;
-  margin-left: auto;
-  padding: 0 2px;
+  padding: 0 1px;
   border: 0;
   background: transparent;
   color: var(--lpp-text-muted);
   font-size: 15px;
   line-height: 1;
   cursor: pointer;
+  opacity: 0.45;
+}
+
+.task-card:hover .task-card__more,
+.task-card__more:focus-visible {
+  opacity: 1;
+}
+
+.task-card__more:focus-visible,
+.board-link:focus-visible {
+  outline: 2px solid var(--lpp-focus);
+  outline-offset: 2px;
 }
 
 .task-card__meta {
-  margin-top: 2px;
+  margin-top: 4px;
   overflow: hidden;
   color: var(--lpp-text-muted);
   font-size: 12px;
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.task-card--compact .task-card__meta {
+  margin-top: 3px;
+  font-size: 11px;
 }
 
 .task-card__bottom {
@@ -347,34 +469,42 @@ function discard(task: TaskItem): void {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 .task-status {
-  padding: 0 5px;
-  border-radius: var(--lpp-radius-tag);
-  background: var(--lpp-layer);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--lpp-text-muted);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.4;
   white-space: nowrap;
 }
 
+.task-status::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+  opacity: 0.65;
+}
+
 .task-status--reviewing {
-  background: var(--lpp-warning-soft);
   color: var(--lpp-warning);
 }
 
 .task-status--passed,
 .task-status--exported {
-  background: var(--lpp-success-soft);
   color: var(--lpp-success);
 }
 
 .task-card__due {
   color: var(--lpp-text-muted);
   font-family: var(--lpp-font-numeric);
-  font-size: 12px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
@@ -384,20 +514,33 @@ function discard(task: TaskItem): void {
 }
 
 @media (max-width: 1180px) {
-  .quadrant-grid {
+  .quadrant-sheet {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 900px) {
-  .quadrant-grid,
-  .quadrant-board--compact .quadrant-grid {
+  .quadrant-sheet,
+  .quadrant-board--compact .quadrant-sheet {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .quadrant__list,
   .quadrant-board--compact .quadrant__list {
+    min-height: 120px;
     max-height: none;
+  }
+
+  .quadrant__list.is-empty {
+    min-height: 92px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-card,
+  .task-card__more,
+  .board-link {
+    transition: none;
   }
 }
 </style>

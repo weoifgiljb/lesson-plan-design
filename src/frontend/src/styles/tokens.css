@@ -81,6 +81,7 @@
 
   /* 字体：不请求外部字体 */
   --lpp-font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Segoe UI', sans-serif;
+  --lpp-font-serif: 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif;
   --lpp-font-numeric: 'Bahnschrift', 'DIN Alternate', 'Segoe UI', sans-serif;
   --lpp-mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
 
