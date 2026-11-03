@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -27,9 +28,26 @@ def build(contract: dict) -> dict:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="把错误码目录同步到契约")
+    parser.add_argument("--check", action="store_true", help="只校验是否一致，不写文件")
+    args = parser.parse_args()
+
     data = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    expected = build(json.loads(json.dumps(data)))
+    if args.check:
+        if data.get("errorCodes") != expected["errorCodes"]:
+            current = {item["code"] for item in data.get("errorCodes") or []}
+            target = {item["code"] for item in expected["errorCodes"]}
+            print(
+                "契约 errorCodes 与 error_codes.py 不一致："
+                f"缺少 {sorted(target - current)}，多余 {sorted(current - target)}"
+            )
+            return 1
+        print(f"errorCodes 与 error_codes.py 一致（{len(CATALOG)} 条）")
+        return 0
+
     CONTRACT.write_text(
-        json.dumps(build(data), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        json.dumps(expected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     print(f"已同步 {len(CATALOG)} 个错误码到 {CONTRACT.relative_to(REPO_ROOT)}")
     return 0
