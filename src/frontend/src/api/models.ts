@@ -297,7 +297,7 @@ export interface EngineInfo {
 }
 
 
-export interface SampleDetail extends SampleItem {
+export interface SampleDetail extends Omit<SampleItem, 'complete'> {
   content?: Record<string, unknown> | null
   complete?: boolean
   assetsOk?: boolean

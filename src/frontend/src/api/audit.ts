@@ -17,7 +17,7 @@ export function listAudit(query: AuditQuery = {}): Promise<Paged<AuditItem>> {
 }
 
 /** 审计 CSV 导出（后端只允许 10000 行，超出用 X-Truncated 标记）。 */
-export function exportAuditCsv(query: Record<string, unknown> = {}): Promise<Blob> {
-  return client.download('/api/v1/audit/export', query)
+export function exportAuditCsv(): Promise<Blob> {
+  return client.download('/api/v1/audit/export')
 }
 

@@ -19,7 +19,7 @@ export function listStatRecords(query: Record<string, unknown> = {}): Promise<Pa
 }
 
 /** 9 项指标 CSV 导出。 */
-export function downloadStatsCsv(query: Record<string, unknown> = {}): Promise<Blob> {
-  return client.download('/api/v1/stats/export.csv', query)
+export function downloadStatsCsv(): Promise<Blob> {
+  return client.download('/api/v1/stats/export.csv')
 }
 

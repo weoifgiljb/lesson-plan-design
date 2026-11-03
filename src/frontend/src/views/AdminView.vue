@@ -58,7 +58,7 @@ async function submitCreate(): Promise<void> {
 async function downloadAudit(): Promise<void> {
   auditError.value = ''
   try {
-    const blob = await exportAuditCsv({ action: auditFilters.action || undefined })
+    const blob = await exportAuditCsv()
     saveBlob(blob, 'audit.csv')
   } catch (caught) {
     auditError.value = caught instanceof Error ? caught.message : '导出失败'

@@ -46,7 +46,7 @@ async function toggleRecords(): Promise<void> {
 async function download(): Promise<void> {
   exportError.value = ''
   try {
-    const blob = await downloadStatsCsv(query.value as Record<string, unknown>)
+    const blob = await downloadStatsCsv()
     saveBlob(blob, 'stats-summary.csv')
   } catch (caught) {
     exportError.value = caught instanceof Error ? caught.message : '导出失败'
