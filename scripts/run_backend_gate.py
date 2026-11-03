@@ -26,6 +26,7 @@ import _gate_common as common  # noqa: E402
 CHECKS = (
     ("architecture", "check_backend_architecture.py"),
     ("contract", "check_backend_contract.py"),
+    ("errors", "check_contract_errors.py"),
     ("security", "check_backend_security.py"),
 )
 TEST_INDEX = common.BACKEND / "tests" / "index.py"
