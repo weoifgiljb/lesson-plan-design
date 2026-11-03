@@ -481,9 +481,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Plan Detail Api V1 Plans  Plan Id  Get"
+                  "$ref": "#/components/schemas/PlanDetailOut"
                 }
               }
             }
@@ -561,9 +559,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Plan Versions Api V1 Plans  Plan Id  Versions Get"
+                  "$ref": "#/components/schemas/PlanVersionPage"
                 }
               }
             }
@@ -2973,6 +2969,40 @@
         ],
         "title": "PasswordChange"
       },
+      "PlanDetailOut": {
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/PlanListItem"
+          },
+          "currentVersion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanVersionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latestReview": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreview"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan"
+        ],
+        "title": "PlanDetailOut"
+      },
       "PlanListItem": {
         "properties": {
           "planId": {
@@ -3118,6 +3148,109 @@
           "total"
         ],
         "title": "PlanPage"
+      },
+      "PlanVersionOut": {
+        "properties": {
+          "versionNo": {
+            "type": "integer",
+            "title": "Versionno"
+          },
+          "planHash": {
+            "type": "string",
+            "title": "Planhash"
+          },
+          "engineVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engineversion"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "versionNo",
+          "planHash"
+        ],
+        "title": "PlanVersionOut"
+      },
+      "PlanVersionPage": {
+        "properties": {
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanVersionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PlanVersionPage"
       },
       "RegisterPayload": {
         "properties": {

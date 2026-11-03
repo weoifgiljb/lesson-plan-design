@@ -6,7 +6,7 @@ from typing import Any
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain import report_rules, roles, task_rules
 
@@ -136,3 +136,28 @@ class PlanPage(BaseModel):
     page: int = 1
     pageSize: int = 20
     total: int
+
+
+class PlanVersionOut(BaseModel):
+    # 版本链里还带 status/review 等字段；先保留额外键，避免 response_model 静默吞字段
+    model_config = ConfigDict(extra="allow")
+
+    versionNo: int
+    planHash: str
+    engineVersion: str | None = None
+    createdAt: str | None = None
+    # 详情接口带完整 content；版本链只有元信息，所以这里可空
+    content: dict[str, Any] | None = None
+    source: str | None = None
+    review: dict[str, Any] | None = None
+
+
+class PlanDetailOut(BaseModel):
+    plan: PlanListItem
+    currentVersion: PlanVersionOut | None = None
+    latestReview: dict[str, Any] | None = None
+
+
+class PlanVersionPage(BaseModel):
+    planId: int | None = None
+    items: list[PlanVersionOut]

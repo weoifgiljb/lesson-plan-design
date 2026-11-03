@@ -1,4 +1,4 @@
-// openapi-sha256: 00a71ad627bdb16698076628f0f5e17fd58e317018a3823138360d5c0b757383
+// openapi-sha256: d95b5f7a91d4448c125382aa062b3fc8399d36b78fbd11e19d74d116c34c5e7d
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -47,6 +47,12 @@ export interface PasswordChange {
   newPassword: string
 }
 
+export interface PlanDetailOut {
+  plan: PlanListItem
+  currentVersion?: PlanVersionOut | null
+  latestReview?: Record<string, unknown> | null
+}
+
 export interface PlanListItem {
   planId: number
   contentTitle: string
@@ -68,6 +74,21 @@ export interface PlanPage {
   page?: number
   pageSize?: number
   total: number
+}
+
+export interface PlanVersionOut {
+  versionNo: number
+  planHash: string
+  engineVersion?: string | null
+  createdAt?: string | null
+  content?: Record<string, unknown> | null
+  source?: string | null
+  review?: Record<string, unknown> | null
+}
+
+export interface PlanVersionPage {
+  planId?: number | null
+  items: PlanVersionOut[]
 }
 
 export interface RegisterPayload {

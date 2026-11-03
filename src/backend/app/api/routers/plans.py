@@ -76,7 +76,7 @@ def list_plans(
     return plan_service.list_plans(context["repo"], context["user"], filters=filters, page=page, page_size=page_size)
 
 
-@router.get("/plans/{plan_id}")
+@router.get("/plans/{plan_id}", response_model=schemas.PlanDetailOut)
 def plan_detail(
     request: Request, plan_id: int, context: dict[str, Any] = Depends(current_context)
 ) -> dict[str, Any]:
@@ -85,7 +85,7 @@ def plan_detail(
     )
 
 
-@router.get("/plans/{plan_id}/versions")
+@router.get("/plans/{plan_id}/versions", response_model=schemas.PlanVersionPage)
 def plan_versions(
     request: Request, plan_id: int, context: dict[str, Any] = Depends(current_context)
 ) -> dict[str, Any]:
