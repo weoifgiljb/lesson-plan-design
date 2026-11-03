@@ -84,6 +84,8 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(self._get("/api/v1/plans?teacher=张老师").json()["total"], 1)
         by_status = self._get("/api/v1/plans?status=passed").json()
         self.assertEqual(by_status["total"], 2)
+        # 非法审查状态必须 422，不能静默返回空列表（与 tasks/reviews/users 同口径）
+        self.assertEqual(self._get("/api/v1/plans?status=bogus").status_code, 422)
         paged = self._get("/api/v1/plans?page=2&pageSize=1").json()
         self.assertEqual((paged["page"], paged["pageSize"], paged["total"], len(paged["items"])), (2, 1, 2, 1))
 

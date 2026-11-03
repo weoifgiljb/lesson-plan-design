@@ -1,4 +1,4 @@
-// openapi-sha256: c90e9b850cb848ae96e87ba3fcbe6de486ad2ac4565ea87ee72631bd2a3b0d6a
+// openapi-sha256: fc8fb1112a70586dd2bfdfd6db75e90afa68119664f1c72c33520d00856f8b62
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -101,6 +101,7 @@ export interface PlanVersionOut {
 export interface PlanVersionPage {
   planId?: number | null
   items: PlanVersionOut[]
+  total: number
 }
 
 export interface RegisterPayload {
@@ -182,6 +183,8 @@ export interface StatRecordPage {
   page?: number
   pageSize?: number
   total: number
+  filters?: Record<string, unknown>
+  scope?: string
 }
 
 export interface StatsSummaryOut {

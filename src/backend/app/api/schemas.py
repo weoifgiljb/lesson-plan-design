@@ -15,9 +15,7 @@ TaskStatus = Literal[tuple(sorted(task_rules.TASK_RANK))]
 TaskQuadrant = Literal[tuple(sorted(task_rules.QUADRANTS))]
 ReviewStatus = Literal[tuple(sorted(report_rules.ALLOWED_STATUS))]
 RoleName = Literal[tuple(roles.ROLES)]
-Severity = Literal["blocker", "major", "minor"]
-
-from app.domain import roles
+Severity = Literal[tuple(sorted(report_rules.ALLOWED_SEVERITY))]
 
 
 class LoginPayload(BaseModel):
@@ -77,6 +75,8 @@ def user_payload(user: dict[str, Any]) -> dict[str, Any]:
         "roleLabel": roles.ROLE_LABELS.get(role, role),
         # 建号/重置后为 True：前端应强制先改密（BS-05）
         "mustChangePassword": bool(user.get("must_change_password")),
+        # 教研组：组长/组内可见范围依赖它，缺了前端只能显示空
+        "group": str(user.get("group_name") or ""),
     }
 
 
@@ -161,6 +161,8 @@ class PlanDetailOut(BaseModel):
 class PlanVersionPage(BaseModel):
     planId: int | None = None
     items: list[PlanVersionOut]
+    # 版本链不分页，total 与服务层同口径（曾因模型漏声明被 response_model 静默吞掉）
+    total: int
 
 
 class ReviewEvidence(BaseModel):
@@ -200,16 +202,6 @@ class ReviewPage(BaseModel):
     page: int = 1
     pageSize: int = 20
     total: int
-
-
-class ReviewDetailOut(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    review: dict[str, Any] = {}
-    report: dict[str, Any] = {}
-    findings: list[dict[str, Any]] = []
-    overrides: list[dict[str, Any]] = []
-    evidence: dict[str, Any] | None = None
 
 
 class ReviewRef(BaseModel):
@@ -287,3 +279,6 @@ class StatRecordPage(BaseModel):
     page: int = 1
     pageSize: int = 20
     total: int
+    # 与 /stats/summary 同口径：回显生效的筛选与范围，便于前端标注"当前看的是哪些数据"
+    filters: dict[str, Any] = {}
+    scope: str = ""

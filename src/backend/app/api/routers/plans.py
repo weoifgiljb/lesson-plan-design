@@ -67,7 +67,8 @@ def list_plans(
     course: str | None = None,
     week: int | None = None,
     session: int | None = None,
-    status: str | None = None,
+    # 这里过滤的是当前版本最新审查状态（rv.status），枚举从 domain 派生
+    status: schemas.ReviewStatus | None = None,
     teacher: str | None = None,
     page: int = 1,
     page_size: int = Query(20, alias="pageSize"),

@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.3**
+**双端协同 · 平台端 · v1.4**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.3 |
+| 文档版本 | v1.4 |
 | 编制日期 | 2026-10-26 |
-| 修订日期 | 2026-10-28 |
-| 修订说明 | v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
+| 修订日期 | 2026-11-03 |
+| 修订说明 | v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.0（插件端 18 条需求，下称"插件端需求"） |
 | 覆盖范围 | B/S 平台端（浏览器端 + 服务端）与双端协同契约 |
@@ -527,7 +527,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（39 个接口、19 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（44 个接口、19 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -537,8 +537,13 @@
 | GET | /api/v1/auth/me | 登录 | 当前身份与认证方式 | 是 |
 | POST | /api/v1/auth/logout | 登录 | 退出 | 是 |
 | GET | /api/v1/me | 登录 | 当前用户与角色 | 是 |
+| GET | /api/v1/meta | 登录 | 平台元数据（状态/象限/角色/限制） | 是 |
 | GET | /api/v1/tasks | 教师、组长 | 任务列表 | 是 |
+| GET | /api/v1/tasks/board | 教师、组长 | 任务看板（四象限） | 是 |
 | POST | /api/v1/tasks | 教师、组长 | 创建任务 | 否 |
+| PATCH | /api/v1/tasks/{task_id}/board | 教师、组长 | 看板内移动任务（乐观锁） | 否 |
+| POST | /api/v1/tasks/{task_id}/discard | 教师、组长 | 废弃任务 | 是 |
+| POST | /api/v1/tasks/{task_id}/restore | 教师、组长 | 恢复已废弃任务 | 是 |
 | GET | /api/v1/tasks/{id}/package | 登录 + 归属 | 下载任务包 | 是 |
 | POST | /api/v1/plans/import | 教师、组长 | 契约包入库 | 是 |
 | GET | /api/v1/plans | 登录 | 列表与筛选 | 是 |
@@ -612,6 +617,11 @@
 | PAYLOAD_TOO_LARGE | 请求过大 | 单包超过 50 MB |
 | UNSUPPORTED_MEDIA | 媒体类型不支持 | 上传内容不是 zip 或类型不符（HTTP 415） |
 | RATE_LIMITED | 触发限流 | 登录或导入过于频繁 |
+| USERNAME_TAKEN | 用户名被占用 | 注册或建号时用户名重复（HTTP 409） |
+| REGISTRATION_CLOSED | 自助注册已关闭 | `LPP_ALLOW_REGISTRATION=0` 时的自助注册请求 |
+| PASSWORD_CHANGE_REQUIRED | 需先改密 | 账号 `must_change_password=1` 时访问改密以外的业务接口 |
+| CONFLICT_DELETED | 对象已删除 | 带 `planId` 推送时目标教案已软删除（HTTP 409） |
+| SERVICE_UNAVAILABLE | 服务暂不可用 | 数据库结构未对齐或磁盘不可写（HTTP 503） |
 | INTERNAL | 服务端错误 | 未预期异常，附 `traceId` |
 
 ## 6 非功能需求

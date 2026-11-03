@@ -68,7 +68,9 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
         trace_id = _trace_id(request)
-        logger.error("unhandled error trace %s: %s", trace_id, type(exc).__name__)
+        # 保留 traceId 便于对外报障，同时把堆栈写进服务端日志：否则 ResponseValidationError
+        # 只留一个类名，定位不到是哪个响应模型字段
+        logger.exception("unhandled error trace %s: %s", trace_id, type(exc).__name__)
         return JSONResponse(
             status_code=500,
             content=_payload("INTERNAL", "服务端错误", {}, trace_id),
