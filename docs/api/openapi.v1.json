@@ -840,9 +840,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Review Detail Api V1 Reviews  Review Id  Get"
+                  "$ref": "#/components/schemas/ReviewDetailOut"
                 }
               }
             }
@@ -3304,6 +3302,63 @@
         ],
         "title": "RegisterPayload"
       },
+      "ReviewDetailOut": {
+        "properties": {
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "report": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report"
+          },
+          "findings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Findings",
+            "default": []
+          },
+          "overrides": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Overrides",
+            "default": []
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ReviewDetailOut"
+      },
       "ReviewEvidence": {
         "properties": {
           "complete": {
@@ -3326,8 +3381,18 @@
             "type": "array",
             "title": "Gaps",
             "default": []
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Items",
+            "default": []
           }
         },
+        "additionalProperties": true,
         "type": "object",
         "title": "ReviewEvidence"
       },
@@ -3505,6 +3570,113 @@
           "total"
         ],
         "title": "ReviewPage"
+      },
+      "ReviewRef": {
+        "properties": {
+          "reviewId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewid"
+          },
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
+          },
+          "versionNo": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versionno"
+          },
+          "round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "reviewedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewedat"
+          },
+          "reportSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reportsha256"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher"
+          },
+          "contentTitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contenttitle"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ReviewRef",
+        "description": "详情里的 review 与列表项形状不同（少了派生字段、多了报告相关字段）。"
       },
       "TaskBoard": {
         "properties": {

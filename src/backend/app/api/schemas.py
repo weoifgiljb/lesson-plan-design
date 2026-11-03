@@ -164,10 +164,14 @@ class PlanVersionPage(BaseModel):
 
 
 class ReviewEvidence(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     complete: bool = False
     passed: int = 0
     total: int = 0
     gaps: list[Any] = []
+    # 详情响应里带逐项证据（key/ok/reason），列表只有汇总
+    items: list[dict[str, Any]] = []
 
 
 class ReviewItem(BaseModel):
@@ -206,3 +210,30 @@ class ReviewDetailOut(BaseModel):
     findings: list[dict[str, Any]] = []
     overrides: list[dict[str, Any]] = []
     evidence: dict[str, Any] | None = None
+
+
+class ReviewRef(BaseModel):
+    """详情里的 review 与列表项形状不同（少了派生字段、多了报告相关字段）。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    reviewId: int | None = None
+    planId: int | None = None
+    versionNo: int | None = None
+    round: int | None = None
+    status: str | None = None
+    reviewedAt: str | None = None
+    reportSha256: str | None = None
+    teacher: str | None = None
+    contentTitle: str | None = None
+
+
+class ReviewDetailOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    review: ReviewRef | None = None
+    # 坏报告时 report 为 None，evidence.gaps 会标 report_unreadable
+    report: dict[str, Any] | None = None
+    findings: list[dict[str, Any]] = []
+    overrides: list[dict[str, Any]] = []
+    evidence: ReviewEvidence | None = None

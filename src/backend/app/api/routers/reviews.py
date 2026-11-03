@@ -37,7 +37,7 @@ def list_reviews(
     )
 
 
-@router.get("/reviews/{review_id}")
+@router.get("/reviews/{review_id}", response_model=schemas.ReviewDetailOut)
 def review_detail(
     request: Request,
     review_id: int,

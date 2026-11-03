@@ -1,4 +1,4 @@
-// openapi-sha256: 8ecb176a56360c120af2b6d0f2e9a5f4843876c966d8a1bfb0a4db7217596d0b
+// openapi-sha256: 8603cae9b5aeca9600a66121eb9e422a3c8cc035199a1cba24f37b0da02cbfb2
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -97,11 +97,20 @@ export interface RegisterPayload {
   password: string
 }
 
+export interface ReviewDetailOut {
+  review?: ReviewRef | null
+  report?: Record<string, unknown> | null
+  findings?: Record<string, unknown>[]
+  overrides?: Record<string, unknown>[]
+  evidence?: ReviewEvidence | null
+}
+
 export interface ReviewEvidence {
   complete?: boolean
   passed?: number
   total?: number
   gaps?: unknown[]
+  items?: Record<string, unknown>[]
 }
 
 export interface ReviewItem {
@@ -126,6 +135,18 @@ export interface ReviewPage {
   page?: number
   pageSize?: number
   total: number
+}
+
+export interface ReviewRef {
+  reviewId?: number | null
+  planId?: number | null
+  versionNo?: number | null
+  round?: number | null
+  status?: string | null
+  reviewedAt?: string | null
+  reportSha256?: string | null
+  teacher?: string | null
+  contentTitle?: string | null
 }
 
 export interface TaskBoard {
