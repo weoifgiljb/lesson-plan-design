@@ -8,6 +8,14 @@ from typing import Any
 from app.domain.errors import AppError
 
 STATUSES = {"draft", "reviewing", "passed", "exported"}
+QUADRANTS = {
+    "urgent_important",
+    "important_not_urgent",
+    "urgent_not_important",
+    "not_urgent_not_important",
+}
+DEFAULT_QUADRANT = "important_not_urgent"
+
 TASK_RANK = {"draft": 0, "reviewing": 1, "passed": 2, "exported": 3}
 
 
@@ -31,3 +39,14 @@ def is_overdue(due_date: str | None, status: str, today: date) -> bool:
     if not due_date or status == "exported":
         return False
     return str(due_date)[:10] < today.isoformat()
+
+
+def validate_quadrant(value: Any, *, default: str = DEFAULT_QUADRANT) -> str:
+    quadrant = str(value or default)
+    if quadrant not in QUADRANTS:
+        raise AppError("PAYLOAD_REJECTED", f"未知象限：{quadrant}")
+    return quadrant
+
+
+def is_active(status: str, discarded_at: str | None) -> bool:
+    return status not in {"passed", "exported"} and discarded_at is None

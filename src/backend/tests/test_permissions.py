@@ -77,6 +77,8 @@ class TestPermissionMatrix(unittest.TestCase):
             return target.get(path, headers=headers)
         if method == "DELETE":
             return target.delete(path, headers=headers)
+        if method == "PATCH":
+            return target.patch(path, json={}, headers=headers)
         return target.post(path, json={}, headers=headers)
 
     def test_all_endpoints_are_covered_by_matrix(self) -> None:

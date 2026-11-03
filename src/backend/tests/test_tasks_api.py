@@ -365,5 +365,64 @@ class TestTasksApi(unittest.TestCase):
             other.__exit__(None, None, None)
 
 
+    def test_board_groups_by_quadrant_with_counts(self) -> None:
+        self._create(title="紧急重要", session=1, quadrant="urgent_important")
+        self._create(title="重要不紧急", session=2, quadrant="important_not_urgent")
+        self._create(title="重要不紧急2", session=3, quadrant="important_not_urgent")
+        board = self.client.get("/api/v1/tasks/board")
+        self.assertEqual(board.status_code, 200, board.text)
+        body = board.json()
+        self.assertEqual(body["total"], 3)
+        self.assertEqual(body["counts"]["urgent_important"], 1)
+        self.assertEqual(body["counts"]["important_not_urgent"], 2)
+        self.assertEqual(body["items"][0]["quadrant"], "important_not_urgent")
+        for item in body["items"]:
+            self.assertIn("boardPosition", item)
+            self.assertIn("boardVersion", item)
+
+    def test_move_updates_position_and_rejects_stale_version(self) -> None:
+        created = self._create(title="移动测试").json()
+        task_id = created["taskId"]
+        moved = self.client.patch(
+            f"/api/v1/tasks/{task_id}/board",
+            json={"quadrant": "urgent_important", "position": 0, "boardVersion": 0},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(moved.status_code, 200, moved.text)
+        self.assertEqual(moved.json()["quadrant"], "urgent_important")
+        self.assertEqual(moved.json()["boardVersion"], 1)
+        stale = self.client.patch(
+            f"/api/v1/tasks/{task_id}/board",
+            json={"quadrant": "urgent_important", "position": 0, "boardVersion": 0},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(stale.status_code, 409, stale.text)
+        self.assertEqual(stale.json()["code"], "CONFLICT_STALE")
+
+    def test_discard_and_restore_are_audited(self) -> None:
+        task_id = self._create(title="废弃测试").json()["taskId"]
+        discarded = self.client.post(
+            f"/api/v1/tasks/{task_id}/discard", headers={"X-CSRF-Token": self.csrf}
+        )
+        self.assertEqual(discarded.status_code, 200, discarded.text)
+        self.assertIsNotNone(discarded.json()["discardedAt"])
+        board = self.client.get("/api/v1/tasks/board").json()
+        self.assertNotIn(task_id, [item["taskId"] for item in board["items"]])
+        only_discarded = self.client.get("/api/v1/tasks?discarded=true").json()
+        self.assertIn(task_id, [item["taskId"] for item in only_discarded["items"]])
+        restored = self.client.post(
+            f"/api/v1/tasks/{task_id}/restore", headers={"X-CSRF-Token": self.csrf}
+        )
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertIsNone(restored.json()["discardedAt"])
+
+    def test_quadrant_filter_and_unknown_quadrant(self) -> None:
+        self._create(title="A", session=1, quadrant="urgent_important")
+        self._create(title="B", session=2, quadrant="urgent_not_important")
+        urgent = self.client.get("/api/v1/tasks?quadrant=urgent_important").json()
+        self.assertEqual([item["title"] for item in urgent["items"]], ["A"])
+        bad = self._create(title="C", session=3, quadrant="not_a_quadrant")
+        self.assertEqual(bad.status_code, 422, bad.text)
+
 if __name__ == "__main__":
     unittest.main()

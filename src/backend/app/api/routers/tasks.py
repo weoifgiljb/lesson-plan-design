@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel
 
 from app.api.deps import require_csrf_role, require_role
+from app.api.responses import error_responses
 from app.application import task_service
 
 router = APIRouter()
@@ -24,6 +25,13 @@ class TaskCreate(BaseModel):
     # 状态由服务端控制：新建固定 draft，后续由入库/审查/导出推进，或走人工回退接口。
     # 收下这个字段只为给出明确报错，避免前端传了被静默忽略。
     status: str | None = None
+    quadrant: str | None = None
+
+
+class TaskMove(BaseModel):
+    quadrant: str
+    position: int
+    boardVersion: int
 
 
 @router.get("/tasks")
@@ -32,13 +40,36 @@ def list_tasks(
     course: str | None = None,
     week: int | None = None,
     status: str | None = None,
+    quadrant: str | None = None,
+    teacher: str | None = None,
+    discarded: bool | None = None,
     page: int = 1,
     page_size: int = Query(20, alias="pageSize"),
 ) -> dict[str, Any]:
     return task_service.list_tasks(
         context["repo"], context["user"],
-        filters={"course": course, "week": week, "status": status},
+        filters={
+            "course": course,
+            "week": week,
+            "status": status,
+            "quadrant": quadrant,
+            "teacher": teacher,
+            "discarded": discarded,
+        },
         page=page, page_size=page_size,
+    )
+
+
+@router.get("/tasks/board")
+def task_board(
+    context: dict[str, Any] = Depends(require_role("teacher", "lead")),
+    course: str | None = None,
+    week: int | None = None,
+    teacher: str | None = None,
+) -> dict[str, Any]:
+    return task_service.board(
+        context["repo"], context["user"],
+        filters={"course": course, "week": week, "teacher": teacher},
     )
 
 
@@ -70,6 +101,51 @@ def rollback_task(
     context: dict[str, Any] = Depends(require_csrf_role("admin", "lead")),
 ) -> dict[str, Any]:
     return task_service.rollback(
+        context["repo"], context["user"], task_id,
+        ip=_client_ip(request), trace_id=_trace_id(request),
+    )
+
+
+@router.patch(
+    "/tasks/{task_id}/board",
+    responses=error_responses("AUTH_REQUIRED:未登录", "FORBIDDEN:只能操作本人或本组任务",
+                              "NOT_FOUND:任务不存在", "CONFLICT_STALE:看板已被修改",
+                              "PAYLOAD_REJECTED:参数不合法"),
+)
+def move_task(
+    request: Request,
+    task_id: int,
+    payload: TaskMove,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
+) -> dict[str, Any]:
+    return task_service.move(
+        context["repo"], context["user"], task_id, payload.model_dump(),
+        ip=_client_ip(request), trace_id=_trace_id(request),
+    )
+
+
+@router.post("/tasks/{task_id}/discard", responses=error_responses(
+    "AUTH_REQUIRED:未登录", "FORBIDDEN:只能操作本人或本组任务",
+    "NOT_FOUND:任务不存在", "PAYLOAD_REJECTED:已完成任务不能废弃"))
+def discard_task(
+    request: Request,
+    task_id: int,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
+) -> dict[str, Any]:
+    return task_service.discard(
+        context["repo"], context["user"], task_id,
+        ip=_client_ip(request), trace_id=_trace_id(request),
+    )
+
+
+@router.post("/tasks/{task_id}/restore", responses=error_responses(
+    "AUTH_REQUIRED:未登录", "FORBIDDEN:只能操作本人或本组任务", "NOT_FOUND:任务不存在"))
+def restore_task(
+    request: Request,
+    task_id: int,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
+) -> dict[str, Any]:
+    return task_service.restore(
         context["repo"], context["user"], task_id,
         ip=_client_ip(request), trace_id=_trace_id(request),
     )
