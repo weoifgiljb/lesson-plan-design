@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { listReviews, type ReviewQuery } from '@/api/reviews'
 import type { ReviewListItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
+import { useMeta } from '@/composables/useMeta'
 
 const router = useRouter()
 
@@ -32,16 +33,16 @@ const pageCount = computed(() => Math.max(1, Math.ceil(total.value / filters.pag
 
 // 审查状态以后端 report_rules.ALLOWED_STATUS 为准（6 态）；
 // 原来用的 blocked/waived 后端从不产生，点筛选永远 0 行。
-const REVIEW_STATUS_OPTIONS = [
-  { value: 'structure_invalid', label: '结构失败' },
-  { value: 'pending_reviewer', label: '待审' },
-  { value: 'needs_repair', label: '待修复' },
-  { value: 'passed', label: '通过' },
-  { value: 'passed_with_override', label: '放行通过' },
-  { value: 'passed_with_accepted_minor', label: '接受轻微' },
-]
+const { meta, loadMeta } = useMeta()
+void loadMeta()
+const REVIEW_STATUS_OPTIONS = computed(() =>
+  (meta.value?.reviewStatuses ?? []).map((item) => ({ value: item.code, label: item.label })),
+)
 
-const statusOptions = [{ value: '', label: '全部状态' }, ...REVIEW_STATUS_OPTIONS]
+const statusOptions = computed(() => [
+  { value: '', label: '全部状态' },
+  ...REVIEW_STATUS_OPTIONS.value,
+])
 
 const severityOptions = [
   { value: '', label: '全部级别' },
@@ -65,10 +66,12 @@ function openPlan(row: ReviewListItem): void {
   void router.push(`/plans/${row.planId}`)
 }
 
-const statusLabel = new Map(REVIEW_STATUS_OPTIONS.map((item) => [item.value, item.label]))
+const statusLabel = computed(
+  () => new Map(REVIEW_STATUS_OPTIONS.value.map((item) => [item.value, item.label])),
+)
 
 function labelOf(status: string): string {
-  return statusLabel.get(status) ?? status
+  return statusLabel.value.get(status) ?? status
 }
 
 const scrollRef = ref<HTMLElement | null>(null)
