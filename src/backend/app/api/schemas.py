@@ -15,6 +15,7 @@ TaskStatus = Literal[tuple(sorted(task_rules.TASK_RANK))]
 TaskQuadrant = Literal[tuple(sorted(task_rules.QUADRANTS))]
 ReviewStatus = Literal[tuple(sorted(report_rules.ALLOWED_STATUS))]
 RoleName = Literal[tuple(roles.ROLES)]
+Severity = Literal["blocker", "major", "minor"]
 
 from app.domain import roles
 

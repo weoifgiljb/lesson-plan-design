@@ -676,6 +676,14 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "needs_repair",
+                    "passed",
+                    "passed_with_accepted_minor",
+                    "passed_with_override",
+                    "pending_reviewer",
+                    "structure_invalid"
+                  ],
                   "type": "string"
                 },
                 {
@@ -692,6 +700,11 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "blocker",
+                    "major",
+                    "minor"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2642,6 +2655,11 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "teacher",
+                    "lead",
+                    "admin"
+                  ],
                   "type": "string"
                 },
                 {
