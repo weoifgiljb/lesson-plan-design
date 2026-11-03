@@ -137,9 +137,10 @@ async function submit(): Promise<void> {
         </el-button>
       </el-form>
 
-      <p class="card-foot">
-        已有账号？<router-link to="/login">返回登录</router-link>
-      </p>
+      <div class="card-foot">
+        <span>已有账号？</span>
+        <el-button link type="primary" @click="router.push('/login')">返回登录</el-button>
+      </div>
     </section>
   </main>
 </template>
@@ -191,9 +192,12 @@ async function submit(): Promise<void> {
 }
 
 .card-foot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
   margin: 14px 0 0;
   font-size: 13px;
-  text-align: center;
   color: var(--lpp-text-mute);
 }
 </style>

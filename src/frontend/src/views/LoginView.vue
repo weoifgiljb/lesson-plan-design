@@ -54,6 +54,10 @@ async function submit(): Promise<void> {
   })
 }
 
+function goRegister(): void {
+  router.push('/register')
+}
+
 onMounted(() => {
   usernameRef.value?.focus()
 })
@@ -148,14 +152,16 @@ onMounted(() => {
             :description="errorTrace ? `traceId: ${errorTrace}` : ''"
           />
 
-          <el-button class="login-submit" type="primary" native-type="submit" :loading="loading">
-            登录
-          </el-button>
+          <div class="auth-actions">
+            <el-button class="login-submit" type="primary" native-type="submit" :loading="loading">
+              登录
+            </el-button>
+            <el-button class="register-submit" native-type="button" @click="goRegister">
+              注册新账号
+            </el-button>
+          </div>
         </el-form>
 
-        <p class="register-link">
-          还没有账号？<router-link to="/register">注册教师账号</router-link>
-        </p>
         <el-alert
           v-if="route.query.registered || route.query.changed"
           class="form-notice"
@@ -320,11 +326,11 @@ onMounted(() => {
   margin-top: 4px;
 }
 
-.register-link {
-  margin: 10px 0 0;
-  font-size: 13px;
-  text-align: center;
-  color: var(--lpp-text-mute);
+.auth-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
 }
 
 .form-notice {
