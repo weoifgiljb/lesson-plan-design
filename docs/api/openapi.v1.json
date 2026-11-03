@@ -442,9 +442,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response List Plans Api V1 Plans Get"
+                  "$ref": "#/components/schemas/PlanPage"
                 }
               }
             }
@@ -2974,6 +2972,152 @@
           "newPassword"
         ],
         "title": "PasswordChange"
+      },
+      "PlanListItem": {
+        "properties": {
+          "planId": {
+            "type": "integer",
+            "title": "Planid"
+          },
+          "contentTitle": {
+            "type": "string",
+            "title": "Contenttitle"
+          },
+          "course": {
+            "type": "string",
+            "title": "Course"
+          },
+          "week": {
+            "type": "integer",
+            "title": "Week"
+          },
+          "session": {
+            "type": "integer",
+            "title": "Session"
+          },
+          "ownerId": {
+            "type": "integer",
+            "title": "Ownerid"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher"
+          },
+          "versionNo": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versionno"
+          },
+          "planHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planhash"
+          },
+          "reviewStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewstatus"
+          },
+          "reviewRound": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewround"
+          },
+          "versionCreatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versioncreatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "planId",
+          "contentTitle",
+          "course",
+          "week",
+          "session",
+          "ownerId"
+        ],
+        "title": "PlanListItem"
+      },
+      "PlanPage": {
+        "properties": {
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "default": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "title": "Pagesize",
+            "default": 20
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PlanPage"
       },
       "RegisterPayload": {
         "properties": {

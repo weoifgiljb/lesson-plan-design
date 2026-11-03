@@ -113,3 +113,26 @@ class TaskBoard(BaseModel):
     total: int
     counts: dict[str, int]
     generatedAt: str
+
+
+class PlanListItem(BaseModel):
+    planId: int
+    contentTitle: str
+    course: str
+    week: int
+    session: int
+    ownerId: int
+    teacher: str | None = None
+    versionNo: int | None = None
+    planHash: str | None = None
+    reviewStatus: str | None = None
+    reviewRound: int | None = None
+    versionCreatedAt: str | None = None
+
+
+class PlanPage(BaseModel):
+    planId: int | None = None
+    items: list[PlanListItem]
+    page: int = 1
+    pageSize: int = 20
+    total: int

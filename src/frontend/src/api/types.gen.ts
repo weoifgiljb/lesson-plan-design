@@ -1,4 +1,4 @@
-// openapi-sha256: 44462866de59082a2fbd0ab71d4da3e6a6f30f369f4e23a4b8ec4af2ca4bdebc
+// openapi-sha256: 00a71ad627bdb16698076628f0f5e17fd58e317018a3823138360d5c0b757383
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -45,6 +45,29 @@ export interface LoginPayload {
 export interface PasswordChange {
   oldPassword: string
   newPassword: string
+}
+
+export interface PlanListItem {
+  planId: number
+  contentTitle: string
+  course: string
+  week: number
+  session: number
+  ownerId: number
+  teacher?: string | null
+  versionNo?: number | null
+  planHash?: string | null
+  reviewStatus?: string | null
+  reviewRound?: number | null
+  versionCreatedAt?: string | null
+}
+
+export interface PlanPage {
+  planId?: number | null
+  items: PlanListItem[]
+  page?: number
+  pageSize?: number
+  total: number
 }
 
 export interface RegisterPayload {
