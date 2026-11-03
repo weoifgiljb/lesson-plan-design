@@ -120,6 +120,19 @@ class TestDatabaseSchema(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_task_board_columns_migrated(self) -> None:
+        _, plan, _ = self._seed()
+        columns = [row[1] for row in self.conn.execute("PRAGMA table_info(task)")]
+        for column in ("quadrant", "board_position", "board_version", "discarded_at"):
+            self.assertIn(column, columns)
+        row = self.conn.execute("SELECT quadrant, board_position, board_version FROM task LIMIT 1").fetchone()
+        if row is not None:
+            self.assertEqual(row[0], "important_not_urgent")
+            self.assertEqual(int(row[1]), 0)
+            self.assertEqual(int(row[2]), 0)
+        indexes = [item[1] for item in self.conn.execute("PRAGMA index_list(task)")]
+        self.assertIn("idx_task_board", indexes)
+
     def test_plan_version_idempotency_key_is_unique(self) -> None:
         _, plan, _ = self._seed()
         self.conn.execute(

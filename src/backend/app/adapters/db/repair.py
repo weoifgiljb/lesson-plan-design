@@ -63,6 +63,10 @@ ADD_COLUMN_SQL: dict[tuple[str, str], str] = {
     ),
     ("task", "assignee_id"): "ALTER TABLE task ADD COLUMN assignee_id INTEGER REFERENCES user (id)",
     ("task", "group_name"): "ALTER TABLE task ADD COLUMN group_name TEXT NOT NULL DEFAULT ''",
+    ("task", "quadrant"): "ALTER TABLE task ADD COLUMN quadrant TEXT NOT NULL DEFAULT 'important_not_urgent'",
+    ("task", "board_position"): "ALTER TABLE task ADD COLUMN board_position INTEGER NOT NULL DEFAULT 0",
+    ("task", "board_version"): "ALTER TABLE task ADD COLUMN board_version INTEGER NOT NULL DEFAULT 0",
+    ("task", "discarded_at"): "ALTER TABLE task ADD COLUMN discarded_at TEXT",
     ("task", "term"): "ALTER TABLE task ADD COLUMN term TEXT NOT NULL DEFAULT ''",
     ("export_job", "report_sha256"): (
         "ALTER TABLE export_job ADD COLUMN report_sha256 TEXT NOT NULL DEFAULT ''"
@@ -98,6 +102,9 @@ CREATE_INDEX_SQL: dict[str, str] = {
         "CREATE INDEX IF NOT EXISTS idx_task_assignee ON task (assignee_id, status)"
     ),
     "idx_task_group": "CREATE INDEX IF NOT EXISTS idx_task_group ON task (group_name, status)",
+    "idx_task_board": (
+        "CREATE INDEX IF NOT EXISTS idx_task_board ON task (owner_id, quadrant, board_position)"
+    ),
     "idx_task_identity": (
         "CREATE INDEX IF NOT EXISTS idx_task_identity"
         " ON task (course, week, session, class_name, title)"
@@ -174,15 +181,22 @@ TASK_TABLE_SQL = (
     " assignee_id INTEGER REFERENCES user (id),"
     " group_name TEXT NOT NULL DEFAULT '',"
     " term TEXT NOT NULL DEFAULT '',"
+    " quadrant TEXT NOT NULL DEFAULT 'important_not_urgent',"
+    " board_position INTEGER NOT NULL DEFAULT 0,"
+    " board_version INTEGER NOT NULL DEFAULT 0,"
+    " discarded_at TEXT,"
     " UNIQUE (course, week, session, class_name, title)"
     ")"
 )
 
 TASK_COPY_SQL = (
     "INSERT INTO task_rebuilt (id, course, week, session, title, class_name, owner_id,"
-    " due_date, status, created_at, assignee_id, group_name, term)"
+    " due_date, status, created_at, assignee_id, group_name, term,"
+    " quadrant, board_position, board_version, discarded_at)"
     " SELECT id, course, week, session, title, class_name, owner_id,"
-    " due_date, status, created_at, assignee_id, group_name, term FROM task"
+    " due_date, status, created_at, assignee_id, group_name, term,"
+    " COALESCE(quadrant, 'important_not_urgent'), COALESCE(board_position, 0),"
+    " COALESCE(board_version, 0), discarded_at FROM task"
 )
 
 BACKFILL_PLAN_VERSION_SQL = (
