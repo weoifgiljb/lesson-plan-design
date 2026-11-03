@@ -161,3 +161,48 @@ class PlanDetailOut(BaseModel):
 class PlanVersionPage(BaseModel):
     planId: int | None = None
     items: list[PlanVersionOut]
+
+
+class ReviewEvidence(BaseModel):
+    complete: bool = False
+    passed: int = 0
+    total: int = 0
+    gaps: list[Any] = []
+
+
+class ReviewItem(BaseModel):
+    # 审查列表的真实键以 report_rules/derive_status 为准，额外键先保留
+    model_config = ConfigDict(extra="allow")
+
+    reviewId: int
+    planId: int
+    versionNo: int | None = None
+    round: int | None = None
+    # 状态不收紧成枚举：历史库与"报告异常"分支会产出白名单外状态，收紧会 500
+    status: str
+    reviewerMode: str | None = None
+    reportSha256: str | None = None
+    reviewedAt: str | None = None
+    teacher: str | None = None
+    contentTitle: str | None = None
+    course: str | None = None
+    week: int | None = None
+    session: int | None = None
+    evidence: ReviewEvidence | None = None
+
+
+class ReviewPage(BaseModel):
+    items: list[ReviewItem]
+    page: int = 1
+    pageSize: int = 20
+    total: int
+
+
+class ReviewDetailOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    review: dict[str, Any] = {}
+    report: dict[str, Any] = {}
+    findings: list[dict[str, Any]] = []
+    overrides: list[dict[str, Any]] = []
+    evidence: dict[str, Any] | None = None
