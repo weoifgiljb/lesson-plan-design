@@ -201,6 +201,8 @@ export interface Metric {
   unit: string
   available: boolean
   filters: Record<string, unknown>
+  sampleInsufficient?: boolean
+  basis?: { task: number; plan: number }
 }
 
 export interface StatsSummary {
