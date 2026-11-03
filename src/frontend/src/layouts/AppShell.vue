@@ -76,7 +76,7 @@ const groups = computed<NavGroup[]>(() => [
     ? [
         {
           label: '管理',
-          items: [{ label: '管理', icon: 'admin' as const, ready: false }],
+          items: [{ label: '管理', icon: 'admin' as const, to: '/admin', ready: true }],
         },
       ]
     : []),
