@@ -1,4 +1,4 @@
-// openapi-sha256: 8603cae9b5aeca9600a66121eb9e422a3c8cc035199a1cba24f37b0da02cbfb2
+// openapi-sha256: c90e9b850cb848ae96e87ba3fcbe6de486ad2ac4565ea87ee72631bd2a3b0d6a
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -40,6 +40,18 @@ export interface LoginOut {
 export interface LoginPayload {
   username: string
   password: string
+}
+
+export interface MetricOut {
+  key: string
+  label: string
+  numerator?: number
+  denominator?: number
+  value?: number | null
+  unit?: string
+  available?: boolean
+  sampleInsufficient?: boolean
+  basis?: Record<string, number> | null
 }
 
 export interface PasswordChange {
@@ -147,6 +159,35 @@ export interface ReviewRef {
   reportSha256?: string | null
   teacher?: string | null
   contentTitle?: string | null
+}
+
+export interface StatRecordOut {
+  planId: number
+  reviewId?: number | null
+  contentTitle?: string | null
+  course?: string | null
+  week?: number | null
+  session?: number | null
+  teacher?: string | null
+  versionNo?: number | null
+  reviewStatus?: string | null
+  structureOk?: boolean | null
+  evidenceOk?: boolean | null
+  openBlocking?: number | null
+  createdAt?: string | null
+}
+
+export interface StatRecordPage {
+  items: StatRecordOut[]
+  page?: number
+  pageSize?: number
+  total: number
+}
+
+export interface StatsSummaryOut {
+  metrics: MetricOut[]
+  filters?: Record<string, unknown>
+  scope?: string
 }
 
 export interface TaskBoard {

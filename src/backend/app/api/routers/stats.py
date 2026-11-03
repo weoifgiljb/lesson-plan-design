@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Response
 
+from app.api import schemas
 from app.api.deps import require_role
 from app.application import stats_service
 
@@ -31,7 +32,7 @@ def _filters(
     }
 
 
-@router.get("/stats/summary")
+@router.get("/stats/summary", response_model=schemas.StatsSummaryOut)
 def stats_summary(
     context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
     course: str | None = None,
@@ -64,7 +65,7 @@ def stats_export_csv(
     )
 
 
-@router.get("/stats/records")
+@router.get("/stats/records", response_model=schemas.StatRecordPage)
 def stats_records(
     context: dict[str, Any] = Depends(require_role("teacher", "lead", "admin")),
     course: str | None = None,
