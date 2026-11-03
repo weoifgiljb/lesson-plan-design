@@ -62,7 +62,7 @@ const groups = computed<NavGroup[]>(() => [
       },
       { label: '教案库', icon: 'plans', to: '/plans', ready: true },
       { label: '审查', icon: 'reviews', to: '/reviews', ready: true },
-      { label: '导出', icon: 'exports', ready: false },
+      { label: '导出', icon: 'exports', to: '/exports', ready: true },
     ],
   },
   {
