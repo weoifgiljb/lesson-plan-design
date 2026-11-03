@@ -69,7 +69,7 @@ const groups = computed<NavGroup[]>(() => [
     label: '数据',
     items: [
       { label: '统计', icon: 'stats', ready: false },
-      { label: '样例库', icon: 'samples', ready: false },
+      { label: '样例库', icon: 'samples', to: '/samples', ready: true },
     ],
   },
   ...(session.isAdmin
