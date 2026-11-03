@@ -4,4 +4,4 @@
 
 | 文件 | 主题 |
 |---|---|
-| [契约类型化与前端硬编码.md](契约类型化与前端硬编码.md) | response_model 丢字段、枚举 anyOf、BC-07 误报、ECharts CSS 变量、WAL 备份、迁移跳号 |
+| [契约类型化与前端硬编码.md](契约类型化与前端硬编码.md) | 11 条：response_model 丢字段、枚举 anyOf、BC-07 误报、ECharts CSS 变量、WAL 备份、迁移跳号、**快照重生成顺序** |
