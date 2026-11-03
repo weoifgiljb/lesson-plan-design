@@ -1,5 +1,10 @@
-// openapi-sha256: a40618d627802b3125404fec745138253f7ed4395cd550d8ee02f9a80e38ad07
+// openapi-sha256: a23d258fc638fb36f31befca40e338d19bd48897f00a2babeb55b8d13c82c26d
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
+
+export interface AuthMeOut {
+  user: UserOut
+  auth: string
+}
 
 export interface BodyCreateSampleApiV1SamplesPost {
   file: string
@@ -21,6 +26,15 @@ export interface ExportRequest {
 
 export interface HTTPValidationError {
   detail?: ValidationError[]
+}
+
+export interface LoginOut {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  expiresAt: string
+  user: UserOut
+  csrfToken: string
 }
 
 export interface LoginPayload {
@@ -56,6 +70,14 @@ export interface TaskMove {
   boardVersion: number
 }
 
+export interface TokenOut {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  expiresAt: string
+  user: UserOut
+}
+
 export interface TokenPayload {
   username: string
   password: string
@@ -67,6 +89,14 @@ export interface UserCreate {
   role: string
   password: string
   group?: string
+}
+
+export interface UserOut {
+  id: number
+  username: string
+  displayName: string
+  role: string
+  roleLabel: string
 }
 
 export interface ValidationError {

@@ -36,25 +36,32 @@ class TokenPayload(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
-class TokenOut(BaseModel):
-    accessToken: str
-    tokenType: str
-    expiresIn: int
-    expiresAt: str
-    user: dict[str, Any]
-
-
-class AuthMeOut(BaseModel):
-    user: dict[str, Any]
-    auth: str
-
-
 class UserOut(BaseModel):
     id: int
     username: str
     displayName: str
     role: str
     roleLabel: str
+
+
+class TokenOut(BaseModel):
+    accessToken: str
+    tokenType: str
+    expiresIn: int
+    expiresAt: str
+    user: UserOut
+
+
+class LoginOut(TokenOut):
+    """网页登录比换令牌多一个 CSRF token（Cookie 会话要用）。"""
+
+    csrfToken: str
+
+
+class AuthMeOut(BaseModel):
+    user: UserOut
+    auth: str
+
 
 
 def user_payload(user: dict[str, Any]) -> dict[str, Any]:

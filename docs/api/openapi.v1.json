@@ -49,9 +49,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Login Api V1 Auth Login Post"
+                  "$ref": "#/components/schemas/LoginOut"
                 }
               }
             }
@@ -123,9 +121,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Register Api V1 Auth Register Post"
+                  "$ref": "#/components/schemas/TokenOut"
                 }
               }
             }
@@ -165,9 +161,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Token Api V1 Auth Token Post"
+                  "$ref": "#/components/schemas/TokenOut"
                 }
               }
             }
@@ -201,9 +195,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Whoami Api V1 Auth Me Get"
+                  "$ref": "#/components/schemas/AuthMeOut"
                 }
               }
             }
@@ -2805,6 +2797,23 @@
   },
   "components": {
     "schemas": {
+      "AuthMeOut": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "auth": {
+            "type": "string",
+            "title": "Auth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "auth"
+        ],
+        "title": "AuthMeOut"
+      },
       "Body_create_sample_api_v1_samples_post": {
         "properties": {
           "file": {
@@ -2891,6 +2900,44 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LoginOut": {
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "title": "Accesstoken"
+          },
+          "tokenType": {
+            "type": "string",
+            "title": "Tokentype"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "title": "Expiresin"
+          },
+          "expiresAt": {
+            "type": "string",
+            "title": "Expiresat"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "csrfToken": {
+            "type": "string",
+            "title": "Csrftoken"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "expiresAt",
+          "user",
+          "csrfToken"
+        ],
+        "title": "LoginOut",
+        "description": "网页登录比换令牌多一个 CSRF token（Cookie 会话要用）。"
       },
       "LoginPayload": {
         "properties": {
@@ -3052,6 +3099,38 @@
         ],
         "title": "TaskMove"
       },
+      "TokenOut": {
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "title": "Accesstoken"
+          },
+          "tokenType": {
+            "type": "string",
+            "title": "Tokentype"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "title": "Expiresin"
+          },
+          "expiresAt": {
+            "type": "string",
+            "title": "Expiresat"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "expiresAt",
+          "user"
+        ],
+        "title": "TokenOut"
+      },
       "TokenPayload": {
         "properties": {
           "username": {
@@ -3106,6 +3185,39 @@
           "password"
         ],
         "title": "UserCreate"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "displayName": {
+            "type": "string",
+            "title": "Displayname"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "roleLabel": {
+            "type": "string",
+            "title": "Rolelabel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "role",
+          "roleLabel"
+        ],
+        "title": "UserOut"
       },
       "ValidationError": {
         "properties": {
