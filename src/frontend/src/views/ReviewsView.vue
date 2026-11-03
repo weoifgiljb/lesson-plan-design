@@ -30,13 +30,18 @@ const rows = computed<ReviewListItem[]>(() => data.value?.items ?? [])
 const total = computed(() => data.value?.total ?? 0)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / filters.pageSize)))
 
-const statusOptions = [
-  { value: '', label: '全部状态' },
-  { value: 'passed', label: '已通过' },
+// 审查状态以后端 report_rules.ALLOWED_STATUS 为准（6 态）；
+// 原来用的 blocked/waived 后端从不产生，点筛选永远 0 行。
+const REVIEW_STATUS_OPTIONS = [
+  { value: 'structure_invalid', label: '结构失败' },
+  { value: 'pending_reviewer', label: '待审' },
   { value: 'needs_repair', label: '待修复' },
-  { value: 'blocked', label: '已阻断' },
-  { value: 'waived', label: '已放行' },
+  { value: 'passed', label: '通过' },
+  { value: 'passed_with_override', label: '放行通过' },
+  { value: 'passed_with_accepted_minor', label: '接受轻微' },
 ]
+
+const statusOptions = [{ value: '', label: '全部状态' }, ...REVIEW_STATUS_OPTIONS]
 
 const severityOptions = [
   { value: '', label: '全部级别' },
@@ -60,16 +65,10 @@ function openPlan(row: ReviewListItem): void {
   void router.push(`/plans/${row.planId}`)
 }
 
-const statusLabel: Record<string, string> = {
-  passed: '已通过',
-  needs_repair: '待修复',
-  blocked: '已阻断',
-  waived: '已放行',
-  reviewing: '审查中',
-}
+const statusLabel = new Map(REVIEW_STATUS_OPTIONS.map((item) => [item.value, item.label]))
 
 function labelOf(status: string): string {
-  return statusLabel[status] ?? status
+  return statusLabel.get(status) ?? status
 }
 
 const scrollRef = ref<HTMLElement | null>(null)
