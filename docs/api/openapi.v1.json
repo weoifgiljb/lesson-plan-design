@@ -3207,6 +3207,16 @@
           "roleLabel": {
             "type": "string",
             "title": "Rolelabel"
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "title": "Mustchangepassword",
+            "default": false
+          },
+          "group": {
+            "type": "string",
+            "title": "Group",
+            "default": ""
           }
         },
         "type": "object",

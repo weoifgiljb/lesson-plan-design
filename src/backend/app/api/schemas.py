@@ -42,6 +42,9 @@ class UserOut(BaseModel):
     displayName: str
     role: str
     roleLabel: str
+    # /me 与登录响应还要带这两个字段，缺了前端会拿不到"待改密/教研组"
+    mustChangePassword: bool = False
+    group: str = ""
 
 
 class TokenOut(BaseModel):

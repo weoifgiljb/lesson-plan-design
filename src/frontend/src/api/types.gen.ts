@@ -1,4 +1,4 @@
-// openapi-sha256: a23d258fc638fb36f31befca40e338d19bd48897f00a2babeb55b8d13c82c26d
+// openapi-sha256: dc1952b5928894dbc180c10ddb1372178b0d9a25ef7922e0f2c11bae812273ec
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -97,6 +97,8 @@ export interface UserOut {
   displayName: string
   role: string
   roleLabel: string
+  mustChangePassword?: boolean
+  group?: string
 }
 
 export interface ValidationError {
