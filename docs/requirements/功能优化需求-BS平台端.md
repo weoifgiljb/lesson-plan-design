@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.4**
+**双端协同 · 平台端 · v1.5**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.4 |
+| 文档版本 | v1.5 |
 | 编制日期 | 2026-10-26 |
 | 修订日期 | 2026-11-03 |
-| 修订说明 | v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
+| 修订说明 | v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.0（插件端 18 条需求，下称"插件端需求"） |
 | 覆盖范围 | B/S 平台端（浏览器端 + 服务端）与双端协同契约 |
@@ -527,7 +527,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（44 个接口、19 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（44 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -587,7 +587,7 @@
 | 实体 | 关键字段 | 约束 |
 |---|---|---|
 | user | id、username、display_name、group_name、role、password_hash、active、must_change_password、token_version、failed_count、locked_until | username 唯一；role 三值；group_name 用于组长/组内可见；token_version 在改密/重置后自增，令旧 JWT 失效 |
-| task | id、course、week、session、title、class_name、owner_id、due_date、status、assignee_id、group_name、term | 课程 + 周次 + 课次 + 班级 + 课题唯一；status 四值；group_name 由创建者教研组回填 |
+| task | id、course、week、session、title、class_name、owner_id、due_date、status、assignee_id、group_name、term、quadrant、board_position、board_version、discarded_at | 课程 + 周次 + 课次 + 班级 + 课题唯一；status 四值；quadrant 四值（库层 CHECK，0013）；group_name 由创建者教研组回填 |
 | plan | id、task_id、owner_id、current_version_id、deleted_at | 软删除；归属校验 |
 | plan_version | id、plan_id、version_no、content_json、plan_hash、report_sha256、schema_version、rubric_version、engine_version、source | plan_id + version_no 唯一；plan_id + plan_hash + report_sha256 部分唯一（空串哨兵不参与）；不可修改 |
 | review | id、plan_version_id、round、report_json、report_sha256、status、reviewer_mode | plan_version_id + round 唯一 |
@@ -607,6 +607,7 @@
 | AUTH_REQUIRED | 未登录 | 无会话访问业务接口 |
 | FORBIDDEN | 无权限 | 越权访问他人资源或管理员接口 |
 | NOT_FOUND | 不存在 | id 无效或已软删除 |
+| METHOD_NOT_ALLOWED | 方法不允许 | 对已存在路径使用未登记的 HTTP 方法（HTTP 405） |
 | CONFLICT_STALE | 版本冲突 | `baseHash` 与头版本不一致 |
 | HASH_MISMATCH | 哈希不符 | 教案内容被篡改或传输损坏 |
 | SCHEMA_UNSUPPORTED | 版本不支持 | 未知 `schemaVersion`/`rubricVersion` |

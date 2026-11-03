@@ -1,6 +1,6 @@
 {
   "contractVersion": "1",
-  "source": "功能优化需求-BS平台端.md v1.4 §5.2、§5.3、§5.5",
+  "source": "功能优化需求-BS平台端.md v1.5 §5.2、§5.3、§5.5",
   "updatedAt": "2026-11-03",
   "versions": {
     "schemaVersion": 1,
@@ -54,6 +54,12 @@
       "http": 404,
       "zh": "资源不存在",
       "scene": "id 无效或对象已软删除"
+    },
+    {
+      "code": "METHOD_NOT_ALLOWED",
+      "http": 405,
+      "zh": "请求方法不被允许",
+      "scene": "对已存在的路径使用了未登记的 HTTP 方法（如 PUT /settings/engine）"
     },
     {
       "code": "CONFLICT_STALE",

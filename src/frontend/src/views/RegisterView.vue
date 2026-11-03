@@ -26,7 +26,8 @@ const done = ref(false)
 const rules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 64, message: '用户名 3–64 位，可用字母、数字、下划线', trigger: 'blur' },
+    // 与后端 user_rules.USERNAME_MIN/MAX 保持一致（注册页匿名，取不到 /meta）
+    { min: 3, max: 40, message: '用户名 3–40 位，可用字母、数字、下划线', trigger: 'blur' },
     {
       pattern: /^[A-Za-z0-9_.-]+$/,
       message: '用户名只能包含字母、数字、下划线、点或横线',

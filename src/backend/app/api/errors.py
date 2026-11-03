@@ -14,7 +14,14 @@ from app.domain.errors import ERROR_CODES, AppError
 
 logger = logging.getLogger("lpp.errors")
 
-HTTP_CODES = {401: "AUTH_REQUIRED", 403: "FORBIDDEN", 404: "NOT_FOUND", 405: "NOT_FOUND", 413: "PAYLOAD_TOO_LARGE", 415: "UNSUPPORTED_MEDIA"}
+HTTP_CODES = {
+    401: "AUTH_REQUIRED",
+    403: "FORBIDDEN",
+    404: "NOT_FOUND",
+    405: "METHOD_NOT_ALLOWED",
+    413: "PAYLOAD_TOO_LARGE",
+    415: "UNSUPPORTED_MEDIA",
+}
 
 
 def _trace_id(request: Request) -> str:

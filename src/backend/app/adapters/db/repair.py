@@ -181,7 +181,9 @@ TASK_TABLE_SQL = (
     " assignee_id INTEGER REFERENCES user (id),"
     " group_name TEXT NOT NULL DEFAULT '',"
     " term TEXT NOT NULL DEFAULT '',"
-    " quadrant TEXT NOT NULL DEFAULT 'important_not_urgent',"
+    " quadrant TEXT NOT NULL DEFAULT 'important_not_urgent'"
+    " CHECK (quadrant IN ('urgent_important', 'important_not_urgent',"
+    " 'urgent_not_important', 'not_urgent_not_important')),"
     " board_position INTEGER NOT NULL DEFAULT 0,"
     " board_version INTEGER NOT NULL DEFAULT 0,"
     " discarded_at TEXT,"
@@ -195,7 +197,9 @@ TASK_COPY_SQL = (
     " quadrant, board_position, board_version, discarded_at)"
     " SELECT id, course, week, session, title, class_name, owner_id,"
     " due_date, status, created_at, assignee_id, group_name, term,"
-    " COALESCE(quadrant, 'important_not_urgent'), COALESCE(board_position, 0),"
+    " CASE WHEN quadrant IN ('urgent_important', 'important_not_urgent',"
+    " 'urgent_not_important', 'not_urgent_not_important')"
+    " THEN quadrant ELSE 'important_not_urgent' END, COALESCE(board_position, 0),"
     " COALESCE(board_version, 0), discarded_at FROM task"
 )
 
@@ -242,6 +246,8 @@ TABLE_INFO_SQL: dict[str, str] = {
 
 TASK_DDL_SQL = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'task'"
 UNIQUE_RE = re.compile(r"UNIQUE\s*\(([^)]*)\)", re.I)
+# 0013 才给 quadrant 加 CHECK；旧库/早期 repair 建出来的表没有，需要重建补上
+QUADRANT_CHECK_RE = re.compile(r"quadrant[^,]*CHECK\s*\(\s*quadrant\s+IN", re.I)
 
 
 def _columns(conn: sqlite3.Connection, table: str) -> set[str]:
@@ -263,6 +269,16 @@ def _index_exists(conn: sqlite3.Connection, name: str) -> bool:
         "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?", (name,)
     ).fetchone()
     return row is not None
+
+
+def _task_quadrant_ok(conn: sqlite3.Connection) -> bool:
+    """DDL 里是否带 quadrant 白名单 CHECK（0013 的约束）。"""
+    if not _table_exists(conn, "task"):
+        return True
+    row = conn.execute(TASK_DDL_SQL).fetchone()
+    if row is None or not row[0]:
+        return False
+    return QUADRANT_CHECK_RE.search(str(row[0])) is not None
 
 
 def _task_key(conn: sqlite3.Connection) -> tuple[str, ...]:
@@ -300,12 +316,14 @@ def inspect(conn: sqlite3.Connection) -> dict[str, Any]:
         "missing_indexes": missing_indexes,
         "task_key": key,
         "task_key_ok": key == TASK_KEY_COLUMNS,
+        "task_quadrant_ok": _task_quadrant_ok(conn),
         "override_ok": _override_ok(conn),
         "needs_repair": bool(
             missing_columns
             or missing_tables
             or missing_indexes
             or (key and not key == TASK_KEY_COLUMNS)
+            or not _task_quadrant_ok(conn)
             or not _override_ok(conn)
             or current_version(conn) != SCHEMA_VERSION
         ),
@@ -331,7 +349,9 @@ def repair(conn: sqlite3.Connection) -> dict[str, Any]:
     try:
         _create_missing_tables(conn, log)
         _add_missing_columns(conn, log)
-        if _table_exists(conn, "task") and _task_key(conn) != TASK_KEY_COLUMNS:
+        if _table_exists(conn, "task") and (
+            _task_key(conn) != TASK_KEY_COLUMNS or not _task_quadrant_ok(conn)
+        ):
             _rebuild_task(conn)
             log["rebuilt_task"] = True
         if not _override_ok(conn):

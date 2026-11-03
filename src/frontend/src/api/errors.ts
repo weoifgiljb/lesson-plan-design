@@ -6,6 +6,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   AUTH_REQUIRED: '未登录或会话已失效，请重新登录',
   FORBIDDEN: '无权访问该资源',
   NOT_FOUND: '资源不存在或已被删除',
+  METHOD_NOT_ALLOWED: '该操作方式不被支持，请刷新页面后重试',
   CONFLICT_STALE: '版本已变化，请刷新后重试',
   CONFLICT_DELETED: '该教案已被删除，请刷新后重试',
   HASH_MISMATCH: '哈希不一致，文件可能被篡改',

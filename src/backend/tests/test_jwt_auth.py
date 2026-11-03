@@ -40,10 +40,12 @@ class TestJwtAuth(unittest.TestCase):
         self._env.__exit__(None, None, None)
         self._tmp.__exit__(None, None, None)
 
-    def _register(self, username: str = "newbie", password: str = PASSWORD):
+    def _register(
+        self, username: str = "newbie", password: str = PASSWORD, display_name: str = "新老师"
+    ):
         return self.client.post(
             "/api/v1/auth/register",
-            json={"username": username, "displayName": "新老师", "password": password},
+            json={"username": username, "displayName": display_name, "password": password},
         )
 
     def _token(self, username: str = "newbie", password: str = PASSWORD) -> str:
@@ -68,6 +70,10 @@ class TestJwtAuth(unittest.TestCase):
     def test_register_validation(self) -> None:
         self.assertEqual(self._register(username="ab").status_code, 422)
         self.assertEqual(self._register(password="123").status_code, 422)
+        # R4-10：契约与 domain 同为 3–40 / 显示名 1–50，边界必须一致
+        self.assertEqual(self._register(username="a" * 41).status_code, 422)
+        self.assertEqual(self._register(display_name="名" * 51).status_code, 422)
+        self.assertEqual(self._register(username="a" * 40, display_name="名" * 50).status_code, 201)
         self.assertEqual(self._register().status_code, 201)
         self.assertEqual(self._register().status_code, 409)
 

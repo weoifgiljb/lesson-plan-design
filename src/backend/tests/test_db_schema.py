@@ -133,6 +133,57 @@ class TestDatabaseSchema(unittest.TestCase):
         indexes = [item[1] for item in self.conn.execute("PRAGMA index_list(task)")]
         self.assertIn("idx_task_board", indexes)
 
+    def test_task_quadrant_check_rejects_unknown(self) -> None:
+        user, _, _ = self._seed()
+        self.conn.execute(
+            "INSERT INTO task (course, week, session, title, class_name, owner_id, status,"
+            " created_at, quadrant) VALUES ('信息技术', 2, 1, '任务', '', ?, 'draft', ?,"
+            " 'important_not_urgent')",
+            (user, clock.now_iso()),
+        )
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute("UPDATE task SET quadrant = 'legacy_quadrant'")
+
+    def test_v12_legacy_quadrant_is_normalized_on_upgrade(self) -> None:
+        # 0013 之前建的库：task 有 quadrant 但无 CHECK，可能残留白名单外历史值
+        target = self.root / "legacy-v12.db"
+        conn = sqlite3.connect(str(target), isolation_level=None)
+        try:
+            conn.executescript(
+                Path(__file__).resolve().parents[1]
+                .joinpath("app/adapters/db/schema.sql")
+                .read_text(encoding="utf-8")
+            )
+            conn.execute("PRAGMA foreign_keys=OFF")
+            for column in (
+                "assignee_id INTEGER REFERENCES user (id)",
+                "group_name TEXT NOT NULL DEFAULT ''",
+                "term TEXT NOT NULL DEFAULT ''",
+                "quadrant TEXT NOT NULL DEFAULT 'important_not_urgent'",
+                "board_position INTEGER NOT NULL DEFAULT 0",
+                "board_version INTEGER NOT NULL DEFAULT 0",
+                "discarded_at TEXT",
+            ):
+                conn.execute(f"ALTER TABLE task ADD COLUMN {column}")
+            conn.execute("PRAGMA user_version=12")
+            conn.execute(
+                "INSERT INTO user (id, username, display_name, role, password_hash, created_at)"
+                " VALUES (1, 't1', '张老师', 'teacher', 'x', '2026-10-26')"
+            )
+            conn.execute(
+                "INSERT INTO task (id, course, week, session, title, class_name, owner_id,"
+                " status, created_at, quadrant) VALUES (1, '信息技术', 2, 1, '任务', '', 1,"
+                " 'draft', '2026-10-26', 'legacy_quadrant')"
+            )
+            initialize(conn)
+            self.assertEqual(current_version(conn), SCHEMA_VERSION)
+            quadrant = conn.execute("SELECT quadrant FROM task WHERE id = 1").fetchone()[0]
+            self.assertEqual(quadrant, "important_not_urgent")
+            with self.assertRaises(sqlite3.IntegrityError):
+                conn.execute("UPDATE task SET quadrant = 'legacy_quadrant'")
+        finally:
+            conn.close()
+
     def test_plan_version_idempotency_key_is_unique(self) -> None:
         _, plan, _ = self._seed()
         self.conn.execute(
