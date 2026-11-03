@@ -1,6 +1,7 @@
 /**
- * 平台文案常量：状态与占位语只在这里定义，页面、图表、Markdown 导出统一引用。
- * 后端返回状态码（passed/needs_repair/...），中文展示由前端维护。
+ * 平台文案常量：状态名与占位语只在这里定义。
+ * 状态取值必须与后端一致：审查 6 态见 report_rules.ALLOWED_STATUS，
+ * 任务 4 态见 task_rules.TASK_RANK，导出只有 pending/succeeded/failed。
  */
 export const REVIEW_STATUS_LABELS: Record<string, string> = {
   structure_invalid: '结构失败',
@@ -9,15 +10,6 @@ export const REVIEW_STATUS_LABELS: Record<string, string> = {
   passed: '通过',
   passed_with_override: '放行通过',
   passed_with_accepted_minor: '接受轻微',
-<<<<<<< HEAD
-  blocked: '已阻断',
-  waived: '已放行',
-  reviewing: '审查中',
-}
-
-export const UNAVAILABLE_TEXT = '不可用'
-export const EMPTY_STATUS_TEXT = '暂无审查记录'
-=======
 }
 
 export const TASK_STATUS_LABELS: Record<string, string> = {
@@ -35,7 +27,6 @@ export const EXPORT_STATUS_LABELS: Record<string, string> = {
 
 export const UNAVAILABLE_TEXT = '不可用'
 export const EMPTY_STATUS_TEXT = '暂无记录'
->>>>>>> origin/develop
 
 export function reviewStatusLabel(status: string): string {
   return REVIEW_STATUS_LABELS[status] ?? status
