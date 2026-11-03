@@ -14,7 +14,7 @@ from app.application import review_service
 router = APIRouter()
 
 
-@router.get("/reviews")
+@router.get("/reviews", response_model=schemas.ReviewPage)
 def list_reviews(
     context: dict[str, Any] = Depends(require_role("teacher", "lead")),
     status: schemas.ReviewStatus | None = None,
