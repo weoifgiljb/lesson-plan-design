@@ -23,7 +23,8 @@
             }
           },
           "503": {
-            "description": "依赖不可用（数据库或磁盘）"
+            "description": "依赖不可用（数据库或磁盘）",
+            "x-error-code": "SERVICE_UNAVAILABLE"
           }
         }
       }
@@ -56,16 +57,20 @@
             }
           },
           "401": {
-            "description": "用户名或口令错误"
+            "description": "用户名或口令错误",
+            "x-error-code": "AUTH_REQUIRED"
           },
           "403": {
-            "description": "账号已停用"
+            "description": "账号已停用",
+            "x-error-code": "FORBIDDEN"
           },
           "422": {
-            "description": "请求体校验失败"
+            "description": "请求体校验失败",
+            "x-error-code": "PAYLOAD_REJECTED"
           },
           "429": {
-            "description": "连续失败次数过多，账号锁定中"
+            "description": "连续失败次数过多，账号锁定中",
+            "x-error-code": "RATE_LIMITED"
           }
         }
       }
@@ -88,10 +93,124 @@
             }
           },
           "401": {
-            "description": "未登录或会话已失效"
+            "description": "未登录或会话已失效",
+            "x-error-code": "AUTH_REQUIRED"
           },
           "403": {
-            "description": "缺少或错误的 CSRF token"
+            "description": "缺少或错误的 CSRF token",
+            "x-error-code": "FORBIDDEN"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Register",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "注册成功，返回账号与访问令牌",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Api V1 Auth Register Post"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "平台已关闭自助注册",
+            "x-error-code": "FORBIDDEN"
+          },
+          "409": {
+            "description": "用户名已存在",
+            "x-error-code": "CONFLICT_STALE"
+          },
+          "422": {
+            "description": "用户名/口令/显示名不符合要求",
+            "x-error-code": "PAYLOAD_REJECTED"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/token": {
+      "post": {
+        "summary": "Token",
+        "operationId": "token_api_v1_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "用户名口令换取 Bearer 令牌",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Token Api V1 Auth Token Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "用户名或口令错误",
+            "x-error-code": "AUTH_REQUIRED"
+          },
+          "403": {
+            "description": "账号已停用",
+            "x-error-code": "FORBIDDEN"
+          },
+          "429": {
+            "description": "连续失败次数过多，账号锁定中",
+            "x-error-code": "RATE_LIMITED"
+          },
+          "422": {
+            "description": "请求体校验失败",
+            "x-error-code": "PAYLOAD_REJECTED"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Whoami",
+        "operationId": "whoami_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Whoami Api V1 Auth Me Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录、令牌无效或已失效",
+            "x-error-code": "AUTH_REQUIRED"
           }
         }
       }
@@ -114,7 +233,8 @@
             }
           },
           "401": {
-            "description": "未登录或会话已失效"
+            "description": "未登录或会话已失效",
+            "x-error-code": "AUTH_REQUIRED"
           }
         }
       }
@@ -147,13 +267,16 @@
             }
           },
           "401": {
-            "description": "原口令不正确"
+            "description": "原口令不正确",
+            "x-error-code": "AUTH_REQUIRED"
           },
           "403": {
-            "description": "缺少或错误的 CSRF token"
+            "description": "缺少或错误的 CSRF token",
+            "x-error-code": "FORBIDDEN"
           },
           "422": {
-            "description": "新口令不符合强度要求"
+            "description": "新口令不符合强度要求",
+            "x-error-code": "PAYLOAD_REJECTED"
           }
         }
       }
@@ -189,22 +312,28 @@
             "description": "同一契约包已导入，返回 duplicate=true"
           },
           "401": {
-            "description": "未登录"
+            "description": "未登录",
+            "x-error-code": "AUTH_REQUIRED"
           },
           "403": {
-            "description": "角色不允许"
+            "description": "角色不允许",
+            "x-error-code": "FORBIDDEN"
           },
           "409": {
-            "description": "版本冲突（headVersion / baseHash / 差异摘要）"
+            "description": "版本冲突（headVersion / baseHash / 差异摘要）",
+            "x-error-code": "CONFLICT_STALE"
           },
           "413": {
-            "description": "契约包超过上限"
+            "description": "契约包超过上限",
+            "x-error-code": "PAYLOAD_TOO_LARGE"
           },
           "415": {
-            "description": "上传类型不是 zip"
+            "description": "上传类型不是 zip",
+            "x-error-code": "UNSUPPORTED_MEDIA"
           },
           "422": {
-            "description": "契约或结构校验失败"
+            "description": "契约或结构校验失败",
+            "x-error-code": "PAYLOAD_REJECTED"
           }
         }
       }
@@ -1181,7 +1310,8 @@
             }
           },
           "422": {
-            "description": "查询参数非法"
+            "description": "查询参数非法",
+            "x-error-code": "PAYLOAD_REJECTED"
           }
         }
       }
@@ -2483,6 +2613,36 @@
         ],
         "title": "PasswordChange"
       },
+      "RegisterPayload": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9_.-]+$",
+            "title": "Username"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Displayname"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "displayName",
+          "password"
+        ],
+        "title": "RegisterPayload"
+      },
       "TaskCreate": {
         "properties": {
           "course": {
@@ -2538,6 +2698,28 @@
           "title"
         ],
         "title": "TaskCreate"
+      },
+      "TokenPayload": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "TokenPayload"
       },
       "UserCreate": {
         "properties": {
@@ -2611,6 +2793,14 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "bearerJwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Authorization: Bearer <accessToken>（HS256，默认 120 分钟）"
       }
     }
   }

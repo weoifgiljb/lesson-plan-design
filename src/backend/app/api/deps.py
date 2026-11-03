@@ -6,11 +6,23 @@ from typing import Any, Callable
 
 from fastapi import Depends, Request, Response
 
-from app.application import audit_service, session_service
+from app.application import audit_service, session_service, token_service
 from app.api.request_info import client_ip, trace_id
 from app.config import CSRF_COOKIE, CSRF_HEADER, SESSION_COOKIE, cookie_secure, session_ttl_hours
 from app.domain import auth, roles
 from app.domain.errors import AppError
+
+
+def _request_ip(request: Request) -> str:
+    from app.api.request_info import client_ip
+
+    return client_ip(request)
+
+
+def _request_trace(request: Request) -> str:
+    from app.api.request_info import trace_id
+
+    return trace_id(request)
 
 
 def get_repo(request: Request):
@@ -26,12 +38,64 @@ def get_repo(request: Request):
 
 
 def current_context(request: Request, repo=Depends(get_repo)) -> dict[str, Any]:
+    """两种认证方式：浏览器用会话 Cookie，客户端/插件用 Authorization: Bearer <JWT>。
+
+    JWT 请求没有 Cookie，因此也不做 CSRF 校验（见 require_csrf*）；令牌自带的
+    token_version 与库内不一致时立即失效（改密/重置后）。
+    """
     token = request.cookies.get(SESSION_COOKIE, "")
-    resolved = session_service.resolve(repo, token)
-    if resolved is None:
-        raise AppError("AUTH_REQUIRED", "未登录或会话已失效")
-    session, user = resolved
-    return {"session": session, "user": user, "repo": repo}
+    resolved = session_service.resolve(repo, token) if token else None
+    if resolved is not None:
+        session, user = resolved
+        enforce_password_change(request, {"user": user, "auth": "cookie"})
+        return {"session": session, "user": user, "repo": repo, "auth": "cookie"}
+    header = request.headers.get("Authorization", "")
+    user = token_service.identity_from_header(repo, header) if header else None
+    if user is None:
+        if not header:
+            raise AppError("AUTH_REQUIRED", "未登录或会话已失效")
+        # 带令牌但校验失败：留一条可检索的审计（不落令牌原文），便于发现伪造/过期客户端
+        audit_service.record(
+            repo,
+            actor_id=None,
+            action="auth.token.rejected",
+            target_type="user",
+            target_id="",
+            detail={"reason": "invalid_token", "path": request.url.path},
+            ip=_request_ip(request),
+            trace_id=_request_trace(request),
+        )
+        raise AppError("AUTH_REQUIRED", "令牌无效或已失效")
+    enforce_password_change(request, {"user": user, "auth": "jwt"})
+    return {"session": {}, "user": user, "repo": repo, "auth": "jwt"}
+
+
+#: must_change_password=1 时仍允许访问的路径（改密本身、身份查询、退出、健康检查）
+PASSWORD_ALLOWED_PATHS = frozenset(
+    {
+        "/api/v1/me/password",
+        "/api/v1/me",
+        "/api/v1/auth/me",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/token",
+        "/api/v1/auth/login",
+        "/api/v1/health",
+    }
+)
+
+
+def enforce_password_change(request: Request, context: dict[str, Any]) -> None:
+    """首次改密是服务端约束：未改密账号除改密/身份查询外一律 403。"""
+    user = context.get("user") or {}
+    if not user.get("must_change_password"):
+        return
+    if request.url.path in PASSWORD_ALLOWED_PATHS:
+        return
+    raise AppError(
+        "PASSWORD_CHANGE_REQUIRED",
+        "请先修改初始口令",
+        {"path": request.url.path},
+    )
 
 
 def require_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:
@@ -50,6 +114,8 @@ def require_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:
 def require_csrf(
     request: Request, context: dict[str, Any] = Depends(current_context)
 ) -> dict[str, Any]:
+    if context.get("auth") == "jwt":
+        return context
     provided = request.headers.get(CSRF_HEADER, "")
     expected = str(context["session"].get("csrf_token") or "")
     if not auth.csrf_matches(expected, provided):
@@ -64,11 +130,12 @@ def require_csrf_role(*allowed_roles: str) -> Callable[..., dict[str, Any]]:
     def dependency(
         request: Request, context: dict[str, Any] = Depends(current_context)
     ) -> dict[str, Any]:
-        provided = request.headers.get(CSRF_HEADER, "")
-        expected = str(context["session"].get("csrf_token") or "")
-        if not auth.csrf_matches(expected, provided):
-            _audit_denied(request, context, "csrf_failed")
-            raise AppError("FORBIDDEN", "CSRF 校验失败")
+        if context.get("auth") != "jwt":
+            provided = request.headers.get(CSRF_HEADER, "")
+            expected = str(context["session"].get("csrf_token") or "")
+            if not auth.csrf_matches(expected, provided):
+                _audit_denied(request, context, "csrf_failed")
+                raise AppError("FORBIDDEN", "CSRF 校验失败")
         role = str(context["user"].get("role") or "")
         if not roles.allowed(role, allowed_roles):
             _audit_denied(request, context, "role_denied", {"role": role, "allowed": list(allowed_roles)})

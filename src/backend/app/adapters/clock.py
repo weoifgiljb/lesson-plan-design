@@ -17,6 +17,10 @@ def now_iso() -> str:
     return now().isoformat()
 
 
+def timestamp() -> int:
+    return int(now().timestamp())
+
+
 def iso_after(hours: float) -> str:
     return (now() + timedelta(hours=hours)).isoformat()
 

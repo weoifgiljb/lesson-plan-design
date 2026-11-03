@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
+from app.api.responses import error_responses
 from app.api.deps import require_role
 from app.api.request_info import client_ip, trace_id
 from app.application import audit_service
@@ -47,7 +48,7 @@ def list_audit(
             "description": "审计 CSV（UTF-8 BOM；X-Total 为匹配总数，X-Truncated 表示是否截断）",
             "content": {"text/csv": {"schema": {"type": "string", "format": "binary"}}},
         },
-        422: {"description": "查询参数非法"},
+        **error_responses("PAYLOAD_REJECTED:查询参数非法"),
     },
 )
 def export_audit(

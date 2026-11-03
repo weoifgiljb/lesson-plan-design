@@ -23,6 +23,33 @@ from app.adapters.db import repair as repair_mod  # noqa: E402
 from app.config import db_path  # noqa: E402
 
 
+def _backup_database(source: Path, target: Path) -> None:
+    """用 sqlite3 在线备份 API 复制：WAL 尚未 checkpoint 时也能拿到完整快照。
+
+    早期版本用 shutil.copy2 只复制主库文件，WAL 里未落盘的事务会静默丢失
+    （甚至得到空壳库），对真实库执行 repair 前必须先做可靠备份。
+    """
+    if Path(f"{source}-wal").exists():
+        print("检测到 WAL：使用 sqlite3 在线备份，避免丢失未 checkpoint 的事务")
+    src = sqlite3.connect(source)
+    dst = sqlite3.connect(target)
+    try:
+        src.backup(dst)
+    finally:
+        dst.close()
+        src.close()
+    check = sqlite3.connect(target)
+    try:
+        integrity = check.execute("PRAGMA integrity_check").fetchone()[0]
+        tables = check.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'"
+        ).fetchone()[0]
+    finally:
+        check.close()
+    if integrity != "ok" or int(tables) == 0:
+        raise SystemExit(f"备份校验失败：integrity={integrity} tables={tables}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="对齐数据库结构到当前版本")
     parser.add_argument("--db", help="数据库文件路径，默认取配置的 data/app.db")
@@ -53,7 +80,7 @@ def main() -> int:
         backup_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         backup = backup_dir / f"{target.stem}-{stamp}.db"
-        shutil.copy2(target, backup)
+        _backup_database(target, backup)
         print(f"已备份：{backup}")
 
         # 直接对齐到目标结构：迁移器按版本号前进，遇到"版本号跳号 + 部分列已存在"

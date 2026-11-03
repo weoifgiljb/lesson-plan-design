@@ -7,9 +7,50 @@ from typing import Any
 from app.adapters import clock
 from app.adapters.db.repo import Repo
 from app.application import audit_service, session_service
-from app.config import LOGIN_LOCK_MINUTES, LOGIN_MAX_FAILURES
+from app.config import LOGIN_LOCK_MINUTES, LOGIN_MAX_FAILURES, allow_registration
 from app.domain import auth, roles, security, user_rules
 from app.domain.errors import AppError
+
+
+def register(
+    repo: Repo,
+    *,
+    username: str,
+    display_name: str,
+    password: str,
+    group_name: str = "",
+    ip: str = "",
+    trace_id: str = "",
+) -> dict[str, Any]:
+    """自助注册：只开放教师角色，建号即启用，失败原因与建号接口一致。"""
+    if not allow_registration():
+        raise AppError("REGISTRATION_CLOSED", "平台已关闭自助注册，请联系管理员建号")
+    created = create_user(
+        repo,
+        username=username,
+        display_name=display_name,
+        role="teacher",
+        password=password,
+        # 自助注册不允许自选教研组：组成员关系只能由管理员分配，否则可跨组看/下载他人任务
+        group_name="",
+        actor_id=None,
+        ip=ip,
+        trace_id=trace_id,
+    )
+    user = repo.user_by_id(int(created))
+    if user is None:
+        raise AppError("INTERNAL", "注册后未能读回账号")
+    audit_service.record(
+        repo,
+        actor_id=None,
+        action="user.register",
+        target_type="user",
+        target_id=str(created),
+        detail={"username": str(user.get("username") or ""), "source": "self_service"},
+        ip=ip,
+        trace_id=trace_id,
+    )
+    return user
 
 
 def change_password(
@@ -78,7 +119,7 @@ def create_user(
     data = user_rules.validate(username, display_name, group_name)
     with repo.transaction():
         if repo.user_by_username(data["username"]) is not None:
-            raise AppError("CONFLICT_STALE", f"用户名已存在：{data['username']}")
+            raise AppError("USERNAME_TAKEN", f"用户名已存在：{data['username']}")
         user_id = repo.insert_user(
             data["username"], data["display_name"], role, security.hash_password(password),
             data["group_name"], must_change_password=True,
@@ -123,9 +164,26 @@ def list_users(
     }
 
 
+def verify_credentials(
+    repo: Repo, username: str, password: str, *, ip: str = "", trace_id: str = ""
+) -> dict[str, Any]:
+    """校验账号口令（含锁定/失败计数），成功时不创建会话，供换令牌等无 Cookie 场景使用。"""
+    return _authenticate(repo, username, password, ip, trace_id)
+
+
 def login(
     repo: Repo, username: str, password: str, *, ip: str = "", trace_id: str = ""
 ) -> tuple[dict[str, Any], str, str]:
+    """网页登录：校验口令并创建会话，返回 (user, session_token, csrf_token)。"""
+    user = _authenticate(repo, username, password, ip, trace_id)
+    token, csrf_token = session_service.create(repo, int(user["id"]))
+    _audit(repo, int(user["id"]), "auth.login", {}, ip, trace_id)
+    return user, token, csrf_token
+
+
+def _authenticate(
+    repo: Repo, username: str, password: str, ip: str, trace_id: str
+) -> dict[str, Any]:
     user = repo.user_by_username(username)
     if user is None:
         _audit(repo, None, "auth.login.failed", {"username": username, "reason": "unknown_user"}, ip, trace_id)
@@ -144,9 +202,7 @@ def login(
     return _verify(repo, user, password, ip, trace_id)
 
 
-def _verify(
-    repo: Repo, user: dict[str, Any], password: str, ip: str, trace_id: str
-) -> tuple[dict[str, Any], str, str]:
+def _verify(repo: Repo, user: dict[str, Any], password: str, ip: str, trace_id: str) -> dict[str, Any]:
     if not security.verify_password(password, str(user["password_hash"])):
         # 计数走单条原子 UPDATE：并发登录时"读-改-写"会丢更新，锁定可被绕过（R2-1）
         locked_until = clock.iso_after(LOGIN_LOCK_MINUTES / 60)
@@ -156,9 +212,7 @@ def _verify(
             raise AppError("RATE_LIMITED", "连续失败次数过多，账号已锁定 10 分钟")
         raise AppError("AUTH_REQUIRED", "用户名或口令错误")
     repo.reset_login_failure(int(user["id"]))
-    token, csrf_token = session_service.create(repo, int(user["id"]))
-    _audit(repo, int(user["id"]), "auth.login", {}, ip, trace_id)
-    return user, token, csrf_token
+    return user
 
 
 def _audit(

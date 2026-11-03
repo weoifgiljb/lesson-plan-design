@@ -527,11 +527,14 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（35 个接口、14 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（39 个接口、19 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
-| POST | /api/v1/auth/login | 公开 | 登录 | 否 |
+| POST | /api/v1/auth/login | 公开 | 登录（Cookie 会话 + 访问令牌） | 否 |
+| POST | /api/v1/auth/register | 公开 | 自助注册（教师） | 否 |
+| POST | /api/v1/auth/token | 公开 | 用户名口令换 Bearer 令牌 | 否 |
+| GET | /api/v1/auth/me | 登录 | 当前身份与认证方式 | 是 |
 | POST | /api/v1/auth/logout | 登录 | 退出 | 是 |
 | GET | /api/v1/me | 登录 | 当前用户与角色 | 是 |
 | GET | /api/v1/tasks | 教师、组长 | 任务列表 | 是 |
@@ -560,6 +563,7 @@
 | GET | /api/v1/samples/{sample_id} | 登录 | 样例详情/预览 | 是 |
 | GET | /api/v1/samples/{sample_id}/download | 登录 | 下载样例 JSON | 是 |
 | GET | /api/v1/audit/export | 管理员、组长 | 审计 CSV 导出（X-Total / X-Truncated） | 是 |
+| GET | /api/v1/stats/records | 登录（按范围） | 统计下钻（逐条记录，分页） | 是 |
 | GET | /api/v1/stats/export.csv | 登录（按范围） | 统计指标 CSV 导出 | 是 |
 | POST | /api/v1/tasks/{task_id}/rollback | 管理员、组长 | 任务状态人工回退（留痕） | 否 |
 | POST | /api/v1/me/password | 登录 | 本人改密（首次改密） | 否 |
@@ -577,7 +581,7 @@
 
 | 实体 | 关键字段 | 约束 |
 |---|---|---|
-| user | id、username、display_name、group_name、role、password_hash、active、must_change_password、failed_count、locked_until | username 唯一；role 三值；group_name 用于组长/组内可见 |
+| user | id、username、display_name、group_name、role、password_hash、active、must_change_password、token_version、failed_count、locked_until | username 唯一；role 三值；group_name 用于组长/组内可见；token_version 在改密/重置后自增，令旧 JWT 失效 |
 | task | id、course、week、session、title、class_name、owner_id、due_date、status、assignee_id、group_name、term | 课程 + 周次 + 课次 + 班级 + 课题唯一；status 四值；group_name 由创建者教研组回填 |
 | plan | id、task_id、owner_id、current_version_id、deleted_at | 软删除；归属校验 |
 | plan_version | id、plan_id、version_no、content_json、plan_hash、report_sha256、schema_version、rubric_version、engine_version、source | plan_id + version_no 唯一；plan_id + plan_hash + report_sha256 部分唯一（空串哨兵不参与）；不可修改 |

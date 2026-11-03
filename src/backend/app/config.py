@@ -24,6 +24,12 @@ LOGIN_MAX_FAILURES = 5
 LOGIN_LOCK_MINUTES = 10
 MIN_PASSWORD_LENGTH = 8
 
+JWT_TTL_MINUTES = 120
+JWT_DEV_SECRET = "lpp-dev-secret-change-me"
+ALLOW_REGISTRATION = True
+REGISTER_MAX_PER_HOUR = 10
+MIN_JWT_SECRET_LENGTH = 32
+
 
 def data_dir() -> Path:
     return Path(os.environ.get("LPP_DATA_DIR", str(DEFAULT_DATA_DIR))).resolve()
@@ -55,3 +61,49 @@ def cookie_secure() -> bool:
 
 def session_ttl_hours() -> int:
     return int(os.environ.get("LPP_SESSION_TTL_HOURS", SESSION_TTL_HOURS))
+
+
+def jwt_secret() -> str:
+    return os.environ.get("LPP_JWT_SECRET", JWT_DEV_SECRET)
+
+
+def dev_secret_allowed() -> bool:
+    """只有显式声明 `LPP_ALLOW_DEV_SECRET=1`（本地开发/测试）才允许用内置密钥。"""
+    return os.environ.get("LPP_ALLOW_DEV_SECRET", "0") == "1"
+
+
+def strict_config() -> bool:
+    """生产/联调（LPP_ENV=prod）或显式 LPP_STRICT_CONFIG=1 时，配置不合格直接拒绝启动。"""
+    return os.environ.get("LPP_STRICT_CONFIG", "0") == "1" or os.environ.get(
+        "LPP_ENV", "dev"
+    ).lower() in {"prod", "production"}
+
+
+def security_config_problems() -> list[str]:
+    """启动自检：返回不可接受的配置问题，调用方据此拒绝启动或让 /health 报 degraded。"""
+    problems: list[str] = []
+    secret = jwt_secret()
+    if secret == JWT_DEV_SECRET and not dev_secret_allowed():
+        problems.append(
+            "LPP_JWT_SECRET 仍为内置开发密钥：生产/联调必须设置独立密钥（或显式 LPP_ALLOW_DEV_SECRET=1）"
+        )
+    if len(secret) < MIN_JWT_SECRET_LENGTH:
+        problems.append(f"LPP_JWT_SECRET 长度不足 {MIN_JWT_SECRET_LENGTH} 字节")
+    raw_ttl = str(os.environ.get("LPP_JWT_TTL_MINUTES", JWT_TTL_MINUTES)).strip()
+    if not raw_ttl.lstrip("-").isdigit():
+        problems.append("LPP_JWT_TTL_MINUTES 不是整数")
+    elif not 0 < int(raw_ttl) <= 24 * 60:
+        problems.append("LPP_JWT_TTL_MINUTES 必须在 1 到 1440 分钟之间")
+    return problems
+
+
+def jwt_ttl_minutes() -> int:
+    return int(os.environ.get("LPP_JWT_TTL_MINUTES", JWT_TTL_MINUTES))
+
+
+def allow_registration() -> bool:
+    return os.environ.get("LPP_ALLOW_REGISTRATION", "1" if ALLOW_REGISTRATION else "0") == "1"
+
+
+def register_max_per_hour() -> int:
+    return int(os.environ.get("LPP_REGISTER_MAX_PER_HOUR", REGISTER_MAX_PER_HOUR))
