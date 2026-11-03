@@ -20,6 +20,7 @@ from app.api.routers import (
     exports,
     health,
     me,
+    meta,
     plans,
     reviews,
     samples,
@@ -92,6 +93,7 @@ def create_app() -> FastAPI:
 
     register_error_handlers(application)
     application.include_router(health.router, prefix="/api/v1")
+    application.include_router(meta.router, prefix="/api/v1")
     application.include_router(auth.router, prefix="/api/v1")
     application.include_router(me.router, prefix="/api/v1")
     application.include_router(plans.router, prefix="/api/v1")

@@ -9,8 +9,7 @@ import {
 } from '@/api/stats'
 import type { Metric, StatRecord } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
-import { buildBarOption, buildStatusOption } from '@/composables/useStatsCharts'
-import ChartCard from '@/components/ChartCard.vue'
+import { UNAVAILABLE_TEXT } from '@/utils/labels'
 import { saveBlob } from '@/utils/download'
 
 const filters = reactive({ course: '', week: '', page: 1, pageSize: 10 })
@@ -39,8 +38,12 @@ const statusOption = computed(() => buildStatusOption(rows.value))
 const exportError = ref('')
 
 function formatValue(metric: Metric): string {
-  if (metric.value === null || metric.value === undefined) return '不可用'
-  return `${(metric.value * 100).toFixed(1)}%`
+  if (metric.value === null || metric.value === undefined) return UNAVAILABLE_TEXT
+  // 比率型指标后端不给 unit（0–1），其余指标带单位（如"分钟"/"条"）：
+  // 不能一律 ×100，否则缺陷密度与单份耗时会变成荒谬的百分比。
+  if (!metric.unit) return `${(metric.value * 100).toFixed(1)}%`
+  const rounded = Number.isInteger(metric.value) ? String(metric.value) : metric.value.toFixed(1)
+  return `${rounded} ${metric.unit}`
 }
 
 async function toggleRecords(): Promise<void> {
