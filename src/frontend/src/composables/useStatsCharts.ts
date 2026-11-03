@@ -1,15 +1,9 @@
 import type { EChartsOption } from 'echarts'
 
 import type { Metric, StatRecord } from '@/api/models'
+import { EMPTY_STATUS_TEXT, UNAVAILABLE_TEXT, reviewStatusLabel } from '@/utils/labels'
+import { RATE_KEYS } from '@/utils/metrics'
 import { chartPalette } from '@/utils/theme'
-
-/** 比率型指标（0–1），用于达成度条形图 */
-const RATIO_KEYS = new Set([
-  'structure_rate',
-  'evidence_rate',
-  'sync_consistency',
-  'task_completion',
-])
 
 export interface BarRow {
   key: string
@@ -22,7 +16,7 @@ export interface BarRow {
 /** 把 summary.metrics 转成条形图数据：不可用不出条、样本不足要角标 */
 export function barRows(metrics: Metric[]): BarRow[] {
   return metrics
-    .filter((metric) => RATIO_KEYS.has(metric.key))
+    .filter((metric) => RATE_KEYS.has(metric.key))
     .map((metric) => ({
       key: metric.key,
       label: metric.label,
@@ -30,7 +24,7 @@ export function barRows(metrics: Metric[]): BarRow[] {
       sampleInsufficient: Boolean(metric.sampleInsufficient),
       note:
         metric.available === false
-          ? '不可用'
+          ? UNAVAILABLE_TEXT
           : `${Math.round((metric.value ?? 0) * 100)}%（${metric.numerator}/${metric.denominator}）`,
     }))
 }
@@ -78,14 +72,6 @@ export interface StatusSlice {
   count: number
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  passed: '已通过',
-  needs_repair: '待修复',
-  blocked: '已阻断',
-  waived: '已放行',
-  reviewing: '审查中',
-}
-
 export function statusSlices(records: StatRecord[]): StatusSlice[] {
   const counts = new Map<string, number>()
   for (const record of records) {
@@ -93,7 +79,7 @@ export function statusSlices(records: StatRecord[]): StatusSlice[] {
     counts.set(status, (counts.get(status) ?? 0) + 1)
   }
   return [...counts.entries()]
-    .map(([status, count]) => ({ status, label: STATUS_LABELS[status] ?? status, count }))
+    .map(([status, count]) => ({ status, label: reviewStatusLabel(status), count }))
     .sort((left, right) => right.count - left.count)
 }
 
@@ -129,7 +115,7 @@ export function buildStatusOption(records: StatRecord[]): EChartsOption {
               type: 'text',
               left: 'center',
               top: 'middle',
-              style: { text: '暂无审查记录', fill: chartPalette.muted(), fontSize: 13 },
+              style: { text: EMPTY_STATUS_TEXT, fill: chartPalette.muted(), fontSize: 13 },
             },
           ]
         : [],

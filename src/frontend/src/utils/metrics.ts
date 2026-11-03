@@ -1,6 +1,6 @@
 import type { Metric } from '@/api/models'
 
-const RATE_KEYS = new Set([
+export const RATE_KEYS = new Set([
   'structure_rate',
   'evidence_rate',
   'sync_consistency',
