@@ -29,6 +29,31 @@ CREATE TABLE task (
 );
 """
 
+# 0013 之前：task 已有看板列与正确唯一键，但 quadrant 没有白名单 CHECK
+LEGACY_TASK_NO_QUADRANT_CHECK_SQL = """
+DROP TABLE task;
+CREATE TABLE task (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course TEXT NOT NULL,
+    week INTEGER NOT NULL,
+    session INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    class_name TEXT NOT NULL DEFAULT '',
+    owner_id INTEGER NOT NULL REFERENCES user (id),
+    due_date TEXT,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'reviewing', 'passed', 'exported')),
+    created_at TEXT NOT NULL,
+    assignee_id INTEGER REFERENCES user (id),
+    group_name TEXT NOT NULL DEFAULT '',
+    term TEXT NOT NULL DEFAULT '',
+    quadrant TEXT NOT NULL DEFAULT 'important_not_urgent',
+    board_position INTEGER NOT NULL DEFAULT 0,
+    board_version INTEGER NOT NULL DEFAULT 0,
+    discarded_at TEXT,
+    UNIQUE (course, week, session, class_name, title)
+);
+"""
+
 # 更早的基线（#21 之前）：plan_version 既没有 report_sha256，也没有 engine_version
 LEGACY_PLAN_VERSION_SQL = """
 DROP TABLE plan_version;
@@ -185,6 +210,25 @@ class TestRepairSchema(unittest.TestCase):
             columns = [row[1] for row in conn.execute("PRAGMA table_info(override)")]
             self.assertIn("review_id", columns)
             self.assertFalse(repair.inspect(conn)["needs_repair"])
+        finally:
+            conn.close()
+
+    def test_repair_adds_quadrant_check_and_normalizes(self) -> None:
+        # R4-04：早期 repair 建的 task 表没有 quadrant CHECK，脏值会让列表/看板 500
+        conn = sqlite3.connect(":memory:", isolation_level=None)
+        try:
+            conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            conn.executescript(LEGACY_TASK_NO_QUADRANT_CHECK_SQL)
+            conn.executescript(SEED_SQL)
+            conn.execute("UPDATE task SET quadrant = 'legacy_quadrant'")
+            state = repair.inspect(conn)
+            self.assertFalse(state["task_quadrant_ok"])
+            log = repair.repair(conn)
+            self.assertTrue(log["rebuilt_task"])
+            self.assertTrue(repair.inspect(conn)["task_quadrant_ok"])
+            self.assertEqual(conn.execute("SELECT quadrant FROM task").fetchone()[0], "important_not_urgent")
+            with self.assertRaises(sqlite3.IntegrityError):
+                conn.execute("UPDATE task SET quadrant = 'legacy_quadrant'")
         finally:
             conn.close()
 
