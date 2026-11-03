@@ -1,3 +1,5 @@
+import { errorMessage } from './errors'
+
 export interface ApiError {
   code: string
   message: string
@@ -37,7 +39,10 @@ export function toApiError(error: unknown): RequestError {
   if (data && typeof data.code === 'string') {
     return new RequestError({
       code: data.code,
-      message: typeof data.message === 'string' ? data.message : FALLBACK.message,
+      message: errorMessage(
+        data.code,
+        typeof data.message === 'string' ? data.message : undefined,
+      ),
       details: (data.details as Record<string, unknown>) ?? {},
       traceId: typeof data.traceId === 'string' ? data.traceId : '',
       status: typeof response?.status === 'number' ? response.status : 0,

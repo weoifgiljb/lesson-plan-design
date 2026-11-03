@@ -1,3 +1,7 @@
+/**
+ * 兜底文案：后端每个 AppError 都自带中文 message，优先用响应里的 message；
+ * 只有响应缺 message 时才按 code 回落到这里（例如网关拦截、跨域失败）。
+ */
 export const ERROR_MESSAGES: Record<string, string> = {
   AUTH_REQUIRED: '未登录或会话已失效，请重新登录',
   FORBIDDEN: '无权访问该资源',
@@ -20,6 +24,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   INTERNAL: '服务器内部错误，请附带 traceId 反馈',
 }
 
-export function errorMessage(code: string): string {
+export function errorMessage(code: string, serverMessage?: string): string {
+  if (serverMessage && serverMessage.trim()) return serverMessage
   return ERROR_MESSAGES[code] ?? ERROR_MESSAGES.INTERNAL
 }
