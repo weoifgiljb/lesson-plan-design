@@ -1,4 +1,4 @@
-// openapi-sha256: ed0c024db5f23dc9df0319b55c2d7b02341452af58447f42d6efdaec6ab2de6b
+// openapi-sha256: 478dfa954b69db83a8ddaa6bd25536da0ca37adca313f6ae9a984901720ed6bc
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface BodyCreateSampleApiV1SamplesPost {
@@ -90,6 +90,7 @@ export type DownloadExportApiV1ExportsExportIdDownloadGetResponse = Record<strin
 export type HealthApiV1HealthGetResponse = Record<string, unknown>
 export type MeApiV1MeGetResponse = Record<string, unknown>
 export type ChangePasswordApiV1MePasswordPostResponse = Record<string, unknown>
+export type MetaApiV1MetaGetResponse = Record<string, unknown>
 export type ListPlansApiV1PlansGetResponse = Record<string, unknown>
 export type ImportPlanApiV1PlansImportPostResponse = Record<string, unknown>
 export type DeletePlanApiV1PlansPlanIdDeleteResponse = Record<string, unknown>

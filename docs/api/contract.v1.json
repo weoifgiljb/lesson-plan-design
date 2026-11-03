@@ -998,6 +998,25 @@
       ],
       "client": "ui",
       "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/meta",
+      "summary": "平台元数据（状态/象限/角色/限制）",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401
+      ],
+      "client": "api",
+      "implemented": true
     }
   ]
 }
