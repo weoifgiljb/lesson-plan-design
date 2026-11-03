@@ -1,0 +1,93 @@
+/*
+ * 校本教案平台设计令牌 · v1.1「松绿 · 砂岩」
+ *
+ * 单一浅色主题：A「墨蓝」退役，避免两套近似浅色主题造成维护噪音。
+ * 只有 --lpp-* 变量可以出现在页面样式里；十六进制值必须与 styles/palette.ts 一致，
+ * tokens.spec.ts 会逐值比对，防止 TS 与 CSS 漂移。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 表面与文字 */
+  --lpp-canvas: #edefea;
+  --lpp-layer: #f6f7f2;
+  --lpp-surface: #ffffff;
+  --lpp-text: #17231e;
+  --lpp-text-muted: #5b6a62;
+  --lpp-border: #dde3d9;
+  --lpp-border-strong: #c3cec2;
+
+  /* 行动与强调 */
+  --lpp-primary: #245a4c;
+  --lpp-primary-hover: #2e6b5a;
+  --lpp-primary-soft: #e5efe9;
+  --lpp-accent: #a47f45;
+  --lpp-accent-ink: #725526;
+
+  /* 状态 */
+  --lpp-success: #2e6a4e;
+  --lpp-success-soft: #e7f0ea;
+  --lpp-warning: #8a5a14;
+  --lpp-warning-soft: #f5eedf;
+  --lpp-danger: #a03e2e;
+  --lpp-danger-soft: #f6e9e5;
+
+  /* 导航与表格 */
+  --lpp-nav-hover: #edf1ea;
+  --lpp-nav-selected: #e5efe9;
+  --lpp-row-hover: #f3f6f0;
+  --lpp-selection: #dce9e2;
+
+  /* 身份牌（唯一深色块） */
+  --lpp-nameplate: #16251f;
+  --lpp-nameplate-text: #f0f4ef;
+  --lpp-nameplate-muted: #a6b6aa;
+
+  /* 焦点与阴影 */
+  --lpp-focus: #245a4c;
+  --lpp-focus-soft: rgba(36, 90, 76, 0.24);
+  --lpp-shadow-float: 0 18px 48px rgba(18, 33, 27, 0.16);
+  --lpp-shadow-flyout: 0 10px 28px rgba(18, 33, 27, 0.12);
+
+  /* 圆角：只保留四档 */
+  --lpp-radius-tag: 4px;
+  --lpp-radius-control: 6px;
+  --lpp-radius-card: 10px;
+  --lpp-radius-window: 14px;
+
+  /* 间距：4px 体系 */
+  --lpp-space-1: 4px;
+  --lpp-space-2: 8px;
+  --lpp-space-3: 12px;
+  --lpp-space-4: 16px;
+  --lpp-space-5: 20px;
+  --lpp-space-6: 24px;
+  --lpp-space-8: 32px;
+  --lpp-space-10: 40px;
+  --lpp-space-14: 56px;
+
+  /* 字号与行高：12px 是信息文字下限 */
+  --lpp-font-xs: 12px;
+  --lpp-font-sm: 13px;
+  --lpp-font-base: 14px;
+  --lpp-font-md: 16px;
+  --lpp-font-lg: 20px;
+  --lpp-font-xl: 28px;
+  --lpp-font-2xl: 36px;
+  --lpp-line: 1.65;
+  --lpp-line-table: 1.5;
+  --lpp-line-title: 1.25;
+
+  /* 字体：不请求外部字体 */
+  --lpp-font-family: 'Microsoft YaHei', 'PingFang SC', 'Noto Sans CJK SC', 'Segoe UI', sans-serif;
+  --lpp-font-serif: 'Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', serif;
+  --lpp-font-numeric: 'Bahnschrift', 'DIN Alternate', 'Segoe UI', sans-serif;
+  --lpp-mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* 布局 */
+  --lpp-sidebar: 228px;
+  --lpp-sidebar-compact: 64px;
+  --lpp-commandbar: 56px;
+  --lpp-content-max: 1400px;
+}
