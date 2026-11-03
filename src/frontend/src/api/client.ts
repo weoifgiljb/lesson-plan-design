@@ -62,8 +62,8 @@ export const client = {
     const response = await http.post<T>(path, body)
     return response.data
   },
-  async download(path: string): Promise<Blob> {
-    const response = await http.get<Blob>(path, { responseType: 'blob' })
+  async download(path: string, params?: Record<string, unknown>): Promise<Blob> {
+    const response = await http.get<Blob>(path, { params, responseType: 'blob' })
     return response.data
   },
 }

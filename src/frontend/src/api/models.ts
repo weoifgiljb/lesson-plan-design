@@ -307,6 +307,8 @@ export interface SampleDetail extends Omit<SampleItem, 'complete'> {
 export interface StatRecord {
   planId: number
   reviewId: number | null
+  /** 后端 StatRecordOut 声明为可空；服务层没返回时前端回退成「教案 #id」。 */
+  contentTitle?: string | null
   course: string
   week: number
   session: number
