@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 
+from app.api import schemas
 from app.api.deps import require_role
 from app.application import review_service
 
@@ -16,8 +17,8 @@ router = APIRouter()
 @router.get("/reviews")
 def list_reviews(
     context: dict[str, Any] = Depends(require_role("teacher", "lead")),
-    status: str | None = None,
-    severity: str | None = None,
+    status: schemas.ReviewStatus | None = None,
+    severity: schemas.Severity | None = None,
     teacher: str | None = None,
     from_date: date | None = Query(None, alias="dateFrom"),
     to_date: date | None = Query(None, alias="dateTo"),

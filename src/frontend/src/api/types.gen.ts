@@ -1,5 +1,10 @@
-// openapi-sha256: 478dfa954b69db83a8ddaa6bd25536da0ca37adca313f6ae9a984901720ed6bc
+// openapi-sha256: a7b8ec2f8925f30e84ea66ddfa2964f9b35c0f98e995fb24e0242c9b3136cf6c
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
+
+export interface AuthMeOut {
+  user: UserOut
+  auth: string
+}
 
 export interface BodyCreateSampleApiV1SamplesPost {
   file: string
@@ -23,6 +28,15 @@ export interface HTTPValidationError {
   detail?: ValidationError[]
 }
 
+export interface LoginOut {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  expiresAt: string
+  user: UserOut
+  csrfToken: string
+}
+
 export interface LoginPayload {
   username: string
   password: string
@@ -33,10 +47,61 @@ export interface PasswordChange {
   newPassword: string
 }
 
+export interface PlanDetailOut {
+  plan: PlanListItem
+  currentVersion?: PlanVersionOut | null
+  latestReview?: Record<string, unknown> | null
+}
+
+export interface PlanListItem {
+  planId: number
+  contentTitle: string
+  course: string
+  week: number
+  session: number
+  ownerId: number
+  teacher?: string | null
+  versionNo?: number | null
+  planHash?: string | null
+  reviewStatus?: string | null
+  reviewRound?: number | null
+  versionCreatedAt?: string | null
+}
+
+export interface PlanPage {
+  planId?: number | null
+  items: PlanListItem[]
+  page?: number
+  pageSize?: number
+  total: number
+}
+
+export interface PlanVersionOut {
+  versionNo: number
+  planHash: string
+  engineVersion?: string | null
+  createdAt?: string | null
+  content?: Record<string, unknown> | null
+  source?: string | null
+  review?: Record<string, unknown> | null
+}
+
+export interface PlanVersionPage {
+  planId?: number | null
+  items: PlanVersionOut[]
+}
+
 export interface RegisterPayload {
   username: string
   displayName: string
   password: string
+}
+
+export interface TaskBoard {
+  items: TaskItem[]
+  total: number
+  counts: Record<string, number>
+  generatedAt: string
 }
 
 export interface TaskCreate {
@@ -50,10 +115,46 @@ export interface TaskCreate {
   quadrant?: string | null
 }
 
+export interface TaskItem {
+  taskId: number
+  course: string
+  week: number
+  session: number
+  title: string
+  className?: string
+  dueDate?: string | null
+  status: "draft" | "exported" | "passed" | "reviewing"
+  ownerId: number
+  teacher?: string | null
+  overdue?: boolean
+  createdAt?: string | null
+  quadrant: "important_not_urgent" | "not_urgent_not_important" | "urgent_important" | "urgent_not_important"
+  boardPosition?: number
+  boardVersion?: number
+  discardedAt?: string | null
+  discarded?: boolean
+  canEdit?: boolean
+}
+
 export interface TaskMove {
   quadrant: string
   position: number
   boardVersion: number
+}
+
+export interface TaskPage {
+  items: TaskItem[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface TokenOut {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  expiresAt: string
+  user: UserOut
 }
 
 export interface TokenPayload {
@@ -66,6 +167,16 @@ export interface UserCreate {
   displayName: string
   role: string
   password: string
+  group?: string
+}
+
+export interface UserOut {
+  id: number
+  username: string
+  displayName: string
+  role: string
+  roleLabel: string
+  mustChangePassword?: boolean
   group?: string
 }
 

@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
+from app.api import schemas
 from app.api.deps import require_csrf_role, require_role
 from app.application import user_service
 
@@ -24,7 +25,7 @@ class UserCreate(BaseModel):
 @router.get("/users")
 def list_users(
     context: dict[str, Any] = Depends(require_role("admin")),
-    role: str | None = None,
+    role: schemas.RoleName | None = None,
     group: str | None = None,
     q: str | None = None,
     active: int | None = None,

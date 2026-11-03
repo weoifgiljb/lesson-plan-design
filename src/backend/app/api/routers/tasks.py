@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel
 
 from app.api.deps import require_csrf_role, require_role
+from app.api import schemas
 from app.api.responses import error_responses
 from app.application import task_service
 
@@ -34,13 +35,13 @@ class TaskMove(BaseModel):
     boardVersion: int
 
 
-@router.get("/tasks")
+@router.get("/tasks", response_model=schemas.TaskPage)
 def list_tasks(
     context: dict[str, Any] = Depends(require_role("teacher", "lead")),
     course: str | None = None,
     week: int | None = None,
-    status: str | None = None,
-    quadrant: str | None = None,
+    status: schemas.TaskStatus | None = None,
+    quadrant: schemas.TaskQuadrant | None = None,
     teacher: str | None = None,
     discarded: bool | None = None,
     page: int = 1,
@@ -60,7 +61,7 @@ def list_tasks(
     )
 
 
-@router.get("/tasks/board")
+@router.get("/tasks/board", response_model=schemas.TaskBoard)
 def task_board(
     context: dict[str, Any] = Depends(require_role("teacher", "lead")),
     course: str | None = None,

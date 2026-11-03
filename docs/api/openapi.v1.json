@@ -73,9 +73,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Login Api V1 Auth Login Post"
+                  "$ref": "#/components/schemas/LoginOut"
                 }
               }
             }
@@ -147,9 +145,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Register Api V1 Auth Register Post"
+                  "$ref": "#/components/schemas/TokenOut"
                 }
               }
             }
@@ -189,9 +185,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Token Api V1 Auth Token Post"
+                  "$ref": "#/components/schemas/TokenOut"
                 }
               }
             }
@@ -225,9 +219,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Whoami Api V1 Auth Me Get"
+                  "$ref": "#/components/schemas/AuthMeOut"
                 }
               }
             }
@@ -474,9 +466,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response List Plans Api V1 Plans Get"
+                  "$ref": "#/components/schemas/PlanPage"
                 }
               }
             }
@@ -515,9 +505,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Plan Detail Api V1 Plans  Plan Id  Get"
+                  "$ref": "#/components/schemas/PlanDetailOut"
                 }
               }
             }
@@ -595,9 +583,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Plan Versions Api V1 Plans  Plan Id  Versions Get"
+                  "$ref": "#/components/schemas/PlanVersionPage"
                 }
               }
             }
@@ -700,6 +686,14 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "needs_repair",
+                    "passed",
+                    "passed_with_accepted_minor",
+                    "passed_with_override",
+                    "pending_reviewer",
+                    "structure_invalid"
+                  ],
                   "type": "string"
                 },
                 {
@@ -716,6 +710,11 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "blocker",
+                    "major",
+                    "minor"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2166,6 +2165,12 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "draft",
+                    "exported",
+                    "passed",
+                    "reviewing"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2182,6 +2187,12 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "important_not_urgent",
+                    "not_urgent_not_important",
+                    "urgent_important",
+                    "urgent_not_important"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2250,9 +2261,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response List Tasks Api V1 Tasks Get"
+                  "$ref": "#/components/schemas/TaskPage"
                 }
               }
             }
@@ -2383,9 +2392,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Task Board Api V1 Tasks Board Get"
+                  "$ref": "#/components/schemas/TaskBoard"
                 }
               }
             }
@@ -2654,6 +2661,11 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "teacher",
+                    "lead",
+                    "admin"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2799,6 +2811,23 @@
   },
   "components": {
     "schemas": {
+      "AuthMeOut": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "auth": {
+            "type": "string",
+            "title": "Auth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "auth"
+        ],
+        "title": "AuthMeOut"
+      },
       "Body_create_sample_api_v1_samples_post": {
         "properties": {
           "file": {
@@ -2886,6 +2915,44 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "LoginOut": {
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "title": "Accesstoken"
+          },
+          "tokenType": {
+            "type": "string",
+            "title": "Tokentype"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "title": "Expiresin"
+          },
+          "expiresAt": {
+            "type": "string",
+            "title": "Expiresat"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "csrfToken": {
+            "type": "string",
+            "title": "Csrftoken"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "expiresAt",
+          "user",
+          "csrfToken"
+        ],
+        "title": "LoginOut",
+        "description": "网页登录比换令牌多一个 CSRF token（Cookie 会话要用）。"
+      },
       "LoginPayload": {
         "properties": {
           "username": {
@@ -2926,6 +2993,289 @@
         ],
         "title": "PasswordChange"
       },
+      "PlanDetailOut": {
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/PlanListItem"
+          },
+          "currentVersion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PlanVersionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latestReview": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreview"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan"
+        ],
+        "title": "PlanDetailOut"
+      },
+      "PlanListItem": {
+        "properties": {
+          "planId": {
+            "type": "integer",
+            "title": "Planid"
+          },
+          "contentTitle": {
+            "type": "string",
+            "title": "Contenttitle"
+          },
+          "course": {
+            "type": "string",
+            "title": "Course"
+          },
+          "week": {
+            "type": "integer",
+            "title": "Week"
+          },
+          "session": {
+            "type": "integer",
+            "title": "Session"
+          },
+          "ownerId": {
+            "type": "integer",
+            "title": "Ownerid"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher"
+          },
+          "versionNo": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versionno"
+          },
+          "planHash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planhash"
+          },
+          "reviewStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewstatus"
+          },
+          "reviewRound": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewround"
+          },
+          "versionCreatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versioncreatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "planId",
+          "contentTitle",
+          "course",
+          "week",
+          "session",
+          "ownerId"
+        ],
+        "title": "PlanListItem"
+      },
+      "PlanPage": {
+        "properties": {
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "default": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "title": "Pagesize",
+            "default": 20
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PlanPage"
+      },
+      "PlanVersionOut": {
+        "properties": {
+          "versionNo": {
+            "type": "integer",
+            "title": "Versionno"
+          },
+          "planHash": {
+            "type": "string",
+            "title": "Planhash"
+          },
+          "engineVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engineversion"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "versionNo",
+          "planHash"
+        ],
+        "title": "PlanVersionOut"
+      },
+      "PlanVersionPage": {
+        "properties": {
+          "planId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planid"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PlanVersionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "PlanVersionPage"
+      },
       "RegisterPayload": {
         "properties": {
           "username": {
@@ -2955,6 +3305,40 @@
           "password"
         ],
         "title": "RegisterPayload"
+      },
+      "TaskBoard": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "counts",
+          "generatedAt"
+        ],
+        "title": "TaskBoard"
       },
       "TaskCreate": {
         "properties": {
@@ -3023,6 +3407,140 @@
         ],
         "title": "TaskCreate"
       },
+      "TaskItem": {
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "title": "Taskid"
+          },
+          "course": {
+            "type": "string",
+            "title": "Course"
+          },
+          "week": {
+            "type": "integer",
+            "title": "Week"
+          },
+          "session": {
+            "type": "integer",
+            "title": "Session"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "className": {
+            "type": "string",
+            "title": "Classname",
+            "default": ""
+          },
+          "dueDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duedate"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "exported",
+              "passed",
+              "reviewing"
+            ],
+            "title": "Status"
+          },
+          "ownerId": {
+            "type": "integer",
+            "title": "Ownerid"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher"
+          },
+          "overdue": {
+            "type": "boolean",
+            "title": "Overdue",
+            "default": false
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "quadrant": {
+            "type": "string",
+            "enum": [
+              "important_not_urgent",
+              "not_urgent_not_important",
+              "urgent_important",
+              "urgent_not_important"
+            ],
+            "title": "Quadrant"
+          },
+          "boardPosition": {
+            "type": "integer",
+            "title": "Boardposition",
+            "default": 0
+          },
+          "boardVersion": {
+            "type": "integer",
+            "title": "Boardversion",
+            "default": 0
+          },
+          "discardedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discardedat"
+          },
+          "discarded": {
+            "type": "boolean",
+            "title": "Discarded",
+            "default": false
+          },
+          "canEdit": {
+            "type": "boolean",
+            "title": "Canedit",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "taskId",
+          "course",
+          "week",
+          "session",
+          "title",
+          "status",
+          "ownerId",
+          "quadrant"
+        ],
+        "title": "TaskItem"
+      },
       "TaskMove": {
         "properties": {
           "quadrant": {
@@ -3045,6 +3563,69 @@
           "boardVersion"
         ],
         "title": "TaskMove"
+      },
+      "TaskPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "pageSize": {
+            "type": "integer",
+            "title": "Pagesize"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "title": "TaskPage"
+      },
+      "TokenOut": {
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "title": "Accesstoken"
+          },
+          "tokenType": {
+            "type": "string",
+            "title": "Tokentype"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "title": "Expiresin"
+          },
+          "expiresAt": {
+            "type": "string",
+            "title": "Expiresat"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "expiresAt",
+          "user"
+        ],
+        "title": "TokenOut"
       },
       "TokenPayload": {
         "properties": {
@@ -3100,6 +3681,49 @@
           "password"
         ],
         "title": "UserCreate"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "displayName": {
+            "type": "string",
+            "title": "Displayname"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "roleLabel": {
+            "type": "string",
+            "title": "Rolelabel"
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "title": "Mustchangepassword",
+            "default": false
+          },
+          "group": {
+            "type": "string",
+            "title": "Group",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "displayName",
+          "role",
+          "roleLabel"
+        ],
+        "title": "UserOut"
       },
       "ValidationError": {
         "properties": {

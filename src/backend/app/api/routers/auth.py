@@ -25,6 +25,7 @@ router = APIRouter()
 
 @router.post(
     "/auth/login",
+    response_model=schemas.LoginOut,
     responses=error_responses(
         "AUTH_REQUIRED:用户名或口令错误",
         "FORBIDDEN:账号已停用",
@@ -89,6 +90,7 @@ def _trace_id(request: Request) -> str:
 @router.post(
     "/auth/register",
     status_code=201,
+    response_model=schemas.TokenOut,
     responses={
         201: {"description": "注册成功，返回账号与访问令牌"},
         **error_responses(
@@ -127,6 +129,7 @@ def register(
 
 @router.post(
     "/auth/token",
+    response_model=schemas.TokenOut,
     responses={
         200: {"description": "用户名口令换取 Bearer 令牌"},
         **error_responses(
@@ -162,6 +165,7 @@ def token(
 
 @router.get(
     "/auth/me",
+    response_model=schemas.AuthMeOut,
     responses=error_responses("AUTH_REQUIRED:未登录、令牌无效或已失效"),
 )
 def whoami(context: dict[str, Any] = Depends(require_context)) -> dict[str, Any]:
