@@ -7,11 +7,51 @@ export interface User {
   role: Role
   roleLabel?: string
   group?: string
+  /** 新建/注册账号为 true：必须先改密，否则业务接口返回 PASSWORD_CHANGE_REQUIRED */
+  mustChangePassword?: boolean
 }
 
 export interface LoginResult {
   user: User
   csrfToken: string
+  /** 后端同时签发 Bearer 令牌（Web 端仍走 Cookie 会话，这两个字段供插件/脚本复用） */
+  accessToken?: string
+  tokenType?: string
+  expiresIn?: number
+  expiresAt?: string
+}
+
+export interface RegisterPayload {
+  username: string
+  displayName: string
+  password: string
+}
+
+export interface RegisterResult {
+  user: User
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  expiresAt: string
+}
+
+export interface TokenResult {
+  user: User
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  expiresAt: string
+}
+
+export interface AuthMeResult {
+  user: User
+  /** cookie | jwt */
+  auth: string
+}
+
+export interface PasswordChangePayload {
+  oldPassword: string
+  newPassword: string
 }
 
 export interface Paged<T> {

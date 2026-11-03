@@ -1152,6 +1152,85 @@ cases:
       supported: "no"
       framework: "manual"
     status: "active"
+  - id: "TC-09-05"
+    title: "教师自助注册"
+    module: "9. 平台端：权限与审计"
+    priority: "P0"
+    type: "permission"
+    execution_model: "ui"
+    preconditions:
+      - "平台开放自助注册（未设置 LPP_ALLOW_REGISTRATION=0）"
+    steps:
+      - "1. 打开 /register 2. 填写用户名、姓名、口令与确认口令 3. 提交"
+      - "4. 用同名再次注册 5. 用短口令或不一致确认口令提交"
+    expected:
+      - "首次注册成功并提示去登录设置新口令；同名注册提示用户名已被占用；表单拦截弱口令与两次不一致"
+    code_refs:
+      - "src/frontend/src/views/RegisterView.vue"
+      - "src/frontend/src/api/auth.ts"
+      - "src/frontend/src/api/errors.ts"
+    tags: ["auth"]
+    test_data:
+      username: "teacher_new"
+    evidence:
+      level: "E2"
+      source: "前后端实现（BS-05 注册与改密）"
+      confidence: "high"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-09-06"
+    title: "首次登录强制改密"
+    module: "9. 平台端：权限与审计"
+    priority: "P0"
+    type: "permission"
+    execution_model: "ui"
+    preconditions:
+      - "使用新建账号（mustChangePassword=true）登录"
+    steps:
+      - "1. 登录 2. 观察是否跳到 /change-password 3. 直接访问 /tasks 4. 输入当前口令与合规新口令提交 5. 用新口令重新登录"
+    expected:
+      - "被强制跳到改密页；访问业务页被弹回改密页；旧口令错误有提示；新口令与旧口令相同被拦截；改密成功后回登录页且旧会话失效"
+    code_refs:
+      - "src/frontend/src/router/auth-guard.ts"
+      - "src/frontend/src/views/ChangePasswordView.vue"
+      - "src/frontend/src/stores/session.ts"
+    tags: ["auth"]
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "前后端实现（BS-05 注册与改密）"
+      confidence: "high"
+    automation:
+      supported: "no"
+      framework: "manual"
+    status: "active"
+  - id: "TC-09-07"
+    title: "错误码文案覆盖"
+    module: "9. 平台端：权限与审计"
+    priority: "P1"
+    type: "permission"
+    execution_model: "ui"
+    preconditions:
+      - "前端 src/api/errors.ts 与契约错误码同批更新"
+    steps:
+      - "1. 触发用户名占用 2. 触发注册关闭 3. 触发未改密 4. 触发服务不可用"
+    expected:
+      - "四个场景均显示对应中文文案，不出现“服务器内部错误”兜底文案"
+    code_refs:
+      - "src/frontend/src/api/errors.ts"
+      - "src/frontend/src/api/errors.spec.ts"
+    tags: ["auth", "i18n"]
+    test_data: {}
+    evidence:
+      level: "E2"
+      source: "前后端实现（BS-05 注册与改密）"
+      confidence: "high"
+    automation:
+      supported: "partial"
+      framework: "vitest"
+    status: "active"
   - id: "TC-10-01"
     title: "门禁失败不入导出队列"
     module: "10. 平台端：导出与统计"

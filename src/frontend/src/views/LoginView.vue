@@ -153,6 +153,17 @@ onMounted(() => {
           </el-button>
         </el-form>
 
+        <p class="register-link">
+          还没有账号？<router-link to="/register">注册教师账号</router-link>
+        </p>
+        <el-alert
+          v-if="route.query.registered || route.query.changed"
+          class="form-notice"
+          type="success"
+          :closable="false"
+          show-icon
+          :title="route.query.changed ? '口令已更新，请用新口令登录。' : '注册成功，请用新账号登录并设置新口令。'"
+        />
         <p v-if="isDev" class="demo-hint">
           本地开发：<code>teacher01</code> / <code>Lesson2026</code>
         </p>
@@ -307,6 +318,17 @@ onMounted(() => {
   width: 100%;
   height: 38px;
   margin-top: 4px;
+}
+
+.register-link {
+  margin: 10px 0 0;
+  font-size: 13px;
+  text-align: center;
+  color: var(--lpp-text-mute);
+}
+
+.form-notice {
+  margin-top: 12px;
 }
 
 .demo-hint {

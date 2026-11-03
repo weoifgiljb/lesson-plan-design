@@ -1,10 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 
+import { passwordChangeRedirect, roleRedirect } from '@/router/auth-guard'
 import { useSessionStore } from '@/stores/session'
 import AppShell from '@/layouts/AppShell.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
+import ChangePasswordView from '@/views/ChangePasswordView.vue'
 import LoginView from '@/views/LoginView.vue'
+import RegisterView from '@/views/RegisterView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
 
 declare module 'vue-router' {
@@ -62,6 +65,16 @@ const routes: RouteRecordRaw[] = [
     meta: { public: true, title: '登录' },
   },
   {
+    path: '/register',
+    component: RegisterView,
+    meta: { public: true, title: '注册' },
+  },
+  {
+    path: '/change-password',
+    component: ChangePasswordView,
+    meta: { title: '修改口令', section: '账号' },
+  },
+  {
     path: '/',
     component: AppShell,
     children,
@@ -99,8 +112,10 @@ router.beforeEach(async (to) => {
     const ok = await session.load()
     if (!ok) return { path: '/login', query: { redirect: to.fullPath } }
   }
-  const roles = to.meta.roles
-  if (roles && session.role && !roles.includes(session.role)) return '/403'
+  const passwordTarget = passwordChangeRedirect(to, session.user)
+  if (passwordTarget) return passwordTarget
+  const forbidden = roleRedirect(session.user, to.meta.roles)
+  if (forbidden) return forbidden
   return true
 })
 
