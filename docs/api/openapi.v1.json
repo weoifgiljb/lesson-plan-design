@@ -1589,9 +1589,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Stats Summary Api V1 Stats Summary Get"
+                  "$ref": "#/components/schemas/StatsSummaryOut"
                 }
               }
             }
@@ -1860,9 +1858,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Stats Records Api V1 Stats Records Get"
+                  "$ref": "#/components/schemas/StatRecordPage"
                 }
               }
             }
@@ -2971,6 +2967,76 @@
         ],
         "title": "LoginPayload"
       },
+      "MetricOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "numerator": {
+            "type": "number",
+            "title": "Numerator",
+            "default": 0
+          },
+          "denominator": {
+            "type": "number",
+            "title": "Denominator",
+            "default": 0
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": ""
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": true
+          },
+          "sampleInsufficient": {
+            "type": "boolean",
+            "title": "Sampleinsufficient",
+            "default": false
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "MetricOut",
+        "description": "统计指标：比率型无 unit（0–1），耗时等带 unit；sampleInsufficient 表示样本 <5。"
+      },
       "PasswordChange": {
         "properties": {
           "oldPassword": {
@@ -3677,6 +3743,211 @@
         "type": "object",
         "title": "ReviewRef",
         "description": "详情里的 review 与列表项形状不同（少了派生字段、多了报告相关字段）。"
+      },
+      "StatRecordOut": {
+        "properties": {
+          "planId": {
+            "type": "integer",
+            "title": "Planid"
+          },
+          "reviewId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewid"
+          },
+          "contentTitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contenttitle"
+          },
+          "course": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher"
+          },
+          "versionNo": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Versionno"
+          },
+          "reviewStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewstatus"
+          },
+          "structureOk": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Structureok"
+          },
+          "evidenceOk": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidenceok"
+          },
+          "openBlocking": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openblocking"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "planId"
+        ],
+        "title": "StatRecordOut"
+      },
+      "StatRecordPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StatRecordOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "default": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "title": "Pagesize",
+            "default": 20
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "StatRecordPage"
+      },
+      "StatsSummaryOut": {
+        "properties": {
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricOut"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "filters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Filters",
+            "default": {}
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": "own"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "metrics"
+        ],
+        "title": "StatsSummaryOut"
       },
       "TaskBoard": {
         "properties": {

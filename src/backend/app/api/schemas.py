@@ -237,3 +237,53 @@ class ReviewDetailOut(BaseModel):
     findings: list[dict[str, Any]] = []
     overrides: list[dict[str, Any]] = []
     evidence: ReviewEvidence | None = None
+
+
+class MetricOut(BaseModel):
+    """统计指标：比率型无 unit（0–1），耗时等带 unit；sampleInsufficient 表示样本 <5。"""
+
+    model_config = ConfigDict(extra="allow")
+
+    key: str
+    label: str
+    # 耗时类指标的分子是分钟（可能是小数），所以用 float 而不是 int
+    numerator: float = 0
+    denominator: float = 0
+    value: float | None = None
+    unit: str = ""
+    available: bool = True
+    sampleInsufficient: bool = False
+    basis: dict[str, int] | None = None
+
+
+class StatsSummaryOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    metrics: list[MetricOut]
+    filters: dict[str, Any] = {}
+    scope: str = "own"
+
+
+class StatRecordOut(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    planId: int
+    reviewId: int | None = None
+    contentTitle: str | None = None
+    course: str | None = None
+    week: int | None = None
+    session: int | None = None
+    teacher: str | None = None
+    versionNo: int | None = None
+    reviewStatus: str | None = None
+    structureOk: bool | None = None
+    evidenceOk: bool | None = None
+    openBlocking: int | None = None
+    createdAt: str | None = None
+
+
+class StatRecordPage(BaseModel):
+    items: list[StatRecordOut]
+    page: int = 1
+    pageSize: int = 20
+    total: int
