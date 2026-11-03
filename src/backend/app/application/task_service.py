@@ -83,7 +83,7 @@ def create(
             target_id=str(task_id), detail={**data, "dueDate": due_text},
             ip=ip, trace_id=trace_id,
         )
-    return _item(repo.get_task(task_id), date.today()), True
+    return _item(repo.get_task(task_id), date.today(), user), True
 
 
 def rollback(
@@ -123,7 +123,7 @@ def list_tasks(
     rows, total = repo.list_tasks(library.task_scope_for(user), filters, actual_size, offset)
     today = date.today()
     return {
-        "items": [_item(row, today) for row in rows],
+        "items": [_item(row, today, user) for row in rows],
         "page": actual_page,
         "pageSize": actual_size,
         "total": total,
@@ -135,7 +135,7 @@ def board(
 ) -> dict[str, Any]:
     rows = repo.list_board_tasks(library.scope_for(user), filters)
     today = date.today()
-    items = [_item(row, today) for row in rows]
+    items = [_item(row, today, user) for row in rows]
     counts = {quadrant: 0 for quadrant in task_rules.QUADRANTS}
     for item in items:
         counts[item["quadrant"]] = counts.get(item["quadrant"], 0) + 1
@@ -191,7 +191,7 @@ def move(
             ip=ip,
             trace_id=trace_id,
         )
-    return _item(repo.get_task(task_id), date.today())
+    return _item(repo.get_task(task_id), date.today(), user)
 
 
 def _apply_move(
@@ -239,7 +239,7 @@ def discard(
             ip=ip,
             trace_id=trace_id,
         )
-    return _item(repo.get_task(task_id), date.today())
+    return _item(repo.get_task(task_id), date.today(), user)
 
 
 def restore(
@@ -260,7 +260,7 @@ def restore(
             ip=ip,
             trace_id=trace_id,
         )
-    return _item(repo.get_task(task_id), date.today())
+    return _item(repo.get_task(task_id), date.today(), user)
 
 
 def _owned_task(repo: Repo, user: dict[str, Any], task_id: int) -> dict[str, Any]:
@@ -313,9 +313,14 @@ def _can_touch(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> bool:
     return bool(group) and group == task_group
 
 
-def _item(task: dict[str, Any] | None, today: date) -> dict[str, Any]:
+def _item(
+    task: dict[str, Any] | None, today: date, user: dict[str, Any] | None = None
+) -> dict[str, Any]:
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
+    owner_id = int(task["owner_id"])
+    same_owner = user is None or int(user.get("id") or 0) == owner_id
+    can_edit = same_owner or str((user or {}).get("role") or "") == "admin"
     return {
         "taskId": int(task["id"]),
         "course": task["course"],
@@ -333,4 +338,6 @@ def _item(task: dict[str, Any] | None, today: date) -> dict[str, Any]:
         "boardPosition": int(task.get("board_position") or 0),
         "boardVersion": int(task.get("board_version") or 0),
         "discardedAt": task.get("discarded_at"),
+        "discarded": task.get("discarded_at") is not None,
+        "canEdit": can_edit,
     }

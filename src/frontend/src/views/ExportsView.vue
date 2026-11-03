@@ -5,6 +5,7 @@ import { createExports, downloadExport, getExport } from '@/api/exports'
 import { getStatsSummary, listStatRecords } from '@/api/stats'
 import type { ExportJob } from '@/api/models'
 import { saveBlob } from '@/utils/download'
+import { EXPORT_STATUS_LABELS } from '@/utils/labels'
 
 const versionInput = ref('')
 const jobs = ref<ExportJob[]>([])
@@ -101,12 +102,9 @@ async function loadCandidates(): Promise<void> {
   }
 }
 
-const statusLabel: Record<string, string> = {
-  queued: '排队中',
-  running: '生成中',
-  succeeded: '已完成',
-  failed: '失败',
-}
+// 后端导出任务只有 pending / succeeded / failed 三态（export_service），
+// 以前写死的 queued/running 永远不会出现，导致 pending 直接显示英文。
+const statusLabel = EXPORT_STATUS_LABELS
 </script>
 
 <template>

@@ -5,6 +5,7 @@ import { createUser, listUsers, type UserQuery } from '@/api/users'
 import { exportAuditCsv, listAudit, type AuditQuery } from '@/api/audit'
 import type { AuditItem, Role, UserItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
+import { useMeta } from '@/composables/useMeta'
 import { saveBlob } from '@/utils/download'
 
 const tab = ref<'users' | 'audit'>('users')
@@ -65,7 +66,13 @@ async function downloadAudit(): Promise<void> {
   }
 }
 
-const roleLabel: Record<string, string> = { teacher: '教师', lead: '教研组长', admin: '管理员' }
+const { meta, loadMeta } = useMeta()
+void loadMeta()
+
+// 角色中文以后端 /meta 为准（后端是"任课教师/教研组长/系统管理员"）
+const roleLabel = computed(
+  () => new Map((meta.value?.roles ?? []).map((item) => [item.code, item.label])),
+)
 </script>
 
 <template>
@@ -97,7 +104,7 @@ const roleLabel: Record<string, string> = { teacher: '教师', lead: '教研组�
             <el-table-column prop="username" label="用户名" width="160" />
             <el-table-column prop="displayName" label="姓名" width="140" />
             <el-table-column label="角色" width="120">
-              <template #default="{ row }">{{ roleLabel[row.role] ?? row.role }}</template>
+              <template #default="{ row }">{{ roleLabel.get(row.role) ?? row.role }}</template>
             </el-table-column>
             <el-table-column prop="group" label="教研组" width="140" />
             <el-table-column label="状态" width="150">

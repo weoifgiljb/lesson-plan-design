@@ -1,4 +1,4 @@
-// openapi-sha256: d95b5f7a91d4448c125382aa062b3fc8399d36b78fbd11e19d74d116c34c5e7d
+// openapi-sha256: a7b8ec2f8925f30e84ea66ddfa2964f9b35c0f98e995fb24e0242c9b3136cf6c
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -201,6 +201,7 @@ export type DownloadExportApiV1ExportsExportIdDownloadGetResponse = Record<strin
 export type HealthApiV1HealthGetResponse = Record<string, unknown>
 export type MeApiV1MeGetResponse = Record<string, unknown>
 export type ChangePasswordApiV1MePasswordPostResponse = Record<string, unknown>
+export type MetaApiV1MetaGetResponse = Record<string, unknown>
 export type ListPlansApiV1PlansGetResponse = Record<string, unknown>
 export type ImportPlanApiV1PlansImportPostResponse = Record<string, unknown>
 export type DeletePlanApiV1PlansPlanIdDeleteResponse = Record<string, unknown>
