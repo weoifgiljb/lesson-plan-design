@@ -55,3 +55,8 @@ export function restoreTask(taskId: number): Promise<TaskItem> {
 export function downloadTaskPackage(taskId: number): Promise<Blob> {
   return client.download(`/api/v1/tasks/${taskId}/package`)
 }
+
+/** 人工回退任务状态（管理员/组长）：用于误推进后的纠正。 */
+export function rollbackTask(taskId: number, status: string): Promise<TaskItem> {
+  return client.post<TaskItem>(`/api/v1/tasks/${taskId}/rollback`, { status })
+}

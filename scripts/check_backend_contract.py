@@ -20,7 +20,12 @@ import _gate_common as common  # noqa: E402
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 PUBLIC_WRITE = {"/api/v1/auth/login"}
 VALID_ROLES = {"teacher", "lead", "admin"}
-CALL_RE = re.compile(r"client\.(get|post|put|patch|delete)\s*(?:<[^>]*>)?\s*\(\s*[`'\"]([^`'\"]+)[`'\"]", re.I)
+# 泛型可能嵌套（client.get<Paged<TaskItem>>(...)），且 download/upload 也是合法调用；
+# 旧写法 `<[^>]*>` 遇到嵌套泛型就匹配失败，导致 BC-07 误报"前端没有调用"。
+CALL_RE = re.compile(
+    r"client\.(get|post|put|patch|delete|upload|download)\b(?:\s*<[^(]*>)?\s*\(\s*[`'\"]([^`'\"]+)[`'\"]",
+    re.I,
+)
 QUOTED_CODE_RE = re.compile(r"[\"']([A-Z][A-Z0-9_]{3,})[\"']")
 BARE_CODE_RE = re.compile(r"[{,]\s*([A-Z][A-Z0-9_]{3,})\s*:")
 VERSION_LITERAL_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\"[^\"]*\"|\d+(?:\.\d+)*)\s*$", re.M)
@@ -254,7 +259,9 @@ def _frontend_calls(frontend: Path) -> set[tuple[str, str]]:
     paths = sorted(api_dir.rglob("*.ts")) if api_dir.is_dir() else []
     for path in paths:
         for method, url in CALL_RE.findall(common.read_text(path)):
-            calls.add((method.upper(), _normalize_path(url)))
+            # client.download/upload 是封装方法，语义分别对应 GET 与 POST
+            http_method = {"download": "GET", "upload": "POST"}.get(method.lower(), method.upper())
+            calls.add((http_method, _normalize_path(url)))
     return calls
 
 

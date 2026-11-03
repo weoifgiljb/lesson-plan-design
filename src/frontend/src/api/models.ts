@@ -293,3 +293,26 @@ export interface EngineInfo {
   contractVersion: string
   supportedContractVersions: string[]
 }
+
+
+export interface SampleDetail extends SampleItem {
+  content?: Record<string, unknown> | null
+  complete?: boolean
+  assetsOk?: boolean
+  assetCount?: number
+}
+
+export interface StatRecord {
+  planId: number
+  reviewId: number | null
+  course: string
+  week: number
+  session: number
+  teacher: string
+  versionNo: number
+  reviewStatus: string
+  structureOk: boolean
+  evidenceOk: boolean
+  openBlocking: number
+  createdAt?: string
+}
