@@ -107,6 +107,10 @@ class TestPlansApi(unittest.TestCase):
         versions = self._get(f"/api/v1/plans/{self.plan1}/versions").json()
         self.assertEqual([item["versionNo"] for item in versions["items"]], [1, 2])
         self.assertEqual(versions["items"][1]["status"], "passed")
+        # R4-15：版本链的 total 与逐项 reportSha256/round 也要进模型（断言真值，不靠模型默认值）
+        self.assertEqual(versions["total"], 2)
+        self.assertEqual(versions["items"][1]["round"], 2)
+        self.assertEqual(len(versions["items"][1]["reportSha256"]), 64)
         diff = self._get(f"/api/v1/plans/{self.plan1}/diff").json()
         self.assertEqual((diff["fromVersion"], diff["toVersion"]), (1, 2))
         paths = {item["path"] for item in diff["changes"]}

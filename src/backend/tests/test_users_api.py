@@ -78,6 +78,10 @@ class TestUsersApi(unittest.TestCase):
         self.assertEqual(self._create(csrf).status_code, 409)
         self.assertEqual(self._create(csrf, username="badrole", role="auditor").status_code, 422)
         self.assertEqual(self._create(csrf, username="weak", password="123").status_code, 422)
+        # R4-10：建号接口与注册/domain 同口径（3–40、显示名 ≤50）
+        self.assertEqual(self._create(csrf, username="u" * 41).status_code, 422)
+        self.assertEqual(self._create(csrf, username="okname", displayName="名" * 51).status_code, 422)
+        self.assertEqual(self._create(csrf, username="u" * 40).status_code, 201)
 
     def test_admin_lists_and_filters(self) -> None:
         csrf = self._login("admin1")

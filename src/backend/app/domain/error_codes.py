@@ -40,6 +40,11 @@ CATALOG: dict[str, dict[str, object]] = {
         "zh": "资源不存在",
         "scene": "id 无效或对象已软删除",
     },
+    "METHOD_NOT_ALLOWED": {
+        "http": 405,
+        "zh": "请求方法不被允许",
+        "scene": "对已存在的路径使用了未登记的 HTTP 方法（如 PUT /settings/engine）",
+    },
     "CONFLICT_STALE": {
         "http": 409,
         "zh": "数据已变化，请刷新后重试",
@@ -116,6 +121,7 @@ ERROR_CODES = {
     "REGISTRATION_CLOSED": 403,
     "PASSWORD_CHANGE_REQUIRED": 403,
     "NOT_FOUND": 404,
+    "METHOD_NOT_ALLOWED": 405,
     "CONFLICT_STALE": 409,
     "CONFLICT_DELETED": 409,
     "HASH_MISMATCH": 422,

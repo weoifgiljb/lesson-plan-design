@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.domain import report_rules, roles, task_rules
+from app.domain import report_rules, roles, task_rules, user_rules
 
 #: 查询参数/响应里可用的枚举：从 domain 常量派生，避免路由里再写字符串字面量
 TaskStatus = Literal[tuple(sorted(task_rules.TASK_RANK))]
@@ -24,8 +24,13 @@ class LoginPayload(BaseModel):
 
 
 class RegisterPayload(BaseModel):
-    username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
-    displayName: str = Field(min_length=1, max_length=64)
+    # 长度取 domain 常量：契约/OpenAPI 与 user_rules.validate 必须同一口径（R4-10）
+    username: str = Field(
+        min_length=user_rules.USERNAME_MIN,
+        max_length=user_rules.USERNAME_MAX,
+        pattern=r"^[A-Za-z0-9_.-]+$",
+    )
+    displayName: str = Field(min_length=1, max_length=user_rules.DISPLAY_NAME_MAX)
     password: str = Field(min_length=8, max_length=128)
 
 
@@ -131,7 +136,7 @@ class PlanListItem(BaseModel):
 
 
 class PlanPage(BaseModel):
-    planId: int | None = None
+    # 列表不产出 planId（R4-08）：之前模型给默认值，响应里恒为 null，是噪声字段
     items: list[PlanListItem]
     page: int = 1
     pageSize: int = 20
@@ -139,7 +144,7 @@ class PlanPage(BaseModel):
 
 
 class PlanVersionOut(BaseModel):
-    # 版本链里还带 status/review 等字段；先保留额外键，避免 response_model 静默吞字段
+    # 版本链里还带 status/round/reportSha256 等字段；先保留额外键，避免 response_model 静默吞字段
     model_config = ConfigDict(extra="allow")
 
     versionNo: int
@@ -150,6 +155,10 @@ class PlanVersionOut(BaseModel):
     content: dict[str, Any] | None = None
     source: str | None = None
     review: dict[str, Any] | None = None
+    # 版本链（GET /plans/{id}/versions）每项都带这三个键；详情 currentVersion 没有则落 null
+    round: int | None = None
+    status: str | None = None
+    reportSha256: str | None = None
 
 
 class PlanDetailOut(BaseModel):
@@ -218,6 +227,10 @@ class ReviewRef(BaseModel):
     reportSha256: str | None = None
     teacher: str | None = None
     contentTitle: str | None = None
+    # 详情响应实测带课程/周次/课次（此前靠 extra=allow 透传，生成类型里没有）
+    course: str | None = None
+    week: int | None = None
+    session: int | None = None
 
 
 class ReviewDetailOut(BaseModel):
@@ -228,6 +241,8 @@ class ReviewDetailOut(BaseModel):
     report: dict[str, Any] | None = None
     findings: list[dict[str, Any]] = []
     overrides: list[dict[str, Any]] = []
+    # 修复历史此前只在 extra=allow 里透传，生成类型看不到（R4-15）
+    repairHistory: list[dict[str, Any]] = []
     evidence: ReviewEvidence | None = None
 
 
@@ -246,6 +261,8 @@ class MetricOut(BaseModel):
     available: bool = True
     sampleInsufficient: bool = False
     basis: dict[str, int] | None = None
+    # 每个指标自带生效筛选（list 或 summary 的 filters 是同一份口径），此前靠 extra=allow 透传
+    filters: dict[str, Any] = {}
 
 
 class StatsSummaryOut(BaseModel):

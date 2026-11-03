@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from support import isolated_data_dir, tempdir
 
 from app.adapters.db.connection import open_database
-from app.domain import library, report_rules, roles, task_rules
+from app.domain import library, report_rules, roles, task_rules, user_rules
 from app.domain import security
 from app.main import create_app
 
@@ -61,6 +61,10 @@ class TestMetaApi(unittest.TestCase):
         limits = body["limits"]
         self.assertEqual(limits["pageSizeDefault"], library.PAGE_SIZE_DEFAULT)
         self.assertEqual(limits["pageSizeMax"], library.PAGE_SIZE_MAX)
+        # R4-10：用户名/显示名长度也走 domain 常量
+        self.assertEqual(limits["usernameMinLength"], user_rules.USERNAME_MIN)
+        self.assertEqual(limits["usernameMaxLength"], user_rules.USERNAME_MAX)
+        self.assertEqual(limits["displayNameMaxLength"], user_rules.DISPLAY_NAME_MAX)
 
 
 if __name__ == "__main__":

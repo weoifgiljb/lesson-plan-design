@@ -5,7 +5,7 @@
 | 文档编号 | LPP-BS-PLAN-001 |
 | 文档版本 | v1.0 |
 | 编制日期 | 2026-10-26 |
-| 关联需求 | 《功能优化需求-BS平台端》v1.4（LPP-BS-001） |
+| 关联需求 | 《功能优化需求-BS平台端》v1.5（LPP-BS-001） |
 | 关联规范 | `AGENTS.md`、`docs/dev/git-workflow.md`、`skills/code-standards/SKILL.md` |
 | 关联契约 | `docs/api/contract.v1.json`、`tests/fixtures/dual-end/` |
 | 关联闸门 | `docs/backend/backend-review-gate.md`、`scripts/run_backend_gate.py` |
@@ -245,7 +245,7 @@ src/
 
 ## 6 契约与版本
 
-- 权威契约：`docs/api/contract.v1.json`（44 个接口、19 个错误码、4 个版本字段、3 个角色）。
+- 权威契约：`docs/api/contract.v1.json`（44 个接口、20 个错误码、4 个版本字段、3 个角色）。
 - 实现进度：每个接口带 `implemented` 字段（缺省视为 `true`）。标记 `false` 的接口允许暂缺，闸门只报一条 warn；接口实现与 `implemented=true` 必须在同一 PR 翻转，否则 BC-02 block。
 - 生成快照：`docs/api/openapi.v1.json`，由 `py -3 scripts/run_backend_gate.py --update-contract` 生成；只允许随契约变更一起更新。
 - 前端类型：`src/frontend/src/api/types.gen.ts`，首行写快照哈希，闸门比对。

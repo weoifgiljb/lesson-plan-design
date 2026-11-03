@@ -193,6 +193,10 @@ class TestReviewsApi(unittest.TestCase):
         self.assertTrue(detail["evidence"]["complete"])
         self.assertEqual(detail["report"]["status"], "passed")
         self.assertEqual(detail["review"]["contentTitle"], "通过课")
+        # R4-15：repairHistory 与 review 的课程/周次/课次要进模型，不能只靠 extra=allow 透传
+        self.assertIsInstance(detail["repairHistory"], list)
+        self.assertEqual(detail["review"]["course"], "信息技术")
+        self.assertEqual((detail["review"]["week"], detail["review"]["session"]), (2, 1))
         gap = self.client.get(f"/api/v1/reviews/{self.reviews['round_gap']}").json()
         item = next(entry for entry in gap["evidence"]["items"] if entry["key"] == "round_continuous")
         self.assertFalse(item["ok"])

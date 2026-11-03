@@ -49,6 +49,12 @@ class TestErrorEnvelope(unittest.TestCase):
         self.assertEqual(body["code"], "NOT_FOUND")
         self.assertTrue(body["traceId"])
 
+    def test_method_not_allowed_has_dedicated_code(self) -> None:
+        # R4-14：405 以前被映射成 NOT_FOUND，语义错位
+        response = self.client.put("/api/v1/plans/1", json={})
+        self.assertEqual(response.status_code, 405, response.text)
+        self.assertEqual(response.json()["code"], "METHOD_NOT_ALLOWED")
+
     def test_wrong_content_type_returns_415(self) -> None:
         csrf = self._login()
         response = self.client.post(

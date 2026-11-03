@@ -3034,6 +3034,12 @@
               }
             ],
             "title": "Basis"
+          },
+          "filters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Filters",
+            "default": {}
           }
         },
         "additionalProperties": true,
@@ -3203,17 +3209,6 @@
       },
       "PlanPage": {
         "properties": {
-          "planId": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Planid"
-          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/PlanListItem"
@@ -3309,6 +3304,39 @@
               }
             ],
             "title": "Review"
+          },
+          "round": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Round"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "reportSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reportsha256"
           }
         },
         "additionalProperties": true,
@@ -3355,14 +3383,14 @@
         "properties": {
           "username": {
             "type": "string",
-            "maxLength": 64,
+            "maxLength": 40,
             "minLength": 3,
             "pattern": "^[A-Za-z0-9_.-]+$",
             "title": "Username"
           },
           "displayName": {
             "type": "string",
-            "maxLength": 64,
+            "maxLength": 50,
             "minLength": 1,
             "title": "Displayname"
           },
@@ -3421,6 +3449,15 @@
             },
             "type": "array",
             "title": "Overrides",
+            "default": []
+          },
+          "repairHistory": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Repairhistory",
             "default": []
           },
           "evidence": {
@@ -3750,6 +3787,39 @@
               }
             ],
             "title": "Contenttitle"
+          },
+          "course": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Course"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session"
           }
         },
         "additionalProperties": true,
@@ -4320,22 +4390,35 @@
         "properties": {
           "username": {
             "type": "string",
+            "maxLength": 40,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9_.-]+$",
             "title": "Username"
           },
           "displayName": {
             "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
             "title": "Displayname"
           },
           "role": {
             "type": "string",
+            "enum": [
+              "teacher",
+              "lead",
+              "admin"
+            ],
             "title": "Role"
           },
           "password": {
             "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
             "title": "Password"
           },
           "group": {
             "type": "string",
+            "maxLength": 50,
             "title": "Group",
             "default": ""
           }

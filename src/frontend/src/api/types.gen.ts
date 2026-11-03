@@ -1,4 +1,4 @@
-// openapi-sha256: fc8fb1112a70586dd2bfdfd6db75e90afa68119664f1c72c33520d00856f8b62
+// openapi-sha256: 8a0e795a3ce8b4b61f6e3bec45344f89860abe9c19ff172c6e1ab48a183b1c34
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -52,6 +52,7 @@ export interface MetricOut {
   available?: boolean
   sampleInsufficient?: boolean
   basis?: Record<string, number> | null
+  filters?: Record<string, unknown>
 }
 
 export interface PasswordChange {
@@ -81,7 +82,6 @@ export interface PlanListItem {
 }
 
 export interface PlanPage {
-  planId?: number | null
   items: PlanListItem[]
   page?: number
   pageSize?: number
@@ -96,6 +96,9 @@ export interface PlanVersionOut {
   content?: Record<string, unknown> | null
   source?: string | null
   review?: Record<string, unknown> | null
+  round?: number | null
+  status?: string | null
+  reportSha256?: string | null
 }
 
 export interface PlanVersionPage {
@@ -115,6 +118,7 @@ export interface ReviewDetailOut {
   report?: Record<string, unknown> | null
   findings?: Record<string, unknown>[]
   overrides?: Record<string, unknown>[]
+  repairHistory?: Record<string, unknown>[]
   evidence?: ReviewEvidence | null
 }
 
@@ -160,6 +164,9 @@ export interface ReviewRef {
   reportSha256?: string | null
   teacher?: string | null
   contentTitle?: string | null
+  course?: string | null
+  week?: number | null
+  session?: number | null
 }
 
 export interface StatRecordOut {
@@ -261,7 +268,7 @@ export interface TokenPayload {
 export interface UserCreate {
   username: string
   displayName: string
-  role: string
+  role: "teacher" | "lead" | "admin"
   password: string
   group?: string
 }

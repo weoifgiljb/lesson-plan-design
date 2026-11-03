@@ -18,7 +18,7 @@ from app.config import (
     MAX_SAMPLE_BYTES,
     MIN_PASSWORD_LENGTH,
 )
-from app.domain import library, report_rules, roles, task_rules
+from app.domain import library, report_rules, roles, task_rules, user_rules
 
 router = APIRouter()
 
@@ -78,6 +78,10 @@ def meta(context: dict[str, Any] = Depends(current_context)) -> dict[str, Any]:
         ],
         "limits": {
             "passwordMinLength": MIN_PASSWORD_LENGTH,
+            # 用户名/显示名长度：注册页（匿名）用本地常量兜底，管理端可直接吃这里
+            "usernameMinLength": user_rules.USERNAME_MIN,
+            "usernameMaxLength": user_rules.USERNAME_MAX,
+            "displayNameMaxLength": user_rules.DISPLAY_NAME_MAX,
             "pageSizeDefault": library.PAGE_SIZE_DEFAULT,
             "pageSizeMax": library.PAGE_SIZE_MAX,
             "packageMaxBytes": MAX_PACKAGE_BYTES,
