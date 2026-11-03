@@ -6,6 +6,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import BrandMark from '@/components/BrandMark.vue'
 import { changePassword } from '@/api/auth'
 import { RequestError } from '@/api/client-error'
+import { passwordValidator } from '@/utils/password'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
@@ -20,12 +21,13 @@ const form = reactive({
 const loading = ref(false)
 const errorMessage = ref('')
 const errorTrace = ref('')
+const errorRef = ref<{ $el?: HTMLElement } | null>(null)
 
 const rules: FormRules = {
   oldPassword: [{ required: true, message: '请输入当前口令', trigger: 'blur' }],
   newPassword: [
     { required: true, message: '请输入新口令', trigger: 'blur' },
-    { min: 8, message: '口令至少 8 位，且需同时包含字母与数字', trigger: 'blur' },
+    { validator: passwordValidator, trigger: ['blur', 'change'] },
     {
       validator: (_rule, value: string, callback: (error?: Error) => void) => {
         if (value && value === form.oldPassword) callback(new Error('新口令不能与当前口令相同'))
@@ -44,6 +46,11 @@ const rules: FormRules = {
       trigger: 'blur',
     },
   ],
+}
+
+async function signOut(): Promise<void> {
+  await session.signOut()
+  await router.push('/login')
 }
 
 async function submit(): Promise<void> {
@@ -65,6 +72,7 @@ async function submit(): Promise<void> {
       if (caught instanceof RequestError) {
         errorMessage.value = caught.message
         errorTrace.value = caught.traceId
+        errorRef.value?.$el?.focus?.()
       } else {
         errorMessage.value = '修改口令失败，请检查网络或稍后重试。'
       }
@@ -124,8 +132,12 @@ async function submit(): Promise<void> {
 
         <el-alert
           v-if="errorMessage"
+          ref="errorRef"
           id="password-error"
+          tabindex="-1"
           class="form-error"
+          role="alert"
+          aria-live="assertive"
           type="error"
           :closable="false"
           show-icon
@@ -139,7 +151,7 @@ async function submit(): Promise<void> {
       </el-form>
 
       <p class="card-foot">
-        不想现在修改？<router-link to="/dashboard">稍后再说</router-link>
+        需要换个账号？<el-button link type="primary" @click="signOut">退出登录</el-button>
       </p>
     </section>
   </main>
@@ -157,10 +169,10 @@ async function submit(): Promise<void> {
 .auth-card {
   width: min(420px, 100%);
   padding: 28px 28px 20px;
-  border: 1px solid var(--lpp-line);
+  border: 1px solid var(--lpp-border);
   border-radius: 14px;
-  background: var(--lpp-panel);
-  box-shadow: var(--lpp-shadow-sm, 0 8px 24px rgba(20, 30, 24, 0.08));
+  background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-flyout);
 }
 
 .card-head {
@@ -180,7 +192,7 @@ async function submit(): Promise<void> {
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--lpp-text-mute);
+  color: var(--lpp-text-muted);
 }
 
 .form-error {
@@ -195,6 +207,6 @@ async function submit(): Promise<void> {
   margin: 14px 0 0;
   font-size: 13px;
   text-align: center;
-  color: var(--lpp-text-mute);
+  color: var(--lpp-text-muted);
 }
 </style>

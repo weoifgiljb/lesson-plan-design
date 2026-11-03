@@ -3,6 +3,39 @@ import { describe, expect, it, vi } from 'vitest'
 import { RequestError } from '@/api/client-error'
 import { useApiRequest } from './useApiRequest'
 
+describe('useApiRequest 的 403 分支', () => {
+  it('PASSWORD_CHANGE_REQUIRED 不走通用 403 处理', async () => {
+    const onForbidden = vi.fn()
+    const loader = vi
+      .fn()
+      .mockRejectedValue(
+        new RequestError({
+          code: 'PASSWORD_CHANGE_REQUIRED',
+          message: '请先修改初始口令',
+          status: 403,
+          traceId: 't1',
+          details: {},
+        }),
+      )
+    const request = useApiRequest(loader, { onForbidden })
+    await request.load()
+    expect(onForbidden).not.toHaveBeenCalled()
+    expect(request.error.value?.code).toBe('PASSWORD_CHANGE_REQUIRED')
+  })
+
+  it('普通 403 仍交给 onForbidden', async () => {
+    const onForbidden = vi.fn()
+    const loader = vi
+      .fn()
+      .mockRejectedValue(
+        new RequestError({ code: 'FORBIDDEN', message: '无权限', status: 403, traceId: '', details: {} }),
+      )
+    const request = useApiRequest(loader, { onForbidden })
+    await request.load()
+    expect(onForbidden).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('useApiRequest', () => {
   it('sets loading/data and clears loading on success', async () => {
     const loader = vi.fn().mockResolvedValue({ value: 1 })

@@ -69,7 +69,11 @@ export function useApiRequest<T>(
       const apiError = caught instanceof RequestError ? caught : toApiError(caught)
       error.value = apiError
       if (apiError.status === 401) handleUnauthorized()
-      else if (apiError.status === 403) handleForbidden()
+      else if (apiError.code === 'PASSWORD_CHANGE_REQUIRED') {
+        // 后端兜底：未改密账号被拦时，直接送去改密页而不是通用 403
+        if (router && route) void router.replace({ path: '/change-password', query: { redirect: route.fullPath } })
+        else if (router) void router.replace('/change-password')
+      } else if (apiError.status === 403) handleForbidden()
       return null
     } finally {
       if (current === sequence) loading.value = false
