@@ -103,7 +103,11 @@ class TestTasksApi(unittest.TestCase):
         self.assertEqual(self.client.get("/api/v1/tasks?status=draft").json()["total"], 1)
         self.assertEqual(self.client.get("/api/v1/tasks?status=passed").json()["total"], 1)
         self.assertEqual(self.client.get("/api/v1/tasks?status=exported").json()["total"], 0)
-        self.assertEqual(self.client.get("/api/v1/tasks?status=bogus").json()["total"], 0)
+        # status 改为枚举后，非法值不再静默返回空列表，而是 422
+        bogus = self.client.get("/api/v1/tasks?status=bogus")
+        self.assertEqual(bogus.status_code, 422, bogus.text)
+        bogus_quadrant = self.client.get("/api/v1/tasks?quadrant=nowhere")
+        self.assertEqual(bogus_quadrant.status_code, 422, bogus_quadrant.text)
         self.assertIn(draft, [item["taskId"] for item in self.client.get("/api/v1/tasks?status=draft").json()["items"]])
 
     def test_group_teacher_import_advances_lead_task(self) -> None:
