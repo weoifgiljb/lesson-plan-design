@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+from app.domain import report_rules, roles, task_rules
+
+#: 查询参数/响应里可用的枚举：从 domain 常量派生，避免路由里再写字符串字面量
+TaskStatus = Literal[tuple(sorted(task_rules.TASK_RANK))]
+TaskQuadrant = Literal[tuple(sorted(task_rules.QUADRANTS))]
+ReviewStatus = Literal[tuple(sorted(report_rules.ALLOWED_STATUS))]
+RoleName = Literal[tuple(roles.ROLES)]
 
 from app.domain import roles
 

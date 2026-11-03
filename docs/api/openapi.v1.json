@@ -2142,6 +2142,12 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "draft",
+                    "exported",
+                    "passed",
+                    "reviewing"
+                  ],
                   "type": "string"
                 },
                 {
@@ -2158,6 +2164,12 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "important_not_urgent",
+                    "not_urgent_not_important",
+                    "urgent_important",
+                    "urgent_not_important"
+                  ],
                   "type": "string"
                 },
                 {

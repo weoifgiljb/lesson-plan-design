@@ -1,4 +1,4 @@
-// openapi-sha256: ed0c024db5f23dc9df0319b55c2d7b02341452af58447f42d6efdaec6ab2de6b
+// openapi-sha256: 001d9dd45b04bbe154bcaa5175d225cadd62341c39082d49fbc16b49a39583c8
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface BodyCreateSampleApiV1SamplesPost {

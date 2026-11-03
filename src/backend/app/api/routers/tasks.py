@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel
 
 from app.api.deps import require_csrf_role, require_role
+from app.api import schemas
 from app.api.responses import error_responses
 from app.application import task_service
 
@@ -39,8 +40,8 @@ def list_tasks(
     context: dict[str, Any] = Depends(require_role("teacher", "lead")),
     course: str | None = None,
     week: int | None = None,
-    status: str | None = None,
-    quadrant: str | None = None,
+    status: schemas.TaskStatus | None = None,
+    quadrant: schemas.TaskQuadrant | None = None,
     teacher: str | None = None,
     discarded: bool | None = None,
     page: int = 1,
