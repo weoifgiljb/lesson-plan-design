@@ -414,6 +414,14 @@
             "schema": {
               "anyOf": [
                 {
+                  "enum": [
+                    "needs_repair",
+                    "passed",
+                    "passed_with_accepted_minor",
+                    "passed_with_override",
+                    "pending_reviewer",
+                    "structure_invalid"
+                  ],
                   "type": "string"
                 },
                 {
@@ -3330,11 +3338,16 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
           }
         },
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "total"
         ],
         "title": "PlanVersionPage"
       },
@@ -3912,6 +3925,17 @@
           "total": {
             "type": "integer",
             "title": "Total"
+          },
+          "filters": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Filters",
+            "default": {}
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
           }
         },
         "type": "object",

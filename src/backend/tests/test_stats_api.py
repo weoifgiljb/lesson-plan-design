@@ -120,6 +120,16 @@ class TestStatsApi(unittest.TestCase):
     def _metrics(self) -> dict[str, dict]:
         return {item["key"]: item for item in self.client.get("/api/v1/stats/summary").json()["metrics"]}
 
+    def test_records_include_content_title_and_filters(self) -> None:
+        self._login("admin1")
+        body = self.client.get("/api/v1/stats/records").json()
+        self.assertEqual(body["scope"], "all")
+        self.assertIn("filters", body)
+        self.assertTrue(body["items"])
+        titles = [item["contentTitle"] for item in body["items"]]
+        self.assertTrue(all(titles), titles)
+        self.assertIn("通过课", titles)
+
     def test_nine_metrics_with_numerator_and_denominator(self) -> None:
         self._login("admin1")
         body = self.client.get("/api/v1/stats/summary").json()

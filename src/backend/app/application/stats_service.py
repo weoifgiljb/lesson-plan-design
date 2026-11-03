@@ -69,6 +69,8 @@ def records(
             {
                 "planId": int(row["plan_id"]),
                 "reviewId": int(row["review_id"]) if row.get("review_id") is not None else None,
+                # 前端"课题"列绑定 contentTitle：service 必须产出，否则模型默认 null 让整列空白
+                "contentTitle": row.get("content_title") or "",
                 "course": row.get("course") or "",
                 "week": int(row.get("week") or 0),
                 "session": int(row.get("session") or 0),
