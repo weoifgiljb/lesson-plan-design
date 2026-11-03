@@ -1,6 +1,7 @@
 /**
  * 平台文案常量：状态名与占位语只在这里定义。
- * 状态取值必须与后端一致，改状态请同步 report_rules.ALLOWED_STATUS。
+ * 状态取值必须与后端一致：审查 6 态见 report_rules.ALLOWED_STATUS，
+ * 任务 4 态见 task_rules.TASK_RANK，导出只有 pending/succeeded/failed。
  */
 export const REVIEW_STATUS_LABELS: Record<string, string> = {
   structure_invalid: '结构失败',

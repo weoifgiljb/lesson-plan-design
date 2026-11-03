@@ -1,16 +1,8 @@
 import type { PlanDetail } from '@/api/models'
 
 import { formatDateTime } from './datetime'
+import { REVIEW_STATUS_LABELS as STATUS_LABELS } from './labels'
 import { toPlanContentView } from './plan-content'
-
-const STATUS_LABELS: Record<string, string> = {
-  structure_invalid: '结构失败',
-  pending_reviewer: '待审',
-  needs_repair: '待修复',
-  passed: '通过',
-  passed_with_override: '放行通过',
-  passed_with_accepted_minor: '接受轻微',
-}
 
 function cell(value: string): string {
   return value.replace(/\|/g, '\\|').replace(/\n/g, '<br>')

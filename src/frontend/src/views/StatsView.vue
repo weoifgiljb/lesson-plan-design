@@ -9,6 +9,8 @@ import {
 } from '@/api/stats'
 import type { Metric, StatRecord } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
+import { buildBarOption, buildStatusOption } from '@/composables/useStatsCharts'
+import ChartCard from '@/components/ChartCard.vue'
 import { UNAVAILABLE_TEXT } from '@/utils/labels'
 import { saveBlob } from '@/utils/download'
 
@@ -31,6 +33,9 @@ const records = useApiRequest(
 const rows = computed<StatRecord[]>(() => records.data.value?.items ?? [])
 const total = computed(() => records.data.value?.total ?? 0)
 const expanded = ref(false)
+
+const barOption = computed(() => buildBarOption(metrics.value))
+const statusOption = computed(() => buildStatusOption(rows.value))
 
 const exportError = ref('')
 
@@ -113,6 +118,19 @@ const scopeLabel: Record<string, string> = { own: '本人', group: '本组', all
         </p>
       </article>
     </div>
+
+    <section class="charts">
+      <ChartCard
+        label="指标达成度"
+        summary="比率型指标的达成度，括号内为分子/分母；样本不足的指标用警示色标注。"
+        :option="barOption"
+      />
+      <ChartCard
+        label="审查状态分布"
+        :summary="`按下钻明细统计，共 ${total} 份教案`"
+        :option="statusOption"
+      />
+    </section>
 
     <section v-if="expanded" class="records">
       <h2>下钻明细（{{ total }} 条）</h2>
@@ -230,6 +248,12 @@ const scopeLabel: Record<string, string> = { own: '本人', group: '本组', all
   margin: 0;
   font-size: 12px;
   color: var(--lpp-text-muted);
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 12px;
 }
 
 .records h2 {
