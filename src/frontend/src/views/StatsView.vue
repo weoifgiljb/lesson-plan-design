@@ -9,6 +9,8 @@ import {
 } from '@/api/stats'
 import type { Metric, StatRecord } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
+import { buildBarOption, buildStatusOption } from '@/composables/useStatsCharts'
+import ChartCard from '@/components/ChartCard.vue'
 import { UNAVAILABLE_TEXT } from '@/utils/labels'
 import { saveBlob } from '@/utils/download'
 
