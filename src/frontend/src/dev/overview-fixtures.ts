@@ -160,6 +160,107 @@ export const DEMO_LEDGER_KEYS = [
   'export_seconds',
 ]
 
+/**
+ * `/styleguide` 的统计台账演示数据：单位、样本不足标记与耗时口径都按真实接口形状给，
+ * 用于在只有 1 份教案的真实库里也能检查 9 项指标满数据时的版式。
+ */
+export const DEMO_STATS_METRICS: Metric[] = [
+  {
+    key: 'structure_rate',
+    label: '结构合规率',
+    numerator: 3,
+    denominator: 4,
+    value: 0.75,
+    unit: '',
+    available: true,
+    sampleInsufficient: true,
+    filters: {},
+  },
+  {
+    key: 'evidence_rate',
+    label: '证据链完整率',
+    numerator: 4,
+    denominator: 4,
+    value: 1,
+    unit: '',
+    available: true,
+    sampleInsufficient: true,
+    filters: {},
+  },
+  {
+    key: 'defect_density',
+    label: '闭环缺陷密度',
+    numerator: 1,
+    denominator: 4,
+    value: 0.25,
+    unit: '',
+    available: true,
+    sampleInsufficient: true,
+    filters: {},
+  },
+  {
+    key: 'task_completion',
+    label: '平台任务完成率',
+    numerator: 12,
+    denominator: 15,
+    value: 0.8,
+    unit: '',
+    available: true,
+    filters: {},
+  },
+  {
+    key: 'sync_consistency',
+    label: '双端数据一致率',
+    numerator: 8,
+    denominator: 9,
+    value: 0.8889,
+    unit: '',
+    available: true,
+    filters: {},
+  },
+  {
+    key: 'availability',
+    label: '平台可用性',
+    numerator: 0,
+    denominator: 0,
+    value: null,
+    unit: '',
+    available: false,
+    filters: {},
+  },
+  {
+    key: 'gold_standard',
+    label: '金标准贴近分',
+    numerator: 0,
+    denominator: 0,
+    value: null,
+    unit: '',
+    available: false,
+    filters: {},
+  },
+  {
+    key: 'expert_score',
+    label: '专家评分',
+    numerator: 0,
+    denominator: 0,
+    value: null,
+    unit: '',
+    available: false,
+    filters: {},
+  },
+  {
+    key: 'export_seconds',
+    label: '单份耗时',
+    numerator: 62,
+    denominator: 5,
+    value: 12.4,
+    unit: '分钟',
+    available: true,
+    filters: {},
+    basis: { task: 3, plan: 2 },
+  },
+]
+
 export const DEMO_PLANS: DemoPlan[] = [
   {
     id: 1,

@@ -25,9 +25,21 @@ export const EXPORT_STATUS_LABELS: Record<string, string> = {
   failed: '失败',
 }
 
+/** 统计范围：后端按角色收敛成这三档，页面只做展示。 */
+export const SCOPE_LABELS: Record<string, string> = {
+  own: '本人',
+  group: '本组',
+  all: '全校',
+}
+
 export const UNAVAILABLE_TEXT = '不可用'
-export const EMPTY_STATUS_TEXT = '暂无记录'
+export const UNREVIEWED_TEXT = '未审查'
 
 export function reviewStatusLabel(status: string): string {
   return REVIEW_STATUS_LABELS[status] ?? status
+}
+
+export function scopeLabel(scope: string | undefined): string {
+  if (!scope) return ''
+  return SCOPE_LABELS[scope] ?? scope
 }

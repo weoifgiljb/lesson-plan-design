@@ -16,8 +16,17 @@ import SectionHeader from '@/components/SectionHeader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import StructurePanel from '@/components/StructurePanel.vue'
+import StatsLedger from '@/components/stats/StatsLedger.vue'
 import type { TableColumn } from '@/components/table-types'
-import { DEMO_DIFFS, DEMO_EVIDENCE, DEMO_LEDGER_KEYS, DEMO_METRICS, DEMO_PLANS, DEMO_STRUCTURE } from '@/dev/overview-fixtures'
+import {
+  DEMO_DIFFS,
+  DEMO_EVIDENCE,
+  DEMO_LEDGER_KEYS,
+  DEMO_METRICS,
+  DEMO_PLANS,
+  DEMO_STATS_METRICS,
+  DEMO_STRUCTURE,
+} from '@/dev/overview-fixtures'
 import { CHART_TOKENS, PALETTE } from '@/styles/palette'
 import { contrastRatio } from '@/utils/color'
 
@@ -406,6 +415,13 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
         <MetricLedger :metrics="ledgerMetrics" />
       </div>
 
+      <div class="stats-ledger-demo">
+        <p class="stats-demo-title">
+          统计台账 <span>9 项指标、分子/分母、样本不足与不可用</span>
+        </p>
+        <StatsLedger :metrics="DEMO_STATS_METRICS" />
+      </div>
+
       <div class="metric-grid">
         <MetricCard v-for="metric in DEMO_METRICS" :key="metric.key" :metric="metric" />
       </div>
@@ -756,6 +772,29 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 10px;
   margin-top: 14px;
+}
+
+.stats-ledger-demo {
+  margin-top: 16px;
+}
+
+.stats-demo-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  max-width: none;
+  margin-bottom: 8px;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-md);
+  font-weight: 600;
+}
+
+.stats-demo-title span {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 400;
 }
 
 .data-grid {
