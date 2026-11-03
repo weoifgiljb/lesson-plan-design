@@ -2243,9 +2243,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response List Tasks Api V1 Tasks Get"
+                  "$ref": "#/components/schemas/TaskPage"
                 }
               }
             }
@@ -2376,9 +2374,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Task Board Api V1 Tasks Board Get"
+                  "$ref": "#/components/schemas/TaskBoard"
                 }
               }
             }
@@ -3009,6 +3005,40 @@
         ],
         "title": "RegisterPayload"
       },
+      "TaskBoard": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          },
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "counts",
+          "generatedAt"
+        ],
+        "title": "TaskBoard"
+      },
       "TaskCreate": {
         "properties": {
           "course": {
@@ -3076,6 +3106,140 @@
         ],
         "title": "TaskCreate"
       },
+      "TaskItem": {
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "title": "Taskid"
+          },
+          "course": {
+            "type": "string",
+            "title": "Course"
+          },
+          "week": {
+            "type": "integer",
+            "title": "Week"
+          },
+          "session": {
+            "type": "integer",
+            "title": "Session"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "className": {
+            "type": "string",
+            "title": "Classname",
+            "default": ""
+          },
+          "dueDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duedate"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "exported",
+              "passed",
+              "reviewing"
+            ],
+            "title": "Status"
+          },
+          "ownerId": {
+            "type": "integer",
+            "title": "Ownerid"
+          },
+          "teacher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Teacher"
+          },
+          "overdue": {
+            "type": "boolean",
+            "title": "Overdue",
+            "default": false
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "quadrant": {
+            "type": "string",
+            "enum": [
+              "important_not_urgent",
+              "not_urgent_not_important",
+              "urgent_important",
+              "urgent_not_important"
+            ],
+            "title": "Quadrant"
+          },
+          "boardPosition": {
+            "type": "integer",
+            "title": "Boardposition",
+            "default": 0
+          },
+          "boardVersion": {
+            "type": "integer",
+            "title": "Boardversion",
+            "default": 0
+          },
+          "discardedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discardedat"
+          },
+          "discarded": {
+            "type": "boolean",
+            "title": "Discarded",
+            "default": false
+          },
+          "canEdit": {
+            "type": "boolean",
+            "title": "Canedit",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "taskId",
+          "course",
+          "week",
+          "session",
+          "title",
+          "status",
+          "ownerId",
+          "quadrant"
+        ],
+        "title": "TaskItem"
+      },
       "TaskMove": {
         "properties": {
           "quadrant": {
@@ -3098,6 +3262,37 @@
           "boardVersion"
         ],
         "title": "TaskMove"
+      },
+      "TaskPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "pageSize": {
+            "type": "integer",
+            "title": "Pagesize"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
+        ],
+        "title": "TaskPage"
       },
       "TokenOut": {
         "properties": {

@@ -1,4 +1,4 @@
-// openapi-sha256: dc1952b5928894dbc180c10ddb1372178b0d9a25ef7922e0f2c11bae812273ec
+// openapi-sha256: 44462866de59082a2fbd0ab71d4da3e6a6f30f369f4e23a4b8ec4af2ca4bdebc
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -53,6 +53,13 @@ export interface RegisterPayload {
   password: string
 }
 
+export interface TaskBoard {
+  items: TaskItem[]
+  total: number
+  counts: Record<string, number>
+  generatedAt: string
+}
+
 export interface TaskCreate {
   course: string
   week: number
@@ -64,10 +71,38 @@ export interface TaskCreate {
   quadrant?: string | null
 }
 
+export interface TaskItem {
+  taskId: number
+  course: string
+  week: number
+  session: number
+  title: string
+  className?: string
+  dueDate?: string | null
+  status: "draft" | "exported" | "passed" | "reviewing"
+  ownerId: number
+  teacher?: string | null
+  overdue?: boolean
+  createdAt?: string | null
+  quadrant: "important_not_urgent" | "not_urgent_not_important" | "urgent_important" | "urgent_not_important"
+  boardPosition?: number
+  boardVersion?: number
+  discardedAt?: string | null
+  discarded?: boolean
+  canEdit?: boolean
+}
+
 export interface TaskMove {
   quadrant: string
   position: number
   boardVersion: number
+}
+
+export interface TaskPage {
+  items: TaskItem[]
+  page: number
+  pageSize: number
+  total: number
 }
 
 export interface TokenOut {

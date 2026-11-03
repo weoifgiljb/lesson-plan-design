@@ -78,3 +78,38 @@ def user_payload(user: dict[str, Any]) -> dict[str, Any]:
         # 建号/重置后为 True：前端应强制先改密（BS-05）
         "mustChangePassword": bool(user.get("must_change_password")),
     }
+
+
+class TaskItem(BaseModel):
+    taskId: int
+    course: str
+    week: int
+    session: int
+    title: str
+    className: str = ""
+    dueDate: str | None = None
+    status: TaskStatus
+    ownerId: int
+    teacher: str | None = None
+    overdue: bool = False
+    createdAt: str | None = None
+    quadrant: TaskQuadrant
+    boardPosition: int = 0
+    boardVersion: int = 0
+    discardedAt: str | None = None
+    discarded: bool = False
+    canEdit: bool = False
+
+
+class TaskPage(BaseModel):
+    items: list[TaskItem]
+    page: int
+    pageSize: int
+    total: int
+
+
+class TaskBoard(BaseModel):
+    items: list[TaskItem]
+    total: int
+    counts: dict[str, int]
+    generatedAt: str

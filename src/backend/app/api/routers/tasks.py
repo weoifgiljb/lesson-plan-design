@@ -35,7 +35,7 @@ class TaskMove(BaseModel):
     boardVersion: int
 
 
-@router.get("/tasks")
+@router.get("/tasks", response_model=schemas.TaskPage)
 def list_tasks(
     context: dict[str, Any] = Depends(require_role("teacher", "lead")),
     course: str | None = None,
@@ -61,7 +61,7 @@ def list_tasks(
     )
 
 
-@router.get("/tasks/board")
+@router.get("/tasks/board", response_model=schemas.TaskBoard)
 def task_board(
     context: dict[str, Any] = Depends(require_role("teacher", "lead")),
     course: str | None = None,
