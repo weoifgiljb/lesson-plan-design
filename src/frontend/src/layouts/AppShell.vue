@@ -61,7 +61,7 @@ const groups = computed<NavGroup[]>(() => [
         ready: canUseTasks.value,
       },
       { label: '教案库', icon: 'plans', to: '/plans', ready: true },
-      { label: '审查', icon: 'reviews', ready: false },
+      { label: '审查', icon: 'reviews', to: '/reviews', ready: true },
       { label: '导出', icon: 'exports', ready: false },
     ],
   },
