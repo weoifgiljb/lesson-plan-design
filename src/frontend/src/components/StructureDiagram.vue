@@ -144,7 +144,8 @@ const flowBars = computed(() => {
   const count = Math.max(props.structure.steps.length, 1)
   return props.structure.steps.map((step, index) => {
     const u = count === 1 ? 0.5 : 0.1 + index * (0.8 / (count - 1))
-    const halfWidth = 13 / axisX.value.x
+    const barWidth = Math.min(26, axisX.value.x * 0.08)
+    const halfWidth = barWidth / 2 / axisX.value.x
     const base = point(u - halfWidth, 0.62, LAYER_Y.flow)
     const end = point(u + halfWidth, 0.62, LAYER_Y.flow)
     const height = 8 + (step.minutes / 45) * 44
@@ -200,7 +201,8 @@ const goalBars = computed(() => {
 const evidenceSquares = computed(() =>
   props.structure.evidence.map((item, index) => {
     const center = 0.22 + index * 0.14
-    const halfWidth = 18 / axisX.value.x
+    const squareWidth = Math.min(36, axisX.value.x * 0.1)
+    const halfWidth = squareWidth / 2 / axisX.value.x
     const points = projectQuad(center - halfWidth, 0.4, halfWidth * 2, 0.14, LAYER_Y.evidence)
     const focus: StructureFocus = {
       kind: 'evidence',
@@ -433,7 +435,7 @@ onBeforeUnmount(() => {
 }
 
 .shadow {
-  fill: rgba(23, 35, 30, 0.07);
+  fill: color-mix(in srgb, var(--lpp-text) 7%, transparent);
 }
 
 .posts line {
@@ -444,7 +446,7 @@ onBeforeUnmount(() => {
 }
 
 .sheets polygon {
-  fill: #fbfcf8;
+  fill: var(--lpp-surface);
   stroke: var(--lpp-border-strong);
   stroke-width: 1;
   transition:
@@ -453,7 +455,7 @@ onBeforeUnmount(() => {
 }
 
 .sheets polygon.is-active {
-  fill: #f4f8f0;
+  fill: var(--lpp-row-hover);
   stroke: var(--lpp-primary);
 }
 
@@ -462,7 +464,7 @@ onBeforeUnmount(() => {
 }
 
 .flow .shape {
-  stroke: #fbfcf8;
+  stroke: var(--lpp-surface);
   stroke-width: 1.2;
 }
 
@@ -491,7 +493,7 @@ onBeforeUnmount(() => {
 
 .hotspot:hover .shape,
 .hotspot.is-active .shape {
-  filter: drop-shadow(0 2px 3px rgba(36, 90, 76, 0.35));
+  filter: drop-shadow(0 2px 3px var(--lpp-focus-soft));
 }
 
 .goals .hotspot:hover .shape,
@@ -505,7 +507,7 @@ onBeforeUnmount(() => {
 .hotspot:focus-visible .shape {
   stroke: var(--lpp-text);
   stroke-width: 2;
-  filter: drop-shadow(0 0 3px rgba(36, 90, 76, 0.45));
+  filter: drop-shadow(0 0 3px var(--lpp-focus-soft));
 }
 
 .hit {
