@@ -20,7 +20,12 @@ import _gate_common as common  # noqa: E402
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 PUBLIC_WRITE = {"/api/v1/auth/login"}
 VALID_ROLES = {"teacher", "lead", "admin"}
-CALL_RE = re.compile(r"client\.(get|post|put|patch|delete)\s*(?:<[^>]*>)?\s*\(\s*[`'\"]([^`'\"]+)[`'\"]", re.I)
+# 泛型可能嵌套（client.get<Paged<TaskItem>>(...)），且 download/upload 也是合法调用；
+# 旧写法 `<[^>]*>` 遇到嵌套泛型就匹配失败，导致 BC-07 误报"前端没有调用"。
+CALL_RE = re.compile(
+    r"client\.(get|post|put|patch|delete|upload|download)\b(?:\s*<[^(]*>)?\s*\(\s*[`'\"]([^`'\"]+)[`'\"]",
+    re.I,
+)
 QUOTED_CODE_RE = re.compile(r"[\"']([A-Z][A-Z0-9_]{3,})[\"']")
 BARE_CODE_RE = re.compile(r"[{,]\s*([A-Z][A-Z0-9_]{3,})\s*:")
 VERSION_LITERAL_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\"[^\"]*\"|\d+(?:\.\d+)*)\s*$", re.M)
@@ -30,6 +35,7 @@ def _normalize_path(path: str) -> str:
     path = path.split("?")[0].strip()
     path = re.sub(r"\$\{[^}]+\}", "{id}", path)
     path = re.sub(r":[A-Za-z_][A-Za-z0-9_]*", "{id}", path)
+    path = re.sub(r"\{[^}]+\}", "{id}", path)
     return path.rstrip("/") or "/"
 
 
@@ -100,25 +106,55 @@ def _openapi_routes(snapshot: dict) -> set[tuple[str, str]]:
 
 
 def _check_openapi(contract: dict, openapi_path: Path) -> list[dict]:
+    """契约 ⇔ 代码路由。
+
+    `implemented=false` 的接口允许暂缺（只报 warn）；标记 true 却缺、代码有但没翻转、
+    以及未登记的路由，一律 block，避免"悄悄实现"或"忘记收尾"。
+    """
     problems = []
     snapshot = common.load_json(openapi_path)
     if snapshot is None:
         return [common.problem("BC-02", openapi_path, 0, "缺少 OpenAPI 快照，运行 --update-contract 生成")]
     actual = _openapi_routes(snapshot)
-    declared = {(str(item.get("method")).upper(), _normalize_path(str(item.get("path")))) for item in _contract_endpoints(contract)}
-    for method, path in sorted(declared - actual):
-        problems.append(common.problem("BC-02", openapi_path, 0, f"契约声明的 {method} {path} 未在代码中实现"))
-    for method, path in sorted(actual - declared):
+    entries = {
+        (str(item.get("method")).upper(), _normalize_path(str(item.get("path")))): item
+        for item in _contract_endpoints(contract)
+    }
+    implemented = {key for key, item in entries.items() if item.get("implemented", True)}
+    planned = set(entries) - implemented
+
+    for method, path in sorted(implemented - actual):
+        problems.append(common.problem("BC-02", openapi_path, 0, f"契约标记已实现的 {method} {path} 未在代码中出现"))
+    for method, path in sorted(actual - set(entries)):
         problems.append(common.problem("BC-02", openapi_path, 0, f"代码实现的 {method} {path} 未登记在契约"))
+    for method, path in sorted(actual & planned):
+        problems.append(
+            common.problem("BC-02", openapi_path, 0, f"{method} {path} 已实现，但契约 implemented=false，请同批翻转")
+        )
+    missing_planned = planned - actual
+    if missing_planned:
+        sample = "、".join(f"{method} {path}" for method, path in sorted(missing_planned)[:5])
+        problems.append(
+            common.problem(
+                "BC-02",
+                openapi_path,
+                0,
+                f"{len(missing_planned)} 个契约接口尚未实现（计划内）：{sample} 等",
+                common.SEVERITY_WARN,
+            )
+        )
     return problems
 
 
 def _domain_error_codes(errors_file: Path) -> set[str] | None:
-    tree = common.parse(errors_file)
-    if tree is None:
-        return None
-    codes = common.constant_strings(tree, "ERROR_CODES")
-    return codes or None
+    for candidate in (errors_file, errors_file.parent / "error_codes.py"):
+        tree = common.parse(candidate)
+        if tree is None:
+            continue
+        codes = common.constant_strings(tree, "ERROR_CODES")
+        if codes:
+            return codes
+    return None
 
 
 def _frontend_error_codes(errors_ts: Path) -> set[str] | None:
@@ -223,7 +259,9 @@ def _frontend_calls(frontend: Path) -> set[tuple[str, str]]:
     paths = sorted(api_dir.rglob("*.ts")) if api_dir.is_dir() else []
     for path in paths:
         for method, url in CALL_RE.findall(common.read_text(path)):
-            calls.add((method.upper(), _normalize_path(url)))
+            # client.download/upload 是封装方法，语义分别对应 GET 与 POST
+            http_method = {"download": "GET", "upload": "POST"}.get(method.lower(), method.upper())
+            calls.add((http_method, _normalize_path(url)))
     return calls
 
 

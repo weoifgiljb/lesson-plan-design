@@ -5,7 +5,7 @@
 | 文档编号 | LPP-BS-PLAN-001 |
 | 文档版本 | v1.0 |
 | 编制日期 | 2026-10-26 |
-| 关联需求 | 《功能优化需求-BS平台端》v1.1（LPP-BS-001） |
+| 关联需求 | 《功能优化需求-BS平台端》v1.5（LPP-BS-001） |
 | 关联规范 | `AGENTS.md`、`docs/dev/git-workflow.md`、`skills/code-standards/SKILL.md` |
 | 关联契约 | `docs/api/contract.v1.json`、`tests/fixtures/dual-end/` |
 | 关联闸门 | `docs/backend/backend-review-gate.md`、`scripts/run_backend_gate.py` |
@@ -212,6 +212,23 @@ src/
    `plugins/lesson-plan-design/skills/lesson-plan-design/scripts`，并记录 `engineVersion`。
 9. **日志脱敏**：不记录教案全文、口令、会话令牌；每请求 `traceId` 由 `main.py` 中间件生成并回写响应头。
 
+### 4.1 数据库与数据目录
+
+| 项目 | 决定 |
+|---|---|
+| 引擎 | SQLite 3（随 Python 3.12 提供），标准库 `sqlite3`，不用 ORM、不装数据库服务 |
+| 文件 | 默认 `<仓库根目录>/data/app.db`；`LPP_DATA_DIR` 可改目录；`data/` 已 gitignore |
+| 连接参数 | `journal_mode=WAL`、`foreign_keys=ON`、`busy_timeout=5000`、`synchronous=NORMAL`；写事务 `BEGIN IMMEDIATE` |
+| 并发 | 进程内单写锁（`app.state.db_lock`）串行化写事务，`SQLITE_BUSY` 重试 3 次；单实例部署 |
+| 结构 | `app/adapters/db/schema.sql` 是 v1 全量 DDL；`PRAGMA user_version` 记录版本，后续 `migrations/000N_*.sql` 顺次升级 |
+| 文件存储 | `data/files/plans/<planId>/<version>/`、`files/reviews/...`、`files/media/...`；库内只存相对路径与 SHA-256 |
+| 测试隔离 | 每个测试用临时目录下的文件库（保留 WAL 与触发器语义），不用 `:memory:` |
+| 备份（BS-14） | 停写后整目录复制 `data/`；不依赖外部工具 |
+
+新增 1 张实现表 `user_session`（可撤销会话，满足"退出后重放必须失效"），其余 12 张表按需求 §5.4；`user` 表增加 `group_name` 以支持"组长看本组"。
+
+**首批落地状态（2026-10-28）**：已实现 `health`、`auth/login`、`auth/logout`、`me`、`plans/import`、`plans` 列表/详情/版本链/差异/软删除、`reviews` 列表/详情（含证据链五项）、`sync/head`、`sync/pull`、`sync/push`（baseHash 409 + 游标 + sync_log）、`audit` 审计查询、`settings/engine`，BS-07 的 `exports` 批量导出/状态/下载（门禁 + 插件 DOCX + 产物 SHA-256 + 复用），BS-08 的 `stats/summary`（9 项指标、分子/分母/筛选），以及 BS-09 的 `samples` 列表/管理员上传校验，共 23 个接口；数据库与不可变触发器、zip 安全解包、插件引擎对照、domain 复校、幂等/并发/审计、范围权限、版本差异、证据链、同步冲突与导出测试均已通过。其余 6 个接口（任务 4、用户 2）保持 `implemented=false`，由后续 BS-10 分支翻转。
+
 ## 5 前端分层与页面
 
 | 层 | 职责 | 约定 |
@@ -228,7 +245,8 @@ src/
 
 ## 6 契约与版本
 
-- 权威契约：`docs/api/contract.v1.json`（29 个接口、13 个错误码、4 个版本字段、3 个角色）。
+- 权威契约：`docs/api/contract.v1.json`（44 个接口、20 个错误码、4 个版本字段、3 个角色）。
+- 实现进度：每个接口带 `implemented` 字段（缺省视为 `true`）。标记 `false` 的接口允许暂缺，闸门只报一条 warn；接口实现与 `implemented=true` 必须在同一 PR 翻转，否则 BC-02 block。
 - 生成快照：`docs/api/openapi.v1.json`，由 `py -3 scripts/run_backend_gate.py --update-contract` 生成；只允许随契约变更一起更新。
 - 前端类型：`src/frontend/src/api/types.gen.ts`，首行写快照哈希，闸门比对。
 - 版本白名单：`schemaVersion=1`、`rubricVersion=1.0`、`rulesVersion=1.1.0`、`engineVersion=1.0.0`；未知版本一律 422 `SCHEMA_UNSUPPORTED` 并列出支持版本。

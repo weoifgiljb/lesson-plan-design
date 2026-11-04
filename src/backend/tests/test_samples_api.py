@@ -1,0 +1,274 @@
+# -*- coding: utf-8 -*-
+"""样例库 API：上传校验、重复、列表筛选与完整性。"""
+from __future__ import annotations
+
+import json
+import threading
+import unittest
+
+from fastapi.testclient import TestClient
+
+from support import REPO_ROOT, isolated_data_dir, load_json_bytes, read_package_dir, tempdir
+
+from app.adapters import storage
+from app.adapters.db.connection import open_database
+from app.adapters.db.repo import Repo
+from app.application import sample_service
+from app.domain import security
+from app.domain.errors import AppError
+from app.main import create_app
+
+PASSWORD = "Lesson2026"
+
+
+class TestSamplesApi(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempdir()
+        self.root = self._tmp.__enter__()
+        self._env = isolated_data_dir(self.root)
+        self._env.__enter__()
+        self.db_file = self.root / "app.db"
+        connection = open_database(self.db_file)
+        for username, role in (("admin1", "admin"), ("teacher1", "teacher"), ("lead1", "lead")):
+            connection.execute(
+                "INSERT INTO user (username, display_name, group_name, role, password_hash, created_at)"
+                " VALUES (?, ?, ?, ?, ?, datetime('now'))",
+                (username, username, "计算机", role, security.hash_password(PASSWORD)),
+            )
+        connection.close()
+        self.plan = load_json_bytes(read_package_dir("valid-package")["plan.json"])
+        self.client = TestClient(create_app())
+        self.client.__enter__()
+
+    def tearDown(self) -> None:
+        self.client.__exit__(None, None, None)
+        self._env.__exit__(None, None, None)
+        self._tmp.__exit__(None, None, None)
+
+    def _login(self, username: str) -> str:
+        response = self.client.post("/api/v1/auth/login", json={"username": username, "password": PASSWORD})
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()["csrfToken"]
+
+    def _upload(self, plan: dict, csrf: str, content_type: str = "application/json"):
+        return self.client.post(
+            "/api/v1/samples",
+            files={"file": ("plan.json", json.dumps(plan, ensure_ascii=False).encode("utf-8"), content_type)},
+            headers={"X-CSRF-Token": csrf},
+        )
+
+    def test_admin_uploads_sample(self) -> None:
+        csrf = self._login("admin1")
+        response = self._upload(self.plan, csrf)
+        self.assertEqual(response.status_code, 201, response.text)
+        body = response.json()
+        self.assertEqual(body["title"], self.plan["contentTitle"])
+        self.assertTrue(body["complete"])
+        connection = open_database(self.db_file)
+        try:
+            row = connection.execute("SELECT * FROM sample").fetchone()
+            audit = connection.execute("SELECT COUNT(*) FROM audit_log WHERE action = 'sample.create'").fetchone()[0]
+        finally:
+            connection.close()
+        self.assertIsNotNone(row)
+        self.assertEqual(audit, 1)
+
+    def test_duplicate_sample_conflicts(self) -> None:
+        csrf = self._login("admin1")
+        self.assertEqual(self._upload(self.plan, csrf).status_code, 201)
+        self.assertEqual(self._upload(self.plan, csrf).status_code, 409)
+
+    def test_content_type_with_charset_is_accepted(self) -> None:
+        csrf = self._login("admin1")
+        response = self._upload(self.plan, csrf, content_type="application/json; charset=utf-8")
+        self.assertEqual(response.status_code, 201, response.text)
+
+    def test_huge_week_is_rejected_not_500(self) -> None:
+        csrf = self._login("admin1")
+        plan = json.loads(json.dumps(self.plan))
+        plan["week"] = 10 ** 100
+        response = self._upload(plan, csrf)
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "STRUCTURE_INVALID")
+
+    def test_huge_query_and_path_integers_are_rejected(self) -> None:
+        # R2-F2：GET 侧的超大整数不能打到 SQLite 绑定（会 OverflowError → 500）
+        csrf = self._login("admin1")
+        self.assertEqual(self._upload(self.plan, csrf).status_code, 201)
+        huge = 10 ** 100
+        self.assertEqual(self.client.get(f"/api/v1/samples?week={huge}").status_code, 422)
+        self.assertEqual(self.client.get(f"/api/v1/samples?session={huge}").status_code, 422)
+        self.assertEqual(self.client.get(f"/api/v1/samples/{huge}").status_code, 422)
+        self.assertEqual(self.client.get(f"/api/v1/samples/{huge}/download").status_code, 422)
+        # 正常边界仍然可用
+        self.assertEqual(self.client.get("/api/v1/samples?week=30&session=20").status_code, 200)
+
+    def test_seed_samples_matches_plugin_examples(self) -> None:
+        # 样例库要与插件自带黄金样例一一对应（需求目标 15 份，插件当前 7 份）
+        examples = sorted(
+            path
+            for path in (REPO_ROOT / "plugins/lesson-plan-design/skills/lesson-plan-design/examples").glob("*.json")
+            if path.name != "index.json"
+        )
+        self.assertTrue(examples, "插件样例目录为空")
+        csrf = self._login("admin1")
+        for path in examples:
+            response = self.client.post(
+                "/api/v1/samples",
+                files={"file": (path.name, path.read_bytes(), "application/json")},
+                headers={"X-CSRF-Token": csrf},
+            )
+            self.assertEqual(response.status_code, 201, f"{path.name}: {response.text}")
+        listing = self.client.get("/api/v1/samples?pageSize=50").json()
+        self.assertEqual(listing["total"], len(examples))
+        self.assertTrue(all(item["complete"] for item in listing["items"]), listing["items"])
+
+    def test_asset_hash_mismatch_marks_incomplete(self) -> None:
+        # BS-09: asset 表此前零引用；挂接资产哈希不符时样例必须标不完整
+        csrf = self._login("admin1")
+        sample_id = self._upload(self.plan, csrf).json()["sampleId"]
+        connection = open_database(self.db_file)
+        try:
+            connection.execute(
+                "INSERT INTO asset (kind, path, sha256, caption, attach_to)"
+                " VALUES ('media', 'media/demo.png', 'deadbeef', '教材截图', ?)",
+                (f"sample:{sample_id}",),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        (storage.files_dir() / "media").mkdir(parents=True, exist_ok=True)
+        (storage.files_dir() / "media" / "demo.png").write_bytes(b"real-bytes")
+        body = self.client.get(f"/api/v1/samples/{sample_id}").json()
+        self.assertFalse(body["complete"])
+        self.assertFalse(body["assetsOk"])
+        self.assertEqual(body["assetCount"], 1)
+        self.assertFalse(body["assets"][0]["hashMatched"])
+        # 哈希对上后恢复完整
+        connection = open_database(self.db_file)
+        try:
+            connection.execute(
+                "UPDATE asset SET sha256 = ? WHERE attach_to = ?",
+                (storage.sha256_bytes(b"real-bytes"), f"sample:{sample_id}"),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        self.assertTrue(self.client.get(f"/api/v1/samples/{sample_id}").json()["complete"])
+
+    def test_tampered_sample_download_is_rejected(self) -> None:
+        # R3-N1：文件被篡改/替换后，详情可标红但下载必须拒绝（不能把坏 JSON 给插件端）
+        csrf = self._login("admin1")
+        sample_id = self._upload(self.plan, csrf).json()["sampleId"]
+        connection = open_database(self.db_file)
+        try:
+            path = connection.execute("SELECT json_path FROM sample").fetchone()[0]
+        finally:
+            connection.close()
+        tampered = json.loads(json.dumps(self.plan))
+        tampered["contentTitle"] = "被替换的课题"
+        (storage.files_dir() / path).write_bytes(
+            json.dumps(tampered, ensure_ascii=False).encode("utf-8")
+        )
+        response = self.client.get(f"/api/v1/samples/{sample_id}/download")
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "HASH_MISMATCH")
+
+    def test_sample_detail_and_download(self) -> None:
+        csrf = self._login("admin1")
+        created = self._upload(self.plan, csrf).json()
+        sample_id = created["sampleId"]
+        self.assertGreater(created.get("score", 0), 0)
+        detail = self.client.get(f"/api/v1/samples/{sample_id}")
+        self.assertEqual(detail.status_code, 200, detail.text)
+        body = detail.json()
+        self.assertEqual(body["content"]["contentTitle"], self.plan["contentTitle"])
+        self.assertIn("score", body)
+        download = self.client.get(f"/api/v1/samples/{sample_id}/download")
+        self.assertEqual(download.status_code, 200)
+        self.assertIn("attachment", download.headers.get("content-disposition", ""))
+        self.assertEqual(json.loads(download.content)["contentTitle"], self.plan["contentTitle"])
+
+    def test_whitespace_variant_conflicts(self) -> None:
+        csrf = self._login("admin1")
+        self.assertEqual(self._upload(self.plan, csrf).status_code, 201)
+        variant = json.loads(json.dumps(self.plan))
+        variant["course"] = variant["course"] + "  "
+        self.assertEqual(self._upload(variant, csrf).status_code, 409)
+
+    def test_concurrent_duplicate_upload_is_conflict_not_500(self) -> None:
+        lock = threading.Lock()
+        data = json.dumps(self.plan, ensure_ascii=False).encode("utf-8")
+        user = {"id": 1, "role": "admin"}
+        outcomes: list[str] = []
+
+        def upload() -> None:
+            repo = Repo(open_database(self.db_file), lock)
+            try:
+                sample_service.create(repo, user, data)
+                outcomes.append("created")
+            except AppError as exc:
+                outcomes.append(exc.code)
+            finally:
+                repo.close()
+
+        threads = [threading.Thread(target=upload) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15)
+        self.assertCountEqual(outcomes, ["created", "CONFLICT_STALE"])
+        connection = open_database(self.db_file)
+        try:
+            samples = connection.execute("SELECT COUNT(*) FROM sample").fetchone()[0]
+            audits = connection.execute("SELECT COUNT(*) FROM audit_log WHERE action = 'sample.create'").fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(samples, 1)
+        self.assertEqual(audits, 1)
+
+    def test_invalid_structure_is_rejected_with_issues(self) -> None:
+        plan = json.loads(json.dumps(self.plan))
+        plan["week"] = ["第二周"]
+        response = self._upload(plan, self._login("admin1"))
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "STRUCTURE_INVALID")
+        self.assertTrue(response.json()["details"]["issues"])
+
+    def test_non_json_is_rejected(self) -> None:
+        response = self.client.post(
+            "/api/v1/samples",
+            files={"file": ("plan.json", b"not-json", "application/json")},
+            headers={"X-CSRF-Token": self._login("admin1")},
+        )
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["code"], "PAYLOAD_REJECTED")
+
+    def test_teacher_and_lead_cannot_upload(self) -> None:
+        for username in ("teacher1", "lead1"):
+            with self.subTest(username=username):
+                csrf = self._login(username)
+                self.assertEqual(self._upload(self.plan, csrf).status_code, 403)
+
+    def test_list_filters_and_incomplete(self) -> None:
+        self._upload(self.plan, self._login("admin1"))
+        self._login("teacher1")
+        listing = self.client.get("/api/v1/samples").json()
+        self.assertEqual(listing["total"], 1)
+        self.assertTrue(listing["items"][0]["complete"])
+        self.assertEqual(self.client.get("/api/v1/samples?course=信息技术").json()["total"], 1)
+        self.assertEqual(self.client.get("/api/v1/samples?course=英语").json()["total"], 0)
+        self.assertEqual(self.client.get("/api/v1/samples?q=一级考证").json()["total"], 1)
+        self.assertEqual(self.client.get("/api/v1/samples?week=9").json()["total"], 0)
+        connection = open_database(self.db_file)
+        try:
+            path = connection.execute("SELECT json_path FROM sample").fetchone()[0]
+        finally:
+            connection.close()
+        (storage.files_dir() / path).write_bytes(b"{}")
+        tampered = self.client.get("/api/v1/samples").json()
+        self.assertFalse(tampered["items"][0]["complete"])
+
+
+if __name__ == "__main__":
+    unittest.main()

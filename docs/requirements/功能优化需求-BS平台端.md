@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.1**
+**双端协同 · 平台端 · v1.5**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.1 |
+| 文档版本 | v1.5 |
 | 编制日期 | 2026-10-26 |
-| 修订日期 | 2026-10-26 |
-| 修订说明 | v1.1：补 `PAYLOAD_REJECTED` 错误码；§7.2 改为实际用例编号并增 BS↔TC 映射；§5.2 增机器可读契约引用；§3.4 登记 zip 穿越样例 |
+| 修订日期 | 2026-11-03 |
+| 修订说明 | v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.0（插件端 18 条需求，下称"插件端需求"） |
 | 覆盖范围 | B/S 平台端（浏览器端 + 服务端）与双端协同契约 |
@@ -74,7 +74,7 @@
 | 证据链 | 哈希匹配、轮次连续、问题状态、放行记录、审校方式五者齐全 |
 | 双端一致率 | 同步记录中教案、报告、哈希三者与插件端一致的占比 |
 | 幂等键 | 同一契约包重复提交时用于去重的键，取 `planHash + reportHash` |
-| 软删除 | 标记删除时间，不物理删除，审计与统计仍可追溯 |
+| 软删除 | 标记删除时间，不物理删除；审计与历史版本仍可追溯，统计默认只计未删除教案（口径见 BS-08） |
 
 ### 1.5 编制依据
 
@@ -326,6 +326,8 @@
 
 **现状**：平台端未建设；插件端只有报告内的 repairHistory，没有跨操作审计。
 
+**统计口径补充（BS-08）**：指标默认只统计未软删除的教案，与列表/导出口径一致；已软删除教案的审计与历史版本仍可查，如需纳入统计应新增显式参数（本期不提供）。分母为 0 时返回 `value=null` 且 `available=false`；分母为 1~4 时额外返回 `sampleInsufficient=true`，前端只显示"样本不足"。单份耗时的起点优先取关联任务的创建时间，没有任务关联的样本回退到教案创建时间，并在 `basis` 里分别计数（`task` / `plan`）。
+
 **目标行为**：登录、入库、导出、查看放行记录、软删除、用户与角色变更、引擎版本切换全部写入审计；字段含操作者、动作、对象、变更前后哈希、时间、IP、`traceId`；审计只追加，不提供修改与删除接口。
 
 **验收标准**
@@ -525,22 +527,30 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（29 个接口、13 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（44 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
-| POST | /api/v1/auth/login | 公开 | 登录 | 否 |
+| POST | /api/v1/auth/login | 公开 | 登录（Cookie 会话 + 访问令牌） | 否 |
+| POST | /api/v1/auth/register | 公开 | 自助注册（教师） | 否 |
+| POST | /api/v1/auth/token | 公开 | 用户名口令换 Bearer 令牌 | 否 |
+| GET | /api/v1/auth/me | 登录 | 当前身份与认证方式 | 是 |
 | POST | /api/v1/auth/logout | 登录 | 退出 | 是 |
 | GET | /api/v1/me | 登录 | 当前用户与角色 | 是 |
+| GET | /api/v1/meta | 登录 | 平台元数据（状态/象限/角色/限制） | 是 |
 | GET | /api/v1/tasks | 教师、组长 | 任务列表 | 是 |
+| GET | /api/v1/tasks/board | 教师、组长 | 任务看板（四象限） | 是 |
 | POST | /api/v1/tasks | 教师、组长 | 创建任务 | 否 |
+| PATCH | /api/v1/tasks/{task_id}/board | 教师、组长 | 看板内移动任务（乐观锁） | 否 |
+| POST | /api/v1/tasks/{task_id}/discard | 教师、组长 | 废弃任务 | 是 |
+| POST | /api/v1/tasks/{task_id}/restore | 教师、组长 | 恢复已废弃任务 | 是 |
 | GET | /api/v1/tasks/{id}/package | 登录 + 归属 | 下载任务包 | 是 |
 | POST | /api/v1/plans/import | 教师、组长 | 契约包入库 | 是 |
 | GET | /api/v1/plans | 登录 | 列表与筛选 | 是 |
 | GET | /api/v1/plans/{id} | 登录 + 归属 | 详情 | 是 |
 | GET | /api/v1/plans/{id}/versions | 登录 + 归属 | 版本链 | 是 |
 | GET | /api/v1/plans/{id}/diff | 登录 + 归属 | 两版差异 | 是 |
-| DELETE | /api/v1/plans/{id} | 本人或管理员 | 软删除 | 是 |
+| DELETE | /api/v1/plans/{id} | 本人（教师/组长）或管理员 | 软删除 | 是 |
 | GET | /api/v1/reviews | 教师、组长 | 审查列表 | 是 |
 | GET | /api/v1/reviews/{id} | 登录 + 归属 | 审查详情与证据链 | 是 |
 | GET | /api/v1/sync/head | 登录 | 服务端头版本 | 是 |
@@ -555,8 +565,15 @@
 | GET | /api/v1/audit | 管理员、组长 | 审计查询 | 是 |
 | GET | /api/v1/users | 管理员 | 用户列表 | 是 |
 | POST | /api/v1/users | 管理员 | 新建用户与角色 | 否 |
+| GET | /api/v1/samples/{sample_id} | 登录 | 样例详情/预览 | 是 |
+| GET | /api/v1/samples/{sample_id}/download | 登录 | 下载样例 JSON | 是 |
+| GET | /api/v1/audit/export | 管理员、组长 | 审计 CSV 导出（X-Total / X-Truncated） | 是 |
+| GET | /api/v1/stats/records | 登录（按范围） | 统计下钻（逐条记录，分页） | 是 |
+| GET | /api/v1/stats/export.csv | 登录（按范围） | 统计指标 CSV 导出 | 是 |
+| POST | /api/v1/tasks/{task_id}/rollback | 管理员、组长 | 任务状态人工回退（留痕） | 否 |
+| POST | /api/v1/me/password | 登录 | 本人改密（首次改密） | 否 |
 | GET | /api/v1/settings/engine | 管理员 | 引擎与模板版本 | 是 |
-| PUT | /api/v1/settings/engine | 管理员 | 切换引擎版本 | 否 |
+| PUT | /api/v1/settings/engine | 管理员 | 切换引擎版本（未实现） | 否 |
 | GET | /api/v1/health | 公开 | 健康检查 | 是 |
 
 ### 5.3 关键接口行为
@@ -569,16 +586,17 @@
 
 | 实体 | 关键字段 | 约束 |
 |---|---|---|
-| user | id、username、display_name、role、password_hash、active | username 唯一；role 三值 |
-| task | id、course、week、session、title、class_name、owner_id、due_date、status | 同课程周次课次班级唯一 |
+| user | id、username、display_name、group_name、role、password_hash、active、must_change_password、token_version、failed_count、locked_until | username 唯一；role 三值；group_name 用于组长/组内可见；token_version 在改密/重置后自增，令旧 JWT 失效 |
+| task | id、course、week、session、title、class_name、owner_id、due_date、status、assignee_id、group_name、term、quadrant、board_position、board_version、discarded_at | 课程 + 周次 + 课次 + 班级 + 课题唯一；status 四值；quadrant 四值（库层 CHECK，0013）；group_name 由创建者教研组回填 |
 | plan | id、task_id、owner_id、current_version_id、deleted_at | 软删除；归属校验 |
-| plan_version | id、plan_id、version_no、content_json、plan_hash、schema_version、rubric_version、source | plan_id + version_no 唯一；不可修改 |
+| plan_version | id、plan_id、version_no、content_json、plan_hash、report_sha256、schema_version、rubric_version、engine_version、source | plan_id + version_no 唯一；plan_id + plan_hash + report_sha256 部分唯一（空串哨兵不参与）；不可修改 |
 | review | id、plan_version_id、round、report_json、report_sha256、status、reviewer_mode | plan_version_id + round 唯一 |
 | finding | id、review_id、finding_id、severity、status、hypothesis | severity 三值；status 三值（open/waived/accepted） |
-| override | id、finding_id、teacher_id、reason、approved_at、plan_hash | finding_id 唯一 |
-| export_job | id、plan_version_id、engine_version、status、docx_path、docx_sha256、operator_id | 记录引擎版本 |
-| sample | id、course、week、session、title、json_path、plan_hash、valid | 课题 + 周次 + 课次唯一 |
-| asset | id、kind、path、sha256、caption、attach_to | 哈希校验 |
+| override | id、review_id、finding_id、teacher_id、reason、approved_at、plan_hash | review_id + finding_id 唯一（同一问题可在不同教案各自放行） |
+| export_job | id、plan_version_id、engine_version、status、docx_path、docx_sha256、report_sha256、operator_id | 版本 + 引擎 + 报告哈希唯一（仅 succeeded） |
+| sample | id、course、week、session、title、json_path、plan_hash、valid、score、engine_version、rule_version | 课题 + 周次 + 课次唯一；下载前校验哈希 |
+| asset | id、kind、path、sha256、caption、attach_to | 哈希校验（本期未接线） |
+| sync_event | id、kind、plan_id、plan_version_id、created_at | kind ∈ {version, deleted}；删除按事件传播 |
 | sync_log | id、direction、package_sha256、plan_hash、result、conflict_code、operator_id | 只追加 |
 | audit_log | id、actor_id、action、target_type、target_id、before_hash、after_hash、detail_json、ip | 只追加 |
 
@@ -589,6 +607,7 @@
 | AUTH_REQUIRED | 未登录 | 无会话访问业务接口 |
 | FORBIDDEN | 无权限 | 越权访问他人资源或管理员接口 |
 | NOT_FOUND | 不存在 | id 无效或已软删除 |
+| METHOD_NOT_ALLOWED | 方法不允许 | 对已存在路径使用未登记的 HTTP 方法（HTTP 405） |
 | CONFLICT_STALE | 版本冲突 | `baseHash` 与头版本不一致 |
 | HASH_MISMATCH | 哈希不符 | 教案内容被篡改或传输损坏 |
 | SCHEMA_UNSUPPORTED | 版本不支持 | 未知 `schemaVersion`/`rubricVersion` |
@@ -597,7 +616,13 @@
 | MEDIA_MISSING | 媒体缺失 | 文件缺失或哈希不符 |
 | PAYLOAD_REJECTED | 包内容被拒 | zip 条目含 `..`、绝对路径、符号链接或非白名单文件 |
 | PAYLOAD_TOO_LARGE | 请求过大 | 单包超过 50 MB |
+| UNSUPPORTED_MEDIA | 媒体类型不支持 | 上传内容不是 zip 或类型不符（HTTP 415） |
 | RATE_LIMITED | 触发限流 | 登录或导入过于频繁 |
+| USERNAME_TAKEN | 用户名被占用 | 注册或建号时用户名重复（HTTP 409） |
+| REGISTRATION_CLOSED | 自助注册已关闭 | `LPP_ALLOW_REGISTRATION=0` 时的自助注册请求 |
+| PASSWORD_CHANGE_REQUIRED | 需先改密 | 账号 `must_change_password=1` 时访问改密以外的业务接口 |
+| CONFLICT_DELETED | 对象已删除 | 带 `planId` 推送时目标教案已软删除（HTTP 409） |
+| SERVICE_UNAVAILABLE | 服务暂不可用 | 数据库结构未对齐或磁盘不可写（HTTP 503） |
 | INTERNAL | 服务端错误 | 未预期异常，附 `traceId` |
 
 ## 6 非功能需求

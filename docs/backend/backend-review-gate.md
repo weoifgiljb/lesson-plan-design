@@ -78,7 +78,7 @@ py -3 scripts/run_backend_gate.py --update-contract   # 仅刷新 OpenAPI 快照
 | BA-06 | `adapters/**` 禁止 import `app.api`、`app.application` | block | `db/repo.py` 调用 `ingest_service` |
 | BA-07 | 模块行数：`domain`/`application` ≤300；`api/routers/*` ≤200；`main.py` ≤150 | warn（超 1.2 倍转 block） | 单个 `plans.py` 800 行 |
 | BA-08 | 单函数 ≤50 行、嵌套 ≤3 层 | warn | `ingest.__init__` 120 行 |
-| BA-09 | `except` 只允许出现在 `api/errors.py`、`main.py`、`adapters/db/repo.py`、`adapters/engine.py`；禁止裸 `except:` | block | service 里又包一层 `try/except` |
+| BA-09 | `except` 只允许出现在 `api/errors.py`、`main.py`、`adapters/archive.py`、`adapters/db/repo.py`、`adapters/engine.py`；禁止裸 `except:` | block | service 里又包一层 `try/except` |
 | BA-10 | `AppError(...)` 的第一个字符串参数必须是 `domain/errors.py::ERROR_CODES` 的键 | block | `raise AppError("BAD_THING")` |
 | BA-11 | `sys.path` 与 `plugins/.../scripts` 只允许出现在 `adapters/engine.py` | block | 在 `api/plans.py` 里改 `sys.path` |
 | BA-12 | 后端与前端源码不含本机绝对路径 | block | `C:\Users\...` 写进配置 |
@@ -88,7 +88,7 @@ py -3 scripts/run_backend_gate.py --update-contract   # 仅刷新 OpenAPI 快照
 | 编号 | 规则 | 级别 | 失败示例 |
 |---|---|---|---|
 | BC-01 | `docs/api/contract.v1.json` 合法，含 `versions`、`roles`、`errorCodes`、`endpoints` | block | JSON 语法错或字段缺失 |
-| BC-02 | contract 的每个接口在 `openapi.v1.json` 中存在且方法一致；OpenAPI 多出的路由必须登记 | block | 代码新增 `/api/v1/plans/{id}/restore` 但契约没登记 |
+| BC-02 | contract 的每个接口在 `openapi.v1.json` 中存在且方法一致；`implemented=false` 的接口允许暂缺（只报一条 warn）；标记 true 却缺、代码有但未翻转、OpenAPI 多出的路由均 block | block（计划内缺为 warn） | 代码新增 `/api/v1/plans/{id}/restore` 但契约没登记；或接口已实现却仍标 `implemented=false` |
 | BC-03 | 写接口（POST/PUT/PATCH/DELETE）`auth=true` 时必须 `csrf=true`，仅 `/api/v1/auth/login` 例外 | block | `POST /api/v1/users` 未要求 CSRF |
 | BC-04 | 角色只取 `teacher|lead|admin`；每个接口至少一个角色或显式 `auth=false` | block | `roles: ["superuser"]` |
 | BC-05 | `domain/errors.py::ERROR_CODES` ⇔ `contract.errorCodes` ⇔ `src/frontend/src/api/errors.ts` 三处集合相等 | block | 后端新增码，前端没有中文文案 |
@@ -180,7 +180,7 @@ py -3 scripts/run_backend_gate.py --update-contract   # 仅刷新 OpenAPI 快照
 | 变更 | 必须同批完成 | 否则 |
 |---|---|---|
 | 新增错误码 | `domain/errors.py` + `contract.v1.json` + `errors.ts` + 需求文档错误码表 | BC-05 红 |
-| 新增/改路由 | `contract.v1.json` + 前端 `api/*.ts` + 权限矩阵用例 | BC-02/BC-07/权限测试红 |
+| 新增/改路由 | `contract.v1.json`（实现同批置 `implemented=true`）+ OpenAPI 快照 + 前端 `api/*.ts` + 权限矩阵用例 | BC-02/BC-07/权限测试红 |
 | 新增字段/表 | `schema.sql` + 迁移 + 契约 DTO + 文档 | G2/G4 红 |
 | 改闸门规则 | 单独 PR + `tests/gate` 同步更新 | 不准合并 |
 | 引擎版本升级 | `contract.versions` + `engineVersion` 记录 + 回归 | BC-06 红 |

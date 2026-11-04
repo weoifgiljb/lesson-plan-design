@@ -69,6 +69,30 @@ class TestArchitectureGate(unittest.TestCase):
         with stack:
             self.assertIn("BA-03", rules(arch.scan(backend, frontend)))
 
+    def test_archive_except_is_allowed(self) -> None:
+        code = (
+            "def read(data: bytes) -> bytes:\n"
+            "    try:\n"
+            "        return data\n"
+            "    except ValueError:\n"
+            "        return b''\n"
+        )
+        stack, backend, frontend = project_with({"app/adapters/archive.py": code})
+        with stack:
+            self.assertNotIn("BA-09", rules(arch.scan(backend, frontend)))
+
+    def test_except_outside_whitelist_is_blocked(self) -> None:
+        code = (
+            "def read(data: bytes) -> bytes:\n"
+            "    try:\n"
+            "        return data\n"
+            "    except ValueError:\n"
+            "        return b''\n"
+        )
+        stack, backend, frontend = project_with({"app/adapters/storage.py": code})
+        with stack:
+            self.assertIn("BA-09", rules(arch.scan(backend, frontend)))
+
     def test_module_too_large_is_blocked(self) -> None:
         stack, backend, frontend = project_with({"app/domain/big.py": "X = 1\n" * 400})
         with stack:
@@ -117,6 +141,68 @@ class TestContractGate(unittest.TestCase):
         stack, backend, frontend, contract_file, openapi_file = contract_project(routes=routes)
         with stack:
             self.assertIn("BC-02", rules(contract_gate.scan(backend, frontend, contract_file, openapi_file)))
+
+    def test_planned_missing_is_warn_only(self) -> None:
+        contract = json.loads(json.dumps(CONTRACT))
+        for item in contract["endpoints"]:
+            item["implemented"] = False
+        stack, backend, frontend, contract_file, openapi_file = contract_project(contract=contract, routes={})
+        with stack:
+            problems = contract_gate.scan(backend, frontend, contract_file, openapi_file)
+            self.assertEqual(blocks(problems), [])
+            self.assertTrue(any(item["rule"] == "BC-02" and item["severity"] == "warn" for item in problems))
+
+    def test_implemented_missing_is_blocked(self) -> None:
+        contract = json.loads(json.dumps(CONTRACT))
+        contract["endpoints"][0]["implemented"] = False
+        contract["endpoints"][1]["implemented"] = True
+        stack, backend, frontend, contract_file, openapi_file = contract_project(contract=contract, routes={})
+        with stack:
+            self.assertIn("BC-02", rules(contract_gate.scan(backend, frontend, contract_file, openapi_file)))
+
+    def test_implemented_route_without_flip_is_blocked(self) -> None:
+        contract = json.loads(json.dumps(CONTRACT))
+        for item in contract["endpoints"]:
+            item["implemented"] = False
+        stack, backend, frontend, contract_file, openapi_file = contract_project(contract=contract)
+        with stack:
+            self.assertIn("BC-02", rules(contract_gate.scan(backend, frontend, contract_file, openapi_file)))
+
+    def test_implemented_and_present_passes(self) -> None:
+        contract = json.loads(json.dumps(CONTRACT))
+        contract["endpoints"][0]["implemented"] = True
+        contract["endpoints"][1]["implemented"] = False
+        routes = {"/api/v1/plans": ["get"]}
+        stack, backend, frontend, contract_file, openapi_file = contract_project(contract=contract, routes=routes)
+        with stack:
+            self.assertEqual(blocks(contract_gate.scan(backend, frontend, contract_file, openapi_file)), [])
+
+    def test_path_parameter_names_are_normalized(self) -> None:
+        contract = {
+            "contractVersion": "1",
+            "versions": CONTRACT["versions"],
+            "roles": CONTRACT["roles"],
+            "errorCodes": CONTRACT["errorCodes"],
+            "endpoints": [
+                {
+                    "method": "GET",
+                    "path": "/api/v1/plans/{id}",
+                    "auth": True,
+                    "roles": ["teacher"],
+                    "csrf": False,
+                    "idempotent": True,
+                    "status": [200],
+                    "client": "plugin",
+                    "implemented": True,
+                }
+            ],
+        }
+        stack, backend, frontend, contract_file, openapi_file = contract_project(
+            contract=contract, routes={"/api/v1/plans/{plan_id}": ["get"]}
+        )
+        with stack:
+            absent = frontend.parent / "absent-frontend"
+            self.assertEqual(blocks(contract_gate.scan(backend, absent, contract_file, openapi_file)), [])
 
     def test_write_without_csrf_is_blocked(self) -> None:
         contract = json.loads(json.dumps(CONTRACT))
@@ -248,6 +334,10 @@ class TestSecurityGate(unittest.TestCase):
 
 class TestGateRunner(unittest.TestCase):
     def test_runner_skips_when_backend_absent(self) -> None:
+        import os
+
+        env = os.environ.copy()
+        env["LPP_BACKEND_ROOT"] = str(ROOT / "output" / "gate-absent-backend")
         proc = subprocess.run(
             [sys.executable, str(ROOT / "scripts" / "run_backend_gate.py"), "--json"],
             capture_output=True,
@@ -255,6 +345,7 @@ class TestGateRunner(unittest.TestCase):
             encoding="utf-8",
             errors="replace",
             cwd=ROOT,
+            env=env,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)

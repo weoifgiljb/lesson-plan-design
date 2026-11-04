@@ -29,7 +29,7 @@ FORBIDDEN_DOMAIN = {
 FORBIDDEN_APPLICATION = {"fastapi", "starlette", "uvicorn", "app.api"}
 FORBIDDEN_ADAPTERS = {"app.api", "app.application"}
 FORBIDDEN_API = {"sqlite3", "zipfile", "subprocess", "app.adapters.db"}
-EXCEPT_WHITELIST = {"api/errors.py", "main.py", "adapters/db/repo.py", "adapters/engine.py"}
+EXCEPT_WHITELIST = {"api/errors.py", "main.py", "adapters/archive.py", "adapters/db/repo.py", "adapters/engine.py"}
 MODULE_LIMITS = {"domain": 300, "application": 300, "api_routers": 200, "main": 150}
 BLOCK_RATIO = 1.2
 TEXT_SUFFIXES = {".py", ".ts", ".vue", ".json", ".sql", ".md", ".ps1"}
@@ -142,7 +142,12 @@ def _check_error_codes(files, app, errors_file):
     tree = common.parse(errors_file)
     codes = common.constant_strings(tree, "ERROR_CODES") if tree is not None else set()
     if not codes:
-        problems.append(common.problem("BA-10", errors_file, 0, "domain/errors.py 必须定义 ERROR_CODES 常量表"))
+        # 错误码目录允许单独成文件：domain/error_codes.py
+        catalog_file = errors_file.parent / "error_codes.py"
+        catalog_tree = common.parse(catalog_file)
+        codes = common.constant_strings(catalog_tree, "ERROR_CODES") if catalog_tree is not None else set()
+    if not codes:
+        problems.append(common.problem("BA-10", errors_file, 0, "domain/errors.py 或 domain/error_codes.py 必须定义 ERROR_CODES 常量表"))
         return problems
     for path in files:
         if path == errors_file:
