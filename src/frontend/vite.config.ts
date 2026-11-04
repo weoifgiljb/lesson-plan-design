@@ -14,7 +14,8 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        // 多 worktree 并行时用 VITE_API_PROXY 指向独立后端；默认仍是本机 8000。
+        target: process.env.VITE_API_PROXY ?? 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

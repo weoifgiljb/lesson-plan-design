@@ -12,6 +12,10 @@ const props = withDefaults(
   { height: '220px', label: '统计图表', summary: '' },
 )
 
+const emit = defineEmits<{
+  (event: 'select', params: unknown): void
+}>()
+
 const host = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
 let observer: ResizeObserver | null = null
@@ -24,10 +28,20 @@ function prefersReducedMotion(): boolean {
   )
 }
 
+function ensureChart(): echarts.ECharts | null {
+  if (!host.value) return null
+  if (!chart) {
+    chart = echarts.init(host.value)
+    // 点条形/扇区由页面决定打开哪一层明细；图本身只负责把点击抛出去。
+    chart.on('click', (params) => emit('select', params))
+  }
+  return chart
+}
+
 function render(): void {
-  if (!host.value) return
-  chart = chart ?? echarts.init(host.value)
-  chart.setOption(
+  const instance = ensureChart()
+  if (!instance) return
+  instance.setOption(
     {
       ...props.option,
       animation: props.option.animation ?? !prefersReducedMotion(),
