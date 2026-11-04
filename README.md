@@ -1,5 +1,13 @@
 # 教案设计 Plugin（文件型 Skill + Codex Harness）
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+> **一句话**：对 Agent 说「写第 2 周第 1 次课教案」，输出符合校标（三维目标 + 八步流程）的教案，经结构校验与对抗审校后导出 Word。
+>
+> **English**: an agent plugin that turns one sentence into a Chinese vocational-school lesson plan — three-dimensional objectives, eight-step classroom flow, rule validation, adversarial pedagogical review, and DOCX export.
+>
+> 宿主：Claude Code · Cursor · Codex · 飞书（安装见 [`docs/`](docs/README.md)）
+
 毕业设计交付物是可安装的 **Agent Plugin 根目录**，不是扣子控制台 Bot。
 
 教师在 Cursor / Claude Code / 飞书里用自然语言说「写第 2 周第 1 次课教案」，Agent 会按校标生成带三维目标、八步流程的教案，经过结构校验与对抗性教学闭环审查后再导出 Word。
