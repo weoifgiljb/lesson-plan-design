@@ -7,6 +7,8 @@ export type StructureFocusKind = 'step' | 'goal' | 'evidence'
 
 export interface StructureFocus {
   kind: StructureFocusKind
+  /** 稳定键；2D/3D 与结构清单共用它高亮同一项。 */
+  key?: string
   title: string
   text: string
   step?: StructureStep
@@ -211,6 +213,7 @@ export function createStructureScene(
     evidenceMeshes.push(mesh)
     const evidenceFocus: StructureFocus = {
       kind: 'evidence',
+      key: `evidence:${item.key}`,
       title: `证据链 / ${item.label}`,
       text: item.ok ? item.reason || '通过' : `缺项：${item.reason || '未通过'}`,
     }
@@ -254,6 +257,7 @@ export function createStructureScene(
     flowMeshes.push(mesh)
     focusByMesh.set(mesh, {
       kind: 'step',
+      key: `step:${step.key}`,
       title: step.title,
       text: step.evidence || `${step.minutes} 分钟`,
       step,
@@ -279,12 +283,13 @@ export function createStructureScene(
     goalsLayer.add(mesh)
     goalMeshes.push(mesh)
     const goal = [
-      { label: '知识目标', text: structure.goals.knowledge },
-      { label: '能力目标', text: structure.goals.ability },
-      { label: '素质目标', text: structure.goals.quality },
+      { key: 'knowledge', label: '知识目标', text: structure.goals.knowledge },
+      { key: 'ability', label: '能力目标', text: structure.goals.ability },
+      { key: 'quality', label: '素质目标', text: structure.goals.quality },
     ][index]
     const goalFocus: StructureFocus = {
       kind: 'goal',
+      key: `goal:${goal?.key ?? index}`,
       title: `三维目标 / ${goal?.label ?? '目标'}`,
       text: goal?.text || '未填写',
     }
