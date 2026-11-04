@@ -1,0 +1,23 @@
+{
+  "name": "lesson-plan-design-marketplace",
+  "owner": { "name": "weoifgiljb" },
+  "description": "职教校标教案 agent 插件的自托管市场：中文教案生成 / 备课 / 教学设计，结构校验与对抗审校后导出 Word。",
+  "plugins": [
+    {
+      "name": "lesson-plan-design",
+      "source": "./plugins/lesson-plan-design",
+      "category": "education",
+      "tags": [
+        "教案",
+        "备课",
+        "教学设计",
+        "lesson-plan",
+        "docx",
+        "vocational-education",
+        "claude-code",
+        "cursor",
+        "codex"
+      ]
+    }
+  ]
+}

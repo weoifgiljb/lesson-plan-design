@@ -1,9 +1,9 @@
 {
   "name": "lesson-plan-design",
   "version": "1.0.0",
-  "description": "职教校标教案：结构化草稿、examples 金标准、hooks 校验与 DOCX 导出。",
+  "description": "职教校标教案 Codex 插件：一句话生成三维目标 + 八步流程教案，结构校验与对抗审校后导出 Word。中文教案 / 备课 / 教学设计 / lesson plan。",
   "author": { "name": "毕业设计" },
-  "keywords": ["教案", "职业教育", "信息技术", "skill", "harness"],
+  "keywords": ["教案", "备课", "教学设计", "课时计划", "职业教育", "信息技术", "lesson-plan", "skill", "harness"],
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "mcpServers": "./.mcp.json"

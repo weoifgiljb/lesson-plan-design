@@ -1,8 +1,15 @@
 ---
 name: lesson-plan-design
 description: >
-  撰写、修订、校验或导出职教校标教案（东莞经贸学校信息技术，三维目标与八步流程）。
-  用户提到写教案、改教案、一级考证、周次课次、机房实训时使用。
+  撰写、修订、校验、评审或导出职教（中职/高职）校标教案：结构化三维目标、八步流程、板书与作业，
+  校验通过并经对抗性教学闭环审查后导出 Word/DOCX。
+  中文触发词：写教案、备课、教学设计、课时计划、教案模板、教学目标、三维目标、重难点、
+  教学过程、板书设计、教学反思、实训教案、一级考证、周次课次、机房实训。
+  英文触发词：lesson plan、lesson planning、lesson design、teaching plan、unit plan、
+  scheme of work、instructional design、curriculum、learning objectives、assessment、
+  vocational education、K-12、DOCX export。
+  默认校标为东莞经贸学校信息技术（计算机教研组、机房）。典型请求：「帮我写第 2 周第 1 次课教案」
+  「把这份教案改成…」「校验这份教案」「导出成 Word」「对照样例打分」「审查教案质量」。
 ---
 
 # 教案设计（短流程）
