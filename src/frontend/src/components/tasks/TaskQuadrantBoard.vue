@@ -173,6 +173,7 @@ function discard(task: TaskItem): void {
 
 <style scoped>
 .quadrant-board {
+  --board-column-pad: 20px;
   min-width: 0;
 }
 
@@ -259,7 +260,7 @@ function discard(task: TaskItem): void {
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
-  padding: 13px 12px 11px 15px;
+  padding: 13px var(--board-column-pad) 11px;
   border-bottom: 1px solid var(--lpp-border);
 }
 
@@ -309,8 +310,12 @@ function discard(task: TaskItem): void {
 .quadrant__list {
   flex: 1;
   min-height: 0;
-  padding: 10px 12px 12px;
+  padding: 10px var(--board-column-pad) 12px;
   overflow: auto;
+}
+
+.quadrant-board--compact {
+  --board-column-pad: 12px;
 }
 
 .quadrant-board--compact .quadrant-sheet {
@@ -319,7 +324,7 @@ function discard(task: TaskItem): void {
 }
 
 .quadrant-board--compact .quadrant__head {
-  padding: 10px 9px 8px 12px;
+  padding: 10px var(--board-column-pad) 8px;
 }
 
 .quadrant-board--compact .quadrant__head h4 {
@@ -333,7 +338,7 @@ function discard(task: TaskItem): void {
 .quadrant-board--compact .quadrant__list {
   min-height: 96px;
   max-height: 220px;
-  padding: 7px 8px 9px;
+  padding: 7px var(--board-column-pad) 9px;
 }
 
 .quadrant-board--compact .quadrant__list.is-empty {
@@ -344,7 +349,7 @@ function discard(task: TaskItem): void {
   display: grid;
   flex: 1;
   min-height: 160px;
-  margin: 10px 12px 12px 15px;
+  margin: 10px var(--board-column-pad) 12px;
   padding: 0;
   place-items: center;
   border: 1px dashed var(--lpp-border-strong);
@@ -358,7 +363,7 @@ function discard(task: TaskItem): void {
 }
 
 .quadrant-board--compact .quadrant__list.is-empty {
-  margin: 7px 8px 9px 12px;
+  margin: 7px var(--board-column-pad) 9px;
 }
 
 .task-card {
@@ -532,6 +537,11 @@ function discard(task: TaskItem): void {
 }
 
 @media (max-width: 900px) {
+  .quadrant-board,
+  .quadrant-board--compact {
+    --board-column-pad: 20px;
+  }
+
   .quadrant-sheet,
   .quadrant-board--compact .quadrant-sheet {
     grid-template-columns: minmax(0, 1fr);
