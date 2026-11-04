@@ -36,6 +36,7 @@ const review: ReviewDetail = {
   review: {
     reviewId: 9,
     planId: 1,
+    planVersionId: 1,
     versionNo: 1,
     round: 1,
     status: 'needs_repair',

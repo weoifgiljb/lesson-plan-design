@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { createExports, downloadExport, getExport } from '@/api/exports'
 import { getStatsSummary, listStatRecords } from '@/api/stats'
@@ -7,7 +8,10 @@ import type { ExportJob } from '@/api/models'
 import { saveBlob } from '@/utils/download'
 import { EXPORT_STATUS_LABELS } from '@/utils/labels'
 
+const route = useRoute()
 const versionInput = ref('')
+// 从审查中心「导出」跳过来时带的版本 ID；只手填入框，不自动提交
+const prefilledId = ref<number | null>(null)
 const jobs = ref<ExportJob[]>([])
 const creating = ref(false)
 const message = ref('')
@@ -18,6 +22,34 @@ const summary = reactive({ loading: false })
 let timer: number | undefined
 
 const pending = computed(() => jobs.value.filter((job) => job.status !== 'succeeded' && job.status !== 'failed'))
+
+function readVersionId(value: unknown): number | null {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (raw === null || raw === undefined || raw === '') return null
+  const id = Number(raw)
+  return Number.isInteger(id) && id > 0 ? id : null
+}
+
+function applyVersionQuery(value: unknown): void {
+  const id = readVersionId(value)
+  const previous = prefilledId.value
+  prefilledId.value = id
+  if (id !== null) {
+    versionInput.value = String(id)
+    return
+  }
+  // 查询参数被清掉时只清上一次自动带入的值，不动用户手输的批量 ID
+  if (previous !== null && versionInput.value === String(previous)) versionInput.value = ''
+}
+
+applyVersionQuery(route.query.planVersionId)
+
+watch(
+  () => route.query.planVersionId,
+  (value) => {
+    applyVersionQuery(value)
+  },
+)
 
 function parseIds(text: string): number[] {
   return text
@@ -119,6 +151,10 @@ const statusLabel = EXPORT_STATUS_LABELS
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" />
     <el-alert v-if="message" type="success" :closable="false" show-icon :title="message" />
+
+    <p v-if="prefilledId" class="hint">
+      已从审查中心带入教案版本 ID {{ prefilledId }}，确认后点「创建导出」。
+    </p>
 
     <div class="form">
       <el-input

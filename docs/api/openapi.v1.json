@@ -3522,6 +3522,10 @@
             "type": "integer",
             "title": "Planid"
           },
+          "planVersionId": {
+            "type": "integer",
+            "title": "Planversionid"
+          },
           "versionNo": {
             "anyOf": [
               {
@@ -3645,6 +3649,12 @@
                 "type": "null"
               }
             ]
+          },
+          "exportable": {
+            "type": "boolean",
+            "title": "Exportable",
+            "description": "乐观提示：报告结构与证据链通过；不保证导出成功，最终以导出接口结果为准",
+            "default": false
           }
         },
         "additionalProperties": true,
@@ -3652,6 +3662,7 @@
         "required": [
           "reviewId",
           "planId",
+          "planVersionId",
           "status"
         ],
         "title": "ReviewItem"
@@ -3710,6 +3721,10 @@
               }
             ],
             "title": "Planid"
+          },
+          "planVersionId": {
+            "type": "integer",
+            "title": "Planversionid"
           },
           "versionNo": {
             "anyOf": [
@@ -3824,6 +3839,9 @@
         },
         "additionalProperties": true,
         "type": "object",
+        "required": [
+          "planVersionId"
+        ],
         "title": "ReviewRef",
         "description": "详情里的 review 与列表项形状不同（少了派生字段、多了报告相关字段）。"
       },
