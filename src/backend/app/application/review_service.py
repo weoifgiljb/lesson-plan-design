@@ -82,16 +82,20 @@ def _summary(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, An
     return {
         **_review_header(row),
         "evidence": {"complete": chain["complete"], "passed": chain["passed"], "total": chain["total"], "gaps": chain["gaps"]},
-        "exportable": _exportable(report),
+        "exportable": _exportable(report, complete=chain["complete"]),
     }
 
 
-def _exportable(report: dict[str, Any]) -> bool:
-    """列表行的乐观可导出判定：状态白名单 + 无未关闭问题。
+def _exportable(report: dict[str, Any], *, complete: bool) -> bool:
+    """列表行的乐观可导出判定：状态白名单 + 无未关闭问题 + 证据链完整。
 
-    只是按钮默认态：最终门禁仍由 export_service 调插件引擎复核，判错也不能绕过。
+    证据链完整同时覆盖哈希、轮次、放行记录、独立性与状态一致五项；
+    字段缺失、未知 schema/rubric 版本等仍由 export_service 的引擎门禁最终裁决。
+    只是按钮默认态，判错也不能绕过服务端门禁。
     报告可能被写坏（status 是对象），这里只做类型守卫，不抛异常。
     """
+    if not complete:
+        return False
     status = report.get("status")
     if not isinstance(status, str) or status not in export_rules.ALLOWED_REPORT_STATUS:
         return False

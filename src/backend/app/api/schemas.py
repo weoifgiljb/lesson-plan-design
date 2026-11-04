@@ -192,7 +192,7 @@ class ReviewItem(BaseModel):
     reviewId: int
     planId: int
     # 导出中心只接受教案版本 ID，列表必须把它带出来（列表与详情同源）
-    planVersionId: int | None = None
+    planVersionId: int
     versionNo: int | None = None
     round: int | None = None
     # 状态不收紧成枚举：历史库与"报告异常"分支会产出白名单外状态，收紧会 500
@@ -224,7 +224,7 @@ class ReviewRef(BaseModel):
 
     reviewId: int | None = None
     planId: int | None = None
-    planVersionId: int | None = None
+    planVersionId: int
     versionNo: int | None = None
     round: int | None = None
     status: str | None = None

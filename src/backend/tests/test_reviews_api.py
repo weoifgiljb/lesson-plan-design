@@ -202,6 +202,9 @@ class TestReviewsApi(unittest.TestCase):
         self.assertFalse(items[self.reviews["needs_repair"]]["exportable"])
         self.assertFalse(items[self.reviews["structure_invalid"]]["exportable"])
         self.assertFalse(items[self.reviews["pending_reviewer"]]["exportable"])
+        # 证据链不完整（哈希不符 / 缺放行记录）也不能给可导出暗示
+        self.assertFalse(items[self.reviews["hash_mismatch"]]["exportable"])
+        self.assertFalse(items[self.reviews["missing_override"]]["exportable"])
 
     def test_detail_shows_five_items_and_report(self) -> None:
         self._login("teacher1")
@@ -265,6 +268,7 @@ class TestReviewsApi(unittest.TestCase):
         detail = self.client.get(f"/api/v1/reviews/{self.reviews['passed']}")
         self.assertEqual(detail.status_code, 200, detail.text)
         self.assertIn("report_unreadable", detail.json()["evidence"]["gaps"])
+        self.assertEqual(detail.json()["review"]["planVersionId"], self.versions[self.reviews["passed"]])
 
     def test_bad_field_types_are_marked_not_500(self) -> None:
         # severity/status 写成对象：类型守卫应标红而不是抛 TypeError
@@ -295,6 +299,8 @@ class TestReviewsApi(unittest.TestCase):
         self.assertEqual(listing.status_code, 200, listing.text)
         items = {item["reviewId"]: item for item in listing.json()["items"]}
         self.assertFalse(items[self.reviews["passed"]]["evidence"]["complete"])
+        # status 写成对象时不能被当成"可导出"
+        self.assertFalse(items[self.reviews["passed"]]["exportable"])
 
     def test_lead_cannot_read_other_group_detail(self) -> None:
         self._login("lead1")

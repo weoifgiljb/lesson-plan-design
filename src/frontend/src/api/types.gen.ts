@@ -1,4 +1,4 @@
-// openapi-sha256: f81841bc122b0caa331c6fcc722f3d7983f582d3f8cbfc85e685572271635160
+// openapi-sha256: bd5ec6e6d800c0444bc37188c106931ea8fa7ecc866bbaafd3930c118339cbaf
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -133,7 +133,7 @@ export interface ReviewEvidence {
 export interface ReviewItem {
   reviewId: number
   planId: number
-  planVersionId?: number | null
+  planVersionId: number
   versionNo?: number | null
   round?: number | null
   status: string
@@ -159,7 +159,7 @@ export interface ReviewPage {
 export interface ReviewRef {
   reviewId?: number | null
   planId?: number | null
-  planVersionId?: number | null
+  planVersionId: number
   versionNo?: number | null
   round?: number | null
   status?: string | null
