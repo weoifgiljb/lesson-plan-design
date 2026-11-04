@@ -77,8 +77,8 @@ function labelOf(status: string): string {
   return statusLabel.value.get(status) ?? status
 }
 
-// 表单按钮态只表达"能不能试"；真正的导出许可仍由 export_service 门禁判定。
-const EXPORT_DISABLED_REASON = '仅通过类状态（通过 / 放行通过 / 接受轻微）且无未关闭问题可导出'
+// 按钮态只是乐观提示；真正的导出许可仍由 export_service 门禁判定。
+const EXPORT_DISABLED_REASON = '仅通过类状态且证据链完整时可点导出；最终以导出结果为准'
 
 function canExport(row: ReviewListItem): boolean {
   return Boolean(row.exportable && row.planVersionId)
