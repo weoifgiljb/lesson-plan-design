@@ -62,6 +62,8 @@ git merge --no-ff feature/<id>-<slug>   # 逐个合并全部待发 feature
 
 ## 发布
 
+**先递增版本号**：把 `plugins/lesson-plan-design/.claude-plugin/plugin.json` 的 `version` 递增，五个宿主 manifest（`.claude-plugin` / `.cursor-plugin` / `.codex-plugin` / `.codebuddy-plugin` / `.qoder-plugin`）同步，标签版本号与 manifest 一致。版本号不动时，用户执行 `claude plugin update` 会得到「已是最新」而拿不到更新。
+
 ```bash
 git switch develop
 git merge --no-ff test/integration

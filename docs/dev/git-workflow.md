@@ -111,13 +111,18 @@ git merge --no-ff feature/fr-03-gate
 
 ### 4.5 发布
 
+**发版必须递增插件版本号。** 改 `plugins/lesson-plan-design/.claude-plugin/plugin.json` 的 `version`，五个宿主 manifest（`.claude-plugin` / `.cursor-plugin` / `.codex-plugin` / `.codebuddy-plugin` / `.qoder-plugin`）一并同步。原因：Claude Code 按 `plugin.json` 的 `version` 判断新旧，版本号不动时 `claude plugin update` 会回「已是最新版本」，用户实际拿不到更新。
+
 ```bash
+# 1. 先递增 version 并同步五个 manifest，提交进 develop
 git switch develop
 git merge --no-ff test/integration
 git tag -a v0.1.0-plugin-p0 -m "插件端 P0 通过联调"
 git push origin develop --tags
 # 通过 PR 将 develop 合入 main
 ```
+
+标签版本号与 manifest 版本号保持一致；若两者不一致，以 manifest 为准并补一个修正提交。
 
 发布后删除 `test/integration`，保留标签与 PR 记录。`main` 只接受 `develop` 的 PR，不直接提交。
 

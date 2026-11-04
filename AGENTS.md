@@ -25,6 +25,10 @@
 16. **后端分层**：`src/backend/app/domain` 不 import FastAPI/SQLite/文件系统，只放可单测的复校规则；`application` 只做编排；`api` 只做协议适配；插件脚本只允许在 `adapters/engine.py` 通过一次 `sys.path` 接入并记录 `engineVersion`。
 17. **后端闸门**：任何改动 `src/backend`、`src/frontend/src/api` 或 `docs/api/` 的 PR，必须 `py -3 scripts/run_backend_gate.py` 无 block、`py -3 scripts/run_all_tests.py` 全绿，并按 `skills/backend-review-gate/SKILL.md` 产出独立评审报告；契约文件变更同批更新 `docs/api/contract.v1.json`、OpenAPI 快照与前端类型。
 
+## 发布硬约束
+
+18. **发版递增插件版本号**：发布前把 `plugins/lesson-plan-design/.claude-plugin/plugin.json` 的 `version` 递增，五个宿主 manifest（`.claude-plugin` / `.cursor-plugin` / `.codex-plugin` / `.codebuddy-plugin` / `.qoder-plugin`）同步，Git 标签版本号与 manifest 保持一致。版本号不动时，用户执行 `claude plugin update` 会判定「已是最新」而拿不到更新。
+
 ## 当前分支基线（2026-10-26）
 
 - `main`：`d6cd45b`，`v1.0.0` 发布点；本轮由 `develop` 合入后打 `v1.1.0`
