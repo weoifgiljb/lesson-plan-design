@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends object">
 import { computed } from 'vue'
 
 import StatePanel from './StatePanel.vue'
@@ -6,7 +6,7 @@ import type { TableColumn } from './table-types'
 
 const props = withDefaults(
   defineProps<{
-    rows: any[]
+    rows: T[]
     columns: TableColumn[]
     rowKey?: string
     state?: 'ready' | 'loading' | 'empty' | 'error'
@@ -39,8 +39,8 @@ const emit = defineEmits<{
   (event: 'update:page', page: number): void
   (event: 'update:pageSize', size: number): void
   (event: 'retry'): void
-  (event: 'rowClick', row: any): void
-  (event: 'selectionChange', rows: any[]): void
+  (event: 'rowClick', row: T): void
+  (event: 'selectionChange', rows: T[]): void
 }>()
 
 const visibleState = computed(() => {
@@ -54,6 +54,12 @@ function display(value: unknown): string {
   return String(value)
 }
 
+// 列的 key 是运行时字符串，行的字段由 TableColumn 约定；这里只读取，不扩大类型。
+function cellValue(row: T, key: string): unknown {
+  if (typeof row !== 'object' || row === null) return undefined
+  return Reflect.get(row, key)
+}
+
 function onPage(page: number): void {
   emit('update:page', page)
 }
@@ -62,8 +68,12 @@ function onSize(size: number): void {
   emit('update:pageSize', size)
 }
 
-function onRowClick(row: any): void {
+function onRowClick(row: T): void {
   if (props.clickable) emit('rowClick', row)
+}
+
+function onSelectionChange(rows: T[]): void {
+  emit('selectionChange', rows)
 }
 </script>
 
@@ -84,7 +94,7 @@ function onRowClick(row: any): void {
             size="default"
             :row-class-name="clickable ? 'data-table__row--clickable' : ''"
             @row-click="onRowClick"
-            @selection-change="(rows: any[]) => emit('selectionChange', rows)"
+            @selection-change="onSelectionChange"
           >
             <el-table-column v-if="selectable" type="selection" width="42" />
             <el-table-column
@@ -98,8 +108,13 @@ function onRowClick(row: any): void {
               :show-overflow-tooltip="column.tooltip ?? false"
             >
               <template #default="{ row }">
-                <slot :name="`cell-${column.key}`" :row="row" :column="column" :value="row[column.key]">
-                  {{ display(row[column.key]) }}
+                <slot
+                  :name="`cell-${column.key}`"
+                  :row="row"
+                  :column="column"
+                  :value="cellValue(row, column.key)"
+                >
+                  {{ display(cellValue(row, column.key)) }}
                 </slot>
               </template>
             </el-table-column>

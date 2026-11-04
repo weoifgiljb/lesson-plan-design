@@ -13,3 +13,10 @@ work-plan.docx
 *.db
 *.db-wal
 *.db-shm
+
+# 前端构建/覆盖率产物与本地环境文件
+/src/frontend/dist/
+/src/frontend/coverage/
+/src/frontend/*.tsbuildinfo
+/src/frontend/.env.local
+/src/frontend/.env.*.local
