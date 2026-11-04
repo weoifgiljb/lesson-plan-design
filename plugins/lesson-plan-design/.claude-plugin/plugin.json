@@ -1,7 +1,7 @@
 {
   "name": "lesson-plan-design",
   "version": "1.0.0",
-  "description": "职教校标教案：结构化草稿、examples 金标准、hooks 校验与 DOCX 导出。",
+  "description": "职教校标教案 skill：一句话生成三维目标 + 八步流程教案，结构校验与对抗审校后导出 Word。中文教案 / 备课 / 教学设计，支持 Claude Code、Cursor、Codex。",
   "author": { "name": "毕业设计" },
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
