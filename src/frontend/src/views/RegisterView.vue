@@ -127,8 +127,8 @@ async function submit(): Promise<void> {
 
         <el-alert
           v-if="errorMessage"
-          ref="errorRef"
           id="register-error"
+          ref="errorRef"
           tabindex="-1"
           class="form-error"
           role="alert"

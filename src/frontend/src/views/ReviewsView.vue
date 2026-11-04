@@ -143,7 +143,7 @@ const scrollRef = ref<HTMLElement | null>(null)
       :description="error.traceId ? `traceId: ${error.traceId}` : ''"
     />
 
-    <div ref="scrollRef" class="table-wrap" v-loading="loading">
+    <div ref="scrollRef" v-loading="loading" class="table-wrap">
       <el-table
         v-if="rows.length"
         :data="rows"

@@ -99,7 +99,7 @@ const roleLabel = computed(
 
         <el-alert v-if="users.error.value" type="error" :closable="false" show-icon :title="users.error.value.message" />
 
-        <div class="table-wrap" v-loading="users.loading.value">
+        <div v-loading="users.loading.value" class="table-wrap">
           <el-table v-if="userRows.length" :data="userRows" row-key="userId" stripe>
             <el-table-column prop="username" label="用户名" width="160" />
             <el-table-column prop="displayName" label="姓名" width="140" />
@@ -142,7 +142,7 @@ const roleLabel = computed(
         <el-alert v-if="auditError" type="error" :closable="false" show-icon :title="auditError" />
         <el-alert v-if="audit.error.value" type="error" :closable="false" show-icon :title="audit.error.value.message" />
 
-        <div class="table-wrap" v-loading="audit.loading.value">
+        <div v-loading="audit.loading.value" class="table-wrap">
           <el-table v-if="auditRows.length" :data="auditRows" row-key="id" stripe>
             <el-table-column prop="createdAt" label="时间" width="190" />
             <el-table-column label="操作者" width="150">

@@ -100,7 +100,7 @@ async function download(row: SampleItem): Promise<void> {
       :description="error.traceId ? `traceId: ${error.traceId}` : ''"
     />
 
-    <div class="table-wrap" v-loading="loading">
+    <div v-loading="loading" class="table-wrap">
       <el-table v-if="rows.length" :data="rows" row-key="sampleId" stripe>
         <el-table-column prop="title" label="课题" min-width="220" />
         <el-table-column prop="course" label="课程" width="130" />
