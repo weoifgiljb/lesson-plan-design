@@ -86,6 +86,7 @@ describe('StructurePanel', () => {
     })
     await flushPromises()
     expect(wrapper.text()).toContain('/ 6 步')
+    expect(wrapper.text()).toContain('6 步流程')
     wrapper.unmount()
   })
 

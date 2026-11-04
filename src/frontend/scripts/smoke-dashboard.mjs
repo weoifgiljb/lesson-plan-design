@@ -50,6 +50,41 @@ try {
     const metrics = await page.locator('.ledger__item').count()
     if (metrics !== 4) throw new Error(`${viewport.name}: expected 4 ledger metrics, got ${metrics}`)
 
+    const structureSwitch = page.locator('.structure-switch')
+    if (viewport.width >= 900) {
+      await structureSwitch.getByRole('button', { name: '简化' }).click()
+    }
+    await page.waitForSelector('[data-structure-mode="simple"]', { timeout: 10000 })
+    await page.waitForTimeout(350)
+
+    const diagram = await page.evaluate(() => {
+      const stage = document.querySelector('.structure-stage')
+      const svg = document.querySelector('.structure-diagram')
+      if (!stage || !svg) return { inside: false, reason: 'missing diagram' }
+      const s = stage.getBoundingClientRect()
+      const v = svg.getBoundingClientRect()
+      return {
+        inside:
+          v.top >= s.top - 1 &&
+          v.bottom <= s.bottom + 1 &&
+          v.left >= s.left - 1 &&
+          v.right <= s.right + 1,
+        viewBox: svg.getAttribute('viewBox'),
+        overflow: document.documentElement.scrollWidth - window.innerWidth,
+      }
+    })
+    if (!diagram.inside || diagram.overflow > 1) {
+      throw new Error(`${viewport.name}: 2D diagram clipped ${JSON.stringify(diagram)}`)
+    }
+
+    if (viewport.width >= 900) {
+      await structureSwitch.getByRole('button', { name: '3D' }).click()
+      await page.waitForSelector('[data-structure-mode="3d"][data-structure-ready="true"]', {
+        timeout: 15000,
+      })
+      await page.waitForTimeout(1200)
+    }
+
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     )
@@ -57,7 +92,7 @@ try {
 
     const target = `${outDir}/dashboard-${viewport.name}.png`
     await page.screenshot({ path: target, fullPage: false })
-    console.log('saved', target)
+    console.log('saved', target, '2D', diagram.viewBox)
 
     await page.getByRole('button', { name: '退出', exact: true }).click()
     await page.waitForURL('**/login', { timeout: 10000 })

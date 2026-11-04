@@ -23,7 +23,8 @@ const LAYER_Y = { goals: 80, flow: 190, evidence: 300 } as const
 const svgRef = ref<SVGSVGElement | null>(null)
 const viewport = ref({ width: 1000, height: VIEW_HEIGHT })
 let observer: ResizeObserver | null = null
-let pinnedKey: string | null = null
+let pinnedFocus: StructureFocus | null = null
+const focusedIndex = ref(0)
 
 interface Point {
   x: number
@@ -43,7 +44,7 @@ interface Box {
  */
 const viewWidth = computed(() => {
   const ratio = viewport.value.width / Math.max(viewport.value.height, 1)
-  return Math.round(Math.min(Math.max(VIEW_HEIGHT * ratio, 520), 1800))
+  return Math.round(Math.min(Math.max(VIEW_HEIGHT * ratio, 480), 2000))
 })
 
 const originX = computed(() => (props.compact ? 16 : 32))
@@ -101,10 +102,11 @@ function padBox(box: Box, x: number, y = x): Box {
 }
 
 function hitBox(box: Box): Box {
-  const padded = padBox(box, 12, 14)
-  if (padded.height >= 64) return padded
-  const extra = (64 - padded.height) / 2
-  return { ...padded, y: padded.y - extra, height: 64 }
+  const minHeight = props.compact ? 80 : 64
+  const padded = padBox(box, 12, props.compact ? 20 : 14)
+  if (padded.height >= minHeight) return padded
+  const extra = (minHeight - padded.height) / 2
+  return { ...padded, y: padded.y - extra, height: minHeight }
 }
 
 const sheets = computed(() =>
@@ -191,7 +193,7 @@ const goalBars = computed(() => {
       key: `goal:${goal.key}`,
       goalKey: goal.key,
       points: toPoints(points),
-      hit: padBox(bounds(points), 10, 12),
+      hit: padBox(bounds(points), props.compact ? 12 : 10, props.compact ? 28 : 12),
       focus,
       ariaLabel: `${goal.label}：${text || '未填写'}`,
     }
@@ -215,20 +217,27 @@ const evidenceSquares = computed(() =>
       evidenceKey: item.key,
       ok: item.ok,
       points: toPoints(points),
-      hit: padBox(bounds(points), 10, 12),
+      hit: padBox(bounds(points), props.compact ? 12 : 10, props.compact ? 28 : 12),
       focus,
       ariaLabel: `证据链 ${item.label}：${item.ok ? '通过' : `缺项，${item.reason || '未通过'}`}`,
     }
   }),
 )
 
+const flowLabel = computed(() =>
+  props.structure.steps.length === 8 ? '八步流程' : `${props.structure.steps.length} 步流程`,
+)
+
 const label = computed(
   () =>
-    `教案结构剖面：三维目标、八步流程与 ${model.value.evidenceTotal} 项证据，共 ${model.value.totalMinutes} 分钟`,
+    `教案结构剖面：三维目标、${flowLabel.value}与 ${model.value.evidenceTotal} 项证据，共 ${model.value.totalMinutes} 分钟`,
 )
 
 const activeKey = computed(() => props.focus?.key ?? '')
 const activeKind = computed(() => props.focus?.kind ?? '')
+const focusOrder = computed(() =>
+  [...goalBars.value, ...flowBars.value, ...evidenceSquares.value].map((item) => item.key),
+)
 
 function isActive(key: string): boolean {
   return activeKey.value === key
@@ -244,27 +253,50 @@ function isLayerActive(key: 'goals' | 'flow' | 'evidence'): boolean {
 }
 
 function show(focus: StructureFocus): void {
-  pinnedKey = null
   emit('hover', focus)
 }
 
 function leave(): void {
-  if (!pinnedKey) emit('hover', null)
+  emit('hover', pinnedFocus)
 }
 
 function select(focus: StructureFocus): void {
-  if (pinnedKey && pinnedKey === focus.key) {
-    pinnedKey = null
+  if (pinnedFocus?.key && pinnedFocus.key === focus.key) {
+    pinnedFocus = null
     emit('hover', null)
     return
   }
-  pinnedKey = focus.key ?? null
+  pinnedFocus = focus
   emit('hover', focus)
 }
 
 function clearAll(): void {
-  pinnedKey = null
+  pinnedFocus = null
   emit('hover', null)
+}
+
+function tabIndexFor(key: string): number {
+  if (!props.compact) return 0
+  return focusOrder.value.indexOf(key) === focusedIndex.value ? 0 : -1
+}
+
+function focusItem(key: string, focus: StructureFocus): void {
+  const index = focusOrder.value.indexOf(key)
+  if (index >= 0) focusedIndex.value = index
+  show(focus)
+}
+
+function onSvgKeydown(event: KeyboardEvent): void {
+  if (!props.compact) return
+  const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']
+  if (!keys.includes(event.key)) return
+  const items = Array.from(svgRef.value?.querySelectorAll<SVGGElement>('.hotspot') ?? [])
+  const current = items.indexOf(document.activeElement as SVGGElement)
+  if (current < 0) return
+  event.preventDefault()
+  const delta = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
+  const next = (current + delta + items.length) % items.length
+  items[next]?.focus()
 }
 
 function measure(): void {
@@ -298,8 +330,9 @@ onBeforeUnmount(() => {
     :viewBox="`0 0 ${viewWidth} ${VIEW_HEIGHT}`"
     role="group"
     :aria-label="label"
-    preserveAspectRatio="none"
+    preserveAspectRatio="xMidYMid meet"
     @pointerleave="leave"
+    @keydown="onSvgKeydown"
     @keydown.esc="clearAll"
   >
     <title>教案结构剖面</title>
@@ -341,11 +374,11 @@ onBeforeUnmount(() => {
         :class="{ 'is-active': isActive(goal.key) }"
         :data-goal-key="goal.goalKey"
         role="button"
-        :tabindex="props.compact ? -1 : 0"
+        :tabindex="tabIndexFor(goal.key)"
         :aria-label="goal.ariaLabel"
         @pointerenter="show(goal.focus)"
         @pointerleave="leave"
-        @focus="show(goal.focus)"
+        @focus="focusItem(goal.key, goal.focus)"
         @blur="clearAll"
         @click="select(goal.focus)"
         @keydown.enter.prevent="select(goal.focus)"
@@ -370,11 +403,11 @@ onBeforeUnmount(() => {
         :class="{ 'is-active': isActive(bar.key) }"
         :data-step-key="bar.stepKey"
         role="button"
-        :tabindex="props.compact ? -1 : 0"
+        :tabindex="tabIndexFor(bar.key)"
         :aria-label="bar.ariaLabel"
         @pointerenter="show(bar.focus)"
         @pointerleave="leave"
-        @focus="show(bar.focus)"
+        @focus="focusItem(bar.key, bar.focus)"
         @blur="clearAll"
         @click="select(bar.focus)"
         @keydown.enter.prevent="select(bar.focus)"
@@ -399,11 +432,11 @@ onBeforeUnmount(() => {
         :class="{ 'is-active': isActive(item.key) }"
         :data-evidence-key="item.evidenceKey"
         role="button"
-        :tabindex="props.compact ? -1 : 0"
+        :tabindex="tabIndexFor(item.key)"
         :aria-label="item.ariaLabel"
         @pointerenter="show(item.focus)"
         @pointerleave="leave"
-        @focus="show(item.focus)"
+        @focus="focusItem(item.key, item.focus)"
         @blur="clearAll"
         @click="select(item.focus)"
         @keydown.enter.prevent="select(item.focus)"

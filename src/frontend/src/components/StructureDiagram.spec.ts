@@ -58,6 +58,47 @@ describe('StructureDiagram', () => {
     expect(wrapper.findAll('.hotspot--evidence')).toHaveLength(3)
     const total = structure.steps.reduce((sum, step) => sum + step.minutes, 0)
     expect(wrapper.find('.structure-diagram').attributes('aria-label')).toContain(`${total} 分钟`)
+    expect(wrapper.find('.structure-diagram').attributes('aria-label')).toContain('6 步流程')
+    wrapper.unmount()
+  })
+
+  it('restores a pinned item after previewing another one', async () => {
+    const wrapper = mount(StructureDiagram, { props: { structure: DEMO_STRUCTURE } })
+    const goal = wrapper.find('.hotspot--goal[data-goal-key="knowledge"]')
+    const step = wrapper.find('.hotspot--step[data-step-key="assessment"]')
+
+    await goal.trigger('click')
+    await step.trigger('pointerenter')
+    await step.trigger('pointerleave')
+    expect(wrapper.emitted('hover')?.at(-1)?.[0]).toMatchObject({ key: 'goal:knowledge' })
+
+    await goal.trigger('click')
+    expect(wrapper.emitted('hover')?.at(-1)?.[0]).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('pins with Enter and clears with Escape', async () => {
+    const wrapper = mount(StructureDiagram, { props: { structure: DEMO_STRUCTURE } })
+    const goal = wrapper.find('.hotspot--goal[data-goal-key="ability"]')
+    await goal.trigger('keydown', { key: 'Enter' })
+    expect(wrapper.emitted('hover')?.at(-1)?.[0]).toMatchObject({ key: 'goal:ability' })
+
+    await wrapper.find('svg').trigger('keydown', { key: 'Escape' })
+    expect(wrapper.emitted('hover')?.at(-1)?.[0]).toBeNull()
+    wrapper.unmount()
+  })
+
+  it('keeps one tab stop and moves it in compact mode', async () => {
+    const wrapper = mount(StructureDiagram, {
+      props: { structure: DEMO_STRUCTURE, compact: true },
+    })
+    const hotspots = wrapper.findAll('.hotspot')
+    expect(hotspots[0]?.attributes('tabindex')).toBe('0')
+    expect(hotspots[1]?.attributes('tabindex')).toBe('-1')
+
+    await hotspots[3]?.trigger('focus')
+    expect(hotspots[0]?.attributes('tabindex')).toBe('-1')
+    expect(hotspots[3]?.attributes('tabindex')).toBe('0')
     wrapper.unmount()
   })
 
@@ -65,7 +106,7 @@ describe('StructureDiagram', () => {
     // 层标签由 StructurePanel 的固定尺寸轴列承担，避免随 SVG 放大后被裁切。
     const wrapper = mount(StructureDiagram, { props: { structure: DEMO_STRUCTURE } })
     expect(wrapper.find('.structure-diagram text').exists()).toBe(false)
-    expect(wrapper.find('svg').attributes('preserveAspectRatio')).toBe('none')
+    expect(wrapper.find('svg').attributes('preserveAspectRatio')).toBe('xMidYMid meet')
     wrapper.unmount()
   })
 })

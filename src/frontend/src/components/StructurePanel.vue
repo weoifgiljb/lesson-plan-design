@@ -60,6 +60,9 @@ const goalItems = computed(() => [
   { key: 'ability', label: '能力目标', text: props.structure.goals.ability },
   { key: 'quality', label: '素质目标', text: props.structure.goals.quality },
 ])
+const flowLabel = computed(() =>
+  props.structure.steps.length === 8 ? '八步流程' : `${props.structure.steps.length} 步流程`,
+)
 const canShow3D = computed(() => webglSupported.value && !narrow.value && !failed.value)
 
 watch(mode, () => {
@@ -223,7 +226,7 @@ onBeforeUnmount(() => {
         </span>
         <span class="structure-axis__item structure-axis__item--flow">
           <i class="structure-axis__dot structure-axis__dot--flow" />
-          <strong>八步流程</strong>
+          <strong>{{ flowLabel }}</strong>
           <small>{{ model.totalMinutes }} 分钟 / {{ structure.steps.length }} 步</small>
         </span>
         <span class="structure-axis__item structure-axis__item--evidence">
@@ -253,7 +256,7 @@ onBeforeUnmount(() => {
 
     <div class="structure-legend" aria-label="图例">
       <span><i class="swatch swatch--goal" aria-hidden="true" />三维目标</span>
-      <span><i class="swatch swatch--flow" aria-hidden="true" />八步流程</span>
+      <span><i class="swatch swatch--flow" aria-hidden="true" />{{ flowLabel }}</span>
       <span>
         <i class="swatch swatch--evidence" aria-hidden="true" />
         证据链 {{ model.evidenceTotal ? `${model.evidencePassed} / ${model.evidenceTotal}` : '未接入' }}
@@ -268,7 +271,7 @@ onBeforeUnmount(() => {
       <summary>结构清单（{{ structure.steps.length }} 步 / 证据 {{ model.evidenceTotal }} 项）</summary>
       <div class="structure-list__grid">
         <div>
-          <h3>八步流程</h3>
+          <h3>{{ flowLabel }}</h3>
           <ol>
             <li v-for="step in structure.steps" :key="step.key">
               <span class="structure-list__order">{{ step.order }}</span>
