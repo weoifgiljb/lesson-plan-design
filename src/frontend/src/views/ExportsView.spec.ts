@@ -58,6 +58,28 @@ describe('ExportsView', () => {
     wrapper.unmount()
   })
 
+  it('clears the auto-filled id when the query is removed', async () => {
+    const { wrapper, router } = await mountAt('/exports?planVersionId=33')
+
+    await router.push('/exports')
+    await flushPromises()
+
+    expect(inputValue(wrapper)).toBe('')
+    expect(wrapper.text()).not.toContain('已从审查中心带入')
+    wrapper.unmount()
+  })
+
+  it('keeps a batch id list the user typed when the query is removed', async () => {
+    const { wrapper, router } = await mountAt('/exports?planVersionId=33')
+
+    await wrapper.find('input').setValue('12,15')
+    await router.push('/exports')
+    await flushPromises()
+
+    expect(inputValue(wrapper)).toBe('12,15')
+    wrapper.unmount()
+  })
+
   it('creates the export with the prefilled version id after confirmation', async () => {
     const { wrapper } = await mountAt('/exports?planVersionId=33')
 

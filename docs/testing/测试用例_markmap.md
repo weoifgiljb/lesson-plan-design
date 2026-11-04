@@ -245,7 +245,7 @@
 - **TC-07-04 审查中心复制 ID 与导出带入** [P1]
   - 前置条件: 列表同时存在「通过」与「待修复」两种状态的记录
   - 操作步骤: 1. 在「通过」行点「复制教案 ID」「复制版本 ID」 2. 点「导出」 3. 在导出中心点「创建导出」
-  - 预期结果: 剪贴板分别得到教案 ID 与教案版本 ID；导出中心输入框预填该版本 ID 且不自动提交；创建导出后任务进入队列；「待修复」行导出按钮禁用并说明原因
+  - 预期结果: 剪贴板分别得到教案 ID 与教案版本 ID；导出中心输入框预填该版本 ID 且不自动提交；确认后返回导出结果（成功或失败原因）并出现在导出记录中；「待修复」或证据链不完整的行导出按钮禁用并说明原因
 
 ## 8. 平台端：同步与冲突
 
@@ -470,7 +470,7 @@
 | TC-06-06 | 平台端未实现，无代码位置 |
 | TC-07-01 | src/frontend/src/views/ReviewsView.vue（状态筛选与状态列） |
 | TC-07-02 | src/frontend/src/components/EvidenceChain.vue、src/backend/app/domain/evidence.py |
-| TC-07-03 | src/backend/app/api/routers/reviews.py（只读，无写接口） |
+| TC-07-03 | src/backend/app/api/routers/reviews.py（只读接口） |
 | TC-07-04 | src/frontend/src/views/ReviewsView.vue（操作列）、src/frontend/src/views/ExportsView.vue（query 预填）、src/backend/app/application/review_service.py（planVersionId/exportable） |
 | TC-08-01 | 平台端未实现，无代码位置 |
 | TC-08-02 | 平台端未实现，无代码位置 |

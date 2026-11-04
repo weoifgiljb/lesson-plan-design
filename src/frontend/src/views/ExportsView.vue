@@ -32,8 +32,14 @@ function readVersionId(value: unknown): number | null {
 
 function applyVersionQuery(value: unknown): void {
   const id = readVersionId(value)
+  const previous = prefilledId.value
   prefilledId.value = id
-  if (id !== null) versionInput.value = String(id)
+  if (id !== null) {
+    versionInput.value = String(id)
+    return
+  }
+  // 查询参数被清掉时只清上一次自动带入的值，不动用户手输的批量 ID
+  if (previous !== null && versionInput.value === String(previous)) versionInput.value = ''
 }
 
 applyVersionQuery(route.query.planVersionId)
