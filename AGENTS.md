@@ -3,7 +3,7 @@
 适用范围：本仓库全部代码、需求、测试与论文材料。完整流程见 `docs/dev/git-workflow.md`，可执行技能见 `skills/git-workflow/SKILL.md`。
 
 1. **main 只发布**：`main` 只接受来自 `develop` 的 PR，禁止直接提交；发布必须打标签。
-2. **develop 只集成**：`develop` 只接受 `feature/*`、`docs/*`、`fix/*` 的 PR，禁止直接提交业务代码。
+2. **develop 只集成**：`develop` 只接受 `feature/*`、`docs/*`、`fix/*`、`refactor/*` 的 PR，禁止直接提交业务代码。
 3. **一需求一分支**：每个需求从 `develop` 切 `feature/<id>-<slug>`（如 `feature/fr-01-rules`），完成并自测后 PR 回合 `develop`；禁止一个分支混做多个需求。
 4. **文档与测试走 docs/test**：需求、分工、测试用例与 fixtures 放 `docs/*` 或 `test/*` 分支，评审后回合 `develop`。
 5. **联调单独建分支**：联调时从 `develop` 切 `test/integration`，合并全部待发 feature，跑全量测试；通过后回合 `develop`，再经 PR 进 `main`，随后删除联调分支。
@@ -15,7 +15,7 @@
 
 ## 代码组织硬约束
 
-完整规范见 `skills/code-standards/SKILL.md` 与 `docs/dev/代码规范与重构计划.md`。
+完整规范见 `skills/code-standards/SKILL.md`、`docs/dev/代码规范与重构计划.md` 与 `docs/frontend/前端代码规范.md`。
 
 11. **路径**：已跟踪文件不写本机绝对路径；用 `${PLUGIN_ROOT}`、`Path(__file__).resolve().parents[n]` 或 `<仓库根目录>` 占位。
 12. **映射**：类型、状态、错误码、severity 等封闭集合用常量表/映射，不写长 `if` 链。
@@ -24,6 +24,7 @@
 15. **拆分纪律**：先补测试再搬代码，保留 `lib.py`/`export_docx.py`/`mcp_server.py` 兼容入口；单函数建议 ≤50 行、单模块建议 ≤400 行，超出在 PR 说明。
 16. **后端分层**：`src/backend/app/domain` 不 import FastAPI/SQLite/文件系统，只放可单测的复校规则；`application` 只做编排；`api` 只做协议适配；插件脚本只允许在 `adapters/engine.py` 通过一次 `sys.path` 接入并记录 `engineVersion`。
 17. **后端闸门**：任何改动 `src/backend`、`src/frontend/src/api` 或 `docs/api/` 的 PR，必须 `py -3 scripts/run_backend_gate.py` 无 block、`py -3 scripts/run_all_tests.py` 全绿，并按 `skills/backend-review-gate/SKILL.md` 产出独立评审报告；契约文件变更同批更新 `docs/api/contract.v1.json`、OpenAPI 快照与前端类型。
+18. **前端规范**：`src/frontend` 改动遵循 `docs/frontend/前端代码规范.md`；网络请求只经 `src/frontend/src/api/client.ts`，类型以 `types.gen.ts` 为准；颜色/间距/字号只用 `--lpp-*` 令牌；页面四态用 `StatePanel`；提交前在 `src/frontend` 跑 `npm run check`。
 
 ## 当前分支基线（2026-10-26）
 

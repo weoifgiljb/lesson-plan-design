@@ -17,6 +17,15 @@
 - [ ] 双端样例脚本通过（`py -3 tests/fixtures/dual-end/run_plugin_fixtures.py`，联调前必须全绿）
 - [ ] P0 手工冒烟通过（列出 TC 编号）
 
+## 前端（涉及 `src/frontend` 时必填）
+
+- [ ] `cd src/frontend && npm run check` 全绿（typecheck + lint + vitest）
+- [ ] 未新增硬编码色值/`!important`，只用 `--lpp-*` 令牌
+- [ ] 网络请求只经 `api/client.ts`；未手改 `types.gen.ts`
+- [ ] 页面/区块四态（loading/empty/error/forbidden）齐全
+- [ ] 1440/1280/390 截图或 `frontend-style-review` 报告（UI 改动）
+- [ ] 契约变更时 `contract.v1.json`、`openapi.v1.json`、`types.gen.ts` 同批更新
+
 ## 后端（涉及 `src/backend`、`src/frontend/src/api`、`docs/api/` 时必填）
 
 - [ ] `py -3 scripts/run_backend_gate.py --json` 无 block（附 block/warn 计数）
