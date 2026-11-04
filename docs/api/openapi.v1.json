@@ -3653,6 +3653,7 @@
           "exportable": {
             "type": "boolean",
             "title": "Exportable",
+            "description": "乐观提示：报告结构与证据链通过；不保证导出成功，最终以导出接口结果为准",
             "default": false
           }
         },

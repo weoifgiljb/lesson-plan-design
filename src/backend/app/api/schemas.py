@@ -207,7 +207,10 @@ class ReviewItem(BaseModel):
     session: int | None = None
     evidence: ReviewEvidence | None = None
     # 乐观可导出判定，仅用于按钮默认态；最终门禁在 export_service
-    exportable: bool = False
+    exportable: bool = Field(
+        default=False,
+        description="乐观提示：报告结构与证据链通过；不保证导出成功，最终以导出接口结果为准",
+    )
 
 
 class ReviewPage(BaseModel):

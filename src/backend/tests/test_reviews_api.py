@@ -108,6 +108,13 @@ class TestReviewsApi(unittest.TestCase):
         self.versions[review_id] = int(version_id)
         return review_id
 
+    def _store_report(self, review_id: int, report: dict) -> None:
+        self.connection.execute(
+            "UPDATE review SET report_json = ? WHERE id = ?",
+            (json.dumps(report, ensure_ascii=False), review_id),
+        )
+        self.connection.commit()
+
     def _seed(self) -> None:
         plan_a, version_a = self._plan(self.teacher1, "通过课")
         self.reviews["passed"] = self._review(plan_a, version_a, make_report("hash-通过课"))
@@ -205,6 +212,23 @@ class TestReviewsApi(unittest.TestCase):
         # 证据链不完整（哈希不符 / 缺放行记录）也不能给可导出暗示
         self.assertFalse(items[self.reviews["hash_mismatch"]]["exportable"])
         self.assertFalse(items[self.reviews["missing_override"]]["exportable"])
+        # 轮次断裂：界面比服务端门禁更严，这是有意口径（TC-07-04 已写明）
+        self.assertFalse(items[self.reviews["round_gap"]]["exportable"])
+
+    def test_broken_report_shape_is_not_exportable(self) -> None:
+        # 缺必填键或版本不受支持时引擎必然拒收，列表不能亮"可导出"
+        self._login("teacher1")
+        missing = make_report("hash-通过课")
+        missing.pop("findings")
+        self._store_report(self.reviews["passed"], missing)
+        items = {item["reviewId"]: item for item in self.client.get("/api/v1/reviews").json()["items"]}
+        self.assertFalse(items[self.reviews["passed"]]["exportable"])
+
+        unknown = make_report("hash-通过课")
+        unknown["rubricVersion"] = "9.9"
+        self._store_report(self.reviews["passed"], unknown)
+        items = {item["reviewId"]: item for item in self.client.get("/api/v1/reviews").json()["items"]}
+        self.assertFalse(items[self.reviews["passed"]]["exportable"])
 
     def test_detail_shows_five_items_and_report(self) -> None:
         self._login("teacher1")

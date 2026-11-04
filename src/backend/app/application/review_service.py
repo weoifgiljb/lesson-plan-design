@@ -87,23 +87,19 @@ def _summary(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, An
 
 
 def _exportable(report: dict[str, Any], *, complete: bool) -> bool:
-    """列表行的乐观可导出判定：状态白名单 + 无未关闭问题 + 证据链完整。
+    """列表行的乐观可导出判定：报告结构 + 状态白名单 + 无未关闭问题 + 证据链完整。
 
     证据链完整同时覆盖哈希、轮次、放行记录、独立性与状态一致五项；
-    字段缺失、未知 schema/rubric 版本等仍由 export_service 的引擎门禁最终裁决。
+    字段缺失、未知 schema/rubric 版本等由 export_rules.report_shape_ok 先挡；
+    结构校验、字段内容等仍由 export_service 的引擎门禁最终裁决。
     只是按钮默认态，判错也不能绕过服务端门禁。
-    报告可能被写坏（status 是对象），这里只做类型守卫，不抛异常。
     """
-    if not complete:
+    if not complete or not export_rules.report_shape_ok(report):
         return False
-    status = report.get("status")
+    status = report["status"]
     if not isinstance(status, str) or status not in export_rules.ALLOWED_REPORT_STATUS:
         return False
-    findings = report.get("findings")
-    if findings is None:
-        return True
-    if not isinstance(findings, list):
-        return False
+    findings = report["findings"]
     return not any(item.get("status") == "open" for item in findings if isinstance(item, dict))
 
 
