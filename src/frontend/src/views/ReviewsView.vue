@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 import { listReviews, type ReviewQuery } from '@/api/reviews'
 import type { ReviewListItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useMeta } from '@/composables/useMeta'
+import { copyText } from '@/utils/clipboard'
+import { formatDateTime } from '@/utils/datetime'
 
 const router = useRouter()
 
@@ -72,6 +75,33 @@ const statusLabel = computed(
 
 function labelOf(status: string): string {
   return statusLabel.value.get(status) ?? status
+}
+
+// 表单按钮态只表达"能不能试"；真正的导出许可仍由 export_service 门禁判定。
+const EXPORT_DISABLED_REASON = '仅通过类状态（通过 / 放行通过 / 接受轻微）且无未关闭问题可导出'
+
+function canExport(row: ReviewListItem): boolean {
+  return Boolean(row.exportable && row.planVersionId)
+}
+
+async function copyId(value: number | undefined, label: string): Promise<void> {
+  if (!value) return
+  const copied = await copyText(value)
+  if (copied) ElMessage.success(`${label} 已复制：${value}`)
+  else ElMessage.error('复制失败，请手动选择文本复制')
+}
+
+function copyPlanId(row: ReviewListItem): void {
+  void copyId(row.planId, '教案 ID')
+}
+
+function copyVersionId(row: ReviewListItem): void {
+  void copyId(row.planVersionId, '版本 ID')
+}
+
+function goExport(row: ReviewListItem): void {
+  if (!canExport(row)) return
+  void router.push({ path: '/exports', query: { planVersionId: String(row.planVersionId) } })
 }
 
 const scrollRef = ref<HTMLElement | null>(null)
@@ -144,7 +174,46 @@ const scrollRef = ref<HTMLElement | null>(null)
             <span v-if="!row.evidence.complete" class="gap">不完整</span>
           </template>
         </el-table-column>
-        <el-table-column prop="reviewedAt" label="审查时间" width="200" />
+        <el-table-column label="审查时间" width="190">
+          <template #default="{ row }">
+            <span :title="row.reviewedAt">{{ formatDateTime(row.reviewedAt) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="250" fixed="right">
+          <template #default="{ row }">
+            <div class="actions">
+              <el-button link type="primary" size="small" @click.stop="copyPlanId(row)">
+                复制教案 ID
+              </el-button>
+              <el-button
+                v-if="row.planVersionId"
+                link
+                type="primary"
+                size="small"
+                @click.stop="copyVersionId(row)"
+              >
+                复制版本 ID
+              </el-button>
+              <el-tooltip
+                :disabled="canExport(row)"
+                :content="EXPORT_DISABLED_REASON"
+                placement="top"
+              >
+                <span class="export-slot">
+                  <el-button
+                    link
+                    type="primary"
+                    size="small"
+                    :disabled="!canExport(row)"
+                    @click.stop="goExport(row)"
+                  >
+                    导出
+                  </el-button>
+                </span>
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
 
       <div v-else-if="!loading" class="empty">
@@ -232,6 +301,20 @@ const scrollRef = ref<HTMLElement | null>(null)
   margin-left: 6px;
   color: var(--lpp-warning);
   font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+.export-slot {
+  display: inline-flex;
 }
 
 .pager {
