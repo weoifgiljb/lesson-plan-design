@@ -8,7 +8,7 @@ description: >
 
 # 组件化与代码规范
 
-硬约束见 `.cursor/rules/code-standards.mdc` 与根目录 `AGENTS.md`；完整方案与排期见 `docs/dev/代码规范与重构计划.md`。
+硬约束见 `.cursor/rules/code-standards.mdc` 与根目录 `AGENTS.md`；完整方案与排期见 `docs/dev/代码规范与重构计划.md`；前端规则见 `docs/frontend/前端代码规范.md`。
 
 ## 何时使用
 
@@ -57,6 +57,21 @@ gate:         scripts/check_backend_*.py + scripts/run_backend_gate.py
 
 后端分层与闸门规则见 `docs/backend/backend-review-gate.md`；写后端代码时按该文档的 8 组清单自查，合并前跑 `py -3 scripts/run_backend_gate.py`。
 
+## 前端组件地图（src/frontend）
+
+```text
+views:        页面编排：取数、四态、把数据拆给子组件
+components:   可复用展示/业务组件；按领域分子目录
+composables:  useApiRequest / usePagedQuery 等取数与派生
+api:          唯一网络出口；axios 只在 client.ts
+stores:       Pinia；目前只有 session
+utils:        纯函数；不 import vue/api/components/views
+styles:       tokens.css（CSS 令牌）+ palette.ts（JS 镜像）；element.css 只做 Element Plus 映射
+dev:          仅开发/演示 fixture，不得进入生产路由
+```
+
+前端分层、命名、Vue/TS、四态、令牌、无障碍与测试规则见 `docs/frontend/前端代码规范.md`；前端门禁为 `cd src/frontend && npm run check`。
+
 ## 检查清单
 
 - [ ] 没有本机绝对路径；
@@ -67,7 +82,10 @@ gate:         scripts/check_backend_*.py + scripts/run_backend_gate.py
 - [ ] 重复 3 次以上的测试搭建已抽夹具；
 - [ ] 新测试已加入 `test/index.py`，全量 runner 通过；
 - [ ] CLI/MCP/导出契约未变；
-- [ ] 后端改动已跑 `scripts/run_backend_gate.py`，无 block（warning 已说明）。
+- [ ] 后端改动已跑 `scripts/run_backend_gate.py`，无 block（warning 已说明）；
+- [ ] 前端改动只经 `api/client.ts` 发请求，未手改 `types.gen.ts`；
+- [ ] 前端页面/区块四态齐全，未新增硬编码色值或 `!important`；
+- [ ] 前端改动已跑 `cd src/frontend && npm run check`，lint 零 warning。
 
 ## 反模式
 
@@ -75,4 +93,6 @@ gate:         scripts/check_backend_*.py + scripts/run_backend_gate.py
 - 在 domain 里直接 `print` 或读 `sys.argv`；
 - 两个 adapter 各写一套工具异常处理；
 - 用字符串字面量重复表示状态；
+- 前端在页面里直接 `axios`/`fetch`，或绕开 `useApiRequest` 自己写 loading/401；
+- 前端页面只写成功态，空态/错误态/403 缺失；
 - 重构 PR 夹带新功能或契约变更。

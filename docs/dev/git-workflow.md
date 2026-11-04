@@ -23,6 +23,7 @@ main                         发布分支，只接受来自 develop 的合并
 - `develop`：日常集成基线；只接受 feature 分支的 PR，不直接提交业务代码。
 - `feature/<需求编号>-<slug>`：一个需求一个分支，从 `develop` 切出，完成后 PR 回 `develop`。
 - `docs/*`：需求、测试、论文与规范文档；从 `develop` 切出，评审后回合 `develop`。
+- `refactor/<slug>`：不改变行为的重构与代码清理；从 `develop` 切出，一个 PR 只做一类改动，完成后回合 `develop`。
 - `fix/<需求编号>-<slug>`：缺陷修复；从 `develop` 或 `test/integration` 切出，修复后回合原分支。
 - `test/integration`：联调专用，从 `develop` 切出，合并全部待发 feature；联调通过后合回 `develop`，再进 `main`，随后可删除。
 
@@ -43,12 +44,13 @@ main                         发布分支，只接受来自 develop 的合并
 | 类型 | 格式 | 示例 |
 |---|---|---|
 | 功能 | `feature/<id>-<slug>` | `feature/fr-01-rules`、`feature/bs-01-ingest` |
-| 文档 | `docs/<slug>` | `docs/dual-end-specs` |
+| 文档 | `docs/<slug>` | `docs/dual-end-specs`、`docs/frontend-code-standards` |
 | 修复 | `fix/<id>-<slug>` | `fix/bs-04-conflict-409` |
+| 重构 | `refactor/<slug>` | `refactor/fe-code-style` |
 | 联调 | `test/integration` | 固定名称，同一时间只保留一条 |
 | 发布标签 | `v<主>.<次>.<修订>-<阶段>` | `v0.1.0-plugin-p0` |
 
-`<id>` 用小写：插件端 `fr-01` 至 `fr-18`，平台端 `bs-01` 至 `bs-16`。一个分支只做一个需求；需求拆得过大时按验收点再切子分支，但回合目标仍是 `develop`。
+`<id>` 用小写：插件端 `fr-01` 至 `fr-18`，平台端 `bs-01` 至 `bs-16`，前端 `fe-01` 起。一个分支只做一个需求；需求拆得过大时按验收点再切子分支，但回合目标仍是 `develop`。
 
 ## 4 生命周期
 
