@@ -13,5 +13,7 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],
     globals: true,
+    // Element Plus 挂载在慢盘/并行负载下可能超过 5s；20s 只用于防环境抖动，不放宽断言。
+    testTimeout: 20000,
   },
 })
