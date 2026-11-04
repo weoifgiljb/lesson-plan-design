@@ -73,6 +73,22 @@ describe('StructurePanel', () => {
     wrapper.unmount()
   })
 
+  it('derives the axis step count from the structure data', async () => {
+    const structure = {
+      ...DEMO_STRUCTURE,
+      steps: DEMO_STRUCTURE.steps
+        .slice(0, 6)
+        .map((step, index) => ({ ...step, order: index + 1 })),
+    }
+    const wrapper = mount(StructurePanel, {
+      props: { structure },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('/ 6 步')
+    wrapper.unmount()
+  })
+
   it('shows goal text and evidence reason when hovering the 2D items', async () => {
     const wrapper = mount(StructurePanel, {
       props: { structure: DEMO_STRUCTURE },

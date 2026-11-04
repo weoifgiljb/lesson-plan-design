@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
         <span class="structure-axis__item structure-axis__item--flow">
           <i class="structure-axis__dot structure-axis__dot--flow" />
           <strong>八步流程</strong>
-          <small>{{ model.totalMinutes }} 分钟 / 8 步</small>
+          <small>{{ model.totalMinutes }} 分钟 / {{ structure.steps.length }} 步</small>
         </span>
         <span class="structure-axis__item structure-axis__item--evidence">
           <i class="structure-axis__dot structure-axis__dot--evidence" />

@@ -45,6 +45,22 @@ describe('StructureDiagram', () => {
     wrapper.unmount()
   })
 
+  it('derives counts and minutes from the structure prop', () => {
+    const structure = {
+      ...DEMO_STRUCTURE,
+      steps: DEMO_STRUCTURE.steps
+        .slice(0, 6)
+        .map((step, index) => ({ ...step, order: index + 1 })),
+      evidence: DEMO_STRUCTURE.evidence.slice(0, 3),
+    }
+    const wrapper = mount(StructureDiagram, { props: { structure } })
+    expect(wrapper.findAll('.hotspot--step')).toHaveLength(6)
+    expect(wrapper.findAll('.hotspot--evidence')).toHaveLength(3)
+    const total = structure.steps.reduce((sum, step) => sum + step.minutes, 0)
+    expect(wrapper.find('.structure-diagram').attributes('aria-label')).toContain(`${total} 分钟`)
+    wrapper.unmount()
+  })
+
   it('keeps SVG text out of the responsive diagram', () => {
     // 层标签由 StructurePanel 的固定尺寸轴列承担，避免随 SVG 放大后被裁切。
     const wrapper = mount(StructureDiagram, { props: { structure: DEMO_STRUCTURE } })
