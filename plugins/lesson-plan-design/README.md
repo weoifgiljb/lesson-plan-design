@@ -4,6 +4,16 @@
 
 飞书豆包工作伙伴只需拖入 `skills/lesson-plan-design/`；Cursor / Claude Code / Codex 安装整个插件目录。
 
+## 安装
+
+Claude Code（2.1.275 及以上）一条命令：
+
+```bash
+/plugin install lesson-plan-design --marketplace weoifgiljb/lesson-plan-design
+```
+
+其余宿主见 [`docs/`](../../docs/README.md)。
+
 ---
 
 ## 技能怎么用
