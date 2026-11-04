@@ -3522,6 +3522,17 @@
             "type": "integer",
             "title": "Planid"
           },
+          "planVersionId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planversionid"
+          },
           "versionNo": {
             "anyOf": [
               {
@@ -3645,6 +3656,11 @@
                 "type": "null"
               }
             ]
+          },
+          "exportable": {
+            "type": "boolean",
+            "title": "Exportable",
+            "default": false
           }
         },
         "additionalProperties": true,
@@ -3710,6 +3726,17 @@
               }
             ],
             "title": "Planid"
+          },
+          "planVersionId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planversionid"
           },
           "versionNo": {
             "anyOf": [

@@ -63,6 +63,8 @@ class TestReviewsApi(unittest.TestCase):
         self.lead1 = self.repo.insert_user("lead1", "王组长", "lead", security.hash_password(PASSWORD), "计算机")
         self.admin = self.repo.insert_user("admin1", "管理员", "admin", security.hash_password(PASSWORD), "")
         self.reviews = {}
+        # review_id -> plan_version_id：断言列表把版本 ID 带出来
+        self.versions = {}
         self._seed()
         self.client = TestClient(create_app())
         self.client.__enter__()
@@ -103,6 +105,7 @@ class TestReviewsApi(unittest.TestCase):
             self.repo.insert_findings(
                 review_id, [{"id": f"AR-{review_id}", "severity": severity, "status": "open", "hypothesis": "x"}]
             )
+        self.versions[review_id] = int(version_id)
         return review_id
 
     def _seed(self) -> None:
@@ -186,6 +189,20 @@ class TestReviewsApi(unittest.TestCase):
         self.assertIn("hash_match", items[self.reviews["hash_mismatch"]]["evidence"]["gaps"])
         self.assertTrue(items[self.reviews["passed"]]["evidence"]["complete"])
 
+    def test_list_exposes_plan_version_id_and_exportable(self) -> None:
+        # 导出中心只收 planVersionId：列表不带它，审查记录就没法走导出
+        self._login("teacher1")
+        items = {item["reviewId"]: item for item in self.client.get("/api/v1/reviews").json()["items"]}
+        passed = items[self.reviews["passed"]]
+        self.assertEqual(passed["planVersionId"], self.versions[self.reviews["passed"]])
+        self.assertIsInstance(passed["planVersionId"], int)
+        # 乐观可导出：通过类状态且没有未关闭问题
+        self.assertTrue(passed["exportable"])
+        self.assertTrue(items[self.reviews["accepted_minor"]]["exportable"])
+        self.assertFalse(items[self.reviews["needs_repair"]]["exportable"])
+        self.assertFalse(items[self.reviews["structure_invalid"]]["exportable"])
+        self.assertFalse(items[self.reviews["pending_reviewer"]]["exportable"])
+
     def test_detail_shows_five_items_and_report(self) -> None:
         self._login("teacher1")
         detail = self.client.get(f"/api/v1/reviews/{self.reviews['passed']}").json()
@@ -197,6 +214,7 @@ class TestReviewsApi(unittest.TestCase):
         self.assertIsInstance(detail["repairHistory"], list)
         self.assertEqual(detail["review"]["course"], "信息技术")
         self.assertEqual((detail["review"]["week"], detail["review"]["session"]), (2, 1))
+        self.assertEqual(detail["review"]["planVersionId"], self.versions[self.reviews["passed"]])
         gap = self.client.get(f"/api/v1/reviews/{self.reviews['round_gap']}").json()
         item = next(entry for entry in gap["evidence"]["items"] if entry["key"] == "round_continuous")
         self.assertFalse(item["ok"])
@@ -242,6 +260,8 @@ class TestReviewsApi(unittest.TestCase):
         self.assertEqual(listing.status_code, 200, listing.text)
         items = {item["reviewId"]: item for item in listing.json()["items"]}
         self.assertIn("report_unreadable", items[self.reviews["passed"]]["evidence"]["gaps"])
+        # 报告解析不了就不能给"可导出"的错误暗示
+        self.assertFalse(items[self.reviews["passed"]]["exportable"])
         detail = self.client.get(f"/api/v1/reviews/{self.reviews['passed']}")
         self.assertEqual(detail.status_code, 200, detail.text)
         self.assertIn("report_unreadable", detail.json()["evidence"]["gaps"])

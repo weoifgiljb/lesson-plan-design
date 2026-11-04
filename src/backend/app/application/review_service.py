@@ -8,7 +8,7 @@ from typing import Any
 from app.adapters import engine
 from app.adapters.db.repo import Repo
 from app.application import audit_service
-from app.domain import evidence, library, timerange
+from app.domain import evidence, export_rules, library, timerange
 from app.domain.errors import AppError
 
 
@@ -76,12 +76,31 @@ def _summary(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, An
         return {
             **_review_header(row),
             "evidence": {"complete": False, "passed": 0, "total": 5, "gaps": ["report_unreadable"]},
+            "exportable": False,
         }
     chain = _chain(report, row, rounds)
     return {
         **_review_header(row),
         "evidence": {"complete": chain["complete"], "passed": chain["passed"], "total": chain["total"], "gaps": chain["gaps"]},
+        "exportable": _exportable(report),
     }
+
+
+def _exportable(report: dict[str, Any]) -> bool:
+    """列表行的乐观可导出判定：状态白名单 + 无未关闭问题。
+
+    只是按钮默认态：最终门禁仍由 export_service 调插件引擎复核，判错也不能绕过。
+    报告可能被写坏（status 是对象），这里只做类型守卫，不抛异常。
+    """
+    status = report.get("status")
+    if not isinstance(status, str) or status not in export_rules.ALLOWED_REPORT_STATUS:
+        return False
+    findings = report.get("findings")
+    if findings is None:
+        return True
+    if not isinstance(findings, list):
+        return False
+    return not any(item.get("status") == "open" for item in findings if isinstance(item, dict))
 
 
 def _chain(report: dict[str, Any], row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
@@ -123,6 +142,8 @@ def _review_header(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "reviewId": int(row["review_id"]),
         "planId": int(row["plan_id"]),
+        # 导出接口只认 planVersionId；少了它，审查中心无法把版本带进导出中心
+        "planVersionId": int(row["plan_version_id"]),
         "versionNo": int(row["version_no"]),
         "round": int(row["round"]),
         "status": row["status"],
