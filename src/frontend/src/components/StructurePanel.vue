@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import AppIcon from '@/components/AppIcon.vue'
 import StructureCanvas from '@/components/StructureCanvas.vue'
@@ -62,20 +62,30 @@ const goalItems = computed(() => [
 ])
 const canShow3D = computed(() => webglSupported.value && !narrow.value && !failed.value)
 
+watch(mode, () => {
+  focus.value = null
+})
+
 function onFocus(next: StructureFocus | null): void {
   focus.value = next
   if (next?.step) activeKey.value = next.step.key
 }
 
-function focusGoal(item: { label: string; text: string }): void {
-  focus.value = { kind: 'goal', title: `三维目标 / ${item.label}`, text: item.text || '未填写' }
+function focusGoal(item: { key: string; label: string; text: string }): void {
+  focus.value = {
+    kind: 'goal',
+    key: `goal:${item.key}`,
+    title: `三维目标 / ${item.label}`,
+    text: item.text || '未填写',
+  }
 }
 
-function focusEvidence(item: { label: string; reason: string }): void {
+function focusEvidence(item: { key: string; label: string; ok: boolean; reason: string }): void {
   focus.value = {
     kind: 'evidence',
+    key: `evidence:${item.key}`,
     title: `证据链 / ${item.label}`,
-    text: item.reason || '通过',
+    text: item.ok ? item.reason || '通过' : `缺项：${item.reason || '未通过'}`,
   }
 }
 
@@ -130,6 +140,7 @@ onBeforeUnmount(() => {
   <section
     class="structure-panel"
     :data-structure-ready="panelReady ? 'true' : 'false'"
+    :data-structure-mode="mode"
     :data-motion="reducedMotion ? 'reduced' : 'full'"
     :style="{ '--structure-height': height }"
     aria-label="教案结构剖面"
@@ -199,31 +210,45 @@ onBeforeUnmount(() => {
         @hover="onFocus"
         @error="onError"
       />
-      <div v-if="mode === '3d'" class="structure-axis" aria-hidden="true">
-        <span class="structure-axis__item" style="top: 18%">
+      <div
+        v-if="!narrow"
+        class="structure-axis"
+        :class="{ 'structure-axis--simple': mode === 'simple' }"
+        aria-hidden="true"
+      >
+        <span class="structure-axis__item structure-axis__item--goal">
           <i class="structure-axis__dot structure-axis__dot--goal" />
           <strong>三维目标</strong>
           <small>知识 / 能力 / 素养</small>
         </span>
-        <span class="structure-axis__item" style="top: 45%">
+        <span class="structure-axis__item structure-axis__item--flow">
           <i class="structure-axis__dot structure-axis__dot--flow" />
           <strong>八步流程</strong>
           <small>{{ model.totalMinutes }} 分钟 / 8 步</small>
         </span>
-        <span class="structure-axis__item" style="top: 70%">
+        <span class="structure-axis__item structure-axis__item--evidence">
           <i class="structure-axis__dot structure-axis__dot--evidence" />
           <strong>证据链</strong>
           <small>{{ model.evidenceTotal ? `${model.evidencePassed} / ${model.evidenceTotal} 项通过` : '未接入' }}</small>
         </span>
       </div>
-      <div v-else class="structure-diagram-wrap">
-        <StructureDiagram :structure="structure" :compact="narrow" />
+      <div
+        v-if="mode === 'simple'"
+        class="structure-diagram-wrap"
+        :class="{ 'structure-diagram-wrap--with-axis': !narrow }"
+      >
+        <StructureDiagram
+          :structure="structure"
+          :compact="narrow"
+          :focus="focus"
+          @hover="onFocus"
+        />
       </div>
     </div>
 
     <p class="structure-caption" aria-live="off">
       <span class="structure-caption__dot" aria-hidden="true" />
-      {{ focusCaption || caption }}
+      <span class="structure-caption__text">{{ focusCaption || caption }}</span>
     </p>
 
     <div class="structure-legend" aria-label="图例">
@@ -234,6 +259,9 @@ onBeforeUnmount(() => {
         证据链 {{ model.evidenceTotal ? `${model.evidencePassed} / ${model.evidenceTotal}` : '未接入' }}
       </span>
       <span class="structure-legend__meta">{{ model.totalMinutes }} 分钟</span>
+      <span v-if="mode === 'simple' && !narrow" class="structure-legend__hint">
+        悬停 / 点按图表查看单项
+      </span>
     </div>
 
     <details class="structure-list">
@@ -412,7 +440,7 @@ onBeforeUnmount(() => {
   top: 0;
   bottom: 0;
   left: 14px;
-  width: 96px;
+  width: 112px;
   pointer-events: none;
 }
 
@@ -425,6 +453,11 @@ onBeforeUnmount(() => {
   border-left: 1px dashed var(--lpp-border-strong);
 }
 
+.structure-axis--simple::before {
+  top: 17.4%;
+  bottom: 34.8%;
+}
+
 .structure-axis__item {
   position: absolute;
   left: 16px;
@@ -433,6 +466,30 @@ onBeforeUnmount(() => {
   gap: 1px;
   color: var(--lpp-text-muted);
   line-height: 1.35;
+}
+
+.structure-axis__item--goal {
+  top: 18%;
+}
+
+.structure-axis__item--flow {
+  top: 45%;
+}
+
+.structure-axis__item--evidence {
+  top: 70%;
+}
+
+.structure-axis--simple .structure-axis__item--goal {
+  top: 17.4%;
+}
+
+.structure-axis--simple .structure-axis__item--flow {
+  top: 41.3%;
+}
+
+.structure-axis--simple .structure-axis__item--evidence {
+  top: 65.2%;
 }
 
 .structure-axis__item strong {
@@ -480,14 +537,27 @@ onBeforeUnmount(() => {
   padding: 4px 8px 0;
 }
 
+.structure-diagram-wrap--with-axis {
+  padding-left: 132px;
+}
+
 .structure-caption {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 4px 16px 0;
   color: var(--lpp-text);
   font-size: var(--lpp-font-xs);
   line-height: 1.5;
+}
+
+.structure-caption__text {
+  min-width: 0;
+}
+
+.structure-legend__hint {
+  color: var(--lpp-text-muted);
 }
 
 .structure-caption__dot {

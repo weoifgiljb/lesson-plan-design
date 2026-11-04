@@ -58,4 +58,39 @@ describe('StructurePanel', () => {
     expect(wrapper.find('.structure-caption').text()).toContain('证据链 / 哈希匹配')
     wrapper.unmount()
   })
+
+  it('shows a step caption when hovering the 2D flow bars', async () => {
+    const wrapper = mount(StructurePanel, {
+      props: { structure: DEMO_STRUCTURE },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    const step = wrapper.find('.hotspot--step[data-step-key="assessment"]')
+    expect(step.exists()).toBe(true)
+    await step.trigger('pointerenter')
+    expect(wrapper.find('.structure-caption').text()).toContain('五、课程考核')
+    expect(wrapper.find('.structure-caption').text()).toContain('5 分钟')
+    wrapper.unmount()
+  })
+
+  it('shows goal text and evidence reason when hovering the 2D items', async () => {
+    const wrapper = mount(StructurePanel, {
+      props: { structure: DEMO_STRUCTURE },
+      attachTo: document.body,
+    })
+    await flushPromises()
+
+    const goal = wrapper.find('.hotspot--goal[data-goal-key="ability"]')
+    expect(goal.exists()).toBe(true)
+    await goal.trigger('pointerenter')
+    expect(wrapper.find('.structure-caption').text()).toContain('三维目标 / 能力目标')
+    expect(wrapper.find('.structure-caption').text()).toContain('典型任务')
+
+    const evidence = wrapper.find('.hotspot--evidence[data-evidence-key="overrides_complete"]')
+    expect(evidence.exists()).toBe(true)
+    await evidence.trigger('pointerenter')
+    expect(wrapper.find('.structure-caption').text()).toContain('证据链 / 放行完整')
+    expect(wrapper.find('.structure-caption').text()).toContain('缺项')
+    wrapper.unmount()
+  })
 })
