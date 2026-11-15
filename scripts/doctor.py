@@ -193,6 +193,34 @@ def check_runtime(plugin_dir: Path) -> dict[str, Any]:
     return {"ok": not errors, "errors": errors, "warnings": warnings}
 
 
+def check_doc_commands(plugin_dir: Path, docs_dir: Path) -> dict[str, Any]:
+    """扫描 README/SKILL/命令/安装文档中的命令行，禁止裸 python。"""
+    errors: list[str] = []
+    checked: list[str] = []
+    files = [
+        plugin_dir / "README.md",
+        plugin_dir / "skills" / "lesson-plan-design" / "SKILL.md",
+        plugin_dir / "skills" / "lesson-plan-design" / "references" / "validation.md",
+        plugin_dir / "commands" / "write-lesson-plan.md",
+        plugin_dir / "commands" / "validate-lesson-plan.md",
+        plugin_dir / "commands" / "adversarial-review-lesson-plan.md",
+        docs_dir / "setup" / "ide-setup.md",
+    ]
+    for path in files:
+        if not path.is_file():
+            continue
+        checked.append(path.name)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip().strip("`").strip()
+            if stripped.startswith(("python ", "python3 ")):
+                errors.append(f"{path}:{number} 命令使用 python，应统一 py -3")
+    return {"ok": not errors, "errors": errors, "warnings": [], "checked": sorted(checked)}
+
+
 def check_plugin(plugin_dir: Path) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -235,13 +263,22 @@ def check_plugin(plugin_dir: Path) -> dict[str, Any]:
     }
 
 
-def run(*, lock: Path, skills_dir: Path, data_dir: Path, backup_dir: Path, plugin_dir: Path) -> dict[str, Any]:
+def run(
+    *,
+    lock: Path,
+    skills_dir: Path,
+    data_dir: Path,
+    backup_dir: Path,
+    plugin_dir: Path,
+    docs_dir: Path,
+) -> dict[str, Any]:
     checks = {
         "repo": {"ok": (ROOT / "docs").is_dir() and (ROOT / "src" / "backend").is_dir(), "errors": [], "warnings": []},
         "skills": check_skills(lock, skills_dir),
         "data": check_data(data_dir, backup_dir),
         "runtime": check_runtime(plugin_dir),
         "plugin": check_plugin(plugin_dir),
+        "docs": check_doc_commands(plugin_dir, docs_dir),
     }
     errors = [f"[{name}] {item}" for name, result in checks.items() for item in result.get("errors", [])]
     warnings = [f"[{name}] {item}" for name, result in checks.items() for item in result.get("warnings", [])]
@@ -255,6 +292,7 @@ def main() -> int:
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA)
     parser.add_argument("--backup-dir", type=Path, default=Path(os.environ.get("LPP_BACKUP_DIR", str(ROOT / "backups"))))
     parser.add_argument("--plugin-dir", type=Path, default=DEFAULT_PLUGIN)
+    parser.add_argument("--docs-dir", type=Path, default=ROOT / "docs")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
     payload = run(
@@ -263,6 +301,7 @@ def main() -> int:
         data_dir=args.data_dir,
         backup_dir=args.backup_dir,
         plugin_dir=args.plugin_dir,
+        docs_dir=args.docs_dir,
     )
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))

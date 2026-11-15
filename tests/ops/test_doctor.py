@@ -28,6 +28,18 @@ class TestDoctor(unittest.TestCase):
         self.assertTrue(result["ok"], result["errors"])
         self.assertEqual(len(result["manifests"]), 5)
 
+    def test_real_docs_use_py3(self) -> None:
+        result = doctor.check_doc_commands(doctor.DEFAULT_PLUGIN, doctor.ROOT / "docs")
+        self.assertTrue(result["ok"], result["errors"])
+
+    def test_doc_bare_python_is_reported(self) -> None:
+        docs = self.root / "docs" / "setup"
+        docs.mkdir(parents=True)
+        (docs / "ide-setup.md").write_text("```bash\npython scripts/validate.py x.json\n```\n", encoding="utf-8")
+        result = doctor.check_doc_commands(self.root / "plugin", self.root / "docs")
+        self.assertFalse(result["ok"])
+        self.assertIn("命令使用 python", "；".join(result["errors"]))
+
     def test_missing_skills_are_reported(self) -> None:
         result = doctor.check_skills(doctor.DEFAULT_LOCK, self.root / "skills")
         self.assertFalse(result["ok"])
