@@ -212,3 +212,21 @@ class TestCli(unittest.TestCase):
         allowed = run_cli("export_docx.py", plan_path, "--strict-metadata", "-o", out)
         self.assertEqual(allowed.returncode, 0, allowed.stderr + allowed.stdout)
         self.assertTrue(out.exists())
+
+    def test_export_loose_mode_warns_missing_metadata(self) -> None:
+        plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
+        plan["teacher"] = ""
+        plan["teachingObject"] = ""
+        plan["teachDate"] = ""
+        plan_path = self._plan_file(plan)
+        out = self.root / "loose.docx"
+        write_report(plan_path, plan)
+        exported = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertEqual(exported.returncode, 0, exported.stderr + exported.stdout)
+        payload = json.loads(exported.stdout)
+        warnings = payload["warnings"]
+        self.assertTrue(any("元信息缺失" in item for item in warnings), warnings)
+        joined = "；".join(warnings)
+        for label in ("任课教师", "教学对象", "授课日期"):
+            self.assertIn(label, joined)
+        self.assertIn("____", read_docx_xml(out))

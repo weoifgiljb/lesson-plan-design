@@ -30,10 +30,9 @@ def export_docx_result(
     independence: str | None = None,
     strict_metadata: bool = False,
 ) -> dict:
-    if strict_metadata:
-        missing = _missing_metadata(plan)
-        if missing:
-            raise ValueError("严格模式缺少元信息：" + "、".join(missing))
+    missing_metadata = _missing_metadata(plan)
+    if strict_metadata and missing_metadata:
+        raise ValueError("严格模式缺少元信息：" + "、".join(missing_metadata))
     output.parent.mkdir(parents=True, exist_ok=True)
     pkg = DocxPackage(base_dir=base_dir)
     pkg.footer_xml = _footer_xml(plan)
@@ -53,6 +52,8 @@ def export_docx_result(
     warnings = [
         f"图片缺失：{src}" for src in dict.fromkeys(pkg.missing_images)
     ]
+    if missing_metadata:
+        warnings.append("元信息缺失：" + "、".join(missing_metadata))
     return {
         "path": output,
         "warnings": warnings,
