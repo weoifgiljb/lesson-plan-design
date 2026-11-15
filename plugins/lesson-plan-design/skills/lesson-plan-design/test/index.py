@@ -23,6 +23,7 @@ from test_review import TestReview  # noqa: F401
 from test_runtime import TestRuntime  # noqa: F401
 from test_standards import TestStandards  # noqa: F401
 from test_validate import TestValidate  # noqa: F401
+from test_workflow import TestWorkflow  # noqa: F401
 
 if __name__ == "__main__":
     import unittest

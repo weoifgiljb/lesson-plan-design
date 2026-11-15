@@ -204,6 +204,8 @@ def check_doc_commands(plugin_dir: Path, docs_dir: Path) -> dict[str, Any]:
         plugin_dir / "commands" / "write-lesson-plan.md",
         plugin_dir / "commands" / "validate-lesson-plan.md",
         plugin_dir / "commands" / "adversarial-review-lesson-plan.md",
+        plugin_dir / "commands" / "run-lesson-flow.md",
+        plugin_dir / "commands" / "revise-lesson-plan.md",
         docs_dir / "setup" / "ide-setup.md",
     ]
     for path in files:
