@@ -1046,6 +1046,27 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/plans/{id}/versions/{version_no}/revalidate",
+      "summary": "按当前引擎重跑指定版本校验",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "client": "api",
+      "implemented": true
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/meta",
       "summary": "平台元数据（状态/象限/角色/限制）",
       "auth": true,

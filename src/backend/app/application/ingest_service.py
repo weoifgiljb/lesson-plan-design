@@ -265,7 +265,7 @@ def _write_version(
         report_sha256,
         int(report["schemaVersion"]),
         str(report["rubricVersion"]),
-        engine_version,
+        engine_version, str(engine.engine_versions().get("templateVersion") or ""),
     )
     if not created:
         stored = repo.find_version(plan_id, plan_hash, report_sha256) or {}

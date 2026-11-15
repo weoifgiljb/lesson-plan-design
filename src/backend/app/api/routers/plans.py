@@ -139,6 +139,23 @@ def plan_diff_export(
     )
 
 
+@router.get("/plans/{plan_id}/versions/{version_no}/revalidate")
+def revalidate_version(
+    request: Request,
+    plan_id: int,
+    version_no: int,
+    context: dict[str, Any] = Depends(current_context),
+) -> dict[str, Any]:
+    return plan_service.revalidate_version(
+        context["repo"],
+        context["user"],
+        plan_id,
+        version_no,
+        ip=_client_ip(request),
+        trace_id=_trace_id(request),
+    )
+
+
 @router.delete("/plans/{plan_id}")
 def delete_plan(
     request: Request,

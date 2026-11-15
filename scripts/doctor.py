@@ -25,7 +25,7 @@ DEFAULT_LOCK = ROOT / "docs" / "dev" / "skills.lock.json"
 DEFAULT_SKILLS = ROOT / ".dsh" / "skills"
 DEFAULT_DATA = ROOT / "data"
 DEFAULT_PLUGIN = ROOT / "plugins" / "lesson-plan-design"
-EXPECTED_SCHEMA_VERSION = 13
+EXPECTED_SCHEMA_VERSION = 14
 EXPECTED_TABLES = 14
 PLUGIN_MANIFESTS = (
     ".claude-plugin/plugin.json",

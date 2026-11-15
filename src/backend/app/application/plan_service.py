@@ -8,6 +8,7 @@ import json
 from typing import Any
 
 from app.adapters.db.repo import Repo
+from app.adapters import engine
 from app.application import audit_service
 from app.domain import diff, library
 from app.domain.errors import AppError
@@ -63,6 +64,8 @@ def plan_versions(
             "versionNo": row["version_no"],
             "planHash": row["plan_hash"],
             "engineVersion": row["engine_version"],
+            "templateVersion": row.get("template_version") or "",
+            "rubricVersion": row.get("rubric_version") or "",
             "createdAt": row["created_at"],
             **_review_fields(row),
         }
@@ -137,6 +140,36 @@ def plan_diff_csv(
             ]
         )
     return stream.getvalue()
+
+
+def revalidate_version(
+    repo: Repo,
+    user: dict[str, Any],
+    plan_id: int,
+    version_no: int,
+    *,
+    ip: str = "",
+    trace_id: str = "",
+) -> dict[str, Any]:
+    _visible(repo, user, plan_id, ip=ip, trace_id=trace_id)
+    row = repo.version_by_no(plan_id, version_no)
+    if row is None:
+        raise AppError("NOT_FOUND", "版本不存在")
+    result = engine.validate_plan(json.loads(row["content_json"]))
+    current = engine.engine_versions()
+    return {
+        "planId": plan_id,
+        "versionNo": version_no,
+        "planHash": row["plan_hash"],
+        "engineVersion": row.get("engine_version") or "",
+        "templateVersion": row.get("template_version") or "",
+        "currentEngineVersion": current.get("engineVersion") or "",
+        "currentTemplateVersion": current.get("templateVersion") or "",
+        "reviewStatus": row.get("status"),
+        "ok": bool(result.get("ok")),
+        "issues": result.get("issues", []),
+        "warnings": result.get("warnings", []),
+    }
 
 
 def delete_plan(

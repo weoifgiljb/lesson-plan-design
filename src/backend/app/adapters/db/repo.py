@@ -863,7 +863,7 @@ class Repo:
 
     def list_versions(self, plan_id: int) -> list[dict[str, Any]]:
         rows = self.conn.execute(
-            "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.engine_version, pv.created_at,"
+            "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.engine_version, pv.template_version, pv.created_at,"
             " pv.content_json, rv.round, rv.status, rv.report_sha256, rv.reviewer_mode"
             " FROM plan_version pv LEFT JOIN review rv ON rv.id = ("
             "SELECT rv2.id FROM review rv2 WHERE rv2.plan_version_id = pv.id"
@@ -877,6 +877,7 @@ class Repo:
         return _row(
             self.conn.execute(
                 "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.content_json, pv.created_at,"
+                " pv.engine_version, pv.template_version, pv.rubric_version,"
                 " rv.round, rv.status, rv.report_sha256"
                 " FROM plan_version pv LEFT JOIN review rv ON rv.id = ("
                 "SELECT rv2.id FROM review rv2 WHERE rv2.plan_version_id = pv.id"
@@ -1147,15 +1148,16 @@ class Repo:
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
         report_sha256: str, schema_version: int, rubric_version: str, engine_version: str,
+        template_version: str = "",
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
                 "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
-                " schema_version, rubric_version, engine_version, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " schema_version, rubric_version, engine_version, template_version, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     plan_id, version_no, content_json, plan_hash, report_sha256,
-                    schema_version, rubric_version, engine_version, clock.now_iso(),
+                    schema_version, rubric_version, engine_version, template_version, clock.now_iso(),
                 ),
             )
             return int(cursor.lastrowid or 0), True

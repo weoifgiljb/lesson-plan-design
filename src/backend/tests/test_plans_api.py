@@ -115,7 +115,14 @@ class TestPlansApi(unittest.TestCase):
 
     def test_versions_and_diff(self) -> None:
         self._login("teacher1")
-        versions = self._get(f"/api/v1/plans/{self.plan1}/versions").json()
+        version_response = self._get(f"/api/v1/plans/{self.plan1}/versions")
+        self.assertEqual(version_response.status_code, 200, version_response.text)
+        versions = version_response.json()
+        self.assertEqual(versions["items"][0]["templateVersion"], "1.0")
+        revalidated = self._get(f"/api/v1/plans/{self.plan1}/versions/1/revalidate")
+        self.assertEqual(revalidated.status_code, 200, revalidated.text)
+        self.assertTrue(revalidated.json()["ok"])
+        self.assertEqual(revalidated.json()["templateVersion"], "1.0")
         self.assertEqual([item["versionNo"] for item in versions["items"]], [1, 2])
         self.assertEqual(versions["items"][1]["status"], "passed")
         # R4-15：版本链的 total 与逐项 reportSha256/round 也要进模型（断言真值，不靠模型默认值）

@@ -122,6 +122,7 @@ def engine_versions() -> dict[str, Any]:
             "engineVersion": engine_version(),
             "rulesVersion": lib.RULES_VERSION,
             "rubricVersion": lib.RUBRIC_VERSION,
+            "templateVersion": lib.TEMPLATE_VERSION,
             "reviewSchemaVersion": lib.REVIEW_SCHEMA_VERSION,
             "exampleCount": lib.check_examples().get("count", 0),
         }

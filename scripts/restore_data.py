@@ -18,7 +18,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATA = ROOT / "data"
-SUPPORTED_SCHEMA_VERSION = 13
+SUPPORTED_SCHEMA_VERSION = 14
 FORMAT_VERSION = 1
 REQUIRED_MANIFEST = (
     "formatVersion",
