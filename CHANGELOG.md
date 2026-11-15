@@ -15,13 +15,13 @@
 - BS-08 统计收口：`/stats/summary` 返回全量 `reviewStatusCounts`；`/stats/records` 支持 `status` 筛选与稳定排序；补教师/组长/管理员范围、状态筛选与跨页稳定性回归。
 - 统计页状态分布改用后端全量计数，状态抽屉按 20 条/页分页；概览“单份耗时”按接口 `unit` 显示分钟；ECharts 按需注册并拆为独立 vendor chunk，StatsView 页面 chunk 从约 1.07MB 降到 31KB。
 - OpenAPI 快照与 `types.gen.ts` 同批更新；前端 38 个测试文件 / 150 项通过，`npm run build` 通过。
-- FR-02 宽松导出记录元信息缺失警告；FR-03 Word 呈现教师放行/轻微问题接受记录；FR-05 旧 `schemaVersion` 报告兼容迁移；FR-10 补 `docProps/core.xml`、页脚导出时间与导出 `stats`。插件端 149 项通过。
+- FR-02 审查报告/宽松导出记录元信息缺失警告；FR-03 Word 呈现教师放行/轻微问题接受记录；FR-05 旧 `schemaVersion` 报告兼容迁移；FR-10 补 `docProps/core.xml`、页脚导出时间与导出 `stats`。插件端 150 项通过。
 
 ### 修复
 
 - 重建 `tests/fixtures/dual-end` 并固定 `createdAt`/`reviewedAt` 与 zip 条目时间；`build_fixtures.py` 连续重建字节一致，`run_plugin_fixtures.py` 增加 5 个包目录 + 5 个 zip 的夹具一致性检查（22/22 通过）。
 - `check_backend_architecture.py` 跳过 `node_modules`/`.venv` 等依赖目录，避免第三方 README 的绝对路径误报；`types.gen.ts` 刷新 `openapi-sha256`，关闭 BC-08。
-- 项目 `.venv` 下 `run_all_tests.py` 11/11 套件、226 项通过；backend gate block 0、后端 269 项通过。
+- 项目 `.venv` 下 `run_all_tests.py` 11/11 套件、227 项通过；backend gate block 0、后端 269 项通过。
 
 ### 环境基线
 
