@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
+import { createBackup, backupDownloadUrl, listBackups, restoreBackup } from '@/api/backups'
 import { createUser, listUsers, type UserQuery } from '@/api/users'
 import { exportAuditCsv, listAudit, type AuditQuery } from '@/api/audit'
 import { listDeletionRequests, resolveDeletionRequest, type DeletionRequest } from '@/api/deletions'
@@ -11,7 +12,7 @@ import { useApiRequest } from '@/composables/useApiRequest'
 import { useMeta } from '@/composables/useMeta'
 import { saveBlob } from '@/utils/download'
 
-const tab = ref<'users' | 'audit' | 'ops' | 'deletion'>('users')
+const tab = ref<'users' | 'audit' | 'ops' | 'deletion' | 'backup'>('users')
 
 const userFilters = reactive<UserQuery>({ page: 1, pageSize: 20, q: '', role: undefined })
 const users = useApiRequest(() => listUsers({ ...userFilters }), { immediate: true })
@@ -22,6 +23,7 @@ const auditFilters = reactive<AuditQuery>({ page: 1, pageSize: 20, action: '' })
 const audit = useApiRequest(() => listAudit({ ...auditFilters }), { immediate: false })
 const ops = useApiRequest(() => getOpsMetrics(), { immediate: false })
 const deletions = useApiRequest(() => listDeletionRequests('pending'), { immediate: false })
+const backups = useApiRequest(() => listBackups(), { immediate: false })
 const auditRows = computed<AuditItem[]>(() => audit.data.value?.items ?? [])
 const auditTotal = computed(() => audit.data.value?.total ?? 0)
 
@@ -32,11 +34,51 @@ const form = reactive({ username: '', displayName: '', role: 'teacher' as Role, 
 
 const auditError = ref('')
 
-function switchTab(next: 'users' | 'audit' | 'ops' | 'deletion'): void {
+function switchTab(next: 'users' | 'audit' | 'ops' | 'deletion' | 'backup'): void {
   tab.value = next
   if (next === 'audit' && !audit.data.value) void audit.load()
   if (next === 'ops' && !ops.data.value) void ops.load()
   if (next === 'deletion' && !deletions.data.value) void deletions.load()
+  if (next === 'backup' && !backups.data.value) void backups.load()
+}
+
+async function makeBackup(): Promise<void> {
+  let label = ''
+  try {
+    const result = await ElMessageBox.prompt('快照标签（可留空）', '创建备份', { confirmButtonText: '创建', cancelButtonText: '取消' })
+    label = result.value || ''
+  } catch {
+    return
+  }
+  try {
+    await createBackup(label)
+    ElMessage.success('备份已创建')
+    await backups.load()
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '创建备份失败')
+  }
+}
+
+function downloadBackup(name: string): void {
+  window.open(backupDownloadUrl(name), '_blank', 'noopener')
+}
+
+async function restoreFromBackup(name: string): Promise<void> {
+  try {
+    await ElMessageBox.confirm(`从 ${name} 恢复到 staging 目录？当前数据不会被直接覆盖。`, '恢复备份', {
+      type: 'warning',
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    const result = await restoreBackup(name)
+    ElMessage.success(`已恢复到 ${result.target}`)
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '恢复失败')
+  }
 }
 
 async function resolveDeletion(row: DeletionRequest, approve: boolean): Promise<void> {
@@ -261,6 +303,32 @@ const roleLabel = computed(
           <div v-else-if="!deletions.loading.value" class="empty">暂无待处理删除申请</div>
         </div>
       </el-tab-pane>
+      <el-tab-pane label="备份" name="backup">
+        <div v-loading="backups.loading.value" class="backup-panel">
+          <div class="backup-actions">
+            <el-button type="primary" @click="makeBackup">创建备份</el-button>
+          </div>
+          <el-alert
+            v-if="backups.error.value"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="backups.error.value.message"
+          />
+          <el-table v-if="backups.data.value?.items.length" :data="backups.data.value.items" row-key="name" stripe>
+            <el-table-column prop="name" label="快照" min-width="220" />
+            <el-table-column prop="createdAt" label="创建时间" width="200" />
+            <el-table-column prop="schemaVersion" label="结构版本" width="90" />
+            <el-table-column label="操作" width="220">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="downloadBackup(row.name)">下载</el-button>
+                <el-button link type="warning" @click="restoreFromBackup(row.name)">恢复</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-else-if="!backups.loading.value" class="empty">暂无备份</div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <el-dialog v-model="createOpen" title="新建账号" width="420px">
@@ -329,6 +397,17 @@ const roleLabel = computed(
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+}
+
+.backup-panel {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.backup-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .deletion-panel {

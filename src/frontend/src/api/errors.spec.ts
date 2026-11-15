@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { ERROR_MESSAGES, errorMessage } from './errors'
 
 describe('errors.ts', () => {
-  it('覆盖契约里全部 20 个错误码（含注册/改密/方法不允许）', () => {
-    expect(Object.keys(ERROR_MESSAGES)).toHaveLength(20)
+  it('覆盖契约里全部 23 个错误码（含注册/改密/备份）', () => {
+    expect(Object.keys(ERROR_MESSAGES)).toHaveLength(23)
   })
 
   it('注册与改密相关错误码有专用文案', () => {

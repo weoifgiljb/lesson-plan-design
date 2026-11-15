@@ -22,6 +22,9 @@ export const ERROR_MESSAGES: Record<string, string> = {
   REGISTRATION_CLOSED: '平台已关闭自助注册，请联系管理员建号',
   PASSWORD_CHANGE_REQUIRED: '请先修改初始口令',
   SERVICE_UNAVAILABLE: '服务暂不可用，请稍后再试',
+  BACKUP_INVALID: '备份快照无效或校验失败',
+  RESTORE_CONFLICT: '恢复冲突，请稍后重试',
+  DATA_MISSING: '数据目录缺失，请先恢复数据',
   INTERNAL: '服务器内部错误，请附带 traceId 反馈',
 }
 

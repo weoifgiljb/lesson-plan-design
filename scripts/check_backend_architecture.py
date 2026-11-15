@@ -34,6 +34,7 @@ EXCEPT_WHITELIST = {
     "api/errors.py",
     "main.py",
     "adapters/archive.py",
+    "adapters/backup_store.py",
     "adapters/db/repo.py",
     "adapters/db/instance.py",
     "adapters/engine.py",

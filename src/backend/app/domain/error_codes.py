@@ -105,6 +105,26 @@ CATALOG: dict[str, dict[str, object]] = {
         "zh": "服务暂不可用",
         "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）或磁盘不可写",
     },
+    "SERVICE_UNAVAILABLE": {
+        "http": 503,
+        "zh": "依赖不可用（数据库或磁盘）",
+        "scene": "数据库损坏、数据目录缺失或实例标记异常",
+    },
+    "BACKUP_INVALID": {
+        "http": 422,
+        "zh": "备份快照无效",
+        "scene": "manifest 缺失、哈希或行数校验失败",
+    },
+    "RESTORE_CONFLICT": {
+        "http": 409,
+        "zh": "恢复冲突",
+        "scene": "恢复目标非空或已有恢复任务在执行",
+    },
+    "DATA_MISSING": {
+        "http": 503,
+        "zh": "数据目录缺失",
+        "scene": "恢复或备份时找不到 data/app.db",
+    },
     "INTERNAL": {
         "http": 500,
         "zh": "服务器内部错误",
@@ -134,6 +154,9 @@ ERROR_CODES = {
     "PAYLOAD_TOO_LARGE": 413,
     "RATE_LIMITED": 429,
     "SERVICE_UNAVAILABLE": 503,
+    "BACKUP_INVALID": 422,
+    "RESTORE_CONFLICT": 409,
+    "DATA_MISSING": 503,
     "INTERNAL": 500,
 }
 

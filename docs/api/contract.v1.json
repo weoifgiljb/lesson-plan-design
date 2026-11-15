@@ -130,8 +130,26 @@
     {
       "code": "SERVICE_UNAVAILABLE",
       "http": 503,
-      "zh": "服务暂不可用",
-      "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）或磁盘不可写"
+      "zh": "依赖不可用（数据库或磁盘）",
+      "scene": "数据库损坏、数据目录缺失或实例标记异常"
+    },
+    {
+      "code": "BACKUP_INVALID",
+      "http": 422,
+      "zh": "备份快照无效",
+      "scene": "manifest 缺失、哈希或行数校验失败"
+    },
+    {
+      "code": "RESTORE_CONFLICT",
+      "http": 409,
+      "zh": "恢复冲突",
+      "scene": "恢复目标非空或已有恢复任务在执行"
+    },
+    {
+      "code": "DATA_MISSING",
+      "http": 503,
+      "zh": "数据目录缺失",
+      "scene": "恢复或备份时找不到 data/app.db"
     },
     {
       "code": "INTERNAL",
@@ -1197,6 +1215,86 @@
       "status": [
         200,
         401
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/backups",
+      "summary": "备份列表",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/backups",
+      "summary": "创建备份",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        422,
+        503
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/backups/{name}/download",
+      "summary": "下载备份 zip",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "client": "api",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/backups/{name}/restore",
+      "summary": "恢复备份到 staging",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422,
+        503
       ],
       "client": "ui",
       "implemented": true

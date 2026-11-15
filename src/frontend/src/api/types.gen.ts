@@ -1,9 +1,33 @@
-// openapi-sha256: 1f180125bc10c3467b01455d7ca51e42aa046a0cc2ad37e14fb7b78efb205f97
+// openapi-sha256: 9e7d11cd8208fcab88d1a43b07b20f7939dd39e6eadca832b64d98d18f31aad9
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
   user: UserOut
   auth: string
+}
+
+export interface BackupCreateIn {
+  label?: string
+}
+
+export interface BackupOut {
+  name: string
+  label?: string
+  createdAt?: string | null
+  schemaVersion?: number | null
+  rows?: Record<string, number>
+  files?: number
+  bytes?: number
+  hasZip?: boolean
+}
+
+export interface BackupPage {
+  items: BackupOut[]
+  total: number
+}
+
+export interface BackupRestoreIn {
+  confirm?: boolean
 }
 
 export interface BodyCreateSampleApiV1SamplesPost {
@@ -367,6 +391,10 @@ export interface ValidationError {
   ctx?: Record<string, unknown>
 }
 
+export type ListBackupsApiV1AdminBackupsGetResponse = Record<string, unknown>
+export type CreateBackupApiV1AdminBackupsPostResponse = Record<string, unknown>
+export type DownloadBackupApiV1AdminBackupsNameDownloadGetResponse = Record<string, unknown>
+export type RestoreBackupApiV1AdminBackupsNameRestorePostResponse = Record<string, unknown>
 export type ListAuditApiV1AuditGetResponse = Record<string, unknown>
 export type ExportAuditApiV1AuditExportGetResponse = Record<string, unknown>
 export type LoginApiV1AuthLoginPostResponse = Record<string, unknown>

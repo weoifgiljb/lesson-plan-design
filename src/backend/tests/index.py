@@ -18,8 +18,10 @@ from test_export_api import TestExportApi  # noqa: E402,F401
 from test_evidence_domain import TestEvidenceChain  # noqa: E402,F401
 from test_jwt_auth import TestJwtAuth  # noqa: E402,F401
 from test_meta_api import TestMetaApi  # noqa: E402,F401
+from test_backups_api import TestBackupsApi  # noqa: E402,F401
 from test_health import TestHealth, TestHealthOnBrokenDatabase, TestInstanceStartup, TestOpenApiSnapshot  # noqa: E402,F401
 from test_metrics_api import TestMetricsApi  # noqa: E402,F401
+from test_logging_setup import TestLoggingSetup  # noqa: E402,F401
 from test_notifications_api import TestNotificationsApi  # noqa: E402,F401
 from test_idempotency import TestIdempotency  # noqa: E402,F401
 from test_import_api import TestImportApi  # noqa: E402,F401

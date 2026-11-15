@@ -120,6 +120,30 @@ class TaskBoard(BaseModel):
     generatedAt: str
 
 
+class BackupCreateIn(BaseModel):
+    label: str = ""
+
+
+class BackupRestoreIn(BaseModel):
+    confirm: bool = False
+
+
+class BackupOut(BaseModel):
+    name: str
+    label: str = ""
+    createdAt: str | None = None
+    schemaVersion: int | None = None
+    rows: dict[str, int] = {}
+    files: int = 0
+    bytes: int = 0
+    hasZip: bool = False
+
+
+class BackupPage(BaseModel):
+    items: list[BackupOut]
+    total: int
+
+
 class NotificationOut(BaseModel):
     id: int
     kind: str
