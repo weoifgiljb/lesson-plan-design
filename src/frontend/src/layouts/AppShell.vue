@@ -11,7 +11,7 @@ import { useSessionStore } from '@/stores/session'
 
 interface NavItem {
   label: string
-  icon: 'overview' | 'tasks' | 'plans' | 'reviews' | 'exports' | 'stats' | 'samples' | 'admin' | 'design'
+  icon: 'overview' | 'tasks' | 'plans' | 'reviews' | 'exports' | 'stats' | 'samples' | 'admin' | 'design' | 'alert'
   to?: string
   count?: number
   ready: boolean
@@ -47,6 +47,12 @@ const groups = computed<NavGroup[]>(() => [
         label: '概览',
         icon: 'overview',
         to: '/dashboard',
+        ready: true,
+      },
+      {
+        label: '通知',
+        icon: 'alert',
+        to: '/notifications',
         ready: true,
       },
     ],

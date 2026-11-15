@@ -29,6 +29,11 @@ const children: RouteRecordRaw[] = [
     meta: { title: '概览', section: '工作台' },
   },
   {
+    path: 'notifications',
+    component: () => import('@/views/NotificationsView.vue'),
+    meta: { title: '通知', section: '工作台' },
+  },
+  {
     path: 'tasks',
     component: () => import('@/views/TasksView.vue'),
     meta: { title: '任务', section: '教案', roles: ['teacher', 'lead'] },

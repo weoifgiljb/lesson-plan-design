@@ -20,6 +20,7 @@ from test_jwt_auth import TestJwtAuth  # noqa: E402,F401
 from test_meta_api import TestMetaApi  # noqa: E402,F401
 from test_health import TestHealth, TestHealthOnBrokenDatabase, TestInstanceStartup, TestOpenApiSnapshot  # noqa: E402,F401
 from test_metrics_api import TestMetricsApi  # noqa: E402,F401
+from test_notifications_api import TestNotificationsApi  # noqa: E402,F401
 from test_idempotency import TestIdempotency  # noqa: E402,F401
 from test_import_api import TestImportApi  # noqa: E402,F401
 from test_ingest_domain import TestIngestVerdicts  # noqa: E402,F401

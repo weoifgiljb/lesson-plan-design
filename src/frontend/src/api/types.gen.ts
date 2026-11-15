@@ -1,4 +1,4 @@
-// openapi-sha256: 7149b0ade8724361a79bc6827d593dd3c0082ad8ce3a321c8fb09dcd59e786a6
+// openapi-sha256: 1f180125bc10c3467b01455d7ca51e42aa046a0cc2ad37e14fb7b78efb205f97
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -79,6 +79,24 @@ export interface MetricOut {
   sampleInsufficient?: boolean
   basis?: Record<string, number> | null
   filters?: Record<string, unknown>
+}
+
+export interface NotificationOut {
+  id: number
+  kind: string
+  title: string
+  body?: string
+  targetType?: string
+  targetId?: string
+  createdAt?: string | null
+  readAt?: string | null
+  read?: boolean
+}
+
+export interface NotificationPage {
+  items: NotificationOut[]
+  total?: number
+  unread?: number
 }
 
 export interface OpsAlertOut {
@@ -366,6 +384,9 @@ export type MeApiV1MeGetResponse = Record<string, unknown>
 export type ChangePasswordApiV1MePasswordPostResponse = Record<string, unknown>
 export type MetaApiV1MetaGetResponse = Record<string, unknown>
 export type OpsMetricsApiV1MetricsOpsGetResponse = Record<string, unknown>
+export type ListNotificationsApiV1NotificationsGetResponse = Record<string, unknown>
+export type MarkAllReadApiV1NotificationsReadAllPostResponse = Record<string, unknown>
+export type MarkReadApiV1NotificationsNotificationIdReadPostResponse = Record<string, unknown>
 export type ListPlansApiV1PlansGetResponse = Record<string, unknown>
 export type ImportPlanApiV1PlansImportPostResponse = Record<string, unknown>
 export type DeletePlanApiV1PlansPlanIdDeleteResponse = Record<string, unknown>

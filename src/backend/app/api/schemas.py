@@ -120,6 +120,24 @@ class TaskBoard(BaseModel):
     generatedAt: str
 
 
+class NotificationOut(BaseModel):
+    id: int
+    kind: str
+    title: str
+    body: str = ""
+    targetType: str = ""
+    targetId: str = ""
+    createdAt: str | None = None
+    readAt: str | None = None
+    read: bool = False
+
+
+class NotificationPage(BaseModel):
+    items: list[NotificationOut]
+    total: int = 0
+    unread: int = 0
+
+
 class DeletionRequestIn(BaseModel):
     reason: str = ""
 

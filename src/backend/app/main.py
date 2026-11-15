@@ -24,6 +24,7 @@ from app.api.routers import (
     me,
     meta,
     metrics,
+    notifications,
     plans,
     reviews,
     samples,
@@ -101,6 +102,7 @@ def create_app() -> FastAPI:
     application.include_router(meta.router, prefix="/api/v1")
     application.include_router(metrics.router, prefix="/api/v1")
     application.include_router(deletion.router, prefix="/api/v1")
+    application.include_router(notifications.router, prefix="/api/v1")
     application.include_router(auth.router, prefix="/api/v1")
     application.include_router(me.router, prefix="/api/v1")
     application.include_router(plans.router, prefix="/api/v1")

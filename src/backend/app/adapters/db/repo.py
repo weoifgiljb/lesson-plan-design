@@ -1089,6 +1089,76 @@ class Repo:
         )
         return bool(cursor.rowcount)
 
+    def list_overdue_tasks(self, owner_id: int, now: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT id, title, due_date FROM task"
+            " WHERE owner_id = ? AND due_date IS NOT NULL AND due_date <> ''"
+            " AND due_date < ? AND status <> 'exported' ORDER BY due_date",
+            (owner_id, now),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_notification(
+        self, user_id: int, kind: str, title: str, body: str, target_type: str = "", target_id: str = ""
+    ) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO notification (user_id, kind, title, body, target_type, target_id, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, kind, title, body, target_type, target_id, clock.now_iso()),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def insert_notification_once(
+        self, user_id: int, kind: str, title: str, body: str, target_type: str = "", target_id: str = ""
+    ) -> int:
+        existing = self.conn.execute(
+            "SELECT id FROM notification WHERE user_id = ? AND kind = ? AND target_type = ?"
+            " AND target_id = ? LIMIT 1",
+            (user_id, kind, target_type, target_id),
+        ).fetchone()
+        if existing is not None:
+            return int(existing["id"])
+        return self.insert_notification(user_id, kind, title, body, target_type, target_id)
+
+    def list_notifications(
+        self, user_id: int, unread_only: bool, limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int, int]:
+        if unread_only:
+            rows = self.conn.execute(
+                "SELECT * FROM notification WHERE user_id = ? AND read_at IS NULL"
+                " ORDER BY id DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset),
+            ).fetchall()
+            total = self.conn.execute(
+                "SELECT COUNT(*) FROM notification WHERE user_id = ? AND read_at IS NULL", (user_id,)
+            ).fetchone()
+        else:
+            rows = self.conn.execute(
+                "SELECT * FROM notification WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset),
+            ).fetchall()
+            total = self.conn.execute(
+                "SELECT COUNT(*) FROM notification WHERE user_id = ?", (user_id,)
+            ).fetchone()
+        unread = self.conn.execute(
+            "SELECT COUNT(*) FROM notification WHERE user_id = ? AND read_at IS NULL", (user_id,)
+        ).fetchone()
+        return [dict(row) for row in rows], int(total[0] if total else 0), int(unread[0] if unread else 0)
+
+    def mark_notification_read(self, user_id: int, notification_id: int) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE notification SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL",
+            (clock.now_iso(), notification_id, user_id),
+        )
+        return bool(cursor.rowcount)
+
+    def mark_all_notifications_read(self, user_id: int) -> int:
+        cursor = self.conn.execute(
+            "UPDATE notification SET read_at = ? WHERE user_id = ? AND read_at IS NULL",
+            (clock.now_iso(), user_id),
+        )
+        return int(cursor.rowcount)
+
     def create_deletion_request(self, plan_id: int, requester_id: int, reason: str, due_at: str) -> int:
         cursor = self.conn.execute(
             "INSERT INTO deletion_request (plan_id, requester_id, reason, status, created_at, due_at)"

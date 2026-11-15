@@ -11,7 +11,7 @@ from app.adapters.db import instance
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 MIGRATION_NAME = re.compile(r"^(\d{4})_.*\.sql$")
 
 

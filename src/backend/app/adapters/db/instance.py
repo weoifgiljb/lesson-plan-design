@@ -31,6 +31,7 @@ TABLE_COUNTS = {
     "sync_event": "SELECT COUNT(*) FROM sync_event",
     "audit_log": "SELECT COUNT(*) FROM audit_log",
     "deletion_request": "SELECT COUNT(*) FROM deletion_request",
+    "notification": "SELECT COUNT(*) FROM notification",
 }
 
 
