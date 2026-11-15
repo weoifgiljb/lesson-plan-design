@@ -8,6 +8,7 @@ work-plan.docx
 /.qa/
 /.dsh/
 /.codex_audio_tmp/
+/backups/
 *.wav
 /data/*
 !/data/app.db

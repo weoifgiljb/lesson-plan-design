@@ -16,6 +16,7 @@ TEST = SKILL / "test"
 FORMATTING = ROOT / "plugins" / "lesson-plan-design" / "skills" / "formatting-lesson-docx"
 EBOOK = ROOT / "plugins" / "lesson-plan-design" / "skills" / "capturing-ebook-pages"
 FIXTURES = ROOT / "tests" / "fixtures" / "dual-end" / "run_plugin_fixtures.py"
+OPS_TESTS = ROOT / "tests" / "ops" / "index.py"
 SYNC = SKILL / "scripts" / "sync_examples.py"
 VALIDATE = SKILL / "scripts" / "validate.py"
 LAYOUT = ROOT / "scripts" / "check_layout.py"
@@ -37,6 +38,8 @@ def commands() -> list[dict]:
         items.append({"name": "example index", "cmd": [sys.executable, str(SYNC), "--check"]})
     if FIXTURES.is_file():
         items.append({"name": "dual-end fixtures", "cmd": [sys.executable, str(FIXTURES)]})
+    if OPS_TESTS.is_file():
+        items.append({"name": "ops scripts", "cmd": [sys.executable, str(OPS_TESTS)]})
     if LAYOUT.is_file():
         items.append({"name": "docx layout", "cmd": [sys.executable, str(LAYOUT)]})
     if HYGIENE.is_file():
