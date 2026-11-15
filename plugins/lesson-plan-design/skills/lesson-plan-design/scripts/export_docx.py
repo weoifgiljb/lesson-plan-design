@@ -28,6 +28,7 @@ def export_docx_result(
     *,
     base_dir: Path | None = None,
     independence: str | None = None,
+    overrides: list[dict] | None = None,
     strict_metadata: bool = False,
 ) -> dict:
     missing_metadata = _missing_metadata(plan)
@@ -36,7 +37,7 @@ def export_docx_result(
     output.parent.mkdir(parents=True, exist_ok=True)
     pkg = DocxPackage(base_dir=base_dir)
     pkg.footer_xml = _footer_xml(plan)
-    document_xml = build_document_xml(plan, pkg, independence=independence)
+    document_xml = build_document_xml(plan, pkg, independence=independence, overrides=overrides)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in pkg.zip_parts(document_xml).items():
             zf.writestr(name, data)
@@ -68,6 +69,7 @@ def export_docx(
     *,
     base_dir: Path | None = None,
     independence: str | None = None,
+    overrides: list[dict] | None = None,
     strict_metadata: bool = False,
 ) -> Path:
     return export_docx_result(
@@ -75,6 +77,7 @@ def export_docx(
         output,
         base_dir=base_dir,
         independence=independence,
+        overrides=overrides,
         strict_metadata=strict_metadata,
     )["path"]
 
@@ -117,13 +120,16 @@ def main() -> int:
     session = plan.get("session")
     out = Path(args.out) if args.out else plan_path.parent / f"教案_第{week}周第{session}次.docx"
     independence = None
+    overrides = None
     if isinstance(report, dict):
         independence = report.get("independence") or report.get("reviewer")
+        overrides = report.get("overrides") if isinstance(report.get("overrides"), list) else None
     result = export_docx_result(
         plan,
         out,
         base_dir=plan_path.parent,
         independence=independence,
+        overrides=overrides,
         strict_metadata=args.strict_metadata,
     )
     check = self_check(Path(result["path"]), plan, result["media"])

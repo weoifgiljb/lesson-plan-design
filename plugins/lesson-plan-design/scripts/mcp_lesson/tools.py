@@ -115,14 +115,17 @@ def tool_export_lesson_docx(args: dict) -> dict:
     out = Path(args.get("outputPath") or f"教案_第{plan.get('week')}周第{plan.get('session')}次.docx")
     base_dir = Path(str(args["baseDir"])) if args.get("baseDir") else out.parent
     independence = None
+    overrides = None
     if isinstance(report, dict):
         independence = report.get("independence") or report.get("reviewer")
+        overrides = report.get("overrides") if isinstance(report.get("overrides"), list) else None
     try:
         result = export_docx_result(
             plan,
             out,
             base_dir=base_dir,
             independence=independence,
+            overrides=overrides,
             strict_metadata=bool(args.get("strictMetadata")),
         )
     except ValueError as exc:

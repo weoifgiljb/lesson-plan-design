@@ -10,7 +10,14 @@ from pathlib import Path
 
 from support import PLUGIN_ROOT, tempdir
 from export_docx import ENGINE_VERSION, export_docx
-from lib import default_review_path, load_review_report, plan_hash
+from lib import (
+    adversarial_review,
+    default_review_path,
+    load_review_report,
+    plan_hash,
+    record_teacher_override,
+    save_review_report,
+)
 from factories import make_plan, read_docx_xml, run_cli, write_plan, write_report
 
 
@@ -230,3 +237,31 @@ class TestCli(unittest.TestCase):
         for label in ("任课教师", "教学对象", "授课日期"):
             self.assertIn(label, joined)
         self.assertIn("____", read_docx_xml(out))
+
+    def test_export_includes_teacher_acceptance_record(self) -> None:
+        plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套", teacher="张老师")
+        finding = {
+            "severity": "minor",
+            "hypothesis": "课堂小结可再具体",
+            "evidence": ["activityFlow.summary 只写评讲难题"],
+            "affectedPaths": ["activityFlow.summary"],
+            "whyItBreaksTheLoop": "学生无法据此自查",
+            "minimalRepair": "补一条可观察的自查项",
+        }
+        report = adversarial_review(plan, reviewer="native_subagent", finding=finding)
+        finding_id = report["findings"][0]["id"]
+        record_teacher_override(
+            report,
+            finding_id,
+            teacher="张老师",
+            reason="本课先保留现有小结",
+            plan=plan,
+        )
+        plan_path = self._plan_file(plan)
+        save_review_report(default_review_path(plan_path), report)
+        out = self.root / "override.docx"
+        exported = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertEqual(exported.returncode, 0, exported.stderr + exported.stdout)
+        xml = read_docx_xml(out)
+        for value in (finding_id, "张老师", "本课先保留现有小结"):
+            self.assertIn(value, xml)
