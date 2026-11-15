@@ -32,15 +32,16 @@ py -3 tests/fixtures/dual-end/build_fixtures.py
 py -3 tests/fixtures/dual-end/run_plugin_fixtures.py
 ```
 
-`run_plugin_fixtures.py` 退出码 1 表示存在未达标的验收项。当前基线（2026-10-26）**12 项全部通过**：插件端 5 项结构校验（FR-01 已合入）、1 项旧报告失效（FR-05）、平台端 6 个契约包的静态核验（合法包完整性、篡改检出、版本异常、媒体哈希不符、媒体缺失、zip 路径穿越）。
+`run_plugin_fixtures.py` 退出码 1 表示存在未达标的验收项或夹具 manifest 漂移。当前基线（2026-11-15）**22 项全部通过**：12 项验收（插件端 5 项结构校验、1 项旧报告失效、平台端 6 个契约包核验）+ 10 项夹具一致性（5 个 `*-package` 目录 manifest 与文件、5 个 zip ↔ 目录逐文件）。
 
 | 分组 | 项数 | 期望 |
 |---|---|---|
+| 夹具一致性 | 10 | 5 个包目录的 manifest/plan/report/媒体一致；5 个 zip 与目录逐文件一致 |
 | 插件端结构校验 | 5 | 合法包 `ok=true`；缺「必须完成」、95 分钟、布尔周次、缺周次均 `ok=false` |
 | 旧报告失效 | 1 | 导出门禁拒绝，原因含"不匹配" |
 | 平台端契约包 | 6 | 见 `expected.json`：201 / 422 + 错误码（含 `PAYLOAD_REJECTED`） |
 
-平台端尚未实现，这 6 个包目前只做静态核验；入库接口实现后必须按 `expected.json` 逐条断言状态码与错误码。
+平台端已于 v1.2.0 实现，6 个契约包的入库断言由 `src/backend/tests/` 覆盖；本脚本继续做静态核验与夹具漂移检查。
 
 ## 契约包格式
 
@@ -56,6 +57,7 @@ media/page-003.png  可选媒体
 ## 注意
 
 - 生成的文件不要手工修改；改样例请改 `build_fixtures.py` 后重新生成。
+- `build_fixtures.py` 固定 `createdAt`/`reviewedAt` 与 zip 条目时间，连续重建应字节一致；若不一致先查这两个常量。
 - `zip-slip.zip` 没有源码目录，直接由 `build_fixtures.py` 写入非法条目，重新生成后仍应存在。
-- 平台端期望响应码与错误码见 `expected.json` 与《功能优化需求-BS平台端》v1.3 第 5.5 节。
+- 平台端期望响应码与错误码见 `expected.json` 与《功能优化需求-BS平台端》v1.6 第 5.5 节。
 - 样例中的学校、班级、教师均为测试数据，不含学生个人信息。

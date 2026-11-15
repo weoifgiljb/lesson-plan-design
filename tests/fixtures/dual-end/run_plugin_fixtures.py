@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""执行双端测试样例中的插件端用例，并静态核验平台端契约包。
+"""执行双端测试样例中的插件端用例，并核验平台端契约包与源目录一致性。
 
 用法：py -3 tests/fixtures/dual-end/run_plugin_fixtures.py
-退出码 1 表示存在未达标的验收项（对应需求 FR-01、FR-05 等，修复后应转绿）。
+退出码 1 表示存在未达标的验收项（对应需求 FR-01、FR-05 等）或夹具 manifest 漂移。
 """
 from __future__ import annotations
 
@@ -23,6 +23,20 @@ EXPECTED = json.loads((BASE / "expected.json").read_text(encoding="utf-8"))
 PLUGIN = BASE / "plugin"
 PLATFORM = BASE / "platform"
 PACKAGES = PLATFORM / "packages"
+
+# 这些包的 manifest 故意与文件不一致，用来模拟篡改/缺媒体；校验时只豁免指定路径。
+INTENTIONAL_MISMATCH = {
+    "tampered-title-package": {"plan.json"},
+    "media-hash-mismatch-package": {"media/page-003.png"},
+    "missing-media-package": {"media/page-003.png"},
+}
+ZIP_TO_DIR = {
+    "valid-0201.zip": "valid-package",
+    "tampered-title.zip": "tampered-title-package",
+    "bad-schema.zip": "bad-schema-package",
+    "media-hash-mismatch.zip": "media-hash-mismatch-package",
+    "missing-media.zip": "missing-media-package",
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -61,6 +75,94 @@ def check_stale_report() -> list[tuple[str, bool, str]]:
     passed = gate["ok"] == target and reason_ok
     detail = f"当前 gate.ok={gate['ok']}，原因 {'；'.join(gate['reasons'])[:60]}"
     return [("插件 stale-plan 旧报告失效", passed, detail)]
+
+
+def check_package_sources() -> list[tuple[str, bool, str]]:
+    """核验 platform/*-package 的 manifest 与磁盘文件一致，防止夹具漂移。"""
+    results: list[tuple[str, bool, str]] = []
+    for directory in sorted(PLATFORM.glob("*-package")):
+        manifest_path = directory / "manifest.json"
+        plan_path = directory / "plan.json"
+        report_path = directory / "plan.review.json"
+        problems: list[str] = []
+        if not (manifest_path.is_file() and plan_path.is_file() and report_path.is_file()):
+            results.append((f"夹具 {directory.name}", False, "缺少 manifest/plan/report"))
+            continue
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        report_bytes = report_path.read_bytes()
+        skip = INTENTIONAL_MISMATCH.get(directory.name, set())
+        if "plan.json" not in skip and manifest.get("planHash") != plan_hash(plan):
+            problems.append("planHash 不一致")
+        if manifest.get("reportHash") != hashlib.sha256(report_bytes).hexdigest():
+            problems.append("reportHash 不一致")
+        declared = {item["path"] for item in manifest.get("files", [])}
+        for item in manifest.get("files", []):
+            path = directory / item["path"]
+            if item["path"] in skip:
+                continue
+            if not path.is_file():
+                problems.append(f"缺文件 {item['path']}")
+                continue
+            data = path.read_bytes()
+            if len(data) != item["size"] or hashlib.sha256(data).hexdigest() != item["sha256"]:
+                problems.append(f"{item['path']} 大小/哈希不一致")
+        actual = {
+            path.relative_to(directory).as_posix()
+            for path in directory.rglob("*")
+            if path.is_file() and path.name != "manifest.json"
+        }
+        extra = sorted(actual - declared)
+        if extra:
+            problems.append(f"未声明文件 {extra}")
+        results.append(
+            (
+                f"夹具 {directory.name} manifest 一致",
+                not problems,
+                "；".join(problems) if problems else "plan/report/媒体与 manifest 一致",
+            )
+        )
+    return results
+
+
+def check_package_zips() -> list[tuple[str, bool, str]]:
+    """核验 packages/*.zip 与同名 *-package 目录逐文件一致。"""
+    results: list[tuple[str, bool, str]] = []
+    for zip_name, dir_name in ZIP_TO_DIR.items():
+        zip_path = PACKAGES / zip_name
+        directory = PLATFORM / dir_name
+        if not zip_path.is_file() or not directory.is_dir():
+            results.append((f"夹具 {zip_name} ↔ {dir_name}", False, "zip 或目录缺失"))
+            continue
+        expected = {
+            path.relative_to(directory).as_posix(): path.read_bytes()
+            for path in directory.rglob("*")
+            if path.is_file()
+        }
+        with zipfile.ZipFile(zip_path) as archive:
+            actual_names = set(archive.namelist())
+            missing = sorted(set(expected) - actual_names)
+            extra = sorted(actual_names - set(expected))
+            changed = sorted(
+                name
+                for name in set(expected) & actual_names
+                if archive.read(name) != expected[name]
+            )
+        problems = []
+        if missing:
+            problems.append(f"缺条目 {missing}")
+        if extra:
+            problems.append(f"多条目 {extra}")
+        if changed:
+            problems.append(f"内容不一致 {changed}")
+        results.append(
+            (
+                f"夹具 {zip_name} ↔ {dir_name}",
+                not problems,
+                "；".join(problems) if problems else "zip 与目录逐文件一致",
+            )
+        )
+    return results
 
 
 def check_zip(name: str) -> list[tuple[str, bool, str]]:
@@ -109,7 +211,13 @@ def check_platform() -> list[tuple[str, bool, str]]:
 
 
 def main() -> int:
-    rows = check_plugin() + check_stale_report() + check_platform()
+    rows = (
+        check_package_sources()
+        + check_package_zips()
+        + check_plugin()
+        + check_stale_report()
+        + check_platform()
+    )
     print(f"{'检查项':<44} 结果  说明")
     print("-" * 100)
     failed = 0
@@ -120,7 +228,7 @@ def main() -> int:
     print("-" * 100)
     print(f"共 {len(rows)} 项，通过 {len(rows) - failed} 项，未达标 {failed} 项")
     if failed:
-        print("未达标项对应插件端 FR-01 / FR-05 等待修复需求；修复后本脚本应全部通过。")
+        print("未达标项对应插件端 FR-01 / FR-05 等待修复需求，或夹具 manifest 与磁盘漂移；修复后本脚本应全部通过。")
         return 1
     return 0
 
