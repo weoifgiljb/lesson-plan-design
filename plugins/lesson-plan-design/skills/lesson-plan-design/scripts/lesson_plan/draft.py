@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from .model import (
@@ -12,6 +13,21 @@ from .model import (
     SCHOOL_DEFAULTS,
     empty_plan,
 )
+
+
+def practice_sets(week: int, session: int) -> tuple[str | None, str | None]:
+    """从同周次/课次的样例元信息推导练习套别，避免硬编码 21/22。"""
+    from .examples import load_examples
+
+    for _path, plan in load_examples():
+        if plan.get("week") != week or plan.get("session") != session:
+            continue
+        numbers = re.findall(r"\d+", str(plan.get("contentDetail") or ""))
+        if len(numbers) >= 2:
+            return f"第{numbers[0]}套", f"第{numbers[1]}套"
+        if len(numbers) == 1:
+            return f"第{numbers[0]}套", None
+    return None, None
 
 
 def draft_plan(
@@ -32,8 +48,9 @@ def draft_plan(
     optional: str | None = None,
 ) -> dict[str, Any]:
     knowledge = KNOWLEDGE_A if session % 2 == 1 else KNOWLEDGE_B
-    must = must_do or ("第21套" if session % 2 == 1 else "第22套")
-    opt = optional or ("第1套" if session % 2 == 1 else "第2套")
+    sample_must, sample_optional = practice_sets(week, session)
+    must = must_do or sample_must or "第1套"
+    opt = optional or sample_optional or "第2套"
     if student_context.strip():
         intro = student_context.strip()
     elif week == 1:

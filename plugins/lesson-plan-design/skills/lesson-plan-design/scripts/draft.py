@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _cli import JsonArgumentParser, run_cli
-from lib import draft_plan, dump, match_c_language_template, validate_plan
+from lib import draft_plan, dump, match_c_language_template, practice_sets, validate_plan
 
 
 def main() -> int:
@@ -23,6 +23,11 @@ def main() -> int:
     p.add_argument("--semester", type=int, default=2, choices=[1, 2])
     p.add_argument("--teacher", default="")
     p.add_argument("--class", dest="teaching_object", default="")
+    p.add_argument("--plan-number", default="")
+    p.add_argument("--teach-date", default="")
+    p.add_argument("--student-context", default="")
+    p.add_argument("--must-do", default="")
+    p.add_argument("--optional", default="")
     p.add_argument("--out", help="写出 JSON 路径；省略则打印到 stdout")
     args = p.parse_args()
     _, tied = match_c_language_template(args.title)
@@ -32,6 +37,22 @@ def main() -> int:
                 {
                     "ok": True,
                     "warnings": [f"模板匹配同分，请确认课题：{' / '.join(tied)}"],
+                },
+                ensure_ascii=False,
+            ),
+            file=sys.stderr,
+        )
+    sample_must, sample_optional = practice_sets(args.week, args.session)
+    if not (args.must_do or sample_must) or not (args.optional or sample_optional):
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "warnings": [
+                        "未匹配到同周次/课次样例，练习套别使用默认值："
+                        f"必须完成={args.must_do or sample_must or '第1套'}，"
+                        f"选做={args.optional or sample_optional or '第2套'}"
+                    ],
                 },
                 ensure_ascii=False,
             ),
@@ -48,6 +69,11 @@ def main() -> int:
         semester=args.semester,
         teacher=args.teacher,
         teaching_object=args.teaching_object,
+        teach_date=args.teach_date,
+        plan_number=args.plan_number,
+        student_context=args.student_context,
+        must_do=args.must_do or None,
+        optional=args.optional or None,
     )
     check = validate_plan(plan)
     if args.out:
