@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.11**
+**双端协同 · 平台端 · v1.12**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.11 |
+| 文档版本 | v1.12 |
 | 编制日期 | 2026-10-26 |
 | 修订日期 | 2026-11-15 |
-| 修订说明 | v1.11：BS-15 模板版本登记与按版本重跑校验收口升 ✅；schemaVersion 14；v1.10：BS-12 升 ✅、BS-16 运维页落地；v1.9：同步 FR v1.7、15 份样例与测试基线；v1.8：同步 FR v1.3；v1.7：BS-08 收口；v1.6：三态标签 |
+| 修订说明 | v1.12：BS-11 删除申请/保留期/日志脱敏升 ✅；BS-16 补告警与 30 天保留策略；schemaVersion 15；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅、BS-16 运维页；v1.9：同步 FR v1.7；v1.8：同步 FR v1.3；v1.7：BS-08 收口 |
 | 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.4（插件端 18 条需求，下称"插件端需求"） |
@@ -24,12 +24,12 @@
 
 **状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
 
-**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 276 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
+**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 278 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
 
 | 状态 | 数量 | 编号 |
 |---|---:|---|
-| ✅ 已完成 | 12 | BS-01—BS-12、BS-15 |
-| 🟡 部分完成 | 2 | BS-11、BS-16 |
+| ✅ 已完成 | 13 | BS-01—BS-12、BS-15 |
+| 🟡 部分完成 | 1 | BS-16 |
 | ⬜ 未开始 | 2 | BS-13、BS-14 |
 
 ## 摘要
@@ -221,7 +221,7 @@
 | BS-08 | 统计看板 | P1 | 指标口径 | 与开题表 2 一致 | ✅ 已完成 |
 | BS-09 | 样例库与资产 | P1 | sample、asset | 样例与插件端一致 | ✅ 已完成 |
 | BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | ✅ 已完成 |
-| BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | 🟡 部分完成 |
+| BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | ✅ 已完成 |
 | BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | ✅ 已完成 |
 | BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ⬜ 未开始 |
 | BS-14 | 备份与迁移 | P2 | backup | 恢复演练通过 | ⬜ 未开始 |
@@ -475,9 +475,9 @@
 
 #### BS-11 隐私与脱敏
 
-**状态**：🟡 部分完成
-**证据**：`src/backend/app/domain/security.py`、`app/api/deps.py`、`app/domain/stats.py`、`tests/test_security.py`；v1.2.0 基线。
-**缺口**：数据保留期与删除申请流程未实现；日志脱敏未见测试（原验收第 3、4 条）。
+**状态**：✅ 已完成
+**证据**：`migrations/0015_deletion_request.sql`、`deletion_service.py`、`routers/deletion.py`、`tests/test_plans_api.py`（删除申请/管理员审批/日志脱敏）；`/meta` 下发 `dataRetentionDays=30`、`deletionSlaBusinessDays=7`；统计小样本逻辑沿用。
+**实现说明**：教师提交申请（7 个工作日后到期），管理员批准后软删除并写审计；`AdminView` 增加删除申请审批页；审计详情不写教案全文、口令或令牌。
 
 **现状**：教案含学校、班级、教师姓名；插件端本地处理，平台端集中存储后风险上升。
 
@@ -565,8 +565,8 @@
 #### BS-16 可观测与运维
 
 **状态**：🟡 部分完成
-**证据**：`health.py`、`health_service.py`、`main.py`（traceId）、`tests/test_health.py`；新增 `metrics.py`、`metrics_service.py`、`test_metrics_api.py` 与 `AdminView.vue` 运维页（导出失败率/同步冲突率）。
-**缺口**：告警规则与日志 30 天保留仍未实现。
+**证据**：`health.py`、`health_service.py`、`main.py`（traceId）、`tests/test_health.py`；`metrics.py`、`metrics_service.py`、`test_metrics_api.py` 与 `AdminView.vue` 运维页（导出失败率/同步冲突率/告警/日志保留 30 天策略）。
+**缺口**：日志文件轮转与 30 天保留的实际执行仍未实现。
 
 **现状**：平台端未建设。
 
@@ -597,7 +597,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（47 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（50 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -622,6 +622,9 @@
 | GET | /api/v1/plans/{id}/diff | 登录 + 归属 | 两版差异 | 是 |
 | GET | /api/v1/plans/{id}/diff/export | 登录 + 归属 | 导出两版差异 CSV | 是 |
 | GET | /api/v1/plans/{id}/versions/{version_no}/revalidate | 登录 + 归属 | 按当前引擎重跑指定版本校验 | 是 |
+| POST | /api/v1/plans/{id}/deletion-request | 教师、组长（本人） | 提交删除申请 | 是 |
+| GET | /api/v1/deletion-requests | 管理员 | 删除申请列表 | 是 |
+| POST | /api/v1/deletion-requests/{request_id}/resolve | 管理员 | 批准/驳回删除申请 | 否 |
 | GET | /api/v1/metrics/ops | 管理员 | 导出失败率/同步冲突率 | 是 |
 | DELETE | /api/v1/plans/{id} | 本人（教师/组长）或管理员 | 软删除 | 是 |
 | GET | /api/v1/reviews | 教师、组长 | 审查列表 | 是 |
@@ -672,6 +675,7 @@
 | sync_event | id、kind、plan_id、plan_version_id、created_at | kind ∈ {version, deleted}；删除按事件传播 |
 | sync_log | id、direction、package_sha256、plan_hash、result、conflict_code、operator_id | 只追加 |
 | audit_log | id、actor_id、action、target_type、target_id、before_hash、after_hash、detail_json、ip | 只追加 |
+| deletion_request | id、plan_id、requester_id、reason、status、created_at、due_at、resolved_at、resolver_id | 同一教案同时只保留一条 pending；批准后软删除 |
 
 ### 5.5 错误码
 

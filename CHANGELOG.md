@@ -6,9 +6,10 @@
 
 ### 文档
 
-- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.7、BS v1.11、OPS v1.2；同步更新 `docs/README.md` 状态汇总。
-- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：36/2/4 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
+- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.7、BS v1.12、OPS v1.2；同步更新 `docs/README.md` 状态汇总。
+- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：37/1/4 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
 - `AGENTS.md`、`.cursor/rules/git-workflow.mdc`、`skills/git-workflow/SKILL.md` 写入需求状态维护规则：实现合入时同批更新状态/证据/缺口，改 md 重建 docx。
+- 新增 [docs/requirements/界面风格优化需求.md](docs/requirements/界面风格优化需求.md)（LPP-UI-001，13 条全部 `⬜ 未开始`）：教师端「备课案头 · 纸墨批注」方向、设计令牌 v2.0、页面/组件规格、11 个图片资产提示词与截图验收；同名 docx 已重建。该文档独立于 FR/BS/OPS 三条基线，不计入 42 条统计。
 
 ### 新增
 
@@ -25,7 +26,7 @@
 - FR-15 Stop hook 递归扫描、跳过噪声目录、`warn/fail` 可配、全量汇总，不再截断 8 份。
 - FR-16 新增 `lesson_flow.py` 一键流程、`revise_plan.py` 字段级修订、`diff_plans.py` 两版差异；修订原子替换并提示旧报告失效。
 - FR-18 覆盖率门禁：`scripts/coverage_gate.py` 用标准库统计核心模块 91.2%（门槛 80%）；新增中文/空格路径用例；`docs/testing/cross-host-smoke.md` 建立 5 宿主清单；补 `docs/testing/coverage.md`。
-- `tests/ops/` 14 项通过；一键 `run_all_tests.py` 12/12、256 项；backend gate block 0、后端 276 项。
+- `tests/ops/` 14 项通过；一键 `run_all_tests.py` 12/12、256 项；backend gate block 0、后端 278 项。
 
 ### 修复
 
@@ -33,7 +34,7 @@
 - `check_backend_architecture.py` 跳过 `node_modules`/`.venv` 等依赖目录，避免第三方 README 的绝对路径误报；`types.gen.ts` 刷新 `openapi-sha256`，关闭 BC-08。
 - `check_backend_architecture.py` 允许 `adapters/db/instance.py` 作为数据完整性边界捕获 `OSError/sqlite3.Error`；`health.py` 不再在路由内捕获异常。
 - 修复 `scripts/seed_samples.py` 对 `Repo.list_users` 新签名的调用，样例导入恢复可用。
-- 项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 276 项通过。
+- 项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 278 项通过。
 
 ### 环境基线
 
