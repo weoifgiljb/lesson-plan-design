@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.14**
+**双端协同 · 平台端 · v1.15**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.14 |
+| 文档版本 | v1.15 |
 | 编制日期 | 2026-10-26 |
 | 修订日期 | 2026-11-15 |
-| 修订说明 | v1.14：BS-14 备份/契约包/恢复演练升 ✅；v1.13：BS-13 升 ✅；v1.12：BS-11 升 ✅；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅；v1.9：同步 FR v1.7 |
+| 修订说明 | v1.15：BS-16 日志 30 天轮转落地并升 ✅，平台端 16 条全部完成；v1.14：BS-14 升 ✅；v1.13：BS-13 升 ✅；v1.12：BS-11 升 ✅；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅ |
 | 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.4（插件端 18 条需求，下称"插件端需求"） |
@@ -24,12 +24,12 @@
 
 **状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
 
-**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、259 项通过；backend gate block 0、后端 280 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
+**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、259 项通过；backend gate block 0、后端 283 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
 
 | 状态 | 数量 | 编号 |
 |---|---:|---|
-| ✅ 已完成 | 15 | BS-01—BS-15 |
-| 🟡 部分完成 | 1 | BS-16 |
+| ✅ 已完成 | 16 | BS-01—BS-16 |
+| 🟡 部分完成 | 0 | — |
 | ⬜ 未开始 | 0 | — |
 
 ## 摘要
@@ -226,7 +226,7 @@
 | BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ✅ 已完成 |
 | BS-14 | 备份与迁移 | P2 | backup | 恢复演练通过 | ✅ 已完成 |
 | BS-15 | 引擎与模板版本 | P2 | engineVersion | 版本可追溯 | ✅ 已完成 |
-| BS-16 | 可观测与运维 | P2 | log、metrics | 健康检查可用 | 🟡 部分完成 |
+| BS-16 | 可观测与运维 | P2 | log、metrics | 健康检查可用 | ✅ 已完成 |
 
 ### 4.1 P0 需求
 
@@ -564,9 +564,9 @@
 
 #### BS-16 可观测与运维
 
-**状态**：🟡 部分完成
-**证据**：`health.py`、`health_service.py`、`main.py`（traceId）、`tests/test_health.py`；`metrics.py`、`metrics_service.py`、`test_metrics_api.py` 与 `AdminView.vue` 运维页（导出失败率/同步冲突率/告警/日志保留 30 天策略）。
-**缺口**：日志文件轮转与 30 天保留的实际执行仍未实现。
+**状态**：✅ 已完成
+**证据**：`health.py`、`health_service.py`、`main.py`（traceId）、`logging_setup.py`（TimedRotatingFileHandler，backupCount=30）、`test_logging_setup.py`；`metrics.py`、`metrics_service.py`、`test_metrics_api.py` 与 `AdminView.vue` 运维页（失败率/冲突率/告警/保留天数）。
+**实现说明**：`data/logs/app.log` 按天轮转、保留 30 天；健康检查、traceId 与运维指标页齐备。
 
 **现状**：平台端未建设。
 
@@ -597,7 +597,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（53 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（57 个接口、23 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -625,6 +625,10 @@
 | POST | /api/v1/plans/{id}/deletion-request | 教师、组长（本人） | 提交删除申请 | 是 |
 | GET | /api/v1/deletion-requests | 管理员 | 删除申请列表 | 是 |
 | GET | /api/v1/notifications | 登录 | 站内通知列表 | 是 |
+| GET | /api/v1/admin/backups | 管理员 | 备份列表 | 是 |
+| POST | /api/v1/admin/backups | 管理员 | 创建备份 | 否 |
+| GET | /api/v1/admin/backups/{name}/download | 管理员 | 下载备份 zip | 是 |
+| POST | /api/v1/admin/backups/{name}/restore | 管理员 | 恢复备份到 staging | 否 |
 | POST | /api/v1/notifications/{notification_id}/read | 登录 | 标记单条已读 | 是 |
 | POST | /api/v1/notifications/read-all | 登录 | 全部已读 | 是 |
 | POST | /api/v1/deletion-requests/{request_id}/resolve | 管理员 | 批准/驳回删除申请 | 否 |
