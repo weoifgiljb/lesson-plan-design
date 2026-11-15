@@ -11,7 +11,7 @@
 | 修订说明 | v1.7：BS-08 收口（全量 `reviewStatusCounts`、`/stats/records?status`、稳定排序、跨组回归、单份耗时单位、ECharts 独立 vendor chunk），状态升 ✅；v1.6：§4 补三态状态标签、证据与缺口；新增第 0 节状态标注说明；状态基线 `develop@63c6bb5`。v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
 | 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
-| 配套文档 | 《功能优化需求-校标教案生成平台》v1.1（插件端 18 条需求，下称"插件端需求"） |
+| 配套文档 | 《功能优化需求-校标教案生成平台》v1.2（插件端 18 条需求，下称"插件端需求"） |
 | 覆盖范围 | B/S 平台端（浏览器端 + 服务端）与双端协同契约 |
 | 目标读者 | 指导教师、答辩评审组、计算机教研组、开发与测试人员 |
 | 文档性质 | 平台端为新建，本文档写"要做成什么样、怎么验收"，不含实现补丁 |
@@ -24,7 +24,7 @@
 
 **状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
 
-**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 11/11 套件、220 项通过；backend gate block 0、后端 269 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
+**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 11/11 套件、226 项通过；backend gate block 0、后端 269 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
 
 | 状态 | 数量 | 编号 |
 |---|---:|---|
