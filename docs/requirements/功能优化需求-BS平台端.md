@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.6**
+**双端协同 · 平台端 · v1.7**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.6 |
+| 文档版本 | v1.7 |
 | 编制日期 | 2026-10-26 |
 | 修订日期 | 2026-11-15 |
-| 修订说明 | v1.6：§4 补三态状态标签、证据与缺口；新增第 0 节状态标注说明；状态基线 `develop@63c6bb5`。v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
+| 修订说明 | v1.7：BS-08 收口（全量 `reviewStatusCounts`、`/stats/records?status`、稳定排序、跨组回归、单份耗时单位、ECharts 独立 vendor chunk），状态升 ✅；v1.6：§4 补三态状态标签、证据与缺口；新增第 0 节状态标注说明；状态基线 `develop@63c6bb5`。v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
 | 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.1（插件端 18 条需求，下称"插件端需求"） |
@@ -24,12 +24,12 @@
 
 **状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
 
-**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 11/11 套件、220 项通过；backend gate block 0、后端 267 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
+**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 11/11 套件、220 项通过；backend gate block 0、后端 269 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
 
 | 状态 | 数量 | 编号 |
 |---|---:|---|
-| ✅ 已完成 | 9 | BS-01—BS-07、BS-09、BS-10 |
-| 🟡 部分完成 | 5 | BS-08、BS-11、BS-12、BS-15、BS-16 |
+| ✅ 已完成 | 10 | BS-01—BS-10 |
+| 🟡 部分完成 | 4 | BS-11、BS-12、BS-15、BS-16 |
 | ⬜ 未开始 | 2 | BS-13、BS-14 |
 
 ## 摘要
@@ -218,7 +218,7 @@
 | BS-05 | 角色权限与会话 | P0 | user、role | 越权 0 | ✅ 已完成 |
 | BS-06 | 审计台账 | P0 | audit_log | 写操作留痕 100% | ✅ 已完成 |
 | BS-07 | 导出中心 | P1 | export_job、engineVersion | 50 份 ≤5 分钟 | ✅ 已完成 |
-| BS-08 | 统计看板 | P1 | 指标口径 | 与开题表 2 一致 | 🟡 部分完成 |
+| BS-08 | 统计看板 | P1 | 指标口径 | 与开题表 2 一致 | ✅ 已完成 |
 | BS-09 | 样例库与资产 | P1 | sample、asset | 样例与插件端一致 | ✅ 已完成 |
 | BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | ✅ 已完成 |
 | BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | 🟡 部分完成 |
@@ -405,9 +405,9 @@
 
 #### BS-08 统计看板
 
-**状态**：🟡 部分完成
-**证据**：`src/backend/app/api/routers/stats.py`、`app/application/stats_service.py`、`app/domain/stats.py`、`tests/test_stats_api.py`、`tests/test_stats_golden.py`；v1.2.0 基线。
-**缺口**：审查状态分布取前 100；`stats_plans` 分页无 ORDER BY；`/stats/records` 跨组可见性；概览“单份耗时”单位；ECharts 全量进入 StatsView chunk（约 1.07MB）。
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/stats.py`、`app/application/stats_service.py`（`reviewStatusCounts`、`status` 筛选）、`app/adapters/db/repo.py`（稳定 ORDER BY）、`tests/test_stats_api.py`（全量状态计数、跨组范围、status 筛选、分页稳定）；前端 `StatsView.vue`、`components/stats/charts.ts`、`utils/metrics.ts` 与 `StatsView.spec.ts`/`metrics.spec.ts`。
+**实现说明**：状态分布改为后端全量聚合；状态抽屉按 `status` 分页；概览单份耗时按 `unit` 显示分钟；ECharts 独立 vendor chunk（StatsView 31KB，echarts 518KB）。
 
 **现状**：开题报告表 2 定义了 9 个指标，但没有数据来源与计算实现。
 
