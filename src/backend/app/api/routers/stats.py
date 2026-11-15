@@ -74,10 +74,12 @@ def stats_records(
     teacher: str | None = None,
     from_date: date | None = Query(None, alias="dateFrom"),
     to_date: date | None = Query(None, alias="dateTo"),
+    # 允许 "unknown"（无审查记录）；其余值按字符串精确过滤，非法值得到空集而不是 500
+    status: str | None = None,
     page: int = 1,
     page_size: int = Query(20, alias="pageSize"),
 ) -> dict[str, Any]:
     filters = _filters(course, week, class_name, teacher, from_date, to_date)
     return stats_service.records(
-        context["repo"], context["user"], filters=filters, page=page, page_size=page_size
+        context["repo"], context["user"], filters=filters, status=status, page=page, page_size=page_size
     )

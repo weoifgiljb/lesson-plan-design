@@ -277,6 +277,8 @@ class StatsSummaryOut(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     metrics: list[MetricOut]
+    # 审查状态分布：按当前筛选与范围全量聚合，前端不再取前 100 份自算
+    reviewStatusCounts: dict[str, int] = {}
     filters: dict[str, Any] = {}
     scope: str = "own"
 

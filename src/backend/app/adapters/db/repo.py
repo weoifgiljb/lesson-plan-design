@@ -661,6 +661,8 @@ class Repo:
                 self.LATEST_REVIEW_JOIN,
                 "WHERE",
                 where,
+                # 下钻分页必须稳定：同一计划按 id、版本号排序，避免翻页重复/遗漏
+                "ORDER BY p.id, pv.version_no",
             )
         )
         return self._group(sql, (*params, *more))

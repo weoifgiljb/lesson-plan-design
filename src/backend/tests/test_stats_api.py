@@ -135,6 +135,7 @@ class TestStatsApi(unittest.TestCase):
         body = self.client.get("/api/v1/stats/summary").json()
         self.assertEqual(body["scope"], "all")
         self.assertEqual(len(body["metrics"]), 9)
+        self.assertEqual(body["reviewStatusCounts"], {"passed": 3, "needs_repair": 1})
         metrics = {item["key"]: item for item in body["metrics"]}
         self.assertEqual((metrics["structure_rate"]["numerator"], metrics["structure_rate"]["denominator"]), (3, 4))
         self.assertEqual(metrics["structure_rate"]["value"], 0.75)
@@ -145,6 +146,37 @@ class TestStatsApi(unittest.TestCase):
         self.assertEqual(metrics["gold_standard"]["value"], None)
         self.assertEqual(metrics["export_seconds"]["denominator"], 1)
         self.assertIn("filters", metrics["structure_rate"])
+
+    def test_records_status_filter_and_scope(self) -> None:
+        self._login("teacher1")
+        own = self.client.get("/api/v1/stats/records").json()
+        self.assertEqual(own["total"], 3)
+        self.assertEqual({item["teacher"] for item in own["items"]}, {"张老师"})
+
+        self._login("lead1")
+        group = self.client.get("/api/v1/stats/records").json()
+        self.assertEqual(group["total"], 3)
+        self.assertEqual({item["teacher"] for item in group["items"]}, {"张老师"})
+
+        self._login("admin1")
+        all_rows = self.client.get("/api/v1/stats/records").json()
+        self.assertEqual(all_rows["total"], 4)
+        self.assertEqual({item["teacher"] for item in all_rows["items"]}, {"张老师", "李老师"})
+        passed = self.client.get("/api/v1/stats/records?status=passed").json()
+        self.assertEqual(passed["total"], 3)
+        self.assertTrue(all(item["reviewStatus"] == "passed" for item in passed["items"]))
+        repair = self.client.get("/api/v1/stats/records?status=needs_repair").json()
+        self.assertEqual(repair["total"], 1)
+
+    def test_records_pagination_is_stable(self) -> None:
+        self._login("admin1")
+        seen: list[int] = []
+        for page in (1, 2, 3):
+            body = self.client.get(f"/api/v1/stats/records?page={page}&pageSize=2").json()
+            seen.extend(item["planId"] for item in body["items"])
+        self.assertEqual(len(seen), 4)
+        self.assertEqual(len(set(seen)), 4)
+        self.assertEqual(seen, sorted(seen))
 
     def test_course_filter_applies_to_all_metrics(self) -> None:
         self._login("admin1")
