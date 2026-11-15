@@ -501,8 +501,8 @@
 #### BS-12 检索与版本对比
 
 **状态**：✅ 已完成
-**证据**：`plans.py` 的 `q` 参数、`repo._library_where` 的课题/教师/班级 LIKE、`tests/test_plans_api.py`（含 20 次检索平均耗时 <500ms）；`/plans/{id}/diff` 覆盖全部 JSON 字段，新增 `/plans/{id}/diff/export` CSV；`PlanDetailView.vue` 导出差异按钮。
-**实现说明**：检索平均耗时远低于 500ms；差异 CSV 含 path/before/after，前端可直接下载。
+**证据**：`plans.py` 的 `q` 参数、`repo._library_where` 的课题/教师/班级 LIKE、`tests/test_plans_api.py`（含 20 次检索 p95 <500ms）；`/plans/{id}/diff` 覆盖全部 JSON 字段，新增 `/plans/{id}/diff/export` CSV；`PlanDetailView.vue` 导出差异按钮。
+**实现说明**：检索 p95 远低于 500ms；差异 CSV 含 path/before/after，前端可直接下载。
 
 **现状**：平台端未建设。
 

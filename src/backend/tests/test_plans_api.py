@@ -92,10 +92,13 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(self._get("/api/v1/plans?q=张老师").json()["total"], 1)
         self.assertEqual(self._get("/api/v1/plans?q=不存在的关键词").json()["total"], 0)
         started = time.perf_counter()
+        timings = []
         for _ in range(20):
+            request_started = time.perf_counter()
             self.assertEqual(self._get("/api/v1/plans?q=张老师").status_code, 200)
-        elapsed = (time.perf_counter() - started) / 20
-        self.assertLess(elapsed, 0.5, f"检索平均耗时 {elapsed:.3f}s")
+            timings.append(time.perf_counter() - request_started)
+        p95 = sorted(timings)[max(0, int(len(timings) * 0.95) - 1)]
+        self.assertLess(p95, 0.5, f"检索 p95 {p95:.3f}s，总耗时 {time.perf_counter() - started:.3f}s")
 
     def test_detail_returns_content_and_permissions(self) -> None:
         self._login("teacher1")
