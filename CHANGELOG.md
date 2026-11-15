@@ -6,8 +6,8 @@
 
 ### 文档
 
-- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.2、BS 升 v1.7，OPS 首版按未开始标注；同步更新 `docs/README.md` 状态汇总。
-- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：19/9/14 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
+- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.3、BS 升 v1.8、OPS 升 v1.1；同步更新 `docs/README.md` 状态汇总。
+- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：26/9/7 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
 - `AGENTS.md`、`.cursor/rules/git-workflow.mdc`、`skills/git-workflow/SKILL.md` 写入需求状态维护规则：实现合入时同批更新状态/证据/缺口，改 md 重建 docx。
 
 ### 新增
@@ -16,12 +16,16 @@
 - 统计页状态分布改用后端全量计数，状态抽屉按 20 条/页分页；概览“单份耗时”按接口 `unit` 显示分钟；ECharts 按需注册并拆为独立 vendor chunk，StatsView 页面 chunk 从约 1.07MB 降到 31KB。
 - OpenAPI 快照与 `types.gen.ts` 同批更新；前端 38 个测试文件 / 150 项通过，`npm run build` 通过。
 - FR-02 审查报告/宽松导出记录元信息缺失警告；FR-03 Word 呈现教师放行/轻微问题接受记录；FR-05 旧 `schemaVersion` 报告兼容迁移；FR-10 补 `docProps/core.xml`、页脚导出时间与导出 `stats`。插件端 150 项通过。
+- OPS-01 `bootstrap_skills.py`：按锁文件安装/检查 24 个技能，离线缓存、`--only/--global` 与失败回滚；OPS-02/03 `backup_data.py`/`restore_data.py`：在线备份、manifest、staging 恢复与回滚。
+- OPS-04 实例标记与 `/health` 的 `checks.data`（`ok/missing/foreign/corrupt`）；OPS-05 `docs/setup/cross-device.md` 8 步迁移手册；OPS-06/FR-17 `doctor.py` 合并技能、数据、依赖与插件清单体检。
+- `tests/ops/` 12 项通过；一键 `run_all_tests.py` 12/12、239 项；backend gate block 0、后端 274 项。
 
 ### 修复
 
 - 重建 `tests/fixtures/dual-end` 并固定 `createdAt`/`reviewedAt` 与 zip 条目时间；`build_fixtures.py` 连续重建字节一致，`run_plugin_fixtures.py` 增加 5 个包目录 + 5 个 zip 的夹具一致性检查（22/22 通过）。
 - `check_backend_architecture.py` 跳过 `node_modules`/`.venv` 等依赖目录，避免第三方 README 的绝对路径误报；`types.gen.ts` 刷新 `openapi-sha256`，关闭 BC-08。
-- 项目 `.venv` 下 `run_all_tests.py` 11/11 套件、227 项通过；backend gate block 0、后端 269 项通过。
+- `check_backend_architecture.py` 允许 `adapters/db/instance.py` 作为数据完整性边界捕获 `OSError/sqlite3.Error`；`health.py` 不再在路由内捕获异常。
+- 项目 `.venv` 下 `run_all_tests.py` 12/12 套件、239 项通过；backend gate block 0、后端 274 项通过。
 
 ### 环境基线
 
