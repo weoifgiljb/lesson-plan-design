@@ -11,6 +11,7 @@ from lib import (
     dump,
     empty_plan,
     export_gate,
+    match_c_language_template,
     record_teacher_override,
     score_against_examples,
     validate_plan,
@@ -35,6 +36,7 @@ def tool_get_lesson_template(args: dict) -> dict:
 
 
 def tool_draft_lesson_plan(args: dict) -> dict:
+    _, tied = match_c_language_template(str(args["contentTitle"]))
     plan = draft_plan(
         int(args["week"]),
         int(args["session"]),
@@ -44,7 +46,10 @@ def tool_draft_lesson_plan(args: dict) -> dict:
         teacher=str(args.get("teacher") or ""),
         teaching_object=str(args.get("teachingObject") or ""),
     )
-    return _result(dump({"plan": plan, "validation": validate_plan(plan)}))
+    result = {"plan": plan, "validation": validate_plan(plan)}
+    if tied:
+        result["warnings"] = [f"模板匹配同分，请确认课题：{' / '.join(tied)}"]
+    return _result(dump(result))
 
 
 def tool_validate_lesson_plan(args: dict) -> dict:

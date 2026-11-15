@@ -1,0 +1,97 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "C语言程序设计",
+  "planNumber": "C0302",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 3,
+  "session": 2,
+  "contentTitle": "多分支与switch选择结构",
+  "contentDetail": "项目三：多分支与switch选择结构",
+  "plannedHours": 2,
+  "teachingPurpose": "通过菜单和等级判定任务掌握多分支if和switch，能根据需求选择合适结构。",
+  "knowledgeGoals": "1. 掌握else if和switch/case/default。\n2. 理解break作用和穿透现象。\n3. 知道switch适用整数/字符离散选项。",
+  "abilityGoals": "能编写菜单选择程序并覆盖非法选项。",
+  "qualityGoals": "形成先画分支表、再编码并测试每个出口的习惯。",
+  "keyPoints": "重点：多分支和break。难点：条件覆盖、case穿透。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "从自助点餐菜单引出多个结果",
+        "teacherActivity": "展示选项和对应处理",
+        "studentActivity": "绘制分支表",
+        "minutes": 10,
+        "evidence": "分支表"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "完成菜单和等级选择程序",
+        "teacherActivity": "说明if与switch选择依据",
+        "studentActivity": "列出正常和非法输入",
+        "minutes": 5,
+        "evidence": "测试清单"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "else if、switch、case、break、default",
+        "teacherActivity": "演示缺少break的穿透现象并修正",
+        "studentActivity": "跟做并观察每个分支输出",
+        "minutes": 25,
+        "evidence": "覆盖所有case"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "必须完成：制作数字菜单选择程序",
+        "teacherActivity": "指导设计选项和非法输入处理",
+        "studentActivity": "创建C06_学号.c，根据1-4选择服务并用default提示错误",
+        "minutes": 30,
+        "evidence": "提交代码及5组测试结果"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "检查分支覆盖和break使用",
+        "teacherActivity": "按功能、结构和测试评分",
+        "studentActivity": "演示非法选项并解释default",
+        "minutes": 10,
+        "evidence": "运行记录"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "比较if多分支和switch",
+        "teacherActivity": "组织适用场景判断",
+        "studentActivity": "说出break和default作用",
+        "minutes": 5,
+        "evidence": "出口问答"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "扩展成绩等级菜单",
+        "teacherActivity": "布置等级映射练习",
+        "studentActivity": "完成并测试边界",
+        "minutes": 5,
+        "evidence": "作业代码"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "记录分支遗漏和穿透错误",
+        "teacherActivity": "整理分支测试模板",
+        "studentActivity": "反馈调试问题",
+        "minutes": 0,
+        "evidence": "反思记录"
+      }
+    ]
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "C语言程序设计",
+  "planNumber": "C0402",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 4,
+  "session": 2,
+  "contentTitle": "for循环：从重复计算到规律程序",
+  "contentDetail": "项目四：for循环，从重复计算到规律程序",
+  "plannedHours": 2,
+  "teachingPurpose": "通过规律输出和累加任务掌握for循环结构，能够将重复计算转化为简洁程序。",
+  "knowledgeGoals": "1. 掌握for初始化、条件、更新。\n2. 理解循环变量变化和执行次数。\n3. 认识嵌套循环基本形式。",
+  "abilityGoals": "能用for完成累加、乘法表或图形输出，并通过表格核对次数。",
+  "qualityGoals": "养成分析规律、控制变量和逐步验证的编程习惯。",
+  "keyPoints": "重点：for三段式结构。难点：边界、执行次数和嵌套循环。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "观察1到10重复计算和规律输出",
+        "teacherActivity": "展示手写步骤，提问如何压缩重复代码",
+        "studentActivity": "找出变化量和重复次数",
+        "minutes": 10,
+        "evidence": "规律表"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "完成累加和九九表局部输出",
+        "teacherActivity": "明确循环次数和验算要求",
+        "studentActivity": "记录起止值和步长",
+        "minutes": 5,
+        "evidence": "循环参数表"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "for三段式、循环变量和嵌套循环",
+        "teacherActivity": "逐步演示执行轨迹，展示<=与<边界差异",
+        "studentActivity": "跟做并填写每轮变量值",
+        "minutes": 25,
+        "evidence": "执行轨迹表"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "必须完成：用for完成1到100累加和规律输出",
+        "teacherActivity": "指导设置边界并检查循环次数",
+        "studentActivity": "创建C08_学号.c，输出1-10及累加结果，选做乘法表",
+        "minutes": 30,
+        "evidence": "提交源文件、运行截图和验算记录"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "评价循环参数、结果和代码简洁性",
+        "teacherActivity": "按正确性、边界和说明评分",
+        "studentActivity": "演示循环变量变化并解释次数",
+        "minutes": 10,
+        "evidence": "代码及执行轨迹"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "总结for三段式和边界写法",
+        "teacherActivity": "组织参数改写题",
+        "studentActivity": "回答改为倒序循环的方法",
+        "minutes": 5,
+        "evidence": "出口题"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "用for输出指定图案",
+        "teacherActivity": "布置单层循环图案练习",
+        "studentActivity": "完成并标注循环变量",
+        "minutes": 5,
+        "evidence": "作业代码"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "记录边界和循环次数错误",
+        "teacherActivity": "整理迁移到嵌套循环的支架",
+        "studentActivity": "反馈调试过程",
+        "minutes": 0,
+        "evidence": "反思记录"
+      }
+    ]
+  }
+}

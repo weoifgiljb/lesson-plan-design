@@ -95,15 +95,23 @@ def _load_c_language_templates() -> list[dict[str, Any]]:
     return raw if isinstance(raw, list) else []
 
 
-def _match_c_language_template(title: str) -> dict[str, Any] | None:
-    """Select the most specific C-language topic by number of matched phrases."""
+def match_c_language_template(title: str) -> tuple[dict[str, Any] | None, list[str]]:
+    """返回最具体模板与同分候选；候选多于 1 时调用方应提示教师确认。"""
     title = str(title or "")
     best: dict[str, Any] | None = None
     best_score = 0
+    candidates: list[tuple[int, str]] = []
     for template in _load_c_language_templates():
         terms = template.get("match") or []
         score = sum(1 for term in terms if str(term) and str(term) in title)
+        if score > 0:
+            candidates.append((score, str(template.get("title") or template.get("contentDetail") or "")))
         if score > best_score:
             best, best_score = template, score
-    return best
+    tied = sorted({label for score, label in candidates if score == best_score and best_score > 0})
+    return best, tied if len(tied) > 1 else []
+
+
+def _match_c_language_template(title: str) -> dict[str, Any] | None:
+    return match_c_language_template(title)[0]
 

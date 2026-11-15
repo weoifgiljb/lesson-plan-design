@@ -11,22 +11,26 @@ from pathlib import Path
 
 from support import SCRIPTS_DIR, tempdir, utf8_env
 from lib import EXAMPLES_DIR, check_examples, load_examples, plan_hash
+from sync_examples import check_catalog
 
 
 class TestExamplesIndex(unittest.TestCase):
     def test_committed_index_is_current(self) -> None:
         result = check_examples()
         self.assertTrue(result["ok"], result["errors"])
-        self.assertEqual(result["count"], 7)
+        self.assertEqual(result["count"], 15)
+
+    def test_committed_catalog_is_current(self) -> None:
+        self.assertEqual(check_catalog(EXAMPLES_DIR), [])
 
     def test_load_examples_excludes_index(self) -> None:
         items = load_examples()
-        self.assertEqual(len(items), 7)
+        self.assertEqual(len(items), 15)
         self.assertTrue(all(path.name != "index.json" for path, _plan in items))
 
     def test_index_entries_carry_hash_and_metadata(self) -> None:
         index = json.loads((EXAMPLES_DIR / "index.json").read_text(encoding="utf-8"))
-        self.assertEqual(index["count"], 7)
+        self.assertEqual(index["count"], 15)
         for item in index["examples"]:
             plan = json.loads((EXAMPLES_DIR / item["file"]).read_text(encoding="utf-8"))
             self.assertEqual(item["planHash"], plan_hash(plan))
@@ -55,7 +59,7 @@ class TestExamplesIndex(unittest.TestCase):
                     shutil.copy2(path, root / path.name)
             result = check_examples(root)
         self.assertFalse(result["ok"])
-        self.assertEqual(len(result["missing"]), 7)
+        self.assertEqual(len(result["missing"]), 15)
 
     def test_sync_write_then_check(self) -> None:
         script = SCRIPTS_DIR / "sync_examples.py"
@@ -65,14 +69,14 @@ class TestExamplesIndex(unittest.TestCase):
                 if path.name != "index.json":
                     shutil.copy2(path, root / path.name)
             written = subprocess.run(
-                [sys.executable, str(script), "--examples-dir", str(root), "--write"],
+                [sys.executable, str(script), "--examples-dir", str(root), "--catalog", str(root / "CATALOG.md"), "--write"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
                 env=utf8_env(),
             )
             self.assertEqual(written.returncode, 0, written.stderr)
             self.assertTrue((root / "index.json").is_file())
             checked = subprocess.run(
-                [sys.executable, str(script), "--examples-dir", str(root), "--check"],
+                [sys.executable, str(script), "--examples-dir", str(root), "--catalog", str(root / "CATALOG.md"), "--check"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
                 env=utf8_env(),
             )
@@ -82,7 +86,7 @@ class TestExamplesIndex(unittest.TestCase):
             plan["contentTitle"] = "已改标题"
             target.write_text(json.dumps(plan, ensure_ascii=False), encoding="utf-8")
             stale = subprocess.run(
-                [sys.executable, str(script), "--examples-dir", str(root), "--check"],
+                [sys.executable, str(script), "--examples-dir", str(root), "--catalog", str(root / "CATALOG.md"), "--check"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
                 env=utf8_env(),
             )

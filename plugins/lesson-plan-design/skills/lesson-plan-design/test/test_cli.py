@@ -15,6 +15,7 @@ from lib import (
     adversarial_review,
     default_review_path,
     load_review_report,
+    match_c_language_template,
     plan_hash,
     record_teacher_override,
     save_review_report,
@@ -30,6 +31,15 @@ class TestCli(unittest.TestCase):
 
     def _plan_file(self, plan: dict, name: str = "教案.json") -> Path:
         return write_plan(self.root, plan, name)
+
+    def test_draft_warns_when_template_match_ties(self) -> None:
+        _, tied = match_c_language_template("认识C语言 输出")
+        self.assertGreaterEqual(len(tied), 2)
+        drafted = run_cli(
+            "draft.py", "--week", "1", "--session", "1", "--title", "认识C语言 输出",
+        )
+        self.assertEqual(drafted.returncode, 0, drafted.stderr)
+        self.assertIn("模板匹配同分", drafted.stderr)
 
     def test_export_docx(self) -> None:
         plan = make_plan(1, 2, "一级考证辅导1")

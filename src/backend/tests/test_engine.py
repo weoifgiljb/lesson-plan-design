@@ -12,7 +12,7 @@ from app.adapters import engine
 class TestEngineParity(unittest.TestCase):
     def test_plan_hash_matches_plugin_for_examples(self) -> None:
         examples = sorted(path for path in PLUGIN_EXAMPLES.glob("*.json") if path.name != "index.json")
-        self.assertEqual(len(examples), 7)
+        self.assertEqual(len(examples), 15)
         for path in examples:
             plan = load_json_bytes(path.read_bytes())
             with self.subTest(example=path.name):

@@ -25,7 +25,7 @@ from lib import (
 class TestReview(unittest.TestCase):
     def test_gold_examples_do_not_trigger_preflight_findings(self) -> None:
         items = load_examples()
-        self.assertEqual(len(items), 7)
+        self.assertEqual(len(items), 15)
         for path, plan in items:
             report = adversarial_review(plan)
             hypotheses = [item.get("hypothesis") for item in report.get("findings", [])]
