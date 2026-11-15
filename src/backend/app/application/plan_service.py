@@ -2,6 +2,8 @@
 """教案库编排：可见范围、详情、版本链、差异与软删除。"""
 from __future__ import annotations
 
+import csv
+import io
 import json
 from typing import Any
 
@@ -102,6 +104,39 @@ def plan_diff(
         "changes": changes,
         "count": len(changes),
     }
+
+
+def plan_diff_csv(
+    repo: Repo,
+    user: dict[str, Any],
+    plan_id: int,
+    *,
+    from_version: int | None = None,
+    to_version: int | None = None,
+    ip: str = "",
+    trace_id: str = "",
+) -> str:
+    payload = plan_diff(
+        repo,
+        user,
+        plan_id,
+        from_version=from_version,
+        to_version=to_version,
+        ip=ip,
+        trace_id=trace_id,
+    )
+    stream = io.StringIO()
+    writer = csv.writer(stream, lineterminator="\n")
+    writer.writerow(["path", "before", "after"])
+    for change in payload["changes"]:
+        writer.writerow(
+            [
+                change.get("path", ""),
+                json.dumps(change.get("before"), ensure_ascii=False),
+                json.dumps(change.get("after"), ensure_ascii=False),
+            ]
+        )
+    return stream.getvalue()
 
 
 def delete_plan(

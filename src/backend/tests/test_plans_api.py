@@ -2,6 +2,7 @@
 """教案库 API：范围过滤、详情、版本链、差异与软删除。"""
 from __future__ import annotations
 
+import time
 import unittest
 
 from fastapi.testclient import TestClient
@@ -88,6 +89,13 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(self._get("/api/v1/plans?status=bogus").status_code, 422)
         paged = self._get("/api/v1/plans?page=2&pageSize=1").json()
         self.assertEqual((paged["page"], paged["pageSize"], paged["total"], len(paged["items"])), (2, 1, 2, 1))
+        self.assertEqual(self._get("/api/v1/plans?q=张老师").json()["total"], 1)
+        self.assertEqual(self._get("/api/v1/plans?q=不存在的关键词").json()["total"], 0)
+        started = time.perf_counter()
+        for _ in range(20):
+            self.assertEqual(self._get("/api/v1/plans?q=张老师").status_code, 200)
+        elapsed = (time.perf_counter() - started) / 20
+        self.assertLess(elapsed, 0.5, f"检索平均耗时 {elapsed:.3f}s")
 
     def test_detail_returns_content_and_permissions(self) -> None:
         self._login("teacher1")
@@ -112,6 +120,13 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(versions["items"][1]["round"], 2)
         self.assertEqual(len(versions["items"][1]["reportSha256"]), 64)
         diff = self._get(f"/api/v1/plans/{self.plan1}/diff").json()
+        self.assertGreater(diff["count"], 0)
+        exported = self._get(f"/api/v1/plans/{self.plan1}/diff/export")
+        self.assertEqual(exported.status_code, 200, exported.text)
+        self.assertIn("text/csv", exported.headers["content-type"])
+        self.assertIn("attachment", exported.headers["content-disposition"])
+        self.assertTrue(exported.text.startswith("path,before,after"))
+        self.assertIn("activityFlow.summary", exported.text)
         self.assertEqual((diff["fromVersion"], diff["toVersion"]), (1, 2))
         paths = {item["path"] for item in diff["changes"]}
         self.assertIn("activityFlow.summary", paths)

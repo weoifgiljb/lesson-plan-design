@@ -3,12 +3,13 @@ import { computed, reactive, ref } from 'vue'
 
 import { createUser, listUsers, type UserQuery } from '@/api/users'
 import { exportAuditCsv, listAudit, type AuditQuery } from '@/api/audit'
+import { getOpsMetrics } from '@/api/metrics'
 import type { AuditItem, Role, UserItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useMeta } from '@/composables/useMeta'
 import { saveBlob } from '@/utils/download'
 
-const tab = ref<'users' | 'audit'>('users')
+const tab = ref<'users' | 'audit' | 'ops'>('users')
 
 const userFilters = reactive<UserQuery>({ page: 1, pageSize: 20, q: '', role: undefined })
 const users = useApiRequest(() => listUsers({ ...userFilters }), { immediate: true })
@@ -17,6 +18,7 @@ const userTotal = computed(() => users.data.value?.total ?? 0)
 
 const auditFilters = reactive<AuditQuery>({ page: 1, pageSize: 20, action: '' })
 const audit = useApiRequest(() => listAudit({ ...auditFilters }), { immediate: false })
+const ops = useApiRequest(() => getOpsMetrics(), { immediate: false })
 const auditRows = computed<AuditItem[]>(() => audit.data.value?.items ?? [])
 const auditTotal = computed(() => audit.data.value?.total ?? 0)
 
@@ -27,9 +29,10 @@ const form = reactive({ username: '', displayName: '', role: 'teacher' as Role, 
 
 const auditError = ref('')
 
-function switchTab(next: 'users' | 'audit'): void {
+function switchTab(next: 'users' | 'audit' | 'ops'): void {
   tab.value = next
   if (next === 'audit' && !audit.data.value) void audit.load()
+  if (next === 'ops' && !ops.data.value) void ops.load()
 }
 
 async function submitCreate(): Promise<void> {
@@ -169,6 +172,34 @@ const roleLabel = computed(
           />
         </footer>
       </el-tab-pane>
+      <el-tab-pane label="运维" name="ops">
+        <div v-loading="ops.loading.value" class="ops-panel">
+          <el-alert
+            v-if="ops.error.value"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="ops.error.value.message"
+          />
+          <div v-if="ops.data.value" class="ops-grid">
+            <article class="ops-card">
+              <p class="ops-card__label">导出失败率</p>
+              <p class="ops-card__value">{{ (ops.data.value.export.failureRate * 100).toFixed(1) }}%</p>
+              <p class="ops-card__hint">失败 {{ ops.data.value.export.failed }} / 共 {{ ops.data.value.export.total }}</p>
+            </article>
+            <article class="ops-card">
+              <p class="ops-card__label">同步冲突率</p>
+              <p class="ops-card__value">{{ (ops.data.value.sync.conflictRate * 100).toFixed(1) }}%</p>
+              <p class="ops-card__hint">冲突 {{ ops.data.value.sync.conflicts }} / 共 {{ ops.data.value.sync.total }}</p>
+            </article>
+            <article class="ops-card">
+              <p class="ops-card__label">统计时间</p>
+              <p class="ops-card__value ops-card__value--small">{{ ops.data.value.generatedAt }}</p>
+            </article>
+          </div>
+          <div v-else-if="!ops.loading.value" class="empty">暂无运维指标</div>
+        </div>
+      </el-tab-pane>
     </el-tabs>
 
     <el-dialog v-model="createOpen" title="新建账号" width="420px">
@@ -237,6 +268,47 @@ const roleLabel = computed(
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+}
+
+.ops-panel {
+  padding-top: 12px;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.ops-card {
+  padding: 16px;
+  border: 1px solid var(--lpp-border);
+  border-radius: 10px;
+  background: var(--lpp-surface);
+}
+
+.ops-card__label {
+  margin: 0;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
+.ops-card__value {
+  margin: 8px 0 4px;
+  color: var(--lpp-text);
+  font-size: 26px;
+  font-weight: 650;
+}
+
+.ops-card__value--small {
+  font-size: var(--lpp-font-sm);
+  font-weight: 500;
+}
+
+.ops-card__hint {
+  margin: 0;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
 }
 
 .empty {

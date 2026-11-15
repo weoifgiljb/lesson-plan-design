@@ -2,6 +2,7 @@ import type { DiffResult, Paged, PlanDetail, PlanListItem, PlanVersion } from '.
 import { client } from './client'
 
 export interface PlanQuery {
+  q?: string
   course?: string
   week?: number
   session?: number
@@ -40,6 +41,13 @@ export function diffPlan(planId: number, fromVersion?: number, toVersion?: numbe
     fromVersion,
     toVersion,
   } as Record<string, unknown>)
+}
+
+export function downloadPlanDiff(planId: number, fromVersion?: number, toVersion?: number): Promise<Blob> {
+  return client.download(`/api/v1/plans/${planId}/diff/export`, {
+    fromVersion,
+    toVersion,
+  })
 }
 
 export function deletePlan(planId: number): Promise<{ planId: number; deleted: boolean; alreadyDeleted: boolean }> {

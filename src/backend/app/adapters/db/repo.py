@@ -684,6 +684,30 @@ class Repo:
             grouped.setdefault(int(row["plan_id"]), []).append(int(row["round"]))
         return grouped
 
+    def ops_metrics(self) -> dict[str, int]:
+        exports = {
+            str(row["status"]): int(row["total"])
+            for row in self.conn.execute(
+                "SELECT status, COUNT(*) AS total FROM export_job GROUP BY status"
+            ).fetchall()
+        }
+        syncs = {
+            str(row["result"]): int(row["total"])
+            for row in self.conn.execute(
+                "SELECT result, COUNT(*) AS total FROM sync_log GROUP BY result"
+            ).fetchall()
+        }
+        conflicts = self.conn.execute(
+            "SELECT COUNT(*) FROM sync_log WHERE conflict_code <> ''"
+        ).fetchone()
+        return {
+            "exportTotal": sum(exports.values()),
+            "exportSucceeded": exports.get("succeeded", 0),
+            "exportFailed": exports.get("failed", 0),
+            "syncTotal": sum(syncs.values()),
+            "syncConflicts": int(conflicts[0] if conflicts is not None else 0),
+        }
+
     def stats_sync(
         self, scope: dict[str, Any], filters: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
@@ -808,6 +832,7 @@ class Repo:
         " pv.created_at AS version_created_at, rv.id AS review_id, rv.status AS review_status,"
         " rv.round AS review_round, rv.reviewer_mode AS reviewer_mode, rv.report_sha256 AS report_sha256"
         " FROM plan p JOIN user u ON u.id = p.owner_id"
+        " LEFT JOIN task t ON t.id = p.task_id"
         " LEFT JOIN plan_version pv ON pv.id = p.current_version_id"
         " " + LATEST_REVIEW_JOIN
     )
@@ -819,6 +844,7 @@ class Repo:
         count_sql = " ".join(
             (
                 "SELECT COUNT(DISTINCT p.id) AS total FROM plan p JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN task t ON t.id = p.task_id",
                 "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
                 self.LATEST_REVIEW_JOIN,
                 "WHERE",
@@ -1084,6 +1110,11 @@ class Repo:
             if value not in (None, ""):
                 where.append(f"{column} = ?")
                 params.append(value)
+        query = str(filters.get("q") or "").strip()
+        if query:
+            like = f"%{query}%"
+            where.append("(p.content_title LIKE ? OR u.display_name LIKE ? OR t.class_name LIKE ?)")
+            params.extend([like, like, like])
         return " AND ".join(where), params
 
     def last_round(self, plan_id: int) -> int:

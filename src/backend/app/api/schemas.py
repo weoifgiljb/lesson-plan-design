@@ -120,6 +120,25 @@ class TaskBoard(BaseModel):
     generatedAt: str
 
 
+class OpsRateOut(BaseModel):
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    failureRate: float = 0.0
+
+
+class OpsSyncOut(BaseModel):
+    total: int = 0
+    conflicts: int = 0
+    conflictRate: float = 0.0
+
+
+class OpsMetricsOut(BaseModel):
+    export: OpsRateOut
+    sync: OpsSyncOut
+    generatedAt: str
+
+
 class PlanListItem(BaseModel):
     planId: int
     contentTitle: str

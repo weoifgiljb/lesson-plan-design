@@ -5,7 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import type { DiffResult, PlanVersion } from '@/api/models'
-import { deletePlan, diffPlan, getPlan, importPlan, listPlanVersions } from '@/api/plans'
+import { deletePlan, diffPlan, downloadPlanDiff, getPlan, importPlan, listPlanVersions } from '@/api/plans'
 import { getReview, listReviews } from '@/api/reviews'
 import DataTable from '@/components/DataTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -17,6 +17,7 @@ import type { TableColumn } from '@/components/table-types'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTime } from '@/utils/datetime'
+import { saveBlob } from '@/utils/download'
 import { toLessonStructure } from '@/utils/plan-structure'
 
 const route = useRoute()
@@ -49,6 +50,7 @@ const toVersion = ref<number | null>(null)
 const diff = ref<DiffResult | null>(null)
 const diffError = ref<RequestError | null>(null)
 const diffLoading = ref(false)
+const diffExporting = ref(false)
 const deleting = ref(false)
 const importing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -95,6 +97,19 @@ watch([fromVersion, toVersion], () => {
   diff.value = null
   diffError.value = null
 })
+
+async function exportDiff(): Promise<void> {
+  if (!fromVersion.value || !toVersion.value || fromVersion.value === toVersion.value) return
+  diffExporting.value = true
+  try {
+    const blob = await downloadPlanDiff(planId, fromVersion.value, toVersion.value)
+    saveBlob(blob, `plan-${planId}-v${fromVersion.value}-v${toVersion.value}-diff.csv`)
+  } catch (caught) {
+    handleError(caught, '导出差异失败')
+  } finally {
+    diffExporting.value = false
+  }
+}
 
 async function runDiff(): Promise<void> {
   if (!fromVersion.value || !toVersion.value || fromVersion.value === toVersion.value) return
@@ -382,6 +397,13 @@ onMounted(() => {
               @click="runDiff"
             >
               对比
+            </el-button>
+            <el-button
+              :loading="diffExporting"
+              :disabled="versions.length < 2 || fromVersion === toVersion"
+              @click="exportDiff"
+            >
+              导出差异
             </el-button>
           </div>
         </div>

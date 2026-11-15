@@ -20,6 +20,7 @@ const session = useSessionStore()
 const canImport = computed(() => session.role === 'teacher' || session.role === 'lead')
 
 const filters = reactive({
+  q: '',
   course: '',
   week: null as number | null,
   session: null as number | null,
@@ -31,6 +32,7 @@ const query = usePagedQuery((page, pageSize) =>
   listPlans({
     page,
     pageSize,
+    q: filters.q.trim() || undefined,
     course: filters.course.trim() || undefined,
     week: filters.week ?? undefined,
     session: filters.session ?? undefined,
@@ -170,6 +172,14 @@ onMounted(() => {
       <template #toolbar>
         <div class="filters">
           <el-input
+            v-model="filters.q"
+            class="filters__query"
+            placeholder="课题 / 教师 / 班级"
+            clearable
+            aria-label="按关键词检索"
+            @keyup.enter="applyFilters"
+          />
+          <el-input
             v-model="filters.course"
             class="filters__course"
             placeholder="课程"
@@ -257,6 +267,10 @@ onMounted(() => {
   gap: 8px;
 }
 
+.filters__query {
+  width: 200px;
+}
+
 .filters__course {
   width: 150px;
 }
@@ -302,6 +316,7 @@ onMounted(() => {
 }
 
 @media (max-width: 767px) {
+  .filters__query,
   .filters__course,
   .filters__number,
   .filters__status,

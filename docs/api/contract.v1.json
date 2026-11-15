@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.5 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-11-03",
+  "updatedAt": "2026-11-15",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -1001,6 +1001,45 @@
         401,
         403,
         404
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{id}/diff/export",
+      "summary": "导出两版差异 CSV",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/metrics/ops",
+      "summary": "运维指标（导出失败率/同步冲突率）",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
       ],
       "client": "ui",
       "implemented": true

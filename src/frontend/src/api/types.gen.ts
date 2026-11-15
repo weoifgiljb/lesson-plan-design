@@ -1,4 +1,4 @@
-// openapi-sha256: 524b3eea9429690ddff8d11c82bbdd0640965988e73d2418e0ae9a635fd36514
+// openapi-sha256: 67f5c873335ebe964721d532b5bc56ea647f8cedff949067169bb1455fb49ed7
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -53,6 +53,25 @@ export interface MetricOut {
   sampleInsufficient?: boolean
   basis?: Record<string, number> | null
   filters?: Record<string, unknown>
+}
+
+export interface OpsMetricsOut {
+  export: OpsRateOut
+  sync: OpsSyncOut
+  generatedAt: string
+}
+
+export interface OpsRateOut {
+  total?: number
+  succeeded?: number
+  failed?: number
+  failureRate?: number
+}
+
+export interface OpsSyncOut {
+  total?: number
+  conflicts?: number
+  conflictRate?: number
 }
 
 export interface PasswordChange {
@@ -310,11 +329,13 @@ export type HealthApiV1HealthGetResponse = Record<string, unknown>
 export type MeApiV1MeGetResponse = Record<string, unknown>
 export type ChangePasswordApiV1MePasswordPostResponse = Record<string, unknown>
 export type MetaApiV1MetaGetResponse = Record<string, unknown>
+export type OpsMetricsApiV1MetricsOpsGetResponse = Record<string, unknown>
 export type ListPlansApiV1PlansGetResponse = Record<string, unknown>
 export type ImportPlanApiV1PlansImportPostResponse = Record<string, unknown>
 export type DeletePlanApiV1PlansPlanIdDeleteResponse = Record<string, unknown>
 export type PlanDetailApiV1PlansPlanIdGetResponse = Record<string, unknown>
 export type PlanDiffApiV1PlansPlanIdDiffGetResponse = Record<string, unknown>
+export type PlanDiffExportApiV1PlansPlanIdDiffExportGetResponse = Record<string, unknown>
 export type PlanVersionsApiV1PlansPlanIdVersionsGetResponse = Record<string, unknown>
 export type ListReviewsApiV1ReviewsGetResponse = Record<string, unknown>
 export type ReviewDetailApiV1ReviewsReviewIdGetResponse = Record<string, unknown>
