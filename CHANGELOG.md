@@ -6,8 +6,8 @@
 
 ### 文档
 
-- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.7、BS v1.10、OPS v1.2；同步更新 `docs/README.md` 状态汇总。
-- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：35/3/4 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
+- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.7、BS v1.11、OPS v1.2；同步更新 `docs/README.md` 状态汇总。
+- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：36/2/4 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
 - `AGENTS.md`、`.cursor/rules/git-workflow.mdc`、`skills/git-workflow/SKILL.md` 写入需求状态维护规则：实现合入时同批更新状态/证据/缺口，改 md 重建 docx。
 
 ### 新增

@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.10**
+**双端协同 · 平台端 · v1.11**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.10 |
+| 文档版本 | v1.11 |
 | 编制日期 | 2026-10-26 |
 | 修订日期 | 2026-11-15 |
-| 修订说明 | v1.10：BS-12 检索 q/p95 与差异 CSV 收口升 ✅；BS-16 运维指标页落地、告警与日志保留仍缺；v1.9：同步 FR v1.7、15 份样例与测试基线（12/12、256 项；backend 274 项）；v1.8：同步 FR v1.3 与测试基线（12/12、239 项）；v1.7：BS-08 收口（全量 `reviewStatusCounts`、`/stats/records?status`、稳定排序、跨组回归、单份耗时单位、ECharts 独立 vendor chunk），状态升 ✅；v1.6：§4 补三态状态标签、证据与缺口；新增第 0 节状态标注说明；状态基线 `develop@63c6bb5`。v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
+| 修订说明 | v1.11：BS-15 模板版本登记与按版本重跑校验收口升 ✅；schemaVersion 14；v1.10：BS-12 升 ✅、BS-16 运维页落地；v1.9：同步 FR v1.7、15 份样例与测试基线；v1.8：同步 FR v1.3；v1.7：BS-08 收口；v1.6：三态标签 |
 | 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.4（插件端 18 条需求，下称"插件端需求"） |
@@ -28,8 +28,8 @@
 
 | 状态 | 数量 | 编号 |
 |---|---:|---|
-| ✅ 已完成 | 11 | BS-01—BS-12 |
-| 🟡 部分完成 | 3 | BS-11、BS-15、BS-16 |
+| ✅ 已完成 | 12 | BS-01—BS-12、BS-15 |
+| 🟡 部分完成 | 2 | BS-11、BS-16 |
 | ⬜ 未开始 | 2 | BS-13、BS-14 |
 
 ## 摘要
@@ -225,7 +225,7 @@
 | BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | ✅ 已完成 |
 | BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ⬜ 未开始 |
 | BS-14 | 备份与迁移 | P2 | backup | 恢复演练通过 | ⬜ 未开始 |
-| BS-15 | 引擎与模板版本 | P2 | engineVersion | 版本可追溯 | 🟡 部分完成 |
+| BS-15 | 引擎与模板版本 | P2 | engineVersion | 版本可追溯 | ✅ 已完成 |
 | BS-16 | 可观测与运维 | P2 | log、metrics | 健康检查可用 | 🟡 部分完成 |
 
 ### 4.1 P0 需求
@@ -548,9 +548,9 @@
 
 #### BS-15 引擎与模板版本管理
 
-**状态**：🟡 部分完成
-**证据**：`src/backend/app/api/routers/settings.py`、`app/application/settings_service.py`、`app/adapters/engine.py`、`tests/test_health.py`；入库/导出已记录 `engineVersion`。
-**缺口**：模板版本登记、按版本重跑校验与差异报告未实现（原验收第 1、3 条）。
+**状态**：✅ 已完成
+**证据**：`migrations/0014_template_version.sql`（`plan_version.template_version`）、`engine_versions()` 的 `templateVersion`、`GET /plans/{id}/versions/{version_no}/revalidate`、`tests/test_plans_api.py`。
+**实现说明**：入库记录 engine/template/rubric 版本；版本链返回 `templateVersion`；重跑只读当前内容并返回当前引擎版本、模板版本、issues 与 reviewStatus，旧数据不被改写。
 
 **现状**：平台端未建设；插件端脚本与模板会随版本演进。
 
@@ -597,7 +597,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（46 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（47 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -621,6 +621,7 @@
 | GET | /api/v1/plans/{id}/versions | 登录 + 归属 | 版本链 | 是 |
 | GET | /api/v1/plans/{id}/diff | 登录 + 归属 | 两版差异 | 是 |
 | GET | /api/v1/plans/{id}/diff/export | 登录 + 归属 | 导出两版差异 CSV | 是 |
+| GET | /api/v1/plans/{id}/versions/{version_no}/revalidate | 登录 + 归属 | 按当前引擎重跑指定版本校验 | 是 |
 | GET | /api/v1/metrics/ops | 管理员 | 导出失败率/同步冲突率 | 是 |
 | DELETE | /api/v1/plans/{id} | 本人（教师/组长）或管理员 | 软删除 | 是 |
 | GET | /api/v1/reviews | 教师、组长 | 审查列表 | 是 |
@@ -661,7 +662,7 @@
 | user | id、username、display_name、group_name、role、password_hash、active、must_change_password、token_version、failed_count、locked_until | username 唯一；role 三值；group_name 用于组长/组内可见；token_version 在改密/重置后自增，令旧 JWT 失效 |
 | task | id、course、week、session、title、class_name、owner_id、due_date、status、assignee_id、group_name、term、quadrant、board_position、board_version、discarded_at | 课程 + 周次 + 课次 + 班级 + 课题唯一；status 四值；quadrant 四值（库层 CHECK，0013）；group_name 由创建者教研组回填 |
 | plan | id、task_id、owner_id、current_version_id、deleted_at | 软删除；归属校验 |
-| plan_version | id、plan_id、version_no、content_json、plan_hash、report_sha256、schema_version、rubric_version、engine_version、source | plan_id + version_no 唯一；plan_id + plan_hash + report_sha256 部分唯一（空串哨兵不参与）；不可修改 |
+| plan_version | id、plan_id、version_no、content_json、plan_hash、report_sha256、schema_version、rubric_version、engine_version、template_version、source | plan_id + version_no 唯一；plan_id + plan_hash + report_sha256 部分唯一（空串哨兵不参与）；不可修改 |
 | review | id、plan_version_id、round、report_json、report_sha256、status、reviewer_mode | plan_version_id + round 唯一 |
 | finding | id、review_id、finding_id、severity、status、hypothesis | severity 三值；status 三值（open/waived/accepted） |
 | override | id、review_id、finding_id、teacher_id、reason、approved_at、plan_hash | review_id + finding_id 唯一（同一问题可在不同教案各自放行） |
