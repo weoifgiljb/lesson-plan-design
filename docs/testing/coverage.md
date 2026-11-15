@@ -19,7 +19,7 @@ CLI/MCP 入口由子进程执行，不计入本报告；它们由 `test_cli.py` 
 
 ```text
 core coverage: 91.3% (650/712), threshold 80%
-tests: run=152 failures=0 errors=0
+tests: run=153 failures=0 errors=0
 ```
 
 门禁条件：核心覆盖率 ≥80%，且内嵌运行的插件测试 0 failure / 0 error。任一不满足退出码 1。
