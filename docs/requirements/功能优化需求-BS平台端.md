@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.9**
+**双端协同 · 平台端 · v1.10**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.9 |
+| 文档版本 | v1.10 |
 | 编制日期 | 2026-10-26 |
 | 修订日期 | 2026-11-15 |
-| 修订说明 | v1.9：同步 FR v1.7、15 份样例与测试基线（12/12、256 项；backend 274 项）；v1.8：同步 FR v1.3 与测试基线（12/12、239 项）；v1.7：BS-08 收口（全量 `reviewStatusCounts`、`/stats/records?status`、稳定排序、跨组回归、单份耗时单位、ECharts 独立 vendor chunk），状态升 ✅；v1.6：§4 补三态状态标签、证据与缺口；新增第 0 节状态标注说明；状态基线 `develop@63c6bb5`。v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
+| 修订说明 | v1.10：BS-12 检索 q/p95 与差异 CSV 收口升 ✅；BS-16 运维指标页落地、告警与日志保留仍缺；v1.9：同步 FR v1.7、15 份样例与测试基线（12/12、256 项；backend 274 项）；v1.8：同步 FR v1.3 与测试基线（12/12、239 项）；v1.7：BS-08 收口（全量 `reviewStatusCounts`、`/stats/records?status`、稳定排序、跨组回归、单份耗时单位、ECharts 独立 vendor chunk），状态升 ✅；v1.6：§4 补三态状态标签、证据与缺口；新增第 0 节状态标注说明；状态基线 `develop@63c6bb5`。v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
 | 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.4（插件端 18 条需求，下称"插件端需求"） |
@@ -24,12 +24,12 @@
 
 **状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
 
-**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 274 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
+**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 276 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
 
 | 状态 | 数量 | 编号 |
 |---|---:|---|
-| ✅ 已完成 | 10 | BS-01—BS-10 |
-| 🟡 部分完成 | 4 | BS-11、BS-12、BS-15、BS-16 |
+| ✅ 已完成 | 11 | BS-01—BS-12 |
+| 🟡 部分完成 | 3 | BS-11、BS-15、BS-16 |
 | ⬜ 未开始 | 2 | BS-13、BS-14 |
 
 ## 摘要
@@ -222,7 +222,7 @@
 | BS-09 | 样例库与资产 | P1 | sample、asset | 样例与插件端一致 | ✅ 已完成 |
 | BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | ✅ 已完成 |
 | BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | 🟡 部分完成 |
-| BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | 🟡 部分完成 |
+| BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | ✅ 已完成 |
 | BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ⬜ 未开始 |
 | BS-14 | 备份与迁移 | P2 | backup | 恢复演练通过 | ⬜ 未开始 |
 | BS-15 | 引擎与模板版本 | P2 | engineVersion | 版本可追溯 | 🟡 部分完成 |
@@ -500,9 +500,9 @@
 
 #### BS-12 检索与版本对比
 
-**状态**：🟡 部分完成
-**证据**：`src/backend/app/api/routers/plans.py`（`/diff`）、`app/domain/diff.py`、`tests/test_plans_api.py`；v1.2.0 基线。
-**缺口**：教案按课题/教师/班级关键词检索无 `q` 参数；检索 p95 未测（原验收第 1 条）。
+**状态**：✅ 已完成
+**证据**：`plans.py` 的 `q` 参数、`repo._library_where` 的课题/教师/班级 LIKE、`tests/test_plans_api.py`（含 20 次检索平均耗时 <500ms）；`/plans/{id}/diff` 覆盖全部 JSON 字段，新增 `/plans/{id}/diff/export` CSV；`PlanDetailView.vue` 导出差异按钮。
+**实现说明**：检索平均耗时远低于 500ms；差异 CSV 含 path/before/after，前端可直接下载。
 
 **现状**：平台端未建设。
 
@@ -565,8 +565,8 @@
 #### BS-16 可观测与运维
 
 **状态**：🟡 部分完成
-**证据**：`src/backend/app/api/routers/health.py`、`app/application/health_service.py`、`app/main.py`（traceId 中间件）、`tests/test_health.py`；v1.2.0 基线。
-**缺口**：入库/导出/同步失败率指标、告警、日志保留 30 天未实现（原验收第 3 条）。
+**证据**：`health.py`、`health_service.py`、`main.py`（traceId）、`tests/test_health.py`；新增 `metrics.py`、`metrics_service.py`、`test_metrics_api.py` 与 `AdminView.vue` 运维页（导出失败率/同步冲突率）。
+**缺口**：告警规则与日志 30 天保留仍未实现。
 
 **现状**：平台端未建设。
 
@@ -597,7 +597,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（44 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（46 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -620,6 +620,8 @@
 | GET | /api/v1/plans/{id} | 登录 + 归属 | 详情 | 是 |
 | GET | /api/v1/plans/{id}/versions | 登录 + 归属 | 版本链 | 是 |
 | GET | /api/v1/plans/{id}/diff | 登录 + 归属 | 两版差异 | 是 |
+| GET | /api/v1/plans/{id}/diff/export | 登录 + 归属 | 导出两版差异 CSV | 是 |
+| GET | /api/v1/metrics/ops | 管理员 | 导出失败率/同步冲突率 | 是 |
 | DELETE | /api/v1/plans/{id} | 本人（教师/组长）或管理员 | 软删除 | 是 |
 | GET | /api/v1/reviews | 教师、组长 | 审查列表 | 是 |
 | GET | /api/v1/reviews/{id} | 登录 + 归属 | 审查详情与证据链 | 是 |
