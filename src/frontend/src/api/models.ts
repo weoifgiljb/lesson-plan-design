@@ -130,6 +130,8 @@ export interface Evidence {
 export interface ReviewHeader {
   reviewId: number
   planId: number
+  /** 导出接口只认教案版本 ID；审查列表与详情都会带回它 */
+  planVersionId: number
   versionNo: number
   round: number
   status: string
@@ -145,6 +147,8 @@ export interface ReviewHeader {
 
 export interface ReviewListItem extends ReviewHeader {
   evidence: Pick<Evidence, 'complete' | 'passed' | 'total' | 'gaps'>
+  /** 后端乐观判定：状态白名单 + 无未关闭问题；最终门禁仍在导出服务 */
+  exportable: boolean
 }
 
 export interface Finding {
