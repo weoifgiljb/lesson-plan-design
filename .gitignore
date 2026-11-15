@@ -9,8 +9,11 @@ work-plan.docx
 /.dsh/
 /.codex_audio_tmp/
 *.wav
-/data/exports/
-/data/backup/
+/data/*
+!/data/app.db
+!/data/files/
+/data/files/*
+!/data/files/samples/
 *.db
 !data/app.db
 *.db-wal
