@@ -69,6 +69,8 @@ class TestMetricsApi(unittest.TestCase):
         self.assertEqual(body["export"]["failureRate"], 0.5)
         self.assertEqual(body["sync"]["conflicts"], 1)
         self.assertEqual(body["sync"]["conflictRate"], 0.5)
+        self.assertEqual(body["logRetentionDays"], 30)
+        self.assertEqual({item["code"] for item in body["alerts"]}, {"EXPORT_FAILURE_RATE", "SYNC_CONFLICT_RATE"})
 
     def test_teacher_is_forbidden(self) -> None:
         self._login("teacher1")

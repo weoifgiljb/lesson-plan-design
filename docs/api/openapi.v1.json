@@ -71,6 +71,150 @@
         }
       }
     },
+    "/api/v1/plans/{plan_id}/deletion-request": {
+      "post": {
+        "summary": "Request Deletion",
+        "operationId": "request_deletion_api_v1_plans__plan_id__deletion_request_post",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Plan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletionRequestIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionRequestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deletion-requests": {
+      "get": {
+        "summary": "List Deletion Requests",
+        "operationId": "list_deletion_requests_api_v1_deletion_requests_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deletion-requests/{request_id}/resolve": {
+      "post": {
+        "summary": "Resolve Deletion Request",
+        "operationId": "resolve_deletion_request_api_v1_deletion_requests__request_id__resolve_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletionResolveIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionRequestOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "summary": "Login",
@@ -3055,6 +3199,127 @@
         ],
         "title": "Body_sync_push_api_v1_sync_push_post"
       },
+      "DeletionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeletionRequestOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "DeletionPage"
+      },
+      "DeletionRequestIn": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "DeletionRequestIn"
+      },
+      "DeletionRequestOut": {
+        "properties": {
+          "requestId": {
+            "type": "integer",
+            "title": "Requestid"
+          },
+          "planId": {
+            "type": "integer",
+            "title": "Planid"
+          },
+          "contentTitle": {
+            "type": "string",
+            "title": "Contenttitle",
+            "default": ""
+          },
+          "requester": {
+            "type": "string",
+            "title": "Requester",
+            "default": ""
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          },
+          "dueAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dueat"
+          },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedat"
+          },
+          "planDeleted": {
+            "type": "boolean",
+            "title": "Plandeleted",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "requestId",
+          "planId",
+          "status"
+        ],
+        "title": "DeletionRequestOut"
+      },
+      "DeletionResolveIn": {
+        "properties": {
+          "approve": {
+            "type": "boolean",
+            "title": "Approve"
+          }
+        },
+        "type": "object",
+        "required": [
+          "approve"
+        ],
+        "title": "DeletionResolveIn"
+      },
       "ExportRequest": {
         "properties": {
           "planVersionIds": {
@@ -3220,6 +3485,29 @@
         "title": "MetricOut",
         "description": "统计指标：比率型无 unit（0–1），耗时等带 unit；sampleInsufficient 表示样本 <5。"
       },
+      "OpsAlertOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "level",
+          "message"
+        ],
+        "title": "OpsAlertOut"
+      },
       "OpsMetricsOut": {
         "properties": {
           "export": {
@@ -3227,6 +3515,19 @@
           },
           "sync": {
             "$ref": "#/components/schemas/OpsSyncOut"
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/OpsAlertOut"
+            },
+            "type": "array",
+            "title": "Alerts",
+            "default": []
+          },
+          "logRetentionDays": {
+            "type": "integer",
+            "title": "Logretentiondays",
+            "default": 30
           },
           "generatedAt": {
             "type": "string",

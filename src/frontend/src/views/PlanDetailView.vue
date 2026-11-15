@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { RequestError, toApiError } from '@/api/client-error'
 import type { DiffResult, PlanVersion } from '@/api/models'
 import { deletePlan, diffPlan, downloadPlanDiff, getPlan, importPlan, listPlanVersions } from '@/api/plans'
+import { requestDeletion } from '@/api/deletions'
 import { getReview, listReviews } from '@/api/reviews'
 import DataTable from '@/components/DataTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -122,6 +123,27 @@ async function runDiff(): Promise<void> {
     diffError.value = handleError(caught, '版本对比失败')
   } finally {
     diffLoading.value = false
+  }
+}
+
+async function requestRemovePlan(): Promise<void> {
+  if (!plan.value) return
+  let reason = ''
+  try {
+    const result = await ElMessageBox.prompt(
+      '填写删除原因，管理员将在 7 个工作日内处理。',
+      '申请删除教案',
+      { confirmButtonText: '提交申请', cancelButtonText: '取消', inputPlaceholder: '例如：重复导入' },
+    )
+    reason = result.value || ''
+  } catch {
+    return
+  }
+  try {
+    await requestDeletion(planId, reason)
+    ElMessage.success('删除申请已提交，管理员将在 7 个工作日内处理')
+  } catch (caught) {
+    handleError(caught, '提交删除申请失败')
   }
 }
 
@@ -260,6 +282,7 @@ onMounted(() => {
         <el-button v-if="plan && canImport" :loading="importing" @click="openVersionPicker">
           上传新版本
         </el-button>
+        <el-button v-if="plan" plain @click="requestRemovePlan">申请删除</el-button>
         <el-button v-if="plan" type="danger" plain :loading="deleting" @click="removePlan">
           删除
         </el-button>

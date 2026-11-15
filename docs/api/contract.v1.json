@@ -1083,6 +1083,65 @@
       ],
       "client": "api",
       "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/{id}/deletion-request",
+      "summary": "提交教案删除申请",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/deletion-requests",
+      "summary": "删除申请列表",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/deletion-requests/{request_id}/resolve",
+      "summary": "批准/驳回删除申请",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        409
+      ],
+      "client": "ui",
+      "implemented": true
     }
   ]
 }

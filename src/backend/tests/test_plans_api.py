@@ -113,6 +113,38 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}").status_code, 403)
         self.assertEqual(self._get("/api/v1/plans/9999").status_code, 404)
 
+    def test_deletion_request_requires_admin_approval(self) -> None:
+        csrf = self._login("teacher1")
+        created = self.client.post(
+            f"/api/v1/plans/{self.plan1}/deletion-request",
+            json={"reason": "教师申请删除"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        request_id = created.json()["requestId"]
+        self.assertEqual(created.json()["status"], "pending")
+        self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}").status_code, 200)
+        self.assertEqual(self._get("/api/v1/deletion-requests").status_code, 403)
+        admin_csrf = self._login("admin1")
+        listed = self._get("/api/v1/deletion-requests?status=pending").json()
+        self.assertEqual(listed["total"], 1)
+        approved = self.client.post(
+            f"/api/v1/deletion-requests/{request_id}/resolve",
+            json={"approve": True},
+            headers={"X-CSRF-Token": admin_csrf},
+        )
+        self.assertEqual(approved.status_code, 200, approved.text)
+        self.assertEqual(approved.json()["status"], "approved")
+        self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}").status_code, 404)
+
+    def test_audit_log_does_not_store_plan_body_credentials_or_tokens(self) -> None:
+        rows = self.connection.execute("SELECT detail_json, ip, trace_id FROM audit_log").fetchall()
+        text = " ".join(" ".join(str(value or "") for value in row) for row in rows)
+        self.assertNotIn("activityFlow", text)
+        self.assertNotIn(PASSWORD, text)
+        self.assertNotIn("csrf", text.lower())
+        self.assertNotIn("token", text.lower())
+
     def test_versions_and_diff(self) -> None:
         self._login("teacher1")
         version_response = self._get(f"/api/v1/plans/{self.plan1}/versions")

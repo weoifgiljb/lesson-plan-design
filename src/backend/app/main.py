@@ -18,6 +18,7 @@ from app.domain.errors import AppError
 from app.api.routers import (
     audit,
     auth,
+    deletion,
     exports,
     health,
     me,
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
     application.include_router(health.router, prefix="/api/v1")
     application.include_router(meta.router, prefix="/api/v1")
     application.include_router(metrics.router, prefix="/api/v1")
+    application.include_router(deletion.router, prefix="/api/v1")
     application.include_router(auth.router, prefix="/api/v1")
     application.include_router(me.router, prefix="/api/v1")
     application.include_router(plans.router, prefix="/api/v1")

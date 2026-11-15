@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { createUser, listUsers, type UserQuery } from '@/api/users'
 import { exportAuditCsv, listAudit, type AuditQuery } from '@/api/audit'
+import { listDeletionRequests, resolveDeletionRequest, type DeletionRequest } from '@/api/deletions'
 import { getOpsMetrics } from '@/api/metrics'
 import type { AuditItem, Role, UserItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useMeta } from '@/composables/useMeta'
 import { saveBlob } from '@/utils/download'
 
-const tab = ref<'users' | 'audit' | 'ops'>('users')
+const tab = ref<'users' | 'audit' | 'ops' | 'deletion'>('users')
 
 const userFilters = reactive<UserQuery>({ page: 1, pageSize: 20, q: '', role: undefined })
 const users = useApiRequest(() => listUsers({ ...userFilters }), { immediate: true })
@@ -19,6 +21,7 @@ const userTotal = computed(() => users.data.value?.total ?? 0)
 const auditFilters = reactive<AuditQuery>({ page: 1, pageSize: 20, action: '' })
 const audit = useApiRequest(() => listAudit({ ...auditFilters }), { immediate: false })
 const ops = useApiRequest(() => getOpsMetrics(), { immediate: false })
+const deletions = useApiRequest(() => listDeletionRequests('pending'), { immediate: false })
 const auditRows = computed<AuditItem[]>(() => audit.data.value?.items ?? [])
 const auditTotal = computed(() => audit.data.value?.total ?? 0)
 
@@ -29,10 +32,30 @@ const form = reactive({ username: '', displayName: '', role: 'teacher' as Role, 
 
 const auditError = ref('')
 
-function switchTab(next: 'users' | 'audit' | 'ops'): void {
+function switchTab(next: 'users' | 'audit' | 'ops' | 'deletion'): void {
   tab.value = next
   if (next === 'audit' && !audit.data.value) void audit.load()
   if (next === 'ops' && !ops.data.value) void ops.load()
+  if (next === 'deletion' && !deletions.data.value) void deletions.load()
+}
+
+async function resolveDeletion(row: DeletionRequest, approve: boolean): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      approve ? `批准删除《${row.contentTitle}》？批准后教案软删除但保留审计。` : `驳回《${row.contentTitle}》的删除申请？`,
+      approve ? '批准删除' : '驳回申请',
+      { type: 'warning', confirmButtonText: approve ? '批准' : '驳回', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await resolveDeletionRequest(row.requestId, approve)
+    ElMessage.success(approve ? '已批准并软删除' : '已驳回')
+    await deletions.load()
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '处理失败')
+  }
 }
 
 async function submitCreate(): Promise<void> {
@@ -193,11 +216,49 @@ const roleLabel = computed(
               <p class="ops-card__hint">冲突 {{ ops.data.value.sync.conflicts }} / 共 {{ ops.data.value.sync.total }}</p>
             </article>
             <article class="ops-card">
+              <p class="ops-card__label">日志保留</p>
+              <p class="ops-card__value">{{ ops.data.value.logRetentionDays }} 天</p>
+            </article>
+            <article class="ops-card">
               <p class="ops-card__label">统计时间</p>
               <p class="ops-card__value ops-card__value--small">{{ ops.data.value.generatedAt }}</p>
             </article>
           </div>
+          <div v-if="ops.data.value?.alerts.length" class="ops-alerts">
+            <el-alert
+              v-for="alert in ops.data.value.alerts"
+              :key="alert.code"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="alert.message"
+            />
+          </div>
           <div v-else-if="!ops.loading.value" class="empty">暂无运维指标</div>
+        </div>
+      </el-tab-pane>
+      <el-tab-pane label="删除申请" name="deletion">
+        <div v-loading="deletions.loading.value" class="deletion-panel">
+          <el-alert
+            v-if="deletions.error.value"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="deletions.error.value.message"
+          />
+          <el-table v-if="deletions.data.value?.items.length" :data="deletions.data.value.items" row-key="requestId" stripe>
+            <el-table-column prop="contentTitle" label="教案" min-width="180" />
+            <el-table-column prop="requester" label="申请人" width="110" />
+            <el-table-column prop="reason" label="原因" min-width="180" />
+            <el-table-column prop="dueAt" label="应处理时间" width="190" />
+            <el-table-column label="操作" width="160">
+              <template #default="{ row }">
+                <el-button type="danger" link @click="resolveDeletion(row, true)">批准</el-button>
+                <el-button link @click="resolveDeletion(row, false)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-else-if="!deletions.loading.value" class="empty">暂无待处理删除申请</div>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -270,6 +331,10 @@ const roleLabel = computed(
   background: var(--lpp-surface);
 }
 
+.deletion-panel {
+  padding-top: 12px;
+}
+
 .ops-panel {
   padding-top: 12px;
 }
@@ -309,6 +374,12 @@ const roleLabel = computed(
   margin: 0;
   color: var(--lpp-text-muted);
   font-size: var(--lpp-font-xs);
+}
+
+.ops-alerts {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .empty {

@@ -1089,6 +1089,50 @@ class Repo:
         )
         return bool(cursor.rowcount)
 
+    def create_deletion_request(self, plan_id: int, requester_id: int, reason: str, due_at: str) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO deletion_request (plan_id, requester_id, reason, status, created_at, due_at)"
+            " VALUES (?, ?, ?, 'pending', ?, ?)",
+            (plan_id, requester_id, reason, clock.now_iso(), due_at),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def list_deletion_requests(self, status: str | None = None) -> list[dict[str, Any]]:
+        base = (
+            "SELECT d.*, p.content_title, u.display_name AS requester, p.deleted_at"
+            " FROM deletion_request d"
+            " JOIN plan p ON p.id = d.plan_id"
+            " JOIN user u ON u.id = d.requester_id"
+        )
+        if status:
+            sql = base + " WHERE d.status = ? ORDER BY d.id DESC"
+            params: tuple[Any, ...] = (status,)
+        else:
+            sql = base + " ORDER BY d.id DESC"
+            params = ()
+        rows = self.conn.execute(sql, params).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_deletion_request(self, request_id: int) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT d.*, p.content_title, u.display_name AS requester, p.deleted_at"
+                " FROM deletion_request d"
+                " JOIN plan p ON p.id = d.plan_id"
+                " JOIN user u ON u.id = d.requester_id"
+                " WHERE d.id = ?",
+                (request_id,),
+            ).fetchone()
+        )
+
+    def resolve_deletion_request(self, request_id: int, resolver_id: int, status: str) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE deletion_request SET status = ?, resolved_at = ?, resolver_id = ?"
+            " WHERE id = ? AND status = 'pending'",
+            (status, clock.now_iso(), resolver_id, request_id),
+        )
+        return bool(cursor.rowcount)
+
     def _library_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["p.deleted_at IS NULL"]
         params: list[Any] = []

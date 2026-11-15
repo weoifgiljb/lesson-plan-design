@@ -1,4 +1,4 @@
-// openapi-sha256: 0935326a311cf0ab1a45bf719667554ab9bbfc0f1e8670d37fef8747bdb7c17b
+// openapi-sha256: 7149b0ade8724361a79bc6827d593dd3c0082ad8ce3a321c8fb09dcd59e786a6
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -18,6 +18,32 @@ export interface BodySyncPushApiV1SyncPushPost {
   file: string
   baseHash?: string
   planId?: number | null
+}
+
+export interface DeletionPage {
+  items: DeletionRequestOut[]
+  total: number
+}
+
+export interface DeletionRequestIn {
+  reason?: string
+}
+
+export interface DeletionRequestOut {
+  requestId: number
+  planId: number
+  contentTitle?: string
+  requester?: string
+  reason?: string
+  status: string
+  createdAt?: string | null
+  dueAt?: string | null
+  resolvedAt?: string | null
+  planDeleted?: boolean
+}
+
+export interface DeletionResolveIn {
+  approve: boolean
 }
 
 export interface ExportRequest {
@@ -55,9 +81,17 @@ export interface MetricOut {
   filters?: Record<string, unknown>
 }
 
+export interface OpsAlertOut {
+  code: string
+  level: string
+  message: string
+}
+
 export interface OpsMetricsOut {
   export: OpsRateOut
   sync: OpsSyncOut
+  alerts?: OpsAlertOut[]
+  logRetentionDays?: number
   generatedAt: string
 }
 
@@ -322,6 +356,8 @@ export type LogoutApiV1AuthLogoutPostResponse = Record<string, unknown>
 export type WhoamiApiV1AuthMeGetResponse = Record<string, unknown>
 export type RegisterApiV1AuthRegisterPostResponse = Record<string, unknown>
 export type TokenApiV1AuthTokenPostResponse = Record<string, unknown>
+export type ListDeletionRequestsApiV1DeletionRequestsGetResponse = Record<string, unknown>
+export type ResolveDeletionRequestApiV1DeletionRequestsRequestIdResolvePostResponse = Record<string, unknown>
 export type CreateExportsApiV1ExportsPostResponse = Record<string, unknown>
 export type ExportDetailApiV1ExportsExportIdGetResponse = Record<string, unknown>
 export type DownloadExportApiV1ExportsExportIdDownloadGetResponse = Record<string, unknown>
@@ -334,6 +370,7 @@ export type ListPlansApiV1PlansGetResponse = Record<string, unknown>
 export type ImportPlanApiV1PlansImportPostResponse = Record<string, unknown>
 export type DeletePlanApiV1PlansPlanIdDeleteResponse = Record<string, unknown>
 export type PlanDetailApiV1PlansPlanIdGetResponse = Record<string, unknown>
+export type RequestDeletionApiV1PlansPlanIdDeletionRequestPostResponse = Record<string, unknown>
 export type PlanDiffApiV1PlansPlanIdDiffGetResponse = Record<string, unknown>
 export type PlanDiffExportApiV1PlansPlanIdDiffExportGetResponse = Record<string, unknown>
 export type PlanVersionsApiV1PlansPlanIdVersionsGetResponse = Record<string, unknown>

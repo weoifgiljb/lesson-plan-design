@@ -120,6 +120,32 @@ class TaskBoard(BaseModel):
     generatedAt: str
 
 
+class DeletionRequestIn(BaseModel):
+    reason: str = ""
+
+
+class DeletionResolveIn(BaseModel):
+    approve: bool
+
+
+class DeletionRequestOut(BaseModel):
+    requestId: int
+    planId: int
+    contentTitle: str = ""
+    requester: str = ""
+    reason: str = ""
+    status: str
+    createdAt: str | None = None
+    dueAt: str | None = None
+    resolvedAt: str | None = None
+    planDeleted: bool = False
+
+
+class DeletionPage(BaseModel):
+    items: list[DeletionRequestOut]
+    total: int
+
+
 class OpsRateOut(BaseModel):
     total: int = 0
     succeeded: int = 0
@@ -133,9 +159,17 @@ class OpsSyncOut(BaseModel):
     conflictRate: float = 0.0
 
 
+class OpsAlertOut(BaseModel):
+    code: str
+    level: str
+    message: str
+
+
 class OpsMetricsOut(BaseModel):
     export: OpsRateOut
     sync: OpsSyncOut
+    alerts: list[OpsAlertOut] = []
+    logRetentionDays: int = 30
     generatedAt: str
 
 
