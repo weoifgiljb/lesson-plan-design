@@ -6,8 +6,8 @@
 
 ### 文档
 
-- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.6、BS v1.9、OPS v1.2；同步更新 `docs/README.md` 状态汇总。
-- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：30/5/7 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
+- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.7、BS v1.9、OPS v1.2；同步更新 `docs/README.md` 状态汇总。
+- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：34/4/4 状态快照、基线事实与 OPT-01—OPT-09 批次、验收与裁剪建议。
 - `AGENTS.md`、`.cursor/rules/git-workflow.mdc`、`skills/git-workflow/SKILL.md` 写入需求状态维护规则：实现合入时同批更新状态/证据/缺口，改 md 重建 docx。
 
 ### 新增
@@ -15,13 +15,17 @@
 - BS-08 统计收口：`/stats/summary` 返回全量 `reviewStatusCounts`；`/stats/records` 支持 `status` 筛选与稳定排序；补教师/组长/管理员范围、状态筛选与跨页稳定性回归。
 - 统计页状态分布改用后端全量计数，状态抽屉按 20 条/页分页；概览“单份耗时”按接口 `unit` 显示分钟；ECharts 按需注册并拆为独立 vendor chunk，StatsView 页面 chunk 从约 1.07MB 降到 31KB。
 - OpenAPI 快照与 `types.gen.ts` 同批更新；前端 38 个测试文件 / 150 项通过，`npm run build` 通过。
-- FR-02 审查报告/宽松导出记录元信息缺失警告；FR-03 Word 呈现教师放行/轻微问题接受记录；FR-05 旧 `schemaVersion` 报告兼容迁移；FR-10 补 `docProps/core.xml`、页脚导出时间与导出 `stats`。插件端 153 项通过。
+- FR-02 审查报告/宽松导出记录元信息缺失警告；FR-03 Word 呈现教师放行/轻微问题接受记录；FR-05 旧 `schemaVersion` 报告兼容迁移；FR-10 补 `docProps/core.xml`、页脚导出时间与导出 `stats`。插件端 165 项通过。
 - OPS-01 `bootstrap_skills.py`：按锁文件安装/检查 24 个技能，离线缓存、`--only/--global` 与失败回滚；OPS-02/03 `backup_data.py`/`restore_data.py`：在线备份、manifest、staging 恢复与回滚。
 - OPS-04 实例标记与 `/health` 的 `checks.data`（`ok/missing/foreign/corrupt`）；OPS-05 `docs/setup/cross-device.md` 8 步迁移手册；OPS-06/FR-17 `doctor.py` 合并技能、数据、依赖与插件清单体检。
 - FR-06 `/stats/summary` 新增 `reviewModeCounts`，独立子代理/角色模拟/人工分列并显示在统计页；FR-08 `doctor` 扫描 README/SKILL/命令/安装文档的裸 `python`，修正 `validation.md` 4 条命令。
 - FR-13 样例库补到 15 份（7 信息技术 + 8 C 语言）：C 语言模板补 `title/week/session`，`sync_examples.py --write` 同时生成 `index.json` 与 `CATALOG.md`，`--check` 校验；模板同分匹配在 CLI/MCP 输出候选警告；后端样例库导入到 15 份。
-- FR-18 覆盖率门禁：`scripts/coverage_gate.py` 用标准库统计核心模块 91.3%（门槛 80%）；新增中文/空格路径用例；`docs/testing/cross-host-smoke.md` 建立 5 宿主清单；补 `docs/testing/coverage.md`。
-- `tests/ops/` 14 项通过；一键 `run_all_tests.py` 12/12、244 项；backend gate block 0、后端 274 项。
+- FR-11 导出防覆盖：默认文件名含课题/周次课次/版本；同目标二次导出需 `--force`，覆盖前 `.bak`；`.exports.json` 记录时间/哈希/路径，`--history`/`--open-version` 可查。
+- FR-14 草稿套别由同周次/课次样例推导，CLI 暴露 `--must-do/--optional/--student-context/--plan-number/--teach-date`；无匹配时警告。
+- FR-15 Stop hook 递归扫描、跳过噪声目录、`warn/fail` 可配、全量汇总，不再截断 8 份。
+- FR-16 新增 `lesson_flow.py` 一键流程、`revise_plan.py` 字段级修订、`diff_plans.py` 两版差异；修订原子替换并提示旧报告失效。
+- FR-18 覆盖率门禁：`scripts/coverage_gate.py` 用标准库统计核心模块 91.2%（门槛 80%）；新增中文/空格路径用例；`docs/testing/cross-host-smoke.md` 建立 5 宿主清单；补 `docs/testing/coverage.md`。
+- `tests/ops/` 14 项通过；一键 `run_all_tests.py` 12/12、256 项；backend gate block 0、后端 274 项。
 
 ### 修复
 
@@ -29,7 +33,7 @@
 - `check_backend_architecture.py` 跳过 `node_modules`/`.venv` 等依赖目录，避免第三方 README 的绝对路径误报；`types.gen.ts` 刷新 `openapi-sha256`，关闭 BC-08。
 - `check_backend_architecture.py` 允许 `adapters/db/instance.py` 作为数据完整性边界捕获 `OSError/sqlite3.Error`；`health.py` 不再在路由内捕获异常。
 - 修复 `scripts/seed_samples.py` 对 `Repo.list_users` 新签名的调用，样例导入恢复可用。
-- 项目 `.venv` 下 `run_all_tests.py` 12/12 套件、244 项通过；backend gate block 0、后端 274 项通过。
+- 项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 274 项通过。
 
 ### 环境基线
 
