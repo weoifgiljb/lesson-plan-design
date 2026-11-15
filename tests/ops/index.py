@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from test_auto_backup import TestAutoBackup  # noqa: E402,F401
 from test_backup_restore import TestBackupRestore  # noqa: E402,F401
 from test_bootstrap_skills import TestBootstrapSkills  # noqa: E402,F401
 from test_doctor import TestDoctor  # noqa: E402,F401
