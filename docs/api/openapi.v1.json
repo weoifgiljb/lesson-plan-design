@@ -4066,6 +4066,14 @@
             "title": "Reviewstatuscounts",
             "default": {}
           },
+          "reviewModeCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Reviewmodecounts",
+            "default": {}
+          },
           "filters": {
             "additionalProperties": true,
             "type": "object",

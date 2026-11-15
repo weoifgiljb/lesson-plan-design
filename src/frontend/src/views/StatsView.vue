@@ -75,6 +75,14 @@ void loadRecords()
 
 const metrics = computed<Metric[]>(() => summaryData.value?.metrics ?? [])
 const scopeText = computed(() => scopeLabel(summaryData.value?.scope))
+const reviewModeText = computed(() => {
+  const counts = summaryData.value?.reviewModeCounts
+  if (!counts) return ''
+  const native = counts.native_subagent ?? 0
+  const role = counts.role_simulation ?? 0
+  const human = counts.human ?? 0
+  return `审校方式：独立子代理 ${native} 份 / 角色模拟 ${role} 份 / 人工 ${human} 份`
+})
 const showTeacherFilter = computed(() => session.role !== 'teacher')
 
 // 状态分布由后端按当前筛选/范围全量聚合，前端不再取前 100 份自算。
@@ -322,6 +330,7 @@ const columns: TableColumn[] = [
       <template #meta>
         <p class="stats-meta">
           <span v-if="scopeText">统计范围：{{ scopeText }}</span>
+          <span v-if="reviewModeText">{{ reviewModeText }}</span>
           <span v-if="loadedTime">统计截至 {{ loadedTime }}</span>
         </p>
       </template>

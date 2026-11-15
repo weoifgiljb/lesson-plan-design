@@ -74,10 +74,18 @@ class TestStatsApi(unittest.TestCase):
         self.repo.set_current_version(plan_id, version_id)
         return plan_id, version_id
 
-    def _review(self, version_id: int, status: str, findings: list | None = None, *, plan_hash: str) -> None:
+    def _review(
+        self,
+        version_id: int,
+        status: str,
+        findings: list | None = None,
+        *,
+        plan_hash: str,
+        mode: str = "native_subagent",
+    ) -> None:
         report = make_report(plan_hash, status=status, findings=findings)
         payload = json.dumps(report, ensure_ascii=False)
-        review_id = self.repo.insert_review(version_id, 1, payload, "sha-" + status, status, "native_subagent")
+        review_id = self.repo.insert_review(version_id, 1, payload, "sha-" + status, status, mode)
         if findings:
             self.repo.insert_findings(review_id, findings)
 
@@ -96,7 +104,7 @@ class TestStatsApi(unittest.TestCase):
         self._review(version_b, "needs_repair", [blocker], plan_hash="hash-退回课")
 
         plan_c, version_c = self._plan(self.teacher1, "结构失败课")
-        self._review(version_c, "passed", plan_hash="hash-结构失败课")
+        self._review(version_c, "passed", plan_hash="hash-结构失败课", mode="role_simulation")
 
         plan_d, version_d = self._plan(self.teacher1, "已删课", content=valid_content, plan_hash="hash-已删课")
         self._review(version_d, "passed", plan_hash="hash-已删课")
@@ -136,6 +144,10 @@ class TestStatsApi(unittest.TestCase):
         self.assertEqual(body["scope"], "all")
         self.assertEqual(len(body["metrics"]), 9)
         self.assertEqual(body["reviewStatusCounts"], {"passed": 3, "needs_repair": 1})
+        self.assertEqual(
+            body["reviewModeCounts"],
+            {"native_subagent": 3, "role_simulation": 1, "human": 0},
+        )
         metrics = {item["key"]: item for item in body["metrics"]}
         self.assertEqual((metrics["structure_rate"]["numerator"], metrics["structure_rate"]["denominator"]), (3, 4))
         self.assertEqual(metrics["structure_rate"]["value"], 0.75)

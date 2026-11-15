@@ -35,6 +35,7 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
         export_basis=basis,
     )
     payload["reviewStatusCounts"] = _review_status_counts(rows)
+    payload["reviewModeCounts"] = _review_mode_counts(rows)
     payload["scope"] = _scope_name(str(user.get("role") or ""))
     return payload
 
@@ -132,6 +133,16 @@ def _review_status_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
         status = str(row.get("review_status") or "unknown")
         counts[status] = counts.get(status, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def _review_mode_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """审校方式分列：独立子代理 / 角色模拟 / 人工（FR-06）。"""
+    counts = {"native_subagent": 0, "role_simulation": 0, "human": 0}
+    for row in rows:
+        mode = str(row.get("reviewer_mode") or "")
+        if mode in counts:
+            counts[mode] += 1
+    return counts
 
 
 def _export_seconds(rows: list[dict[str, Any]]) -> tuple[list[float], dict[str, int]]:

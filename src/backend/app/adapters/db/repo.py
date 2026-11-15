@@ -655,7 +655,7 @@ class Repo:
                 "SELECT p.id AS plan_id, p.created_at AS plan_created_at, p.content_title, p.course, p.week,"
                 " p.session, u.display_name AS teacher, pv.content_json, pv.plan_hash,"
                 " pv.version_no, rv.id AS review_id, rv.status AS review_status, rv.round AS review_round,"
-                " rv.report_json, rv.report_sha256",
+                " rv.reviewer_mode, rv.report_json, rv.report_sha256",
                 "FROM plan p JOIN user u ON u.id = p.owner_id",
                 "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
                 self.LATEST_REVIEW_JOIN,

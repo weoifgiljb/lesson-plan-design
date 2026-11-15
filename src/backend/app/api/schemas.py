@@ -279,6 +279,8 @@ class StatsSummaryOut(BaseModel):
     metrics: list[MetricOut]
     # 审查状态分布：按当前筛选与范围全量聚合，前端不再取前 100 份自算
     reviewStatusCounts: dict[str, int] = {}
+    # 审校方式分列（FR-06）：独立子代理 / 角色模拟 / 人工
+    reviewModeCounts: dict[str, int] = {}
     filters: dict[str, Any] = {}
     scope: str = "own"
 

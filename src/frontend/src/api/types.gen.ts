@@ -1,4 +1,4 @@
-// openapi-sha256: 5b42196b90a7de1778fffa50f0e72a57aa0cf04a69a2e0e3683cb4224b2a7210
+// openapi-sha256: 524b3eea9429690ddff8d11c82bbdd0640965988e73d2418e0ae9a635fd36514
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -200,6 +200,7 @@ export interface StatRecordPage {
 export interface StatsSummaryOut {
   metrics: MetricOut[]
   reviewStatusCounts?: Record<string, number>
+  reviewModeCounts?: Record<string, number>
   filters?: Record<string, unknown>
   scope?: string
 }

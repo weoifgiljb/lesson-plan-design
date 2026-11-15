@@ -213,6 +213,8 @@ export interface StatsSummary {
   metrics: Metric[]
   /** 审查状态分布：后端按当前筛选/范围全量聚合 */
   reviewStatusCounts: Record<string, number>
+  /** 审校方式分列（FR-06） */
+  reviewModeCounts: Record<string, number>
   filters: Record<string, unknown>
   scope: 'own' | 'group' | 'all'
 }
