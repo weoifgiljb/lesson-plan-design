@@ -167,6 +167,18 @@ class TestReview(unittest.TestCase):
         with self.assertRaises(ValueError):
             adversarial_review(plan, reviewer="unknown")
 
+    def test_report_records_missing_metadata_warning(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        plan["teacher"] = ""
+        plan["teachingObject"] = ""
+        plan["teachDate"] = ""
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        warnings = report.get("warnings") or []
+        self.assertTrue(any("元信息缺失" in item for item in warnings), warnings)
+        joined = "；".join(warnings)
+        for label in ("任课教师", "教学对象", "授课日期"):
+            self.assertIn(label, joined)
+
     def test_report_is_saved_next_to_plan_and_keeps_previous_round_history(self) -> None:
         plan = draft_plan(1, 1, "测试课题")
         with tempdir() as tmp:

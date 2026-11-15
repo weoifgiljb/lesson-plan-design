@@ -2,6 +2,8 @@
 """DOCX 元信息与学时格式。"""
 from __future__ import annotations
 
+from lesson_plan.model import missing_metadata
+
 
 def _meta_value(value, placeholder: str = "____") -> str:
     text = str(value or "").strip()
@@ -19,15 +21,7 @@ def _format_hours(value) -> str:
 
 
 def _missing_metadata(plan: dict) -> list[str]:
-    missing: list[str] = []
-    for key, label in (
-        ("teacher", "任课教师"),
-        ("teachingObject", "教学对象"),
-        ("teachDate", "授课日期"),
-    ):
-        if not str(plan.get(key) or "").strip():
-            missing.append(label)
-    return missing
+    return missing_metadata(plan)
 
 
 def _meta_line(plan: dict, independence: str | None = None) -> str:

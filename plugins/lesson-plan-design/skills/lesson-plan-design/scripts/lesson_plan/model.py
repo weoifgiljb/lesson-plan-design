@@ -19,6 +19,11 @@ RULES_VERSION = "1.1.0"
 TOOL_VERSION = "1.0.0"
 MIN_OVERRIDE_REASON = 6
 BLOCKING_SEVERITIES = {"blocker", "major"}
+METADATA_REQUIRED = (
+    ("teacher", "任课教师"),
+    ("teachingObject", "教学对象"),
+    ("teachDate", "授课日期"),
+)
 
 ACTIVITY_FLOW_LABELS = {
     "introduction": "一、复习与导入新课",
@@ -185,6 +190,15 @@ def plan_hash(plan: dict[str, Any]) -> str:
     """Return a stable content hash used to invalidate stale review evidence."""
     encoded = json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def missing_metadata(plan: dict[str, Any]) -> list[str]:
+    """返回导出/审查都需要提示的缺失校标元信息（中文标签）。"""
+    return [
+        label
+        for key, label in METADATA_REQUIRED
+        if not str(plan.get(key) or "").strip()
+    ]
 
 
 def migrate_review_report(report: Any) -> dict[str, Any]:
