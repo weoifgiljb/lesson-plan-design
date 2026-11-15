@@ -25,8 +25,8 @@
 | 文档 | 版本 | 状态 | 说明 |
 |---|---|---|---|
 | [功能优化需求-校标教案生成平台.md](requirements/功能优化需求-校标教案生成平台.md) | v1.7 | ✅ 18 / 🟡 0 / ⬜ 0 | 插件端 18 条可判定需求（FR-01—FR-18），含三态状态、证据与缺口 |
-| [功能优化需求-BS平台端.md](requirements/功能优化需求-BS平台端.md) | v1.13 | ✅ 14 / 🟡 1 / ⬜ 1 | 平台端 16 条需求（BS-01—BS-16），含契约、错误码、验收口径与状态 |
-| [跨端配置与数据恢复需求.md](requirements/跨端配置与数据恢复需求.md) | v1.2 | ✅ 6 / 🟡 0 / ⬜ 2 | 跨端配置与数据恢复 8 条需求（OPS-01—OPS-08），收敛 BS-14，含快照/恢复/防呆验收口径 |
+| [功能优化需求-BS平台端.md](requirements/功能优化需求-BS平台端.md) | v1.14 | ✅ 15 / 🟡 1 / ⬜ 0 | 平台端 16 条需求（BS-01—BS-16），含契约、错误码、验收口径与状态 |
+| [跨端配置与数据恢复需求.md](requirements/跨端配置与数据恢复需求.md) | v1.3 | ✅ 7 / 🟡 0 / ⬜ 1 | 跨端配置与数据恢复 8 条需求（OPS-01—OPS-08），收敛 BS-14，含快照/恢复/防呆验收口径 |
 | [界面风格优化需求.md](requirements/界面风格优化需求.md) | v1.0 | ⬜ 13 | 界面视觉升级 13 条（UI-01—UI-13）：备课案头·纸墨批注、设计令牌 v2.0、页面/组件规格、11 个图片资产提示词与截图验收 |
 | [需求分工与协作说明.md](requirements/需求分工与协作说明.md) | v1.0 | — | 角色、归属、交接与评审节点 |
 
@@ -78,6 +78,7 @@
 | CodeBuddy | [setup/codebuddy-setup.md](setup/codebuddy-setup.md) |
 | 飞书妙搭 / 豆包工作伙伴 | [setup/feishu-miaoda-setup.md](setup/feishu-miaoda-setup.md) |
 | 换机/跨端迁移 | [setup/cross-device.md](setup/cross-device.md) |
+| 每日自动备份 | [setup/auto-backup.md](setup/auto-backup.md) |
 
 ## 生成物与源文件
 
