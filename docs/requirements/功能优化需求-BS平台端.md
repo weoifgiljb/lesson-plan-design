@@ -1,21 +1,36 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.5**
+**双端协同 · 平台端 · v1.6**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.5 |
+| 文档版本 | v1.6 |
 | 编制日期 | 2026-10-26 |
-| 修订日期 | 2026-11-03 |
-| 修订说明 | v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
+| 修订日期 | 2026-11-15 |
+| 修订说明 | v1.6：§4 补三态状态标签、证据与缺口；新增第 0 节状态标注说明；状态基线 `develop@63c6bb5`。v1.5：§5.5 补 `METHOD_NOT_ALLOWED`（405，19→20 条）；§5.4 任务象限补白名单约束；注册/建号用户名统一 3–40、显示名 ≤50；v1.4：§5.2 补 `/meta` 与任务看板 4 个端点（39→44 条），§5.5 补 5 个错误码（14→19 条），与 `contract.v1.json` 对齐；v1.3：组长可删除本人教案（§5.2 DELETE 行）；v1.2：补 `UNSUPPORTED_MEDIA`（415）错误码；v1.1：补 `PAYLOAD_REJECTED`、§7.2 用例编号映射、§5.2 契约引用、§3.4 zip 穿越样例 |
+| 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
-| 配套文档 | 《功能优化需求-校标教案生成平台》v1.0（插件端 18 条需求，下称"插件端需求"） |
+| 配套文档 | 《功能优化需求-校标教案生成平台》v1.1（插件端 18 条需求，下称"插件端需求"） |
 | 覆盖范围 | B/S 平台端（浏览器端 + 服务端）与双端协同契约 |
 | 目标读者 | 指导教师、答辩评审组、计算机教研组、开发与测试人员 |
 | 文档性质 | 平台端为新建，本文档写"要做成什么样、怎么验收"，不含实现补丁 |
 
 <!-- pagebreak -->
+
+## 0 状态标注说明
+
+**状态图例**：`✅ 已完成`＝实现与验收用例均已落地；`🟡 部分完成`＝主链路可用但仍有验收缺口；`⬜ 未开始`＝无实现或无测试。
+
+**状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
+
+**测试基线说明**：本次复核发现 `tests/fixtures/dual-end` 的 manifest 与磁盘文件哈希漂移，干净工作区直接跑 backend gate 会失败；重建夹具后后端 265/265 通过。该问题与修复排期见 `docs/dev/优化路线图.md` OPT-02。
+
+| 状态 | 数量 | 编号 |
+|---|---:|---|
+| ✅ 已完成 | 9 | BS-01—BS-07、BS-09、BS-10 |
+| 🟡 部分完成 | 5 | BS-08、BS-11、BS-12、BS-15、BS-16 |
+| ⬜ 未开始 | 2 | BS-13、BS-14 |
 
 ## 摘要
 
@@ -194,28 +209,31 @@
 
 优先级定义：P0 决定平台能不能信；P1 决定教师愿不愿意用；P2 决定长期可维护性。
 
-| 编号 | 需求名称 | 优先级 | 关联契约 | 验收指标 |
-|---|---|---|---|---|
-| BS-01 | 契约复校入库 | P0 | 契约包、planHash | 篡改拦截 100%，重复上传幂等 |
-| BS-02 | 教案库与不可变版本 | P0 | plan_version | 版本不可变，差异可读 |
-| BS-03 | 审查中心与证据链 | P0 | review、findings | 证据链完整率 100% |
-| BS-04 | 双端同步与冲突 | P0 | baseHash、sync_log | 双端一致率 ≥98% |
-| BS-05 | 角色权限与会话 | P0 | user、role | 越权 0 |
-| BS-06 | 审计台账 | P0 | audit_log | 写操作留痕 100% |
-| BS-07 | 导出中心 | P1 | export_job、engineVersion | 50 份 ≤5 分钟 |
-| BS-08 | 统计看板 | P1 | 指标口径 | 与开题表 2 一致 |
-| BS-09 | 样例库与资产 | P1 | sample、asset | 样例与插件端一致 |
-| BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% |
-| BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII |
-| BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 |
-| BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 |
-| BS-14 | 备份与迁移 | P2 | backup | 恢复演练通过 |
-| BS-15 | 引擎与模板版本 | P2 | engineVersion | 版本可追溯 |
-| BS-16 | 可观测与运维 | P2 | log、metrics | 健康检查可用 |
+| 编号 | 需求名称 | 优先级 | 关联契约 | 验收指标 | 状态 |
+|---|---|---|---|---|---|
+| BS-01 | 契约复校入库 | P0 | 契约包、planHash | 篡改拦截 100%，重复上传幂等 | ✅ 已完成 |
+| BS-02 | 教案库与不可变版本 | P0 | plan_version | 版本不可变，差异可读 | ✅ 已完成 |
+| BS-03 | 审查中心与证据链 | P0 | review、findings | 证据链完整率 100% | ✅ 已完成 |
+| BS-04 | 双端同步与冲突 | P0 | baseHash、sync_log | 双端一致率 ≥98% | ✅ 已完成 |
+| BS-05 | 角色权限与会话 | P0 | user、role | 越权 0 | ✅ 已完成 |
+| BS-06 | 审计台账 | P0 | audit_log | 写操作留痕 100% | ✅ 已完成 |
+| BS-07 | 导出中心 | P1 | export_job、engineVersion | 50 份 ≤5 分钟 | ✅ 已完成 |
+| BS-08 | 统计看板 | P1 | 指标口径 | 与开题表 2 一致 | 🟡 部分完成 |
+| BS-09 | 样例库与资产 | P1 | sample、asset | 样例与插件端一致 | ✅ 已完成 |
+| BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | ✅ 已完成 |
+| BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | 🟡 部分完成 |
+| BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | 🟡 部分完成 |
+| BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ⬜ 未开始 |
+| BS-14 | 备份与迁移 | P2 | backup | 恢复演练通过 | ⬜ 未开始 |
+| BS-15 | 引擎与模板版本 | P2 | engineVersion | 版本可追溯 | 🟡 部分完成 |
+| BS-16 | 可观测与运维 | P2 | log、metrics | 健康检查可用 | 🟡 部分完成 |
 
 ### 4.1 P0 需求
 
 #### BS-01 契约复校入库
+
+**状态**：✅ 已完成
+**证据**：`src/backend/app/application/ingest_service.py`、`app/domain/ingest.py`、`tests/test_import_api.py`、`tests/test_ingest_negative.py`；v1.2.0 基线。
 
 **现状**：平台端未建设；插件端已能产出教案 JSON、审查报告与 DOCX；`planHash` 与结构校验逻辑已存在于 `lib.py`。
 
@@ -240,6 +258,9 @@
 
 #### BS-02 教案库与不可变版本
 
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/plans.py`、`app/application/plan_service.py`、`app/domain/diff.py`、`tests/test_plans_api.py`；v1.2.0 基线。
+
 **现状**：平台端未建设；插件端每次修订都会让旧审查报告因哈希不匹配失效，但没有平台侧版本链。
 
 **目标行为**：教案列表按课程、班级、教师、周次、状态筛选；详情展示当前版本、历史版本、审查与导出记录；支持任意两版字段级差异；删除为软删除；管理员无修改教案内容的入口。
@@ -260,6 +281,9 @@
 **影响模块**：教案库页面、版本服务、`plan`/`plan_version` 表。
 
 #### BS-03 审查中心与证据链
+
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/reviews.py`、`app/domain/evidence.py`、`tests/test_reviews_api.py`、`tests/test_evidence_domain.py`；v1.2.0 基线。
 
 **现状**：插件端已有审查报告与门禁，但报告只存在教师本机；平台端没有集中查看入口。
 
@@ -282,6 +306,9 @@
 
 #### BS-04 双端同步与冲突处理
 
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/sync.py`、`app/application/sync_service.py`、`tests/test_sync_api.py`；v1.2.0 基线。
+
 **现状**：插件端可离线运行；平台端未建设；双端一致率目前无法测量。
 
 **目标行为**：提供 REST 推送与拉取，另支持共享目录监听；推送与手动导入共用同一复校管道；上传时携带 `baseHash`，服务端以乐观锁判断是否基于当前头版本；冲突返回 409 与服务端头版本、差异摘要；不自动合并；离线队列重连后幂等重试；所有同步写入 `sync_log`。
@@ -303,6 +330,9 @@
 
 #### BS-05 角色权限与会话
 
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/auth.py`、`app/api/deps.py`、`app/domain/roles.py`、`tests/test_auth_api.py`、`tests/test_jwt_auth.py`、`tests/test_permissions.py`；v1.2.0 基线。
+
 **现状**：平台端未建设；插件端的实名放行目前只记录教师姓名，没有平台账号绑定。
 
 **目标行为**：教师、教研组长、管理员三角色；按"角色 + 资源归属"双重判定；会话使用 HttpOnly、SameSite 的 Cookie；写操作校验 CSRF；登录失败锁定；密码强度与首次改密。
@@ -323,6 +353,9 @@
 **影响模块**：认证服务、权限拦截器、`user` 表、审计。
 
 #### BS-06 审计台账
+
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/audit.py`、`app/application/audit_service.py`、`tests/test_audit_api.py`；v1.2.0 基线。
 
 **现状**：平台端未建设；插件端只有报告内的 repairHistory，没有跨操作审计。
 
@@ -349,6 +382,9 @@
 
 #### BS-07 导出中心
 
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/exports.py`、`app/application/export_service.py`、`tests/test_export_api.py`；v1.2.0 基线。
+
 **现状**：插件端可本地导出 DOCX；平台端没有批量导出与模板管理。
 
 **目标行为**：选择若干教案版本批量导出；每项先过门禁（结构 + 当前报告 + 未关闭问题）；服务端调用固定 `engineVersion` 的 `export_docx.py` 生成 DOCX；保存文件与 SHA-256；逐项返回成功或失败原因；支持打包下载；记录导出日志。
@@ -368,6 +404,10 @@
 **影响模块**：导出中心页面、导出队列、`export_job` 表、文件存储。
 
 #### BS-08 统计看板
+
+**状态**：🟡 部分完成
+**证据**：`src/backend/app/api/routers/stats.py`、`app/application/stats_service.py`、`app/domain/stats.py`、`tests/test_stats_api.py`、`tests/test_stats_golden.py`；v1.2.0 基线。
+**缺口**：审查状态分布取前 100；`stats_plans` 分页无 ORDER BY；`/stats/records` 跨组可见性；概览“单份耗时”单位；ECharts 全量进入 StatsView chunk（约 1.07MB）。
 
 **现状**：开题报告表 2 定义了 9 个指标，但没有数据来源与计算实现。
 
@@ -390,6 +430,9 @@
 
 #### BS-09 样例库与资产
 
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/samples.py`、`app/application/sample_service.py`、`tests/test_samples_api.py`；v1.2.0 基线。
+
 **现状**：插件端已有 7 份信息技术金标准在 `examples/`，8 份 C 语言示例在 `output/`；平台端没有样例浏览与上传校验。
 
 **目标行为**：样例按课程、周次、课次、课题检索；展示结构分与有效性；支持预览与下载；管理员上传样例时自动跑结构校验，不合格拒绝；教材截图作为资产挂接样例或教案，记录哈希与说明。
@@ -408,6 +451,9 @@
 **影响模块**：样例库页面、`sample`/`asset` 表、文件存储。
 
 #### BS-10 任务与建课
+
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/tasks.py`、`app/application/task_service.py`、`tests/test_tasks_api.py`；v1.2.0 基线。
 
 **现状**：平台端未建设；插件端由教师直接说"第几周第几次"开始。
 
@@ -428,6 +474,10 @@
 **影响模块**：任务页面、`task` 表、任务包生成。
 
 #### BS-11 隐私与脱敏
+
+**状态**：🟡 部分完成
+**证据**：`src/backend/app/domain/security.py`、`app/api/deps.py`、`app/domain/stats.py`、`tests/test_security.py`；v1.2.0 基线。
+**缺口**：数据保留期与删除申请流程未实现；日志脱敏未见测试（原验收第 3、4 条）。
 
 **现状**：教案含学校、班级、教师姓名；插件端本地处理，平台端集中存储后风险上升。
 
@@ -450,6 +500,10 @@
 
 #### BS-12 检索与版本对比
 
+**状态**：🟡 部分完成
+**证据**：`src/backend/app/api/routers/plans.py`（`/diff`）、`app/domain/diff.py`、`tests/test_plans_api.py`；v1.2.0 基线。
+**缺口**：教案按课题/教师/班级关键词检索无 `q` 参数；检索 p95 未测（原验收第 1 条）。
+
 **现状**：平台端未建设。
 
 **目标行为**：按课题、教师、班级关键词检索；两版本并排对比，差异高亮；支持导出差异清单。
@@ -461,6 +515,10 @@
 **影响模块**：检索服务、对比组件。
 
 #### BS-13 通知与待办
+
+**状态**：⬜ 未开始
+**证据**：仓库无通知路由、服务、表与测试。
+**缺口**：原验收标准全部未满足。
 
 **现状**：平台端未建设。
 
@@ -474,6 +532,10 @@
 
 #### BS-14 备份与迁移
 
+**状态**：⬜ 未开始
+**证据**：仓库无备份/恢复/迁移脚本；能力由 OPS-02、OPS-03、OPS-07、OPS-08 收敛实现。
+**缺口**：原验收标准全部未满足。
+
 **现状**：平台端未建设。
 
 **目标行为**：每日自动备份数据库与文件；支持一键导出全部契约包；提供恢复演练脚本；结构升级前强制备份。
@@ -486,6 +548,10 @@
 
 #### BS-15 引擎与模板版本管理
 
+**状态**：🟡 部分完成
+**证据**：`src/backend/app/api/routers/settings.py`、`app/application/settings_service.py`、`app/adapters/engine.py`、`tests/test_health.py`；入库/导出已记录 `engineVersion`。
+**缺口**：模板版本登记、按版本重跑校验与差异报告未实现（原验收第 1、3 条）。
+
 **现状**：平台端未建设；插件端脚本与模板会随版本演进。
 
 **目标行为**：登记 `engineVersion` 与模板版本；入库与导出记录所用版本；升级前跑回归；支持按版本重跑校验并生成差异报告。
@@ -497,6 +563,10 @@
 **影响模块**：引擎注册、设置页、审计。
 
 #### BS-16 可观测与运维
+
+**状态**：🟡 部分完成
+**证据**：`src/backend/app/api/routers/health.py`、`app/application/health_service.py`、`app/main.py`（traceId 中间件）、`tests/test_health.py`；v1.2.0 基线。
+**缺口**：入库/导出/同步失败率指标、告警、日志保留 30 天未实现（原验收第 3 条）。
 
 **现状**：平台端未建设。
 
