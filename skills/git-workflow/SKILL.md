@@ -43,6 +43,12 @@ git switch -c feature/<id>-<slug>
 git push -u origin feature/<id>-<slug>
 ```
 
+## 状态维护
+
+- 合入前更新对应 FR/BS/OPS 的状态（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；部分完成必须写清哪条验收未满足。
+- 改需求 `.md` 同批重建同名 `.docx`；同步 `docs/README.md` 状态汇总与 `docs/dev/优化路线图.md`。
+- 没有测试或接口证据时不得标 `✅`；夹具或环境导致无法复跑时，在文档第 0 节写明基线限制。
+
 ## 联调
 
 ```bash
