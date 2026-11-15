@@ -148,7 +148,7 @@ export const DEMO_METRICS: Metric[] = [
   numerator: Number(numerator),
   denominator: Number(denominator),
   value: Number(denominator) ? Number(numerator) / Number(denominator) : null,
-  unit: key === 'export_seconds' ? '秒' : '',
+  unit: key === 'export_seconds' ? '分钟' : '',
   available: Number(denominator) > 0,
   filters: {},
 }))

@@ -63,6 +63,16 @@ describe('stats API 参数', () => {
     })
   })
 
+  it('状态抽屉请求在下钻参数上追加 status', async () => {
+    get.mockResolvedValue({ items: [], page: 1, pageSize: 20, total: 0 })
+    await listStatRecords({ status: 'passed', page: 1, pageSize: 20 })
+    expect(get).toHaveBeenCalledWith('/api/v1/stats/records', {
+      status: 'passed',
+      page: 1,
+      pageSize: 20,
+    })
+  })
+
   it('CSV 导出不能忽略筛选', async () => {
     download.mockResolvedValue(new Blob())
     await downloadStatsCsv({ course: '信息技术', dateFrom: '2026-10-01', dateTo: '2026-10-31' })

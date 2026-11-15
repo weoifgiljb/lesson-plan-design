@@ -33,11 +33,12 @@ export function getStatsSummary(query: StatsQuery = {}): Promise<StatsSummary> {
   return client.get<StatsSummary>('/api/v1/stats/summary', toStatsParams(query))
 }
 
-/** 指标下钻：与 summary 同一套筛选，返回逐条记录。 */
+/** 指标下钻：与 summary 同一套筛选，返回逐条记录；status 用于状态分布抽屉。 */
 export function listStatRecords(
-  query: StatsQuery & { page?: number; pageSize?: number } = {},
+  query: StatsQuery & { status?: string; page?: number; pageSize?: number } = {},
 ): Promise<Paged<StatRecord>> {
   const params = toStatsParams(query)
+  if (query.status) params.status = query.status
   if (query.page) params.page = query.page
   if (query.pageSize) params.pageSize = query.pageSize
   return client.get<Paged<StatRecord>>('/api/v1/stats/records', params)

@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import * as echarts from 'echarts'
+import { init, use, type EChartsType } from 'echarts/core'
+import type { EChartsOption } from 'echarts'
+import { BarChart, PieChart, ScatterChart } from 'echarts/charts'
+import { GraphicComponent, GridComponent, MarkLineComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+
+// 按需注册：统计页只用到条形/环形/散点与网格、提示、图心文字，避免整包进 chunk。
+use([BarChart, PieChart, ScatterChart, GridComponent, TooltipComponent, GraphicComponent, MarkLineComponent, CanvasRenderer])
 
 const props = withDefaults(
   defineProps<{
-    option: echarts.EChartsOption
+    option: EChartsOption
     height?: string
     label?: string
     summary?: string
@@ -17,7 +24,7 @@ const emit = defineEmits<{
 }>()
 
 const host = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
+let chart: EChartsType | null = null
 let observer: ResizeObserver | null = null
 
 function prefersReducedMotion(): boolean {
@@ -28,12 +35,13 @@ function prefersReducedMotion(): boolean {
   )
 }
 
-function ensureChart(): echarts.ECharts | null {
+function ensureChart(): EChartsType | null {
   if (!host.value) return null
   if (!chart) {
-    chart = echarts.init(host.value)
+    const instance = init(host.value)
+    chart = instance
     // 点条形/扇区由页面决定打开哪一层明细；图本身只负责把点击抛出去。
-    chart.on('click', (params) => emit('select', params))
+    instance.on('click', (params) => emit('select', params))
   }
   return chart
 }

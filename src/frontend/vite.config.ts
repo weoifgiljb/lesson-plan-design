@@ -24,9 +24,22 @@ export default defineConfig({
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vue: ['vue', 'vue-router', 'pinia'],
-          element: ['element-plus', '@element-plus/icons-vue'],
+        // ECharts 按需注册后仍是大依赖：独立 vendor chunk，避免撑大统计页路由 chunk。
+        manualChunks(id) {
+          if (id.includes('node_modules/echarts') || id.includes('node_modules/zrender')) {
+            return 'echarts'
+          }
+          if (id.includes('node_modules/element-plus') || id.includes('node_modules/@element-plus')) {
+            return 'element'
+          }
+          if (
+            id.includes('node_modules/vue') ||
+            id.includes('node_modules/pinia') ||
+            id.includes('node_modules/@vue')
+          ) {
+            return 'vue'
+          }
+          return undefined
         },
       },
     },

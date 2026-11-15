@@ -18,13 +18,15 @@ export interface MetricDisplay {
 
 export function formatMetric(metric: Metric): MetricDisplay | null {
   if (!metric.available || metric.value === null || metric.denominator === 0) return null
-  const isSeconds = metric.unit === '秒' || metric.key === 'export_seconds'
+  // 后端 BS-08 固定返回分钟；旧演示/兼容数据可能给秒，按接口 unit 显示，不再按 key 猜。
+  const durationUnit = metric.unit === '秒' ? '秒' : metric.unit === '分钟' ? '分钟' : ''
+  const isDuration = Boolean(durationUnit) || metric.key === 'export_seconds'
   const ratio = Math.min(100, Math.round((metric.numerator / metric.denominator) * 100))
 
-  if (isSeconds) {
+  if (isDuration) {
     return {
       value: metric.value.toFixed(1),
-      unit: '秒',
+      unit: durationUnit || '分钟',
       foot: `${metric.denominator} 次导出`,
       hint: '按成功导出平均',
       ratio,

@@ -113,6 +113,7 @@ const METRICS: Metric[] = [
 
 const SUMMARY: StatsSummary = {
   metrics: METRICS,
+  reviewStatusCounts: { passed: 1 },
   filters: {},
   scope: 'own',
 }
