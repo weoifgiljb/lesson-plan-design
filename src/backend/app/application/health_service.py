@@ -8,11 +8,18 @@ from app.adapters import engine, storage
 from app.adapters.db.repo import Repo
 
 
-def collect(repo: Repo) -> dict[str, Any]:
+def collect(repo: Repo | None, data_status: dict[str, Any] | None = None) -> dict[str, Any]:
     versions = engine.engine_versions()
+    data = data_status or {"status": "ok", "data": {}}
     checks = {
-        "database": repo.health(),
+        "database": repo.health() if repo is not None else "down",
         "disk": storage.disk_status(),
         "engine": "down" if "status" in versions else "ok",
+        "data": str(data.get("status") or "ok"),
     }
-    return {"ok": all(value == "ok" for value in checks.values()), "checks": checks, "versions": versions}
+    return {
+        "ok": all(value == "ok" for value in checks.values()),
+        "checks": checks,
+        "versions": versions,
+        "data": data.get("data") or {},
+    }

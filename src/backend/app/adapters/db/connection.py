@@ -7,6 +7,7 @@ import sqlite3
 from pathlib import Path
 
 from app.config import db_path
+from app.adapters.db import instance
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
@@ -69,6 +70,11 @@ def set_version(conn: sqlite3.Connection, version: int) -> None:
 
 
 def open_database(path: Path | None = None) -> sqlite3.Connection:
-    conn = connect(path)
+    target = path or db_path()
+    if path is None:
+        instance.ensure_ready(target.parent, target, schema_version=SCHEMA_VERSION)
+    conn = connect(target)
     initialize(conn)
+    if path is None:
+        instance.write_instance(target.parent, SCHEMA_VERSION)
     return conn
