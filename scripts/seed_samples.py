@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """把插件自带的黄金样例导入样例库（幂等）。
 
-需求写的是"15 份样例"，插件仓库当前只带 7 份（`plugins/.../examples/*.json`）。
-本脚本把存在的样例全部导入，并打印"库内数量 / 插件数量"，差多少一眼可见。
+插件 `examples/` 当前带 15 份（7 信息技术 + 8 C 语言）；本脚本把存在的样例全部导入，并打印
+"库内数量 / 插件数量"，差多少一眼可见。
 """
 from __future__ import annotations
 
@@ -40,10 +40,9 @@ def main() -> int:
     try:
         repo = Repo(connection)
         admin = None
-        for user in repo.list_users():
-            if str(user["role"]) == "admin":
-                admin = user
-                break
+        users, _total = repo.list_users({"role": "admin"}, 1, 0)
+        if users:
+            admin = users[0]
         if admin is None:
             print("需要先有一个 admin 账号（py -3 scripts/seed_users.py --admin ...）")
             return 1

@@ -1,0 +1,97 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "C语言程序设计",
+  "planNumber": "C0202",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 2,
+  "session": 2,
+  "contentTitle": "运算符、表达式与键盘输入输出",
+  "contentDetail": "项目二：运算符、表达式与键盘输入输出",
+  "plannedHours": 2,
+  "teachingPurpose": "通过计算器任务掌握算术表达式、scanf输入和printf输出，形成按步骤验证结果的习惯。",
+  "knowledgeGoals": "1. 认识算术、关系和赋值运算符。\n2. 理解整数除法和表达式优先级。\n3. 掌握scanf和printf基本格式。",
+  "abilityGoals": "能编写两个数四则运算程序，正确读取输入并检查结果。",
+  "qualityGoals": "养成输入前提示、运算后验算、发现异常及时排查的习惯。",
+  "keyPoints": "重点：表达式和输入输出格式。难点：整数除法、取余和地址符号。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "从口算计算器引出程序表达式",
+        "teacherActivity": "展示两个数加减乘除需求",
+        "studentActivity": "手算并预测程序结果",
+        "minutes": 10,
+        "evidence": "预测表"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "完成可交互四则运算程序",
+        "teacherActivity": "说明输入提示和测试数据",
+        "studentActivity": "记录测试用例",
+        "minutes": 5,
+        "evidence": "测试用例表"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "算术运算符、优先级、scanf/printf",
+        "teacherActivity": "演示取余、整数除法和&变量地址，展示错误格式",
+        "studentActivity": "输入测试数据并核对结果",
+        "minutes": 25,
+        "evidence": "三组测试结果"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "必须完成：编写两数运算计算器",
+        "teacherActivity": "指导设置边界数据并巡回调试",
+        "studentActivity": "创建C04_学号.c，读取两个整数输出和差积商余",
+        "minutes": 30,
+        "evidence": "提交源文件和三组运行结果"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "检查输入、表达式和测试覆盖",
+        "teacherActivity": "按功能和测试证据评分",
+        "studentActivity": "演示一组正常和一组边界数据",
+        "minutes": 10,
+        "evidence": "运行记录"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "总结输入—计算—输出流程",
+        "teacherActivity": "追问整数除法和取余",
+        "studentActivity": "回答并改正错题",
+        "minutes": 5,
+        "evidence": "口答"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "扩展圆面积计算",
+        "teacherActivity": "布置常量PI和小数输入练习",
+        "studentActivity": "完成程序并自测",
+        "minutes": 5,
+        "evidence": "作业代码"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "分析格式符和整数除法错误",
+        "teacherActivity": "整理典型编译/运行现象",
+        "studentActivity": "提交疑难点",
+        "minutes": 0,
+        "evidence": "错例表"
+      }
+    ]
+  }
+}

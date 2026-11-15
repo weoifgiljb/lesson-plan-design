@@ -1,0 +1,97 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "C语言程序设计",
+  "planNumber": "C0201",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 2,
+  "session": 1,
+  "contentTitle": "数据类型、变量与常量",
+  "contentDetail": "项目二：数据、变量与常量",
+  "plannedHours": 2,
+  "teachingPurpose": "通过成绩和商品价格案例理解数据类型、变量和常量，能声明并使用基本变量。",
+  "knowledgeGoals": "1. 区分int、float、char。\n2. 了解变量声明、赋值和初始化。\n3. 知道常量与变量的区别。",
+  "abilityGoals": "1. 能根据数据选择类型。\n2. 能编写变量声明和赋值代码并输出结果。\n3. 能发现类型不匹配问题。",
+  "qualityGoals": "形成先分析数据再编码、规范命名和检查类型的习惯。",
+  "keyPoints": "重点：类型选择、变量声明赋值。难点：字符与字符串、整数与小数。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "比较年龄、价格和姓名拼音的数据表示",
+        "teacherActivity": "展示不同数据案例并提问类型",
+        "studentActivity": "给案例分类并说明理由",
+        "minutes": 10,
+        "evidence": "完成数据分类表"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "声明三类变量并输出",
+        "teacherActivity": "明确命名和提交要求",
+        "studentActivity": "记录本课变量清单",
+        "minutes": 5,
+        "evidence": "变量清单"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "int、float、char及声明赋值",
+        "teacherActivity": "演示初始化、修改值和格式化输出，展示类型错误",
+        "studentActivity": "跟做代码并观察输出差异",
+        "minutes": 25,
+        "evidence": "运行无报错"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "必须完成：制作学生信息和商品小票变量程序",
+        "teacherActivity": "提供任务单并指导类型选择",
+        "studentActivity": "创建C03_学号.c，声明姓名首字母、年龄、身高和价格并输出",
+        "minutes": 30,
+        "evidence": "提交源文件及运行截图"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "按类型选择、命名、输出评分",
+        "teacherActivity": "检查变量类型和结果",
+        "studentActivity": "解释一个变量为何选该类型",
+        "minutes": 10,
+        "evidence": "代码和口头说明"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "回顾类型—变量—常量关系",
+        "teacherActivity": "用错例提问",
+        "studentActivity": "完成判断题",
+        "minutes": 5,
+        "evidence": "判断题答案"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "补充三条生活数据变量",
+        "teacherActivity": "布置类型选择练习",
+        "studentActivity": "写出声明、初值和理由",
+        "minutes": 5,
+        "evidence": "练习单"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "记录类型混淆错例",
+        "teacherActivity": "整理下节课复习清单",
+        "studentActivity": "反馈最难理解的数据类型",
+        "minutes": 0,
+        "evidence": "教师反思"
+      }
+    ]
+  }
+}
