@@ -1,14 +1,14 @@
 # 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.12**
+**双端协同 · 平台端 · v1.13**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.12 |
+| 文档版本 | v1.13 |
 | 编制日期 | 2026-10-26 |
 | 修订日期 | 2026-11-15 |
-| 修订说明 | v1.12：BS-11 删除申请/保留期/日志脱敏升 ✅；BS-16 补告警与 30 天保留策略；schemaVersion 15；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅、BS-16 运维页；v1.9：同步 FR v1.7；v1.8：同步 FR v1.3；v1.7：BS-08 收口 |
+| 修订说明 | v1.13：BS-13 站内通知升 ✅；schemaVersion 16；v1.12：BS-11 升 ✅、BS-16 告警；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅；v1.9：同步 FR v1.7 |
 | 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.4（插件端 18 条需求，下称"插件端需求"） |
@@ -24,13 +24,13 @@
 
 **状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
 
-**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 278 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
+**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、256 项通过；backend gate block 0、后端 280 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
 
 | 状态 | 数量 | 编号 |
 |---|---:|---|
-| ✅ 已完成 | 13 | BS-01—BS-12、BS-15 |
+| ✅ 已完成 | 14 | BS-01—BS-13、BS-15 |
 | 🟡 部分完成 | 1 | BS-16 |
-| ⬜ 未开始 | 2 | BS-13、BS-14 |
+| ⬜ 未开始 | 1 | BS-14 |
 
 ## 摘要
 
@@ -223,7 +223,7 @@
 | BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | ✅ 已完成 |
 | BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | ✅ 已完成 |
 | BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | ✅ 已完成 |
-| BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ⬜ 未开始 |
+| BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ✅ 已完成 |
 | BS-14 | 备份与迁移 | P2 | backup | 恢复演练通过 | ⬜ 未开始 |
 | BS-15 | 引擎与模板版本 | P2 | engineVersion | 版本可追溯 | ✅ 已完成 |
 | BS-16 | 可观测与运维 | P2 | log、metrics | 健康检查可用 | 🟡 部分完成 |
@@ -516,9 +516,9 @@
 
 #### BS-13 通知与待办
 
-**状态**：⬜ 未开始
-**证据**：仓库无通知路由、服务、表与测试。
-**缺口**：原验收标准全部未满足。
+**状态**：✅ 已完成
+**证据**：迁移 `0016_notification.sql`、`notification_service.py`、`routers/notifications.py`、`test_notifications_api.py`；`NotificationsView.vue` 与 `/notifications` 路由。
+**实现说明**：审查需修复、任务逾期、导出完成、报告过期四类事件写入通知；逾期在列表时生成且去重；已读/未读与全部已读可用；查询按当前用户隔离。
 
 **现状**：平台端未建设。
 
@@ -597,7 +597,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（50 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（53 个接口、20 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -624,6 +624,9 @@
 | GET | /api/v1/plans/{id}/versions/{version_no}/revalidate | 登录 + 归属 | 按当前引擎重跑指定版本校验 | 是 |
 | POST | /api/v1/plans/{id}/deletion-request | 教师、组长（本人） | 提交删除申请 | 是 |
 | GET | /api/v1/deletion-requests | 管理员 | 删除申请列表 | 是 |
+| GET | /api/v1/notifications | 登录 | 站内通知列表 | 是 |
+| POST | /api/v1/notifications/{notification_id}/read | 登录 | 标记单条已读 | 是 |
+| POST | /api/v1/notifications/read-all | 登录 | 全部已读 | 是 |
 | POST | /api/v1/deletion-requests/{request_id}/resolve | 管理员 | 批准/驳回删除申请 | 否 |
 | GET | /api/v1/metrics/ops | 管理员 | 导出失败率/同步冲突率 | 是 |
 | DELETE | /api/v1/plans/{id} | 本人（教师/组长）或管理员 | 软删除 | 是 |
@@ -676,6 +679,7 @@
 | sync_log | id、direction、package_sha256、plan_hash、result、conflict_code、operator_id | 只追加 |
 | audit_log | id、actor_id、action、target_type、target_id、before_hash、after_hash、detail_json、ip | 只追加 |
 | deletion_request | id、plan_id、requester_id、reason、status、created_at、due_at、resolved_at、resolver_id | 同一教案同时只保留一条 pending；批准后软删除 |
+| notification | id、user_id、kind、title、body、target_type、target_id、created_at、read_at | 只读列表；按用户隔离；同事件去重 |
 
 ### 5.5 错误码
 
