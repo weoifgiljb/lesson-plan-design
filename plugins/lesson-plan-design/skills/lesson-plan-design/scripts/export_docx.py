@@ -7,6 +7,7 @@ import hashlib
 import json
 import sys
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -35,8 +36,16 @@ def export_docx_result(
     if strict_metadata and missing_metadata:
         raise ValueError("严格模式缺少元信息：" + "、".join(missing_metadata))
     output.parent.mkdir(parents=True, exist_ok=True)
+    exported = datetime.now().astimezone()
+    exported_label = exported.strftime("%Y-%m-%d %H:%M")
     pkg = DocxPackage(base_dir=base_dir)
-    pkg.footer_xml = _footer_xml(plan)
+    pkg.core_properties = {
+        "title": f"{plan.get('contentTitle') or '未命名课题'} 教案",
+        "creator": str(plan.get("teacher") or "lesson-plan-design"),
+        "lastModifiedBy": f"lesson-plan-design {ENGINE_VERSION}",
+        "created": exported.astimezone(timezone.utc).isoformat(timespec="seconds"),
+    }
+    pkg.footer_xml = _footer_xml(plan, exported_label)
     document_xml = build_document_xml(plan, pkg, independence=independence, overrides=overrides)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, data in pkg.zip_parts(document_xml).items():
@@ -60,6 +69,12 @@ def export_docx_result(
         "warnings": warnings,
         "media": media,
         "engineVersion": ENGINE_VERSION,
+        "stats": {
+            "media": len(media),
+            "warnings": len(warnings),
+            "bytes": output.stat().st_size,
+            "exportedAt": exported.isoformat(timespec="seconds"),
+        },
     }
 
 
@@ -142,6 +157,7 @@ def main() -> int:
         "engineVersion": result["engineVersion"],
         "selfCheck": check,
         "warnings": result["warnings"],
+        "stats": result["stats"],
     }))
     return 0
 

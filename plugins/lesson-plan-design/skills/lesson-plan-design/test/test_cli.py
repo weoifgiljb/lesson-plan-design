@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 import unittest
+import zipfile
 from pathlib import Path
 
 from support import PLUGIN_ROOT, tempdir
@@ -200,6 +201,27 @@ class TestCli(unittest.TestCase):
         with self.assertRaises(ValueError):
             export_docx(plan, out, strict_metadata=True)
         self.assertFalse(out.exists())
+
+    def test_export_writes_core_properties_footer_time_and_stats(self) -> None:
+        plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套", teacher="张老师")
+        plan_path = self._plan_file(plan)
+        out = self.root / "props.docx"
+        write_report(plan_path, plan)
+        exported = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertEqual(exported.returncode, 0, exported.stderr + exported.stdout)
+        payload = json.loads(exported.stdout)
+        self.assertGreater(payload["stats"]["bytes"], 0)
+        self.assertIn("media", payload["stats"])
+        self.assertIn("warnings", payload["stats"])
+        with zipfile.ZipFile(out) as archive:
+            core = archive.read("docProps/core.xml").decode("utf-8")
+            footer = archive.read("word/footer1.xml").decode("utf-8")
+            content_types = archive.read("[Content_Types].xml").decode("utf-8")
+        self.assertIn("一级考证辅导2", core)
+        self.assertIn("张老师", core)
+        self.assertIn("lesson-plan-design", core)
+        self.assertIn("导出于", footer)
+        self.assertIn("docProps/core.xml", content_types)
 
     def test_cli_export_strict_metadata(self) -> None:
         plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")

@@ -145,6 +145,7 @@ def tool_export_lesson_docx(args: dict) -> dict:
         "engineVersion": result["engineVersion"],
         "selfCheck": check,
         "warnings": result["warnings"],
+        "stats": result["stats"],
     }))
 
 

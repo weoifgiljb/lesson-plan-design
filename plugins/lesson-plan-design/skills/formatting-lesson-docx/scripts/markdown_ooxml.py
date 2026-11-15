@@ -384,6 +384,7 @@ class DocxPackage:
         self._next_num_id = 10
         self._docpr_id = 1
         self.footer_xml: str | None = None
+        self.core_properties: dict[str, str] | None = None
         self.missing_images: list[str] = []
 
     def new_ordered_num(self) -> int:
@@ -573,6 +574,10 @@ class DocxPackage:
             overrides.append(
                 '<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
             )
+        if self.core_properties is not None:
+            overrides.append(
+                '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
+            )
         return (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
             '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -581,20 +586,50 @@ class DocxPackage:
             + "</Types>"
         )
 
+    def core_xml(self) -> str:
+        props = self.core_properties or {}
+
+        def text(key: str) -> str:
+            return escape(str(props.get(key) or ""))
+
+        return (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+            'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+            'xmlns:dcterms="http://purl.org/dc/terms/" '
+            'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+            f"<dc:title>{text('title')}</dc:title>"
+            f"<dc:creator>{text('creator')}</dc:creator>"
+            f"<cp:lastModifiedBy>{text('lastModifiedBy')}</cp:lastModifiedBy>"
+            "<cp:revision>1</cp:revision>"
+            f'<dcterms:created xsi:type="dcterms:W3CDTF">{text("created")}</dcterms:created>'
+            "</cp:coreProperties>"
+        )
+
     def zip_parts(self, document_xml: str) -> dict[str, bytes]:
-        package_rels = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="{NS_REL}">
-  <Relationship Id="rId1" Type="{NS_R}/officeDocument" Target="word/document.xml"/>
-</Relationships>
-"""
+        package_rels = [
+            f'<Relationship Id="rId1" Type="{NS_R}/officeDocument" Target="word/document.xml"/>',
+        ]
+        if self.core_properties is not None:
+            package_rels.append(
+                '<Relationship Id="rId2" '
+                'Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" '
+                'Target="docProps/core.xml"/>'
+            )
+        package_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            f'<Relationships xmlns="{NS_REL}">' + "".join(package_rels) + "</Relationships>"
+        )
         parts: dict[str, bytes] = {
             "[Content_Types].xml": self.content_types().encode("utf-8"),
-            "_rels/.rels": package_rels.encode("utf-8"),
+            "_rels/.rels": package_xml.encode("utf-8"),
             "word/_rels/document.xml.rels": self.document_rels().encode("utf-8"),
             "word/document.xml": document_xml.encode("utf-8"),
             "word/styles.xml": STYLES_XML.encode("utf-8"),
             "word/numbering.xml": self.numbering_xml().encode("utf-8"),
         }
+        if self.core_properties is not None:
+            parts["docProps/core.xml"] = self.core_xml().encode("utf-8")
         for _rid, dest, path in self._images:
             parts[dest] = path.read_bytes()
         if self.footer_xml is not None:
