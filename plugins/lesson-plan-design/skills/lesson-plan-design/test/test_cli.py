@@ -41,6 +41,18 @@ class TestCli(unittest.TestCase):
         self.assertEqual(drafted.returncode, 0, drafted.stderr)
         self.assertIn("模板匹配同分", drafted.stderr)
 
+    def test_chinese_and_space_path_round_trip(self) -> None:
+        plan = make_plan(1, 2, "一级考证辅导1")
+        nested = self.root / "中文 目录"
+        plan_path = write_plan(nested, plan, "教案 文件.json")
+        validated = run_cli("validate.py", plan_path)
+        self.assertEqual(validated.returncode, 0, validated.stderr)
+        reviewed = run_cli("adversarial_review.py", plan_path, "--no-counterexample")
+        self.assertEqual(reviewed.returncode, 0, reviewed.stderr)
+        exported = run_cli("export_docx.py", plan_path)
+        self.assertEqual(exported.returncode, 0, exported.stderr)
+        self.assertTrue((nested / "教案_第1周第2次.docx").is_file())
+
     def test_export_docx(self) -> None:
         plan = make_plan(1, 2, "一级考证辅导1")
         out = self.root / "demo.docx"
