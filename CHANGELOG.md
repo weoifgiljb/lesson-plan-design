@@ -2,6 +2,19 @@
 
 本文件记录每个发布标签的变更。版本号遵循语义化版本；标签打在 `main` 上，发布路径为 `feature/* → develop → main`，详见 [docs/dev/git-workflow.md](docs/dev/git-workflow.md)。
 
+## 未发布
+
+### 文档
+
+- 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.1、BS 升 v1.6，OPS 首版按未开始标注；同步更新 `docs/README.md` 状态汇总。
+- 新增 [docs/dev/优化路线图.md](docs/dev/优化路线图.md)：14/14/14 状态快照、测试夹具漂移与解释器依赖两个基线事实，以及 OPT-01—OPT-09 批次、验收与裁剪建议。
+- `AGENTS.md`、`.cursor/rules/git-workflow.mdc`、`skills/git-workflow/SKILL.md` 写入需求状态维护规则：实现合入时同批更新状态/证据/缺口，改 md 重建 docx。
+
+### 已知基线
+
+- `tests/fixtures/dual-end` 的 manifest 与磁盘文件哈希漂移：干净工作区直接跑 backend gate 有 21 项失败；`py -3 tests/fixtures/dual-end/build_fixtures.py` 重建后后端 265/265 通过。修复排期见优化路线图 OPT-02。
+- `py -3` 缺 `python-multipart`，项目 `.venv` 缺 `python-docx`；文档构建与后端测试需分别使用对应解释器。
+
 ## v1.2.0 — 2026-11-04
 
 ### 新增
