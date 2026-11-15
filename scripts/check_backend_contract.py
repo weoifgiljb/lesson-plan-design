@@ -330,7 +330,9 @@ def dump_openapi(backend=None, openapi_path=None) -> Path:
 
     snapshot = app.openapi()
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    output.write_text(
+        json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
     return output
 
 

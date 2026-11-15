@@ -1840,6 +1840,22 @@
             }
           },
           {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -4041,6 +4057,14 @@
             },
             "type": "array",
             "title": "Metrics"
+          },
+          "reviewStatusCounts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Reviewstatuscounts",
+            "default": {}
           },
           "filters": {
             "additionalProperties": true,
