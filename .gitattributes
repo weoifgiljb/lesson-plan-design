@@ -1,0 +1,3 @@
+# 平台数据库按二进制提交，禁止文本合并；冲突时人工处理
+data/app.db binary
+data/files/** -text

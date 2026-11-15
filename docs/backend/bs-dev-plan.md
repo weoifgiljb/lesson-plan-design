@@ -217,7 +217,7 @@ src/
 | 项目 | 决定 |
 |---|---|
 | 引擎 | SQLite 3（随 Python 3.12 提供），标准库 `sqlite3`，不用 ORM、不装数据库服务 |
-| 文件 | 默认 `<仓库根目录>/data/app.db`；`LPP_DATA_DIR` 可改目录；`data/` 已 gitignore |
+| 文件 | 默认 `<仓库根目录>/data/app.db`；`LPP_DATA_DIR` 可改目录；仅 `data/app.db` 与 `data/files/samples/` 入库，`data/exports/`、`data/backup/` 与运行态 WAL 仍忽略 |
 | 连接参数 | `journal_mode=WAL`、`foreign_keys=ON`、`busy_timeout=5000`、`synchronous=NORMAL`；写事务 `BEGIN IMMEDIATE` |
 | 并发 | 进程内单写锁（`app.state.db_lock`）串行化写事务，`SQLITE_BUSY` 重试 3 次；单实例部署 |
 | 结构 | `app/adapters/db/schema.sql` 是 v1 全量 DDL；`PRAGMA user_version` 记录版本，后续 `migrations/000N_*.sql` 顺次升级 |
