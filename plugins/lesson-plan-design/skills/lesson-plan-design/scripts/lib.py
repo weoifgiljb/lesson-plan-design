@@ -37,6 +37,7 @@ from lesson_plan.model import (
     _structured_task_text,
     empty_flow,
     empty_plan,
+    migrate_review_report,
     plan_hash,
 )
 from lesson_plan.review import adversarial_review
@@ -56,7 +57,7 @@ __all__ = [
     "TEMPLATES_DIR", "TOOL_VERSION", "adversarial_review", "check_examples",
     "default_review_path", "derive_review_status", "draft_plan", "dump",
     "empty_flow", "empty_plan", "example_entries", "export_gate", "load_examples",
-    "load_json", "load_review_report", "overlap_ratio", "plan_hash",
+    "load_json", "load_review_report", "migrate_review_report", "overlap_ratio", "plan_hash",
     "record_teacher_override", "save_review_report", "score_against_examples",
     "tokenize", "validate_plan",
 ]

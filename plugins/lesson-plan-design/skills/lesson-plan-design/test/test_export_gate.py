@@ -12,6 +12,7 @@ from lib import (
     draft_plan,
     export_gate,
     load_examples,
+    migrate_review_report,
     plan_hash,
     record_teacher_override,
 )
@@ -201,6 +202,36 @@ class TestExportGate(unittest.TestCase):
         report.pop("independence", None)
         result = export_gate(plan, report, strict_independence=True)
         self.assertTrue(result["ok"], result["reasons"])
+
+    def test_legacy_report_is_migrated_without_changing_conclusion(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        report["schemaVersion"] = 0
+        report.pop("independence", None)
+        report.pop("toolVersion", None)
+        migrated = migrate_review_report(report)
+        self.assertEqual(migrated["schemaVersion"], REVIEW_SCHEMA_VERSION)
+        self.assertEqual(migrated["migratedFrom"], 0)
+        self.assertEqual(migrated["independence"], "native_subagent")
+        result = export_gate(plan, report)
+        self.assertTrue(result["ok"], result["reasons"])
+
+    def test_migration_does_not_fake_missing_evidence(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        report["schemaVersion"] = 0
+        report.pop("findings", None)
+        result = export_gate(plan, report)
+        self.assertFalse(result["ok"])
+        self.assertIn("审查报告缺少必要字段", result["reasons"])
+
+    def test_future_report_version_is_rejected(self) -> None:
+        plan = draft_plan(1, 1, "测试课题")
+        report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+        report["schemaVersion"] = 99
+        result = export_gate(plan, report)
+        self.assertFalse(result["ok"])
+        self.assertIn("高于当前工具", "；".join(result["reasons"]))
 
     def test_report_with_wrong_rubric_version_cannot_open_export_gate(self) -> None:
         plan = draft_plan(1, 1, "测试课题")

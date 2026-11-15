@@ -11,6 +11,7 @@ from .model import (
     REVIEW_SCHEMA_VERSION,
     RUBRIC_VERSION,
     TOOL_VERSION,
+    migrate_review_report,
     plan_hash,
 )
 from .validation import validate_plan
@@ -138,6 +139,11 @@ def export_gate(
         return {"ok": False, "reasons": reasons, "structuralValidation": structural}
     if not isinstance(report, dict):
         reasons.append("审查报告格式无效")
+        return {"ok": False, "reasons": reasons, "structuralValidation": structural}
+    try:
+        report = migrate_review_report(report)
+    except ValueError as exc:
+        reasons.append(str(exc))
         return {"ok": False, "reasons": reasons, "structuralValidation": structural}
     required_report = ("schemaVersion", "rubricVersion", "planHash", "round", "reviewer", "reviewedAt", "structuralValidation", "findings", "overrides", "repairHistory", "status", "attestation")
     if any(key not in report for key in required_report):

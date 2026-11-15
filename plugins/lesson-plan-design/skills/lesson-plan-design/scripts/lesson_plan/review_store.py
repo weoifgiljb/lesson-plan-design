@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .jsonio import dump, load_json
+from .model import migrate_review_report
 
 
 def default_review_path(plan_path: Path) -> Path:
@@ -16,7 +17,7 @@ def load_review_report(path: Path) -> dict[str, Any]:
     data = load_json(path)
     if not isinstance(data, dict):
         raise ValueError("审查报告必须是 JSON 对象")
-    return data
+    return migrate_review_report(data)
 
 
 def save_review_report(path: Path, report: dict[str, Any]) -> Path:
