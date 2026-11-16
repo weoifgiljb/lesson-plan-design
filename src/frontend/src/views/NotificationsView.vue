@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElMessage } from 'element-plus'
 import { sealSuccess } from '@/utils/seal-toast'
 
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications'
