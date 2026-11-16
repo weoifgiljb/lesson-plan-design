@@ -823,6 +823,7 @@ const columns: TableColumn[] = [
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
 }
 
 .chart-panel--sample {
@@ -830,8 +831,10 @@ const columns: TableColumn[] = [
 }
 
 .chart-panel__head h3 {
-  font-size: var(--lpp-font-md);
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-lg);
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .chart-panel__head p {

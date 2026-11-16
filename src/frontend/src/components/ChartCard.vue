@@ -82,7 +82,7 @@ onBeforeUnmount(() => {
 <template>
   <figure class="chart-figure">
     <div ref="host" class="chart" :style="{ height }" role="img" :aria-label="label" />
-    <figcaption v-if="summary" class="sr-only">{{ summary }}</figcaption>
+    <figcaption v-if="summary" class="chart-summary">{{ summary }}</figcaption>
   </figure>
 </template>
 
@@ -93,5 +93,14 @@ onBeforeUnmount(() => {
 
 .chart {
   width: 100%;
+}
+
+.chart-summary {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--lpp-paper-line);
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.55;
 }
 </style>

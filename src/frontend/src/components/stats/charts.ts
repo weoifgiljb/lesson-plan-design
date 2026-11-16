@@ -67,7 +67,7 @@ export function buildAchievementOption(metrics: Metric[]): EChartsOption {
       },
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: CHART_TOKENS.grid } },
+      splitLine: { lineStyle: { color: CHART_TOKENS.grid, type: 'dashed' } },
     },
     yAxis: {
       type: 'category',
@@ -101,7 +101,7 @@ export function buildAchievementOption(metrics: Metric[]): EChartsOption {
           value: row.value,
           itemStyle: {
             color: row.sampleInsufficient ? PALETTE.warning : PALETTE.primary,
-            borderRadius: [0, 4, 4, 0],
+            borderRadius: [0, 3, 3, 0],
           },
         })),
         label: {
