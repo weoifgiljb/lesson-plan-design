@@ -61,6 +61,40 @@ describe('OverviewBoard', () => {
     wrapper.unmount()
   })
 
+  it('opens a today card with one click', async () => {
+    const wrapper = mount(OverviewBoard, {
+      props: {
+        greeting: '下午好，张老师',
+        description: '',
+        dateLabel: '2026年10月29日',
+        metrics,
+        structure: null,
+        queue: [],
+        todos: [
+          {
+            id: 'plan-9',
+            kind: '待修复',
+            title: '待修复课',
+            detail: '第 1 版 / 第 1 轮',
+            due: '待处理',
+            planId: 9,
+          },
+        ],
+        activities: [],
+        queueTitle: '审查队列',
+        queueDescription: '',
+        primaryLabel: '刷新概览',
+      },
+      global: { plugins: [ElementPlus], stubs: { RouterLink: true } },
+    })
+    await flushPromises()
+    await wrapper.find('.today-card').trigger('click')
+    expect(wrapper.emitted('open-todo')?.[0]).toEqual([
+      expect.objectContaining({ planId: 9, kind: '待修复' }),
+    ])
+    wrapper.unmount()
+  })
+
   it('shows code, traceId and retry for a core error', async () => {
     const wrapper = mount(OverviewBoard, {
       props: {

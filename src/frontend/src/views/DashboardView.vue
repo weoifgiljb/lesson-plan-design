@@ -148,6 +148,8 @@ const todos = computed<OverviewTodo[]>(() => {
       title: `${review.contentTitle} / 第 ${review.round} 轮`,
       detail: `证据 ${review.evidence.passed}/${review.evidence.total}`,
       due: '待审',
+      planId: review.planId,
+      reviewId: review.reviewId,
     })
   }
   for (const plan of plans.data.value?.items ?? []) {
@@ -158,6 +160,7 @@ const todos = computed<OverviewTodo[]>(() => {
       title: plan.contentTitle,
       detail: `第 ${plan.versionNo} 版 / 第 ${plan.reviewRound} 轮`,
       due: '待处理',
+      planId: plan.planId,
     })
   }
   return items.slice(0, 3)
@@ -266,6 +269,14 @@ async function onBoardDownload(task: TaskItem): Promise<void> {
 
 function openBoard(): void {
   void router.push('/tasks')
+}
+
+function openTodo(todo: OverviewTodo): void {
+  if (todo.planId) {
+    void router.push(`/plans/${todo.planId}`)
+    return
+  }
+  if (todo.taskId) void router.push('/tasks')
 }
 
 async function loadAll(options: { silent?: boolean } = {}): Promise<void> {
@@ -381,6 +392,7 @@ onBeforeUnmount(() => {
     footer-note="数据来自当前账号可见范围；指标以分子/分母为准，完整口径与下钻见统计看板任务。"
     @primary="loadAll()"
     @retry="loadAll()"
+    @open-todo="openTodo"
     @board-move="onBoardMove"
     @board-discard="onBoardDiscard"
     @board-download="onBoardDownload"

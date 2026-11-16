@@ -62,6 +62,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   (event: 'primary'): void
   (event: 'retry'): void
+  (event: 'open-todo', todo: OverviewTodo): void
   (event: 'board-move', payload: { taskId: number; quadrant: TaskQuadrant; position: number; boardVersion: number }): void
   (event: 'board-discard', task: TaskItem): void
   (event: 'board-download', task: TaskItem): void
@@ -222,6 +223,11 @@ function clearFilters(): void {
               :key="item.id"
               class="today-card"
               :class="{ 'is-overdue': item.overdue }"
+              role="button"
+              tabindex="0"
+              :aria-label="`${item.kind}：${item.title}`"
+              @click="emit('open-todo', item)"
+              @keyup.enter="emit('open-todo', item)"
             >
               <span class="today-kind">{{ item.kind }}</span>
               <strong>{{ item.title }}</strong>
@@ -470,6 +476,13 @@ function clearFilters(): void {
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
   box-shadow: var(--lpp-shadow-paper);
+  cursor: pointer;
+}
+
+.today-card:hover,
+.today-card:focus-visible {
+  border-color: var(--lpp-primary);
+  outline: none;
 }
 
 .today-card.is-overdue {
