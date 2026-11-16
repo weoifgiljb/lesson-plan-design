@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import {
   downloadStatsCsv,
@@ -294,7 +295,7 @@ async function download(): Promise<void> {
   try {
     const blob = await downloadStatsCsv(applied.value)
     saveBlob(blob, 'stats-summary.csv')
-    ElMessage.success('已导出当前筛选的 9 项指标')
+    sealSuccess('已导出当前筛选的 9 项指标')
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '导出失败，请稍后重试')
   } finally {

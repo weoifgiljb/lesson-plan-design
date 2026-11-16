@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { listReviews, type ReviewQuery } from '@/api/reviews'
 import type { ReviewListItem } from '@/api/models'
@@ -86,7 +87,7 @@ function canExport(row: ReviewListItem): boolean {
 async function copyId(value: number | undefined, label: string): Promise<void> {
   if (!value) return
   const copied = await copyText(value)
-  if (copied) ElMessage.success(`${label} 已复制：${value}`)
+  if (copied) sealSuccess(`${label} 已复制：${value}`)
   else ElMessage.error('复制失败，请手动选择文本复制')
 }
 

@@ -682,13 +682,13 @@ onBeforeUnmount(() => {
 .page-enter-active,
 .page-leave-active {
   transition:
-    opacity 120ms ease,
-    transform 120ms ease;
+    opacity 160ms ease,
+    transform 160ms ease;
 }
 
 .page-enter-from {
   opacity: 0;
-  transform: translateY(2px);
+  transform: translateY(3px);
 }
 
 .page-leave-to {

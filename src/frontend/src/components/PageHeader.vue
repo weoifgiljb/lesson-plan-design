@@ -33,9 +33,24 @@ defineProps<{
 }
 
 .page-header h1 {
+  position: relative;
+  display: inline-block;
+  font-family: var(--lpp-font-display);
   font-size: var(--lpp-font-xl);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
+}
+
+.page-header h1::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -5px;
+  left: 0;
+  height: 2px;
+  background: var(--lpp-accent);
+  transform-origin: left center;
+  animation: ink-underline 320ms ease-out 80ms both;
 }
 
 .page-header p {

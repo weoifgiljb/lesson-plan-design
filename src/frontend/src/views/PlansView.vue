@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import type { PlanListItem } from '@/api/models'
@@ -111,7 +112,7 @@ async function onFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
-    ElMessage.success(
+    sealSuccess(
       result.duplicate ? `契约包已存在，打开第 ${result.versionNo} 版` : '契约包已导入',
     )
     await router.push(`/plans/${result.planId}`)

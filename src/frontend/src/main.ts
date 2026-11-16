@@ -9,5 +9,6 @@ import router from './router'
 import './styles/tokens.css'
 import './styles/element.css'
 import './styles/base.css'
+import './styles/motion.css'
 
 createApp(App).use(createPinia()).use(router).use(ElementPlus, { locale: zhCn }).mount('#app')

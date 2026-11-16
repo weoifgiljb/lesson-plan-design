@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications'
 import PageHeader from '@/components/PageHeader.vue'
@@ -19,7 +20,7 @@ async function readOne(id: number): Promise<void> {
 
 async function readAll(): Promise<void> {
   await markAllNotificationsRead()
-  ElMessage.success('已全部标记为已读')
+  sealSuccess('已全部标记为已读')
   await inbox.load()
 }
 </script>

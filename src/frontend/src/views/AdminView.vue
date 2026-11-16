@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { createBackup, backupDownloadUrl, listBackups, restoreBackup } from '@/api/backups'
 import { createUser, listUsers, type UserQuery } from '@/api/users'
@@ -52,7 +53,7 @@ async function makeBackup(): Promise<void> {
   }
   try {
     await createBackup(label)
-    ElMessage.success('备份已创建')
+    sealSuccess('备份已创建')
     await backups.load()
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '创建备份失败')
@@ -75,7 +76,7 @@ async function restoreFromBackup(name: string): Promise<void> {
   }
   try {
     const result = await restoreBackup(name)
-    ElMessage.success(`已恢复到 ${result.target}`)
+    sealSuccess(`已恢复到 ${result.target}`)
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '恢复失败')
   }
@@ -93,7 +94,7 @@ async function resolveDeletion(row: DeletionRequest, approve: boolean): Promise<
   }
   try {
     await resolveDeletionRequest(row.requestId, approve)
-    ElMessage.success(approve ? '已批准并软删除' : '已驳回')
+    sealSuccess(approve ? '已批准并软删除' : '已驳回')
     await deletions.load()
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '处理失败')

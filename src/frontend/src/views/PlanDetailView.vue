@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import type { DiffResult, PlanVersion } from '@/api/models'
@@ -141,7 +142,7 @@ async function requestRemovePlan(): Promise<void> {
   }
   try {
     await requestDeletion(planId, reason)
-    ElMessage.success('删除申请已提交，管理员将在 7 个工作日内处理')
+    sealSuccess('删除申请已提交，管理员将在 7 个工作日内处理')
   } catch (caught) {
     handleError(caught, '提交删除申请失败')
   }
@@ -161,7 +162,7 @@ async function removePlan(): Promise<void> {
   deleting.value = true
   try {
     await deletePlan(planId)
-    ElMessage.success('教案已删除')
+    sealSuccess('教案已删除')
     await router.push('/plans')
   } catch (caught) {
     handleError(caught, '删除教案失败')
@@ -201,7 +202,7 @@ async function onVersionFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
-    ElMessage.success(
+    sealSuccess(
       result.duplicate
         ? `契约包已存在，当前为第 ${result.versionNo} 版`
         : `新版本 v${result.versionNo} 已入库`,

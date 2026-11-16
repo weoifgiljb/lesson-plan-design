@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 import type { FormInstance, FormRules } from 'element-plus'
 
 import { RequestError, toApiError } from '@/api/client-error'
@@ -127,7 +128,7 @@ async function download(task: TaskItem): Promise<void> {
   try {
     const blob = await downloadTaskPackage(task.taskId)
     saveBlob(blob, `task-${task.taskId}-${task.week}-${task.session}.zip`)
-    ElMessage.success('任务包已下载')
+    sealSuccess('任务包已下载')
   } catch (caught) {
     handleError(caught, '下载任务包失败')
   } finally {
@@ -166,7 +167,7 @@ async function onDiscard(task: TaskItem): Promise<void> {
   }
   try {
     await discardTask(task.taskId)
-    ElMessage.success('任务已废弃')
+    sealSuccess('任务已废弃')
     await loadAll()
   } catch (caught) {
     handleError(caught, '废弃任务失败')
@@ -176,7 +177,7 @@ async function onDiscard(task: TaskItem): Promise<void> {
 async function onRestore(task: TaskItem): Promise<void> {
   try {
     await restoreTask(task.taskId)
-    ElMessage.success('任务已恢复')
+    sealSuccess('任务已恢复')
     await loadAll()
   } catch (caught) {
     handleError(caught, '恢复任务失败')
@@ -225,7 +226,7 @@ async function submitCreate(): Promise<void> {
   }
   try {
     const created = await createTask(payload)
-    ElMessage.success(`已创建「${created.title}」`)
+    sealSuccess(`已创建「${created.title}」`)
     dialogVisible.value = false
     formRef.value.resetFields()
     page.value = 1

@@ -326,6 +326,7 @@ async function copyHash(job: ExportJob): Promise<void> {
   font-family: var(--lpp-font-display);
   font-size: var(--lpp-font-xs);
   transform: rotate(-1.5deg);
+  animation: seal-in 220ms ease-out both;
 }
 
 .file-stamp--succeeded {

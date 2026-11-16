@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import type { RequestError } from '@/api/client-error'
 import { getPlan, listPlans } from '@/api/plans'
@@ -246,7 +247,7 @@ async function onBoardDiscard(task: TaskItem): Promise<void> {
   }
   try {
     await discardTask(task.taskId)
-    ElMessage.success('任务已废弃')
+    sealSuccess('任务已废弃')
     await board.load({ keepData: true })
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '废弃任务失败')
@@ -257,7 +258,7 @@ async function onBoardDownload(task: TaskItem): Promise<void> {
   try {
     const blob = await downloadTaskPackage(task.taskId)
     saveBlob(blob, `task-${task.taskId}-${task.week}-${task.session}.zip`)
-    ElMessage.success('任务包已下载')
+    sealSuccess('任务包已下载')
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '下载任务包失败')
   }

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import { getPlan, importPlan } from '@/api/plans'
@@ -62,7 +63,7 @@ function downloadMarkdown(): void {
     new Blob([markdown.value], { type: 'text/markdown;charset=utf-8' }),
     `plan-${plan.value.planId}-v${plan.value.versionNo}.md`,
   )
-  ElMessage.success('Markdown 已下载')
+  sealSuccess('Markdown 已下载')
 }
 
 function openVersionPicker(): void {
@@ -81,7 +82,7 @@ async function onVersionFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
-    ElMessage.success(
+    sealSuccess(
       result.duplicate
         ? `契约包已存在，当前为第 ${result.versionNo} 版`
         : `新版本 v${result.versionNo} 已入库`,

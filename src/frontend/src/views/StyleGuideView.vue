@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { EChartsOption } from 'echarts'
 
@@ -117,7 +118,7 @@ const rules: FormRules = {
 function submitForm(): void {
   formRef.value?.validate((valid) => {
     if (!valid) return
-    ElMessage.success(`已保存：${form.course} 第 ${form.week} 周 / ${form.title}`)
+    sealSuccess(`已保存：${form.course} 第 ${form.week} 周 / ${form.title}`)
   })
 }
 
@@ -380,7 +381,7 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
           <h3>弹层与上传</h3>
           <div class="row">
             <el-button @click="dialogVisible = true">打开弹窗</el-button>
-            <el-button @click="ElMessage.success('已保存')">成功提示</el-button>
+            <el-button @click="sealSuccess('已保存')">成功提示</el-button>
             <el-button @click="ElMessage.error('保存失败（INTERNAL）')">失败提示</el-button>
           </div>
           <el-upload :auto-upload="false" :show-file-list="false" accept=".zip" :on-change="onFileChange">
