@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { createExports, downloadExport, getExport } from '@/api/exports'
 import { getStatsSummary, listStatRecords } from '@/api/stats'
 import type { ExportJob } from '@/api/models'
+import { copyText } from '@/utils/clipboard'
 import { saveBlob } from '@/utils/download'
 import { EXPORT_STATUS_LABELS } from '@/utils/labels'
 
@@ -137,6 +138,13 @@ async function loadCandidates(): Promise<void> {
 // 后端导出任务只有 pending / succeeded / failed 三态（export_service），
 // 以前写死的 queued/running 永远不会出现，导致 pending 直接显示英文。
 const statusLabel = EXPORT_STATUS_LABELS
+
+async function copyHash(job: ExportJob): Promise<void> {
+  if (!job.reportHash) return
+  const copied = await copyText(job.reportHash)
+  if (copied) message.value = `报告哈希已复制：${job.reportHash.slice(0, 12)}…`
+  else error.value = '复制失败，请手动选择文本复制'
+}
 </script>
 
 <template>
@@ -166,39 +174,37 @@ const statusLabel = EXPORT_STATUS_LABELS
       <el-button type="primary" :loading="creating" @click="submit">创建导出</el-button>
     </div>
 
-    <div class="table-wrap">
-      <el-table v-if="jobs.length" :data="jobs" row-key="exportId" stripe>
-        <el-table-column prop="exportId" label="任务" width="80" />
-        <el-table-column prop="contentTitle" label="课题" min-width="200" />
-        <el-table-column label="版本" width="90">
-          <template #default="{ row }">v{{ row.versionNo }}</template>
-        </el-table-column>
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag
-              :type="row.status === 'succeeded' ? 'success' : row.status === 'failed' ? 'danger' : 'warning'"
-              disable-transitions
-            >
-              {{ statusLabel[row.status] ?? row.status }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="engineVersion" label="引擎" width="110" />
-        <el-table-column prop="reportHash" label="报告哈希" min-width="180" />
-        <el-table-column label="操作" width="110" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              :disabled="row.status !== 'succeeded'"
-              @click="download(row)"
-            >
-              下载
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div v-else class="empty">还没有导出任务</div>
+    <div class="file-list">
+      <article v-for="job in jobs" :key="job.exportId" class="file-card">
+        <div class="file-icon" aria-hidden="true">DOCX</div>
+        <div class="file-main">
+          <strong class="file-title">{{ job.contentTitle }}</strong>
+          <p class="file-meta">v{{ job.versionNo }} · 引擎 {{ job.engineVersion }} · 任务 #{{ job.exportId }}</p>
+          <p class="file-hash">
+            报告哈希
+            <span class="mono">{{ job.reportHash ? `${job.reportHash.slice(0, 12)}…` : '未记录' }}</span>
+            <el-button v-if="job.reportHash" link type="primary" size="small" @click="copyHash(job)">复制</el-button>
+          </p>
+        </div>
+        <div class="file-side">
+          <span class="file-stamp" :class="`file-stamp--${job.status}`">
+            {{ statusLabel[job.status] ?? job.status }}
+          </span>
+          <el-button
+            link
+            type="primary"
+            :disabled="job.status !== 'succeeded'"
+            @click="download(job)"
+          >
+            下载
+          </el-button>
+        </div>
+      </article>
+
+      <div v-if="!jobs.length" class="empty">
+        <p class="empty-title">还没有导出任务</p>
+        <p class="empty-desc">从审查中心选一份已通过的教案，或在上方填入版本 ID 后创建导出。</p>
+      </div>
     </div>
 
     <p v-if="pending.length" class="hint">有 {{ pending.length }} 个任务进行中，每 4 秒自动刷新…</p>
@@ -222,7 +228,9 @@ const statusLabel = EXPORT_STATUS_LABELS
 
 .head h1 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  letter-spacing: 0.01em;
 }
 
 .lead {
@@ -234,30 +242,151 @@ const statusLabel = EXPORT_STATUS_LABELS
 .form {
   display: flex;
   gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface-2);
 }
 
 .ids {
   max-width: 420px;
 }
 
-.table-wrap {
-  min-height: 220px;
+.form :deep(.el-input__wrapper) {
+  min-height: 32px;
+  background: var(--lpp-surface);
+}
+
+.file-list {
+  display: grid;
+  gap: 10px;
+}
+
+.file-card {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+}
+
+.file-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 46px;
+  border: 1px solid var(--lpp-border-strong);
+  border-radius: var(--lpp-radius-tag);
+  background: var(--lpp-surface-2);
+  color: var(--lpp-brass-ink);
+  font-family: var(--lpp-font-numeric);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.file-main {
+  min-width: 0;
+}
+
+.file-title {
+  display: block;
+  overflow: hidden;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-meta,
+.file-hash {
+  margin-top: 3px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.file-hash .mono {
+  color: var(--lpp-text);
+}
+
+.file-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-stamp {
+  padding: 3px 8px;
+  border: 1px double currentColor;
+  border-radius: var(--lpp-radius-tag);
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xs);
+  transform: rotate(-1.5deg);
+}
+
+.file-stamp--succeeded {
+  color: var(--lpp-success);
+}
+
+.file-stamp--failed {
+  color: var(--lpp-danger);
+}
+
+.file-stamp--pending {
+  color: var(--lpp-warning);
 }
 
 .empty {
   display: grid;
   place-content: center;
+  gap: 6px;
   min-height: 200px;
+  padding: 24px;
+  border: 1px dashed var(--lpp-border-strong);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
+  text-align: center;
+}
+
+.empty-title {
+  margin: 0;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-md);
+}
+
+.empty-desc {
+  margin: 0;
   color: var(--lpp-text-muted);
-  font-size: 13px;
+  font-size: var(--lpp-font-xs);
 }
 
 .hint {
   margin: 0;
   font-size: 12px;
   color: var(--lpp-text-muted);
+}
+
+@media (max-width: 767px) {
+  .form {
+    flex-direction: column;
+  }
+
+  .file-card {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .file-icon {
+    width: 46px;
+    height: 40px;
+  }
+
+  .file-side {
+    grid-column: 2;
+    justify-content: space-between;
+  }
 }
 </style>
