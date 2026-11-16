@@ -67,52 +67,60 @@ onMounted(() => {
   <main class="auth">
     <section class="auth-story" aria-label="平台简介">
       <div class="story-top">
-        <BrandMark inverse :size="30" caption="平台端 v1.1" />
+        <BrandMark inverse :size="30" caption="平台端 v2.0" />
       </div>
 
       <div class="story-body">
-        <h1>让每一份教案，<br />经得起对照。</h1>
+        <p class="story-kicker">备课案头 · 纸墨批注</p>
+        <h1>把每一份教案，<br />摊开在案头。</h1>
         <p class="story-lead">
-          三维目标、八步流程与证据链，落在同一个工作台上。写完、审完、导出，不用换工具。
+          三维目标、八步流程与证据链，落在同一张工作台上。写完、审完、导出，不用换工具。
         </p>
 
         <ul class="story-rules">
           <li>
+            <em>01</em>
             <strong>结构可校验</strong>
             <span>校标字段、八步流程与分钟合计，导入即校验。</span>
           </li>
           <li>
+            <em>02</em>
             <strong>证据可追溯</strong>
             <span>哈希、轮次、放行记录与审查状态，五项逐条对照。</span>
           </li>
           <li>
+            <em>03</em>
             <strong>版本可回滚</strong>
             <span>每次修订留下版本链与差异，导出的 DOCX 带哈希。</span>
           </li>
         </ul>
       </div>
 
-      <svg class="story-art" viewBox="0 0 460 300" fill="none" aria-hidden="true">
-        <g stroke="currentColor" stroke-width="1">
-          <path d="M70 160l200-62 150 52-200 62z" />
-          <path d="M70 108l200-62 150 52-200 62z" />
-          <path d="M70 56l200-62 150 52-200 62z" opacity="0.6" />
-          <path d="M70 56v104M270-6v104M420 46v104M220 112v104" opacity="0.5" />
-          <path d="M116 146v48M154 132v48M192 119v48M230 106v48M268 93v48M306 80v48M344 67v48M382 54v48" opacity="0.7" />
-        </g>
-      </svg>
+      <figure class="story-art-frame" aria-hidden="true">
+        <svg viewBox="0 0 320 400" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M58 118l150-34 54 214-150 38z" opacity="0.9" />
+          <path d="M76 128l126-30 42 178-126 34z" opacity="0.55" />
+          <path d="M94 151l88-21M101 180l88-21M108 209l82-20M115 238l70-17M122 267l64-15" opacity="0.55" />
+          <path d="M214 256c26-8 46 2 50 22 4 20-10 34-34 38-18 3-30-5-34-20-4-14 2-30 18-40z" opacity="0.85" />
+          <path d="M226 273l22 18M248 269l-20 22" opacity="0.7" />
+          <path d="M58 342c34-10 66-8 96 4M70 362c30-7 58-5 84 4" opacity="0.45" />
+          <path d="M214 100l24-8 32 96-24 8z" opacity="0.6" />
+          <path d="M238 92l10-4 8 22-10 4z" opacity="0.9" />
+        </svg>
+        <figcaption>备课案头 · 教案本 / 朱笔 / 印章</figcaption>
+      </figure>
 
       <div class="story-foot">
         <span>东莞经贸学校 / 计算机教研组</span>
-        <span class="mono">LPP / v1.1.0</span>
+        <span class="mono">LPP / v2.0.0</span>
       </div>
     </section>
 
     <section class="auth-form" aria-label="登录">
       <div class="form-inner">
         <div class="form-head">
-          <h2>登录</h2>
-          <p class="form-lead">使用学校账号进入工作台。</p>
+          <h2>回到案头</h2>
+          <p class="form-lead">用学校账号登录，继续今天的教案。</p>
         </div>
 
         <el-form
@@ -195,15 +203,28 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  padding: 36px 44px;
+  gap: 28px;
+  padding: 38px 44px 30px;
   overflow: hidden;
-  background:
-    linear-gradient(rgba(240, 244, 239, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(240, 244, 239, 0.035) 1px, transparent 1px),
-    var(--lpp-nameplate);
-  background-size: 32px 32px;
+  background: var(--lpp-nameplate);
   color: var(--lpp-nameplate-text);
+}
+
+.auth-story::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.story-kicker {
+  margin-bottom: 14px;
+  color: var(--lpp-accent);
+  font-family: var(--lpp-font-hand);
+  font-size: var(--lpp-font-sm);
+  letter-spacing: 0.12em;
 }
 
 .story-top {
@@ -220,10 +241,11 @@ onMounted(() => {
 
 .story-body h1 {
   color: var(--lpp-nameplate-text);
-  font-size: clamp(30px, 3.4vw, 46px);
+  font-family: var(--lpp-font-display);
+  font-size: clamp(38px, 4.4vw, 46px);
   font-weight: 600;
-  line-height: 1.22;
-  letter-spacing: -0.03em;
+  line-height: 1.18;
+  letter-spacing: 0.01em;
 }
 
 .story-lead {
@@ -237,18 +259,26 @@ onMounted(() => {
 .story-rules {
   display: flex;
   flex-direction: column;
-  margin: 32px 0 0;
+  max-width: 430px;
+  margin: 30px 0 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid rgba(240, 244, 239, 0.14);
 }
 
 .story-rules li {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 30px 96px minmax(0, 1fr);
+  gap: 10px;
   padding: 11px 0;
-  border-bottom: 1px solid rgba(240, 244, 239, 0.14);
+  border-bottom: 1px solid rgba(247, 241, 228, 0.14);
+}
+
+.story-rules em {
+  color: var(--lpp-accent);
+  font-family: var(--lpp-font-numeric);
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.08em;
 }
 
 .story-rules strong {
@@ -263,15 +293,35 @@ onMounted(() => {
   line-height: 1.55;
 }
 
-.story-art {
+.story-art-frame {
   position: absolute;
-  right: -60px;
-  bottom: 44px;
-  width: 62%;
-  max-width: 520px;
-  color: var(--lpp-nameplate-text);
-  opacity: 0.12;
+  right: 30px;
+  bottom: 82px;
+  width: min(33%, 270px);
+  margin: 0;
+  padding: 9px 9px 6px;
+  border: 1px solid rgba(247, 241, 228, 0.5);
+  background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+  transform: rotate(-1.5deg);
   pointer-events: none;
+}
+
+.story-art-frame svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: var(--lpp-nameplate);
+  opacity: 0.78;
+}
+
+.story-art-frame figcaption {
+  margin-top: 4px;
+  color: var(--lpp-brass-ink);
+  font-family: var(--lpp-font-hand);
+  font-size: 10px;
+  text-align: center;
+  letter-spacing: 0.04em;
 }
 
 .story-foot {
@@ -300,14 +350,24 @@ onMounted(() => {
   margin: 0 auto;
 }
 
+.form-inner::before {
+  content: '';
+  display: block;
+  width: 30px;
+  height: 2px;
+  margin-bottom: 18px;
+  background: var(--lpp-accent);
+}
+
 .form-head {
   margin-bottom: 24px;
 }
 
 .form-head h2 {
+  font-family: var(--lpp-font-display);
   font-size: var(--lpp-font-xl);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
 }
 
 .form-lead {
@@ -316,21 +376,42 @@ onMounted(() => {
   font-size: var(--lpp-font-sm);
 }
 
+.auth-form :deep(.el-form-item__label) {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.auth-form :deep(.el-input__wrapper) {
+  min-height: 34px;
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface);
+  box-shadow: 0 0 0 1px var(--lpp-border) inset;
+}
+
+.auth-form :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--lpp-primary) inset;
+}
+
 .login-error {
   margin: 2px 0 14px;
 }
 
 .login-submit {
   width: 100%;
-  height: 38px;
+  height: 40px;
   margin-top: 4px;
 }
 
 .auth-actions {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 8px;
   align-items: center;
+}
+
+.register-submit {
+  width: 100%;
+  margin-left: 0;
 }
 
 .form-notice {
@@ -389,10 +470,12 @@ onMounted(() => {
     display: none;
   }
 
-  .story-art {
-    right: -30px;
-    bottom: -20px;
-    width: 46%;
+  .story-art-frame {
+    display: none;
+  }
+
+  .story-kicker {
+    margin-bottom: 8px;
   }
 
   .story-foot {
