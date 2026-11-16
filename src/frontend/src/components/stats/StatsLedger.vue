@@ -248,7 +248,7 @@ const ready = computed(() => !props.loading && props.metrics.length > 0)
   bottom: 6px;
   left: 0;
   width: 2px;
-  background: var(--lpp-accent);
+  background: var(--lpp-brass);
 }
 
 .stats-ledger__group-title span {
@@ -307,7 +307,7 @@ const ready = computed(() => !props.loading && props.metrics.length > 0)
 }
 
 .stats-ledger__detail {
-  color: var(--lpp-accent-ink);
+  color: var(--lpp-brass-ink);
 }
 
 .stats-ledger__value {

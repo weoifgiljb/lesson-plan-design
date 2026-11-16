@@ -18,12 +18,14 @@ html {
 
 body {
   background: var(--lpp-canvas);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
   color: var(--lpp-text);
   font-family: var(--lpp-font-family);
   font-size: var(--lpp-font-base);
   line-height: var(--lpp-line);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  line-break: strict;
 }
 
 button,
@@ -64,16 +66,23 @@ h4 {
   text-wrap: balance;
 }
 
+h1,
+h2 {
+  font-family: var(--lpp-font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 h1 {
   font-size: var(--lpp-font-xl);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.01em;
 }
 
 h2 {
   font-size: var(--lpp-font-lg);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.01em;
 }
 
 h3 {
@@ -88,6 +97,23 @@ h4 {
 
 p {
   max-width: 68ch;
+  text-wrap: pretty;
+}
+
+.lpp-hand {
+  font-family: var(--lpp-font-hand);
+}
+
+.lpp-numeric {
+  font-family: var(--lpp-font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.lpp-paper {
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
 }
 
 code,

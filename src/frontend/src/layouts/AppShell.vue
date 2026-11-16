@@ -452,7 +452,7 @@ onBeforeUnmount(() => {
   bottom: 8px;
   left: -12px;
   width: 2px;
-  background: var(--lpp-accent);
+  background: var(--lpp-brass);
 }
 
 .nav-item__label {

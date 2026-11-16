@@ -5,7 +5,7 @@ import { chromium } from 'playwright'
 const base = process.env.STYLEGUIDE_URL || 'http://127.0.0.1:5174'
 const outDir =
   process.env.SCREENSHOT_DIR ||
-  fileURLToPath(new URL('../../../.qa/frontend-review/v1.1', import.meta.url))
+  fileURLToPath(new URL('../../../.qa/frontend-review/v2.0', import.meta.url))
 mkdirSync(outDir, { recursive: true })
 
 const viewports = [
@@ -25,6 +25,11 @@ const routes = [
     name: 'login',
     path: '/login',
     waitFor: '.auth-form',
+  },
+  {
+    name: 'register',
+    path: '/register',
+    waitFor: '.auth-card',
   },
 ]
 

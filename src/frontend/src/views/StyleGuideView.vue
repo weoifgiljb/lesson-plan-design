@@ -41,19 +41,26 @@ const tabs = [
   { id: 'data', label: '数据' },
   { id: 'structure', label: '结构剖面' },
   { id: 'states', label: '四态' },
+  { id: 'assets', label: '资产' },
   { id: 'responsive', label: '响应式' },
 ]
 
 const swatches = [
-  { label: '主色', value: PALETTE.primary },
-  { label: '主色悬停', value: PALETTE.primaryHover },
-  { label: '强调（黄铜）', value: PALETTE.brass },
-  { label: '画布', value: PALETTE.canvas },
+  { label: '主行动（松绿）', value: PALETTE.primary },
+  { label: '主行动悬停', value: PALETTE.primaryHover },
+  { label: '朱砂（判断）', value: PALETTE.accent },
+  { label: '朱砂小字', value: PALETTE.accentInk },
+  { label: '朱砂浅底', value: PALETTE.accentSoft },
+  { label: '黄铜（印章/版本）', value: PALETTE.brass },
+  { label: '印文', value: PALETTE.seal },
+  { label: '画布（暖纸）', value: PALETTE.canvas },
   { label: '层 / 侧栏', value: PALETTE.layer },
   { label: '表面', value: PALETTE.surface },
+  { label: '嵌套表面', value: PALETTE.surface2 },
   { label: '主文字', value: PALETTE.text },
   { label: '次文字', value: PALETTE.textMuted },
   { label: '描边', value: PALETTE.border },
+  { label: '稿纸线', value: PALETTE.paperLine },
   { label: '成功', value: PALETTE.success },
   { label: '警告', value: PALETTE.warning },
   { label: '危险', value: PALETTE.danger },
@@ -64,6 +71,9 @@ const contrastRows = computed(() => [
   { label: '次文字 / 表面', pair: `${PALETTE.textMuted} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.textMuted, PALETTE.surface) },
   { label: '次文字 / 画布', pair: `${PALETTE.textMuted} / ${PALETTE.canvas}`, ratio: contrastRatio(PALETTE.textMuted, PALETTE.canvas) },
   { label: '主色 / 表面', pair: `${PALETTE.primary} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.primary, PALETTE.surface) },
+  { label: '朱砂 / 表面', pair: `${PALETTE.accent} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.accent, PALETTE.surface) },
+  { label: '朱砂小字 / 表面', pair: `${PALETTE.accentInk} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.accentInk, PALETTE.surface) },
+  { label: '黄铜小字 / 表面', pair: `${PALETTE.brassInk} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.brassInk, PALETTE.surface) },
   { label: '危险 / 表面', pair: `${PALETTE.danger} / ${PALETTE.surface}`, ratio: contrastRatio(PALETTE.danger, PALETTE.surface) },
   { label: '身份牌文字 / 身份牌', pair: `${PALETTE.nameplateText} / ${PALETTE.nameplate}`, ratio: contrastRatio(PALETTE.nameplateText, PALETTE.nameplate) },
 ])
@@ -77,11 +87,23 @@ const spaces = [
   ['--lpp-space-8', '32', '页面分节'],
 ]
 
+const assets = [
+  ['A1', 'login-desk.webp', '登录案头', '4:5', '线稿降级'],
+  ['A2', 'empty-plans.webp', '空教案', '4:3', '纸色块'],
+  ['A3', 'empty-tasks.webp', '空任务', '4:3', '纸色块'],
+  ['A4', 'empty-reviews.webp', '空审查', '4:3', '纸色块'],
+  ['A5', 'empty-exports.webp', '空导出', '4:3', '纸色块'],
+  ['A6', 'error.webp', '错误态', '4:3', '线稿降级'],
+  ['A7', 'forbidden.webp', '无权限', '4:3', '线稿降级'],
+  ['A8—A10', 'sample-cover-*.webp', '样例封面', '3:2', '课程首字'],
+  ['A11', 'paper-grain.webp', '纸纹', '1:1', 'CSS 纹理'],
+]
+
 const radii = [
-  ['--lpp-radius-tag', '4', '状态标签'],
-  ['--lpp-radius-control', '6', '按钮 / 输入 / 导航'],
-  ['--lpp-radius-card', '10', '表格 / 面板'],
-  ['--lpp-radius-window', '14', '弹窗'],
+  ['--lpp-radius-tag', '3', '状态标签 / 印章'],
+  ['--lpp-radius-control', '5', '按钮 / 输入 / 导航'],
+  ['--lpp-radius-card', '8', '表格 / 面板 / 卡片'],
+  ['--lpp-radius-window', '12', '弹窗 / 抽屉'],
 ]
 
 const formRef = ref<FormInstance>()
@@ -257,7 +279,7 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
     </section>
 
     <section id="color" class="style-section">
-      <SectionHeader title="色彩" description="唯一的行动色是松绿；黄铜只做规则线、选中小标记与印章。" meta="CSS variables" />
+      <SectionHeader title="色彩" description="松绿负责行动，朱砂负责判断，绛红只负责失败；黄铜只做印章、版本与装饰线。" meta="CSS variables · WCAG AA" />
       <div class="swatch-grid">
         <div v-for="swatch in swatches" :key="swatch.label">
           <div class="swatch" :style="{ background: swatch.value }" />
@@ -276,12 +298,13 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
     </section>
 
     <section id="type" class="style-section">
-      <SectionHeader title="排版与尺度" description="中文系统无衬线 + Bahnschrift 数字；信息文字不小于 12px，不请求外部字体。" meta="12 → 36" />
+      <SectionHeader title="排版与尺度" description="宋体标题 + 无衬线正文 + 楷体批注 + 等宽数字；信息文字不小于 12px，不请求外部字体。" meta="12 → 44" />
       <div class="type-grid">
         <div class="type-specimens">
-          <div><span class="spec-label">页面标题 / 28 / 600</span><h1>教案库与版本链</h1></div>
-          <div><span class="spec-label">小标题 / 16 / 600</span><h2>证据链与审查记录</h2></div>
-          <div><span class="spec-label">正文 / 14 / 1.65</span><p>教师只能查看本人教案，组长查看本组；管理员可查看全部并审计关键操作。</p></div>
+          <div><span class="spec-label">页面标题 / 宋体 / 28</span><h1>教案库与版本链</h1></div>
+          <div><span class="spec-label">小标题 / 宋体 / 16</span><h2>证据链与审查记录</h2></div>
+          <div><span class="spec-label">正文 / 无衬线 / 14 / 1.65</span><p>教师只能查看本人教案，组长查看本组；管理员可查看全部并审计关键操作。</p></div>
+          <div><span class="spec-label">批注 / 楷体 / 12</span><p class="lpp-hand">这一版的任务实施还缺分钟合计。</p></div>
           <div><span class="spec-label">表格 / 13 / 1.5</span><p class="numeric">planHash 8f2c…a91 / 2026-10-28 14:20</p></div>
           <div><span class="spec-label">辅助 / 12 / 1.4</span><p class="muted">当前范围 / 不含已删除教案</p></div>
         </div>
@@ -474,6 +497,19 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
         </div>
         <div class="demo-surface"><StatePanel state="forbidden" title="无权查看该教案" /></div>
       </div>
+    </section>
+
+    <section id="assets" class="style-section">
+      <SectionHeader title="插图与纹理资产" description="只使用本地插图；缺图降级为纸色块或内联线稿，不破图、不引外部请求。" meta="≤120KB 首屏" />
+      <table class="scale-table">
+        <caption class="sr-only">插图资产台账</caption>
+        <thead><tr><th scope="col">ID</th><th scope="col">文件</th><th scope="col">用途</th><th scope="col">比例</th><th scope="col">降级</th></tr></thead>
+        <tbody>
+          <tr v-for="row in assets" :key="row[0]">
+            <td class="mono">{{ row[0] }}</td><td class="mono">{{ row[1] }}</td><td>{{ row[2] }}</td><td class="numeric">{{ row[3] }}</td><td>{{ row[4] }}</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <section id="responsive" class="style-section">

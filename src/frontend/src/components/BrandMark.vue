@@ -30,7 +30,7 @@ withDefaults(
         stroke-linecap="round"
         fill="none"
       />
-      <rect x="20.5" y="20.5" width="6" height="6" rx="1" fill="var(--lpp-accent)" />
+      <rect x="20.5" y="20.5" width="6" height="6" rx="1" fill="var(--lpp-brass)" />
     </svg>
     <span v-if="!compact" class="brand-text">
       <strong>校本教案</strong>

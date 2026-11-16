@@ -204,9 +204,9 @@ function discard(task: TaskItem): void {
   flex: 0 0 auto;
   padding: 0 0 1px;
   border: 0;
-  border-bottom: 1px solid var(--lpp-accent);
+  border-bottom: 1px solid var(--lpp-brass);
   background: transparent;
-  color: var(--lpp-accent-ink);
+  color: var(--lpp-brass-ink);
   font-size: var(--lpp-font-xs);
   cursor: pointer;
 }

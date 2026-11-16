@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
 
 .structure-estimate {
   margin-top: 2px;
-  color: var(--lpp-accent-ink);
+  color: var(--lpp-brass-ink);
   font-size: var(--lpp-font-xs);
 }
 
@@ -519,8 +519,8 @@ onBeforeUnmount(() => {
 }
 
 .structure-axis__dot--goal {
-  color: var(--lpp-accent);
-  background: var(--lpp-accent);
+  color: var(--lpp-brass);
+  background: var(--lpp-brass);
 }
 
 .structure-axis__dot--flow {
@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
 }
 
 .structure-axis__dot--evidence {
-  color: var(--lpp-accent);
+  color: var(--lpp-brass);
   background: var(--lpp-surface);
 }
 
@@ -568,7 +568,7 @@ onBeforeUnmount(() => {
   height: 6px;
   flex: 0 0 auto;
   border-radius: 50%;
-  background: var(--lpp-accent);
+  background: var(--lpp-brass);
 }
 
 .structure-legend {
@@ -600,7 +600,7 @@ onBeforeUnmount(() => {
 }
 
 .swatch--goal {
-  background: var(--lpp-accent);
+  background: var(--lpp-brass);
 }
 
 .swatch--flow {
@@ -608,7 +608,7 @@ onBeforeUnmount(() => {
 }
 
 .swatch--evidence {
-  border: 1px solid var(--lpp-accent);
+  border: 1px solid var(--lpp-brass);
 }
 
 .structure-list {
