@@ -154,10 +154,10 @@ watch(
 )
 
 const columns: TableColumn[] = [
-  { key: 'title', label: '课题', minWidth: 210 },
+  { key: 'title', label: '课题', minWidth: 210, tooltip: true },
   { key: 'week', label: '周 / 次', width: 86 },
   { key: 'teacher', label: '教师', width: 96 },
-  { key: 'versionNo', label: '版本', width: 64, align: 'right' },
+  { key: 'versionNo', label: '稿次', width: 76, align: 'right' },
   { key: 'evidence', label: '证据', width: 76 },
   { key: 'status', label: '状态', width: 108 },
   { key: 'updatedAt', label: '更新', width: 112 },
@@ -384,6 +384,7 @@ function clearFilters(): void {
             </span>
           </template>
           <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
+          <template #cell-versionNo="{ row }">第 {{ row.versionNo }} 稿</template>
           <template #cell-evidence="{ row }">
             <span
               v-if="row.evidencePassed !== undefined && row.evidenceTotal !== undefined"

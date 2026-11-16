@@ -46,11 +46,11 @@ const state = computed<'ready' | 'loading' | 'error'>(() =>
 )
 
 const columns: TableColumn[] = [
-  { key: 'title', label: '课题', minWidth: 210 },
+  { key: 'title', label: '课题', minWidth: 210, tooltip: true },
   { key: 'course', label: '课程', width: 104 },
   { key: 'week', label: '周 / 次', width: 82 },
   { key: 'teacher', label: '教师', width: 92 },
-  { key: 'versionNo', label: '版本', width: 64, align: 'right' },
+  { key: 'versionNo', label: '稿次', width: 76, align: 'right' },
   { key: 'reviewStatus', label: '状态', width: 108 },
   { key: 'versionCreatedAt', label: '更新', width: 112 },
   { key: 'actions', label: '操作', width: 76, align: 'right' },
@@ -229,6 +229,7 @@ onMounted(() => {
         </span>
       </template>
       <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
+      <template #cell-versionNo="{ row }">第 {{ row.versionNo }} 稿</template>
       <template #cell-reviewStatus="{ row }">
         <StatusTag :code="String(row.reviewStatus)" :status="String(row.reviewStatus)" />
       </template>
