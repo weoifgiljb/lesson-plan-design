@@ -6,7 +6,7 @@ withDefaults(
     caption?: string
     inverse?: boolean
   }>(),
-  { size: 30, compact: false, caption: '平台端 v1.1', inverse: false },
+  { size: 30, compact: false, caption: '平台端 v2.0', inverse: false },
 )
 </script>
 

@@ -229,7 +229,7 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
     >
       <template #meta>
         <p class="styleguide-meta">
-          候选稿 v1.1 / 2026-10-28 / 待用户确认后冻结
+          候选稿 v2.0 / 2026-11-16 / 待用户确认后冻结
         </p>
       </template>
       <template #actions>
@@ -540,7 +540,7 @@ const statuses = ['passed', 'passed_with_override', 'needs_repair', 'pending_rev
     </section>
 
     <section class="style-section style-section--last">
-      <SectionHeader title="验收记录" description="反馈写入 docs/frontend/review-notes.md；通过后由用户签字冻结 v1.1。" meta="待确认" />
+      <SectionHeader title="验收记录" description="反馈写入 docs/frontend/review-notes.md；通过后由用户签字冻结 v2.0。" meta="待确认" />
       <div class="review-links">
         <p><span class="mono">docs/frontend/ui-style-spec.md</span> 设计令牌与 3D 规范</p>
         <p><span class="mono">docs/frontend/component-acceptance.md</span> 组件与四态清单</p>

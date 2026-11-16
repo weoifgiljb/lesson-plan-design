@@ -87,7 +87,7 @@ async function submit(): Promise<void> {
   <main class="auth-page">
     <section class="auth-card" aria-label="修改口令">
       <header class="card-head">
-        <BrandMark caption="平台端 v1.1" :size="28" />
+        <BrandMark caption="平台端 v2.0" :size="28" />
         <h1>修改口令</h1>
         <p class="card-lead">
           首次登录或口令到期后需要先设置新口令；修改成功后需要重新登录。
