@@ -31,6 +31,16 @@ const routes = [
     path: '/register',
     waitFor: '.auth-card',
   },
+  {
+    name: 'forbidden',
+    path: '/403',
+    waitFor: '.state-panel--forbidden',
+  },
+  {
+    name: 'notfound',
+    path: '/404-not-found',
+    waitFor: '.state-panel--empty',
+  },
 ]
 
 async function launch() {
