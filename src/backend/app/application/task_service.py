@@ -45,14 +45,13 @@ def create(
             _raise_conflict(repo, user, probe)
         if not task_rules.can_overwrite(user, probe):
             _deny_overwrite(repo, user, probe, ip, trace_id)
-        # 本人/管理员带 confirm：落到事务里更新已有任务
 
     def audit_denied_on_rollback(exc: BaseException) -> None:
         # 事务已回滚：并发窗口里补写的越权拒绝审计要在这里落库，否则会被回滚带走（R3-F2）
         if isinstance(exc, AppError) and exc.code == "FORBIDDEN":
             audit_service.record(
                 repo, actor_id=int(user.get("id") or 0), action="authz.denied",
-                target_type="task", target_id="",
+                target_type="task", target_id=str(exc.details.get("taskId") or ""),
                 detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks", "stage": "race"},
                 ip=ip, trace_id=trace_id,
             )
@@ -65,7 +64,8 @@ def create(
             if not confirm:
                 _raise_conflict(repo, user, existing)
             if not task_rules.can_overwrite(user, existing):
-                raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理")
+                raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理",
+                               {"taskId": int(existing["id"])})
             # 需求 BS-10：重复建课时提示冲突，确认后才允许（这里按"更新已有任务"处理）
             repo.update_task(int(existing["id"]), title=data["title"], due_date=due_text)
             audit_service.record(
