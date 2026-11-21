@@ -35,16 +35,17 @@ def raise_conflict(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> No
 def deny(
     repo: Repo, user: dict[str, Any], task: dict[str, Any], *, ip: str = "", trace_id: str = ""
 ) -> None:
-    """显式覆盖他人任务：事务外写审计；事务内由 create 的回滚钩子补写（R3-F2）。"""
+    """显式覆盖他人任务：事务外写审计；事务内由 create 的回滚钩子补写（R3-F2）。
+
+    响应体不回传 taskId：可触及（同组）也不需要，跨组更不能泄露（T1/T2）。
+    """
     audit_service.record(
         repo, actor_id=int(user.get("id") or 0), action="authz.denied",
         target_type="task", target_id=str(task["id"]),
         detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
         ip=ip, trace_id=trace_id,
     )
-    raise AppError(
-        "FORBIDDEN", task_rules.FORBIDDEN_OVERWRITE, {"taskId": int(task["id"])}
-    )
+    raise AppError("FORBIDDEN", task_rules.FORBIDDEN_OVERWRITE)
 
 
 def apply_confirmed(
@@ -57,7 +58,10 @@ def apply_confirmed(
     ip: str = "",
     trace_id: str = "",
 ) -> None:
-    """确认覆盖：已废弃任务先恢复再更新，两步都留痕，避免"建课成功但任务仍废弃"。"""
+    """确认覆盖：已废弃任务先恢复再更新，两步都留痕，避免"建课成功但任务仍废弃"。
+
+    只更新截止日期（既有 BS-10 行为）；象限变更走 PATCH /tasks/{id}/board，不在这里顺带改。
+    """
     task_id = int(task["id"])
     if task.get("discarded_at") is not None:
         repo.set_task_discarded(task_id, None)

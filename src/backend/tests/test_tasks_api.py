@@ -229,6 +229,8 @@ class TestTasksApi(unittest.TestCase):
         )
         self.assertEqual(denied.status_code, 403, denied.text)
         self.assertEqual(denied.json()["code"], "FORBIDDEN")
+        # 跨组越权同样不回传任务 id（T2 隐私约束）
+        self.assertNotIn("taskId", denied.json().get("details") or {})
         connection = open_database(self.db_file)
         try:
             rows = Repo(connection).list_audit(200)
