@@ -23,6 +23,11 @@ const summary = reactive({ loading: false })
 let timer: number | undefined
 
 const pending = computed(() => jobs.value.filter((job) => job.status !== 'succeeded' && job.status !== 'failed'))
+const finishedCount = computed(() => jobs.value.filter((job) => job.status === 'succeeded' || job.status === 'failed').length)
+const failedCount = computed(() => jobs.value.filter((job) => job.status === 'failed').length)
+const progressPercent = computed(() =>
+  jobs.value.length ? Math.round((finishedCount.value / jobs.value.length) * 100) : 0,
+)
 
 function readVersionId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value
@@ -175,7 +180,7 @@ async function copyHash(job: ExportJob): Promise<void> {
     </div>
 
     <div class="file-list">
-      <article v-for="job in jobs" :key="job.exportId" class="file-card">
+      <article v-for="job in jobs" :key="job.exportId" class="file-card" :class="{ 'is-failed': job.status === 'failed' }">
         <div class="file-icon" aria-hidden="true">DOCX</div>
         <div class="file-main">
           <strong class="file-title">{{ job.contentTitle }}</strong>
@@ -208,6 +213,23 @@ async function copyHash(job: ExportJob): Promise<void> {
     </div>
 
     <p v-if="pending.length" class="hint">有 {{ pending.length }} 个任务进行中，每 4 秒自动刷新…</p>
+
+    <section v-if="jobs.length" class="batch-progress" aria-label="批量导出进度">
+      <div class="batch-progress__head">
+        <span>已完成 {{ finishedCount }} / {{ jobs.length }}</span>
+        <span v-if="failedCount" class="batch-progress__failed">失败 {{ failedCount }}</span>
+        <span v-else class="batch-progress__percent">{{ progressPercent }}%</span>
+      </div>
+      <div
+        class="batch-progress__track"
+        role="progressbar"
+        :aria-valuenow="progressPercent"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        <span class="batch-progress__fill" :style="{ transform: `scaleX(${progressPercent / 100})` }" />
+      </div>
+    </section>
   </section>
 </template>
 
@@ -272,6 +294,54 @@ async function copyHash(job: ExportJob): Promise<void> {
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
   box-shadow: var(--lpp-shadow-paper);
+}
+
+.file-card.is-failed {
+  border-color: color-mix(in srgb, var(--lpp-danger) 30%, var(--lpp-border));
+  background: var(--lpp-danger-soft);
+}
+
+.batch-progress {
+  padding: 10px 12px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface-2);
+}
+
+.batch-progress__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-numeric);
+  font-size: var(--lpp-font-xs);
+}
+
+.batch-progress__failed {
+  color: var(--lpp-danger);
+}
+
+.batch-progress__percent {
+  color: var(--lpp-primary);
+}
+
+.batch-progress__track {
+  height: 6px;
+  border: 1px solid var(--lpp-border);
+  border-radius: 999px;
+  background: var(--lpp-surface);
+  overflow: hidden;
+}
+
+.batch-progress__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--lpp-primary);
+  transform-origin: left center;
+  transition: transform 180ms ease;
 }
 
 .file-icon {

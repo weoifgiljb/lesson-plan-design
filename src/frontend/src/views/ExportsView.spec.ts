@@ -41,6 +41,38 @@ function inputValue(wrapper: ReturnType<typeof mount>): string {
 }
 
 describe('ExportsView', () => {
+  it('shows batch progress and failed count', async () => {
+    const { wrapper } = await mountAt('/exports?planVersionId=33')
+    createExports.mockResolvedValue({
+      items: [
+        {
+          exportId: 1,
+          planVersionId: 33,
+          planId: 1,
+          versionNo: 2,
+          contentTitle: '一级考证辅导2',
+          status: 'failed',
+          engineVersion: '1.0.0',
+          docxSha256: '',
+          planHash: 'hash',
+          reportHash: 'report',
+          createdAt: '2026-10-29T02:00:00+00:00',
+        },
+      ],
+      created: 1,
+      reused: 0,
+    })
+    const submit = wrapper.findAll('button').find((button) => button.text().includes('创建导出'))
+    await submit!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.batch-progress').exists()).toBe(true)
+    expect(wrapper.text()).toContain('已完成 1 / 1')
+    expect(wrapper.find('.batch-progress__failed').text()).toContain('失败 1')
+    expect(wrapper.find('[role="progressbar"]').attributes('aria-valuenow')).toBe('100')
+    wrapper.unmount()
+  })
+
   it('prefills the version id from the review center without auto submitting', async () => {
     const { wrapper } = await mountAt('/exports?planVersionId=33')
 
