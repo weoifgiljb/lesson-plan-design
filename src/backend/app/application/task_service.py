@@ -293,7 +293,10 @@ def _deny_overwrite(repo: Repo, user: dict[str, Any], task: dict[str, Any], ip: 
         detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
         ip=ip, trace_id=trace_id,
     )
-    raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理")
+    raise AppError(
+        "FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理",
+        {"taskId": int(task["id"])},
+    )
 
 
 def package(
@@ -331,9 +334,8 @@ def _item(
 ) -> dict[str, Any]:
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    owner_id = int(task["owner_id"])
-    same_owner = user is None or int(user.get("id") or 0) == owner_id
-    can_edit = same_owner or str((user or {}).get("role") or "") == "admin"
+    # 覆盖权限只在 domain 维护一份：前端据此决定是否显示改名/改截止入口
+    can_edit = user is None or task_rules.can_overwrite(user, task)
     return {
         "taskId": int(task["id"]),
         "course": task["course"],
