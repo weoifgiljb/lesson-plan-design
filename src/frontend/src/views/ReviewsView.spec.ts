@@ -8,10 +8,12 @@ import ReviewsView from './ReviewsView.vue'
 import type { ReviewListItem } from '@/api/models'
 
 const listReviews = vi.fn()
+const getReview = vi.fn()
 const copyText = vi.fn()
 
 vi.mock('@/api/reviews', () => ({
   listReviews: (...args: unknown[]) => listReviews(...args),
+  getReview: (...args: unknown[]) => getReview(...args),
 }))
 
 vi.mock('@/utils/clipboard', () => ({
@@ -73,6 +75,7 @@ const repairRow: ReviewListItem = {
 async function mountView() {
   listReviews.mockReset()
   copyText.mockReset()
+  getReview.mockReset()
   listReviews.mockResolvedValue({ items: [passedRow, repairRow], page: 1, pageSize: 20, total: 2 })
   copyText.mockResolvedValue(true)
   const router = createRouter({
@@ -95,6 +98,35 @@ function rowByTitle(wrapper: VueWrapper, title: string) {
 }
 
 describe('ReviewsView', () => {
+  it('opens the annotation drawer with findings', async () => {
+    getReview.mockResolvedValue({
+      review: passedRow,
+      report: {},
+      findings: [
+        {
+          id: 'f-1',
+          severity: 'minor',
+          status: 'open',
+          hypothesis: '任务实施缺分钟合计',
+          repair: '补齐 45 分钟合计',
+          evidence: ['minutes=0'],
+          affectedPaths: ['activityFlow'],
+        },
+      ],
+      overrides: [],
+      repairHistory: [],
+      evidence: { complete: true, passed: 5, total: 5, gaps: [] },
+    })
+    const { wrapper } = await mountView()
+    const row = rowByTitle(wrapper, '一级考证辅导2')!
+    const button = row.findAll('button').find((item) => item.text() === '批注')
+    expect(button).toBeTruthy()
+    await button!.trigger('click')
+    await flushPromises()
+    expect(getReview).toHaveBeenCalledWith(11)
+    wrapper.unmount()
+  })
+
   it('renders review time in local format and keeps the raw value in title', async () => {
     const { wrapper } = await mountView()
 

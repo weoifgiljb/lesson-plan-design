@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { sealSuccess } from '@/utils/seal-toast'
 
-import { listReviews, type ReviewQuery } from '@/api/reviews'
-import type { ReviewListItem } from '@/api/models'
+import { listReviews, getReview, type ReviewQuery } from '@/api/reviews'
+import type { Finding, ReviewDetail, ReviewListItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useMeta } from '@/composables/useMeta'
 import StatusTag from '@/components/StatusTag.vue'
@@ -105,6 +105,39 @@ function goExport(row: ReviewListItem): void {
 }
 
 const scrollRef = ref<HTMLElement | null>(null)
+
+const drawerOpen = ref(false)
+const reviewLoading = ref(false)
+const reviewError = ref('')
+const reviewDetail = ref<ReviewDetail | null>(null)
+
+const SEVERITY_LABELS: Record<string, string> = {
+  blocker: '阻断',
+  major: '主要',
+  minor: '次要',
+}
+
+function severityLabel(severity: string): string {
+  return SEVERITY_LABELS[severity] ?? severity
+}
+
+function findingTone(finding: Finding): string {
+  return finding.status === 'open' ? 'open' : 'closed'
+}
+
+async function openReview(row: ReviewListItem): Promise<void> {
+  drawerOpen.value = true
+  reviewLoading.value = true
+  reviewError.value = ''
+  reviewDetail.value = null
+  try {
+    reviewDetail.value = await getReview(row.reviewId)
+  } catch (caught) {
+    reviewError.value = caught instanceof Error ? caught.message : '批注加载失败'
+  } finally {
+    reviewLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -190,9 +223,12 @@ const scrollRef = ref<HTMLElement | null>(null)
             <span :title="row.reviewedAt">{{ formatDateTime(row.reviewedAt) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <div class="actions">
+              <el-button link type="primary" size="small" @click.stop="openReview(row)">
+                批注
+              </el-button>
               <el-button link type="primary" size="small" @click.stop="copyPlanId(row)">
                 复制教案 ID
               </el-button>
@@ -232,6 +268,73 @@ const scrollRef = ref<HTMLElement | null>(null)
         <p class="empty-desc">导入契约包并完成审查后，记录会出现在这里。</p>
       </div>
     </div>
+
+    <el-drawer v-model="drawerOpen" title="审查批注" size="min(540px, 94vw)" class="review-drawer">
+      <div v-if="reviewLoading" class="drawer-state">正在展开这一轮的批注…</div>
+      <div v-else-if="reviewError" class="drawer-state drawer-state--error">
+        <p>{{ reviewError }}</p>
+        <el-button type="primary" @click="drawerOpen = false">关闭</el-button>
+      </div>
+      <template v-else-if="reviewDetail">
+        <header class="drawer-head">
+          <div>
+            <p class="drawer-kicker">第 {{ reviewDetail.review.round }} 轮 · {{ reviewDetail.review.teacher }}</p>
+            <h2>{{ reviewDetail.review.contentTitle }}</h2>
+            <p class="drawer-meta">
+              {{ reviewDetail.review.course }} · 第 {{ reviewDetail.review.week }} 周第
+              {{ reviewDetail.review.session }} 次
+            </p>
+          </div>
+          <div class="drawer-stamp">
+            <StatusTag :code="reviewDetail.review.status" :status="reviewDetail.review.status" />
+          </div>
+        </header>
+
+        <section class="drawer-section" aria-label="轮次">
+          <h3>轮次</h3>
+          <ol class="round-timeline">
+            <li class="is-current">
+              <span class="round-dot" aria-hidden="true" />
+              <div>
+                <strong>第 {{ reviewDetail.review.round }} 轮</strong>
+                <p>
+                  {{ formatDateTime(reviewDetail.review.reviewedAt) }} ·
+                  {{ reviewDetail.review.reviewerMode }}
+                </p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="drawer-section" aria-label="问题">
+          <h3>问题 {{ reviewDetail.findings.length }}</h3>
+          <article
+            v-for="finding in reviewDetail.findings"
+            :key="finding.id"
+            class="finding-card"
+            :class="[`finding-card--${finding.severity}`, `is-${findingTone(finding)}`]"
+          >
+            <header>
+              <span class="finding-severity">{{ severityLabel(finding.severity) }}</span>
+              <StatusTag :code="finding.status" :status="finding.status" />
+            </header>
+            <p class="finding-title">{{ finding.hypothesis || '未命名问题' }}</p>
+            <p v-if="finding.repair" class="finding-repair">修复：{{ finding.repair }}</p>
+            <p v-if="finding.evidence?.length" class="finding-meta">
+              证据：{{ finding.evidence.join('；') }}
+            </p>
+            <p v-if="finding.affectedPaths?.length" class="finding-meta">
+              位置：{{ finding.affectedPaths.join('、') }}
+            </p>
+          </article>
+          <p v-if="!reviewDetail.findings.length" class="drawer-empty">
+            这一轮没有未关闭问题。可以回到教案详情查看证据链并决定是否导出。
+          </p>
+        </section>
+
+        <p class="drawer-note">本页只读；放行/退回需在教案详情完成。</p>
+      </template>
+    </el-drawer>
 
     <footer v-if="total > filters.pageSize" class="pager">
       <el-pagination
@@ -436,4 +539,167 @@ const scrollRef = ref<HTMLElement | null>(null)
   display: flex;
   justify-content: flex-end;
 }
+
+.drawer-state {
+  padding: 28px 8px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
+.drawer-state--error {
+  color: var(--lpp-danger);
+}
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.drawer-kicker {
+  color: var(--lpp-accent-ink);
+  font-family: var(--lpp-font-hand);
+  font-size: var(--lpp-font-xs);
+  letter-spacing: 0.08em;
+}
+
+.drawer-head h2 {
+  margin-top: 4px;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  font-weight: 600;
+}
+
+.drawer-meta {
+  margin-top: 4px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.drawer-stamp {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border: 3px double var(--lpp-seal);
+  border-radius: 50%;
+  transform: rotate(-4deg);
+}
+
+.drawer-section {
+  margin-top: 20px;
+}
+
+.drawer-section h3 {
+  margin-bottom: 10px;
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-family);
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.round-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.round-timeline li {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.round-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border: 1px solid var(--lpp-accent);
+  border-radius: 50%;
+  background: var(--lpp-accent-soft);
+}
+
+.round-timeline strong {
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+}
+
+.round-timeline p {
+  margin-top: 2px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.finding-card {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--lpp-border);
+  border-left: 3px solid var(--lpp-accent);
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface);
+}
+
+.finding-card--blocker {
+  border-left-color: var(--lpp-danger);
+}
+
+.finding-card--minor {
+  border-left-color: var(--lpp-brass);
+}
+
+.finding-card.is-closed {
+  opacity: 0.65;
+}
+
+.finding-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.finding-severity {
+  color: var(--lpp-accent-ink);
+  font-size: var(--lpp-font-xs);
+}
+
+.finding-title {
+  margin-top: 6px;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  line-height: 1.5;
+}
+
+.finding-repair {
+  margin-top: 5px;
+  color: var(--lpp-primary);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
+}
+
+.finding-meta {
+  margin-top: 4px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.drawer-empty,
+.drawer-note {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.6;
+}
+
+.drawer-note {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lpp-border);
+}
+
 </style>
