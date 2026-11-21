@@ -43,12 +43,14 @@ def create(
     if probe is not None:
         task_conflict.guard(repo, user, probe, confirm, ip=ip, trace_id=trace_id)
 
+    denied_task_id = ""
+
     def audit_denied_on_rollback(exc: BaseException) -> None:
         # 事务已回滚：并发窗口里补写的越权拒绝审计要在这里落库，否则会被回滚带走（R3-F2）
         if isinstance(exc, AppError) and exc.code == "FORBIDDEN":
             audit_service.record(
                 repo, actor_id=int(user.get("id") or 0), action="authz.denied",
-                target_type="task", target_id=str(exc.details.get("taskId") or ""),
+                target_type="task", target_id=denied_task_id,
                 detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks", "stage": "race"},
                 ip=ip, trace_id=trace_id,
             )
@@ -58,6 +60,7 @@ def create(
             data["course"], data["week"], data["session"], data["class_name"], data["title"]
         )
         if existing is not None:
+            denied_task_id = str(int(existing["id"]))
             task_conflict.guard(repo, user, existing, confirm, ip=ip, trace_id=trace_id)
             task_conflict.apply_confirmed(repo, user, existing, data, due_text, ip=ip, trace_id=trace_id)
             return _item(repo.get_task(int(existing["id"])), date.today(), user), False

@@ -28,7 +28,9 @@ def guard(
 
 def raise_conflict(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> None:
     """409 冲突：不写 authz.denied（T2）；占用者信息是否回传由 domain 决定。"""
-    owner_name = str((repo.get_task(int(task["id"])) or {}).get("teacher") or "")
+    owner_name = ""
+    if task_rules.can_touch(user, task):
+        owner_name = str((repo.get_task(int(task["id"])) or {}).get("teacher") or "")
     raise AppError(*task_rules.conflict_for(user, task, owner_name))
 
 
