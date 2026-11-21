@@ -12,6 +12,7 @@
     "check": "npm run typecheck && npm run lint && npm run test",
     "screenshots": "node scripts/screenshots.mjs",
     "zoom:check": "node scripts/zoom-check.mjs",
+    "cls:check": "node scripts/check-cls.mjs",
     "smoke": "node scripts/smoke-dashboard.mjs",
     "smoke:tasks": "node scripts/smoke-tasks.mjs",
     "smoke:plans": "node scripts/smoke-plans.mjs",
