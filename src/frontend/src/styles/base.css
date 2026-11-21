@@ -421,6 +421,10 @@ samp {
   .scrim,
   .page-header__actions,
   .data-table__toolbar,
+  .data-table__footer,
+  .data-table__hint,
+  .stats-filters,
+  .board-filters,
   .filters,
   .quick-actions,
   .el-overlay,
@@ -430,7 +434,13 @@ samp {
   }
 
   .data-table__scroll,
-  .table-wrap {
+  .table-wrap,
+  .quadrant-sheet,
+  .quadrant__list,
+  .source-card,
+  .markdown-body pre {
+    height: auto !important;
+    max-height: none !important;
     overflow: visible !important;
   }
 }

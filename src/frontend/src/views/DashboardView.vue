@@ -16,6 +16,7 @@ import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTime, formatFullDate, formatShortDateTime, formatTime } from '@/utils/datetime'
 import { saveBlob } from '@/utils/download'
+import { reviewModeLabel } from '@/utils/labels'
 import { toLessonStructure } from '@/utils/plan-structure'
 
 const router = useRouter()
@@ -187,7 +188,7 @@ const activities = computed<OverviewActivity[]>(() => {
         id: `review-${review.reviewId}`,
         time: formatDateTime(review.reviewedAt),
         text: `审查《${review.contentTitle}》第 ${review.round} 轮`,
-        meta: `${statusText(review.status)} / ${review.reviewerMode}`,
+        meta: `${statusText(review.status)} / ${reviewModeLabel(review.reviewerMode)}`,
         tone:
           review.status === 'needs_repair' || review.status === 'structure_invalid'
             ? 'warning'

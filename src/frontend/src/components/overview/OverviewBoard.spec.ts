@@ -166,6 +166,30 @@ describe('OverviewBoard', () => {
     wrapper.unmount()
   })
 
+  it('hides upload actions when the role cannot import', async () => {
+    const wrapper = mount(OverviewBoard, {
+      props: {
+        greeting: '下午好，管理员',
+        description: '',
+        dateLabel: '2026年10月29日',
+        metrics,
+        structure: null,
+        queue: [],
+        todos: [],
+        activities: [],
+        queueTitle: '最近教案',
+        queueDescription: '',
+        primaryLabel: '刷新概览',
+        canUpload: false,
+      },
+      global: { plugins: [ElementPlus], stubs: { RouterLink: true } },
+    })
+    await flushPromises()
+    expect(wrapper.findAll('button').some((button) => button.text() === '上传契约包')).toBe(false)
+    expect(wrapper.text()).toContain('当前角色没有导入权限')
+    wrapper.unmount()
+  })
+
   it('shows code, traceId and retry for a core error', async () => {
     const wrapper = mount(OverviewBoard, {
       props: {

@@ -11,6 +11,7 @@ import { useMeta } from '@/composables/useMeta'
 import StatusTag from '@/components/StatusTag.vue'
 import { copyText } from '@/utils/clipboard'
 import { formatDateTime } from '@/utils/datetime'
+import { reviewModeLabel } from '@/utils/labels'
 
 const router = useRouter()
 
@@ -304,7 +305,7 @@ async function openReview(row: ReviewListItem): Promise<void> {
                 <strong>第 {{ reviewDetail.review.round }} 轮</strong>
                 <p>
                   {{ formatDateTime(reviewDetail.review.reviewedAt) }} ·
-                  {{ reviewDetail.review.reviewerMode }}
+                  {{ reviewModeLabel(reviewDetail.review.reviewerMode) }}
                 </p>
               </div>
             </li>

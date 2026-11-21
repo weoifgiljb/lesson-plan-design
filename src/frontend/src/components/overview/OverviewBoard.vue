@@ -547,6 +547,11 @@ function clearFilters(): void {
   font-size: var(--lpp-font-sm);
 }
 
+.today-empty__note {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
 .today-side {
   display: grid;
   gap: 10px;

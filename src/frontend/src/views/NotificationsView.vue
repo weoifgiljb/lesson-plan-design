@@ -75,6 +75,7 @@ async function readAll(): Promise<void> {
 }
 
 .notice.is-unread {
+  /* 未读=待办，按令牌规范用朱砂；不要再改成 brass。 */
   border-left: 3px solid var(--lpp-accent);
 }
 

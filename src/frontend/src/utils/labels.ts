@@ -25,6 +25,12 @@ export const EXPORT_STATUS_LABELS: Record<string, string> = {
   failed: '失败',
 }
 
+export const REVIEW_MODE_LABELS: Record<string, string> = {
+  native_subagent: '独立子代理',
+  role_simulation: '角色模拟',
+  human: '人工',
+}
+
 /** 统计范围：后端按角色收敛成这三档，页面只做展示。 */
 export const SCOPE_LABELS: Record<string, string> = {
   own: '本人',
@@ -42,4 +48,9 @@ export function reviewStatusLabel(status: string): string {
 export function scopeLabel(scope: string | undefined): string {
   if (!scope) return ''
   return SCOPE_LABELS[scope] ?? scope
+}
+
+export function reviewModeLabel(mode: string | null | undefined): string {
+  if (!mode) return '审查方式未记录'
+  return REVIEW_MODE_LABELS[mode] ?? mode
 }

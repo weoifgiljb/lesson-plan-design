@@ -443,6 +443,7 @@ onMounted(() => {
           :columns="diffColumns"
           row-key="path"
           aria-label="版本差异"
+          empty-title="没有字段差异"
           empty-text="两个版本内容相同，没有字段变化。"
         >
           <template #cell-path="{ row }"><span class="mono">{{ row.path }}</span></template>

@@ -188,7 +188,7 @@ const roleLabel = computed(
             </el-table-column>
             <el-table-column prop="createdAt" label="创建时间" min-width="190" />
           </el-table>
-          <div v-else-if="!users.loading.value" class="empty">还没有账号。先创建第一位教师，或从注册页开通。</div>
+          <div v-else-if="!users.loading.value && !users.error.value" class="empty">还没有账号。先创建第一位教师，或从注册页开通。</div>
         </div>
 
         <footer v-if="userTotal > userFilters.pageSize!" class="pager">
@@ -224,7 +224,7 @@ const roleLabel = computed(
             <el-table-column prop="ip" label="IP" width="140" />
             <el-table-column prop="traceId" label="traceId" min-width="220" />
           </el-table>
-          <div v-else-if="!audit.loading.value" class="empty">还没有审计记录。关键操作发生后会记录在这里。</div>
+          <div v-else-if="!audit.loading.value && !audit.error.value" class="empty">还没有审计记录。关键操作发生后会记录在这里。</div>
         </div>
 
         <footer v-if="auditTotal > auditFilters.pageSize!" class="pager">
@@ -301,7 +301,7 @@ const roleLabel = computed(
               </template>
             </el-table-column>
           </el-table>
-          <div v-else-if="!deletions.loading.value" class="empty">没有待处理的删除申请。</div>
+          <div v-else-if="!deletions.loading.value && !deletions.error.value" class="empty">没有待处理的删除申请。</div>
         </div>
       </el-tab-pane>
       <el-tab-pane label="备份" name="backup">
@@ -327,7 +327,7 @@ const roleLabel = computed(
               </template>
             </el-table-column>
           </el-table>
-          <div v-else-if="!backups.loading.value" class="empty">还没有备份。点“创建备份”生成第一份。</div>
+          <div v-else-if="!backups.loading.value && !backups.error.value" class="empty">还没有备份。点“创建备份”生成第一份。</div>
         </div>
       </el-tab-pane>
     </el-tabs>

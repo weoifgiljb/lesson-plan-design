@@ -3,6 +3,7 @@ import { computed } from 'vue'
 
 import type { PlanListItem } from '@/api/models'
 import StatusTag from '@/components/StatusTag.vue'
+import { reviewModeLabel } from '@/utils/labels'
 
 const props = defineProps<{
   plan: PlanListItem
@@ -17,16 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ (event: 'detail'): void }>()
 
-const MODE_LABELS: Record<string, string> = {
-  native_subagent: '独立子代理',
-  role_simulation: '角色模拟',
-  human: '人工',
-}
-
-const modeLabel = computed(() => {
-  const mode = props.latestReview?.reviewerMode
-  return mode ? (MODE_LABELS[mode] ?? mode) : '审查方式未记录'
-})
+const modeLabel = computed(() => reviewModeLabel(props.latestReview?.reviewerMode))
 </script>
 
 <template>
