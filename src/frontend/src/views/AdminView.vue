@@ -188,7 +188,7 @@ const roleLabel = computed(
             </el-table-column>
             <el-table-column prop="createdAt" label="创建时间" min-width="190" />
           </el-table>
-          <div v-else-if="!users.loading.value" class="empty">暂无账号</div>
+          <div v-else-if="!users.loading.value" class="empty">还没有账号。先创建第一位教师，或从注册页开通。</div>
         </div>
 
         <footer v-if="userTotal > userFilters.pageSize!" class="pager">
@@ -224,7 +224,7 @@ const roleLabel = computed(
             <el-table-column prop="ip" label="IP" width="140" />
             <el-table-column prop="traceId" label="traceId" min-width="220" />
           </el-table>
-          <div v-else-if="!audit.loading.value" class="empty">暂无审计记录</div>
+          <div v-else-if="!audit.loading.value" class="empty">还没有审计记录。关键操作发生后会记录在这里。</div>
         </div>
 
         <footer v-if="auditTotal > auditFilters.pageSize!" class="pager">
@@ -277,7 +277,7 @@ const roleLabel = computed(
               :title="alert.message"
             />
           </div>
-          <div v-else-if="!ops.loading.value" class="empty">暂无运维指标</div>
+          <div v-else-if="!ops.loading.value" class="empty">运维指标还没有数据。产生导出或审查后刷新。</div>
         </div>
       </el-tab-pane>
       <el-tab-pane label="删除申请" name="deletion">
@@ -301,7 +301,7 @@ const roleLabel = computed(
               </template>
             </el-table-column>
           </el-table>
-          <div v-else-if="!deletions.loading.value" class="empty">暂无待处理删除申请</div>
+          <div v-else-if="!deletions.loading.value" class="empty">没有待处理的删除申请。</div>
         </div>
       </el-tab-pane>
       <el-tab-pane label="备份" name="backup">
@@ -327,7 +327,7 @@ const roleLabel = computed(
               </template>
             </el-table-column>
           </el-table>
-          <div v-else-if="!backups.loading.value" class="empty">暂无备份</div>
+          <div v-else-if="!backups.loading.value" class="empty">还没有备份。点“创建备份”生成第一份。</div>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -374,7 +374,9 @@ const roleLabel = computed(
 
 .head h1 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  letter-spacing: 0.01em;
 }
 
 .lead {
@@ -387,6 +389,15 @@ const roleLabel = computed(
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface-2);
+}
+
+.filters :deep(.el-input__wrapper) {
+  min-height: 32px;
+  background: var(--lpp-surface);
 }
 
 .filter {
@@ -398,6 +409,30 @@ const roleLabel = computed(
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+  overflow: hidden;
+}
+
+.table-wrap :deep(.el-table th.el-table__cell) {
+  height: 38px;
+  border-bottom: 2px double var(--lpp-border-strong);
+  background: var(--lpp-surface-2);
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+}
+
+.table-wrap :deep(.el-table td.el-table__cell) {
+  height: 44px;
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.table-wrap :deep(.el-table__row:hover > td.el-table__cell) {
+  background: var(--lpp-row-hover);
+}
+
+.table-wrap :deep(.el-table__row--striped td.el-table__cell) {
+  background: transparent;
 }
 
 .backup-panel {

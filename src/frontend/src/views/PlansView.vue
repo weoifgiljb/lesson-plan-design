@@ -230,7 +230,9 @@ onMounted(() => {
         </span>
       </template>
       <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
-      <template #cell-versionNo="{ row }">第 {{ row.versionNo }} 稿</template>
+      <template #cell-versionNo="{ row }">
+        <span class="version-tag" :class="{ 'is-new': row.versionNo > 1 }">第 {{ row.versionNo }} 稿</span>
+      </template>
       <template #cell-reviewStatus="{ row }">
         <StatusTag :code="String(row.reviewStatus)" :status="String(row.reviewStatus)" />
       </template>
@@ -309,6 +311,20 @@ onMounted(() => {
   color: var(--lpp-text-muted);
   font-family: var(--lpp-font-numeric);
   font-size: 12px;
+}
+
+.version-tag {
+  position: relative;
+  display: inline-block;
+}
+
+.version-tag.is-new::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  border-top: 5px solid var(--lpp-brass);
+  border-left: 5px solid transparent;
 }
 
 .footnote {
