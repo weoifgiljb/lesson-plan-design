@@ -29,7 +29,7 @@ page.on('console', (message) => {
 
 async function capture(name) {
   await page.waitForTimeout(500)
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   if (overflow > 1) {
     throw new Error(`${name} @ 200%: body overflows by ${overflow}px`)
   }
@@ -38,7 +38,8 @@ async function capture(name) {
   console.log('saved', target)
 }
 
-await page.goto(`${base}/login`, { waitUntil: 'networkidle' })
+try {
+  await page.goto(`${base}/login`, { waitUntil: 'networkidle' })
 await capture('login')
 
 await page.fill('input[autocomplete="username"]', username)
@@ -68,7 +69,9 @@ if (packagePath) {
   await capture('plan-content')
 }
 
-await browser.close()
+} finally {
+  await browser.close()
+}
 if (errors.length) {
   console.error('console/page errors:', errors)
   process.exitCode = 1

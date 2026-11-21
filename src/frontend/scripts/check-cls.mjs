@@ -44,20 +44,22 @@ async function measure(name, waitFor) {
     const duration = title
       ? getComputedStyle(title, '::after').animationDuration
       : '0s'
-    return { cls, duration, overflow: document.documentElement.scrollWidth - window.innerWidth }
+    return { cls, duration, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }
   })
   console.log(`${name}: CLS=${result.cls.toFixed(4)} underline=${result.duration} overflow=${result.overflow}`)
   if (result.cls > 0.1) throw new Error(`${name}: CLS ${result.cls} > 0.1`)
   return result
 }
 
-await page.goto(`${base}/login`, { waitUntil: 'networkidle' })
+try {
+  await page.goto(`${base}/login`, { waitUntil: 'networkidle' })
 await measure('login')
 
 await page.fill('input[autocomplete="username"]', username)
 await page.fill('input[autocomplete="current-password"]', password)
 await page.click('.login-submit')
 await page.waitForURL('**/dashboard', { timeout: 20000 })
+await page.evaluate(() => { window.__cls = 0 })
 await measure('dashboard', '.today-block')
 
 for (const [name, path, waitFor] of [
@@ -78,7 +80,9 @@ if (packagePath) {
   await measure('plan-content', '.proof-layout')
 }
 
-await browser.close()
+} finally {
+  await browser.close()
+}
 if (errors.length) {
   console.error('console/page errors:', errors)
   process.exitCode = 1

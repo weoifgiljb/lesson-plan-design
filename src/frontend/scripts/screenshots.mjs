@@ -66,7 +66,7 @@ async function capture(page, name, waitFor, readySelector) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await page.waitForTimeout(450)
     const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     )
     if (overflow > 1) {
       throw new Error(`${name} @ ${viewport.name}: body overflows by ${overflow}px`)

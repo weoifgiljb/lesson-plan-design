@@ -33,7 +33,7 @@ const props = withDefaults(
     clickable: false,
     ariaLabel: '数据表格',
     emptyText: '调整筛选条件，或先创建一条记录。',
-    emptyTitle: '没有符合条件的记录',
+    emptyTitle: '这里还没有记录',
   },
 )
 
