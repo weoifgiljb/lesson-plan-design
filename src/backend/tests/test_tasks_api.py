@@ -146,6 +146,17 @@ class TestTasksApi(unittest.TestCase):
         )
         self.assertEqual(created.status_code, 201, created.text)
         teacher_csrf = self._login("teacher1")
+        # 同组非本人：409 占用（不是"已存在"，因为无权覆盖），且不写越权审计
+        conflict = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班", "dueDate": (date.today() + timedelta(days=9)).isoformat()},
+            headers={"X-CSRF-Token": teacher_csrf},
+        )
+        self.assertEqual(conflict.status_code, 409, conflict.text)
+        self.assertEqual(conflict.json()["code"], "TASK_TAKEN_BY_OTHER")
+        self.assertFalse(conflict.json()["details"]["canOverwrite"])
+        # 组内共享只读+推进：显式 confirm 覆盖他人任务 → 403 且留痕
         denied = self.client.post(
             "/api/v1/tasks",
             json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
@@ -154,6 +165,14 @@ class TestTasksApi(unittest.TestCase):
             headers={"X-CSRF-Token": teacher_csrf},
         )
         self.assertEqual(denied.status_code, 403, denied.text)
+        connection = open_database(self.db_file)
+        try:
+            audits = Repo(connection).list_audit(200)
+            targets = [row["target_id"] for row in audits if row["action"] == "authz.denied"]
+        finally:
+            connection.close()
+        self.assertIn(str(created.json()["taskId"]), targets)
+        self._login("teacher1")
 
     def test_task_package_declares_engine_version(self) -> None:
         # R3-F12：任务包要带引擎版本与学期，便于插件端判断兼容性

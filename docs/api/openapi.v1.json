@@ -2904,8 +2904,8 @@
             "x-error-code": "FORBIDDEN"
           },
           "409": {
-            "description": "本人重复建同一身份任务，确认后可覆盖；任务已被他人或他组占用",
-            "x-error-code": "TASK_ALREADY_EXISTS,TASK_TAKEN_BY_OTHER"
+            "description": "本人重复建同一身份任务，确认后可覆盖；任务已被他人或他组占用；数据库繁忙或并发写入冲突，请重试",
+            "x-error-code": "TASK_ALREADY_EXISTS,TASK_TAKEN_BY_OTHER,CONFLICT_STALE"
           },
           "422": {
             "description": "建课参数不合法",

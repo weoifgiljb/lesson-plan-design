@@ -84,6 +84,7 @@ def task_board(
             "FORBIDDEN:只能覆盖自己创建的任务（他人任务请由本人或管理员处理）",
             "TASK_ALREADY_EXISTS:本人重复建同一身份任务，确认后可覆盖",
             "TASK_TAKEN_BY_OTHER:任务已被他人或他组占用",
+            "CONFLICT_STALE:数据库繁忙或并发写入冲突，请重试",
             "PAYLOAD_REJECTED:建课参数不合法",
         ),
     },

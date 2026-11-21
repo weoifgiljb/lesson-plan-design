@@ -46,7 +46,18 @@ def create(
         if not task_rules.can_overwrite(user, probe):
             _deny_overwrite(repo, user, probe, ip, trace_id)
         # 本人/管理员带 confirm：落到事务里更新已有任务
-    with repo.transaction():
+
+    def audit_denied_on_rollback(exc: BaseException) -> None:
+        # 事务已回滚：并发窗口里补写的越权拒绝审计要在这里落库，否则会被回滚带走（R3-F2）
+        if isinstance(exc, AppError) and exc.code == "FORBIDDEN":
+            audit_service.record(
+                repo, actor_id=int(user.get("id") or 0), action="authz.denied",
+                target_type="task", target_id="",
+                detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks", "stage": "race"},
+                ip=ip, trace_id=trace_id,
+            )
+
+    with repo.transaction(audit_denied_on_rollback):
         existing = repo.find_task(
             data["course"], data["week"], data["session"], data["class_name"], data["title"]
         )
@@ -54,7 +65,6 @@ def create(
             if not confirm:
                 _raise_conflict(repo, user, existing)
             if not task_rules.can_overwrite(user, existing):
-                # 只有并发窗口才会走到这里；事务内抛异常会回滚审计，故不在此补审计
                 raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理")
             # 需求 BS-10：重复建课时提示冲突，确认后才允许（这里按"更新已有任务"处理）
             repo.update_task(int(existing["id"]), title=data["title"], due_date=due_text)
@@ -269,7 +279,7 @@ def _raise_conflict(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> N
     owner_name = str((repo.get_task(int(task["id"])) or {}).get("teacher") or "")
     details = {"taskId": int(task["id"]), "ownerId": int(task["owner_id"]),
                "ownerName": owner_name, "canOverwrite": task_rules.can_overwrite(user, task)}
-    if task_rules.can_touch(user, task):
+    if task_rules.can_overwrite(user, task):
         raise AppError("TASK_ALREADY_EXISTS", "同一班级的同一课题已存在；确认覆盖请带 confirm=true", details)
     raise AppError("TASK_TAKEN_BY_OTHER", f"该课题任务已由{owner_name or '其他教师'}创建，不能覆盖", details)
 
