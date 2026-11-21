@@ -277,7 +277,7 @@ const roleLabel = computed(
               :title="alert.message"
             />
           </div>
-          <div v-else-if="!ops.loading.value && !ops.data.value" class="empty">运维指标还没有数据。产生导出或审查后刷新。</div>
+          <div v-else-if="!ops.loading.value && !ops.data.value && !ops.error.value" class="empty">运维指标还没有数据。产生导出或审查后刷新。</div>
         </div>
       </el-tab-pane>
       <el-tab-pane label="删除申请" name="deletion">

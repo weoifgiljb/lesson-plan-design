@@ -21,6 +21,7 @@ export const PALETTE = {
   accent: '#B0432F',
   accentInk: '#7C2B1E',
   accentSoft: '#F6E5DF',
+  accentOnDark: '#F0A08F',
   brass: '#A47F45',
   brassInk: '#725526',
   seal: '#8C3A2A',

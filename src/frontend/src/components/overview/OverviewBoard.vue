@@ -42,6 +42,7 @@ const props = withDefaults(
     metricsLink?: string
     footerNote?: string
     canExport?: boolean
+    canUpload?: boolean
   }>(),
   {
     scopeLabel: '',
@@ -58,6 +59,7 @@ const props = withDefaults(
     metricsLink: '',
     footerNote: '',
     canExport: true,
+    canUpload: true,
   },
 )
 
@@ -242,8 +244,9 @@ function clearFilters(): void {
             </article>
           </div>
           <div v-else class="today-empty">
-            <p>今天没有紧急待办。可以先导入一份契约包，或从样例库挑一份改。</p>
-            <el-button type="primary" @click="emit('upload')">上传契约包</el-button>
+            <p>{{ canUpload ? '今天没有紧急待办。可以先导入一份契约包，或从样例库挑一份改。' : '今天没有紧急待办。当前角色可查看样例库，或等待教师提交。' }}</p>
+            <el-button v-if="canUpload" type="primary" @click="emit('upload')">上传契约包</el-button>
+            <p v-else class="today-empty__note">当前角色没有导入权限，可去样例库查看。</p>
           </div>
         </div>
 
@@ -257,7 +260,7 @@ function clearFilters(): void {
             <router-link v-if="metricsLink" class="text-link" :to="metricsLink">查看统计口径</router-link>
           </div>
           <nav class="quick-actions" aria-label="快捷动作">
-            <button type="button" class="quick-action" @click="emit('upload')">上传契约包</button>
+            <button v-if="canUpload" type="button" class="quick-action" @click="emit('upload')">上传契约包</button>
             <router-link class="quick-action" to="/plans">继续最近草稿</router-link>
             <router-link v-if="canExport" class="quick-action" to="/exports">批量导出</router-link>
           </nav>

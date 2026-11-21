@@ -406,13 +406,32 @@ samp {
 }
 
 @media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body.el-popup-parent--hidden {
+    overflow: visible !important;
+  }
+
   .sidebar,
   .commandbar,
+  .scrim,
   .page-header__actions,
+  .data-table__toolbar,
+  .filters,
+  .quick-actions,
   .el-overlay,
   .el-drawer,
   .el-message {
     display: none !important;
+  }
+
+  .data-table__scroll,
+  .table-wrap {
+    overflow: visible !important;
   }
 }
 

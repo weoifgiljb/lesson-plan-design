@@ -94,6 +94,7 @@ async function resetFilters(): Promise<void> {
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
+const importButtonRef = ref<{ $el?: HTMLElement } | null>(null)
 const importing = ref(false)
 
 function pickFile(): void {
@@ -130,11 +131,15 @@ function openPlan(plan: PlanListItem): void {
 
 onMounted(async () => {
   await load()
-  if (route.query.upload === '1' && canImport.value) {
-    await nextTick()
-    pickFile()
-    await router.replace({ path: '/plans' })
+  if (route.query.upload !== '1' || error.value) return
+  await nextTick()
+  if (canImport.value) {
+    importButtonRef.value?.$el?.focus?.()
+    ElMessage.info('点“导入契约包”选择文件；浏览器不允许自动打开文件框。')
+  } else {
+    ElMessage.info('当前角色没有导入权限。')
   }
+  await router.replace({ path: '/plans' })
 })
 </script>
 
@@ -153,7 +158,7 @@ onMounted(async () => {
           aria-label="导入契约包"
           @change="onFile"
         />
-        <el-button v-if="canImport" type="primary" :loading="importing" @click="pickFile">
+        <el-button v-if="canImport" ref="importButtonRef" type="primary" :loading="importing" @click="pickFile">
           导入契约包
         </el-button>
       </template>
@@ -170,6 +175,7 @@ onMounted(async () => {
       row-key="planId"
       show-pagination
       aria-label="教案列表"
+      empty-title="还没有教案"
       empty-text="当前范围还没有教案。导入契约包后会出现在这里。"
       @update:page="setPage"
       @update:page-size="setPageSize"

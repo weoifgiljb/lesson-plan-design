@@ -385,7 +385,7 @@ onMounted(() => {
           row-key="versionNo"
           aria-label="版本历史"
           empty-title="还没有版本记录"
-          empty-text="还没有版本记录"
+          empty-text="导入新版本后，这里会显示版本链与哈希。"
           @retry="versionsRequest.load()"
         >
           <template #cell-versionNo="{ row }">v{{ row.versionNo }}</template>

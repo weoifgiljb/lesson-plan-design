@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
 }
 
 .structure-axis__dot--evidence {
-  color: var(--lpp-brass);
+  color: var(--lpp-success);
   background: var(--lpp-surface);
 }
 
@@ -608,7 +608,7 @@ onBeforeUnmount(() => {
 }
 
 .swatch--evidence {
-  border: 1px solid var(--lpp-brass);
+  border: 1px solid var(--lpp-success);
 }
 
 .structure-list {

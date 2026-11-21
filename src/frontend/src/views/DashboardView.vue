@@ -398,6 +398,7 @@ onBeforeUnmount(() => {
     :error="coreError"
     :partial-notice="partialNotice"
     :can-export="isReviewer"
+    :can-upload="isReviewer"
     footer-note="数据来自当前账号可见范围；指标以分子/分母为准，完整口径与下钻见统计看板任务。"
     @primary="loadAll()"
     @upload="openUpload"

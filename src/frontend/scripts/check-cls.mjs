@@ -55,11 +55,11 @@ try {
   await page.goto(`${base}/login`, { waitUntil: 'networkidle' })
 await measure('login')
 
+await page.evaluate(() => { window.__cls = 0 })
 await page.fill('input[autocomplete="username"]', username)
 await page.fill('input[autocomplete="current-password"]', password)
 await page.click('.login-submit')
 await page.waitForURL('**/dashboard', { timeout: 20000 })
-await page.evaluate(() => { window.__cls = 0 })
 await measure('dashboard', '.today-block')
 
 for (const [name, path, waitFor] of [

@@ -389,7 +389,9 @@ onMounted(() => {
 }
 
 .auth-form :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 1px var(--lpp-primary) inset;
+  box-shadow:
+    0 0 0 1px var(--lpp-primary) inset,
+    0 0 0 3px var(--lpp-focus-soft);
 }
 
 .login-error {

@@ -61,6 +61,30 @@ describe('PlansView', () => {
     wrapper.unmount()
   })
 
+  it('does not auto-click the file input without user activation', async () => {
+    setActivePinia(createPinia())
+    listPlans.mockResolvedValue({ items: [plan], page: 1, pageSize: 20, total: 1 })
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click')
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/plans', component: { template: '<div />' } },
+        { path: '/plans/:id', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/plans?upload=1')
+    await router.isReady()
+    const wrapper = mount(PlansView, {
+      global: { plugins: [ElementPlus, router] },
+    })
+    await flushPromises()
+
+    expect(click).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.fullPath).toBe('/plans')
+    wrapper.unmount()
+    click.mockRestore()
+  })
+
   it('imports a zip and opens the new plan', async () => {
     setActivePinia(createPinia())
     listPlans.mockResolvedValue({ items: [plan], page: 1, pageSize: 20, total: 1 })

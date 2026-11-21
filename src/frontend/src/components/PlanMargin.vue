@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import type { PlanListItem } from '@/api/models'
 import StatusTag from '@/components/StatusTag.vue'
 
-defineProps<{
+const props = defineProps<{
   plan: PlanListItem
   latestReview: {
     round: number
@@ -14,6 +16,17 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ (event: 'detail'): void }>()
+
+const MODE_LABELS: Record<string, string> = {
+  native_subagent: '独立子代理',
+  role_simulation: '角色模拟',
+  human: '人工',
+}
+
+const modeLabel = computed(() => {
+  const mode = props.latestReview?.reviewerMode
+  return mode ? (MODE_LABELS[mode] ?? mode) : '审查方式未记录'
+})
 </script>
 
 <template>
@@ -31,7 +44,7 @@ const emit = defineEmits<{ (event: 'detail'): void }>()
     <h2>审查</h2>
     <template v-if="latestReview">
       <StatusTag :code="latestReview.status" :status="latestReview.status" />
-      <p class="margin-note">第 {{ latestReview.round }} 轮 · {{ latestReview.reviewerMode ?? '审查方式未记录' }}</p>
+      <p class="margin-note">第 {{ latestReview.round }} 轮 · {{ modeLabel }}</p>
     </template>
     <p v-else class="margin-note">这份教案还没有审查记录。</p>
   </section>
