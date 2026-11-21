@@ -50,6 +50,16 @@ CATALOG: dict[str, dict[str, object]] = {
         "zh": "数据已变化，请刷新后重试",
         "scene": "乐观锁/唯一键冲突（重复导入、重复建课、用户名已存在）",
     },
+    "TASK_TAKEN_BY_OTHER": {
+        "http": 409,
+        "zh": "该教学任务已被占用",
+        "scene": "同身份（课程+周次+课次+班级+课题）任务已由他人或他组创建，需改名或联系占用人",
+    },
+    "TASK_ALREADY_EXISTS": {
+        "http": 409,
+        "zh": "任务已存在",
+        "scene": "本人重复建同一身份任务，确认覆盖后更新已有任务",
+    },
     "CONFLICT_DELETED": {
         "http": 409,
         "zh": "对象已删除",
@@ -144,6 +154,8 @@ ERROR_CODES = {
     "METHOD_NOT_ALLOWED": 405,
     "CONFLICT_STALE": 409,
     "CONFLICT_DELETED": 409,
+    "TASK_TAKEN_BY_OTHER": 409,
+    "TASK_ALREADY_EXISTS": 409,
     "HASH_MISMATCH": 422,
     "SCHEMA_UNSUPPORTED": 422,
     "STRUCTURE_INVALID": 422,

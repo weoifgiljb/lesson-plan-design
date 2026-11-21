@@ -36,33 +36,25 @@ def create(
     quadrant = task_rules.validate_quadrant(payload.get("quadrant"))
     due = payload.get("dueDate")
     due_text = due.isoformat() if due else None
-    # 归属校验放在事务外：越权审计必须真正落库（事务内 raise 会把审计一起回滚，R3-F2）
+    # 冲突不是越权：同身份任务已存在时给 409 业务冲突，且不写越权审计（BS-10/T2）
     probe = repo.find_task(
         data["course"], data["week"], data["session"], data["class_name"], data["title"]
     )
-    if probe is not None and not _can_touch(repo, user, probe):
-        audit_service.record(
-            repo, actor_id=int(user.get("id") or 0), action="authz.denied",
-            target_type="task", target_id=str(probe["id"]),
-            detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
-            ip=ip, trace_id=trace_id,
-        )
-        raise AppError("FORBIDDEN", "该任务属于其他教师，不能覆盖")
+    if probe is not None:
+        if not confirm:
+            _raise_conflict(repo, user, probe)
+        if not task_rules.can_overwrite(user, probe):
+            _deny_overwrite(repo, user, probe, ip, trace_id)
+        # 本人/管理员带 confirm：落到事务里更新已有任务
     with repo.transaction():
         existing = repo.find_task(
             data["course"], data["week"], data["session"], data["class_name"], data["title"]
         )
         if existing is not None:
-            if not _can_touch(repo, user, existing):
-                raise AppError("FORBIDDEN", "该任务属于其他教师，不能覆盖")
             if not confirm:
-                raise AppError(
-                    "CONFLICT_STALE",
-                    "同一班级的同一课题（周次/课次相同）已存在；确认覆盖请带 confirm=true",
-                    {"taskId": int(existing["id"])},
-                )
-            if int(existing["owner_id"]) != int(user.get("id") or 0) and str(user.get("role")) != "admin":
-                # 组内共享只读+推进；覆盖（改标题/截止）限定本人或管理员（R3-F6）
+                _raise_conflict(repo, user, existing)
+            if not task_rules.can_overwrite(user, existing):
+                # 只有并发窗口才会走到这里；事务内抛异常会回滚审计，故不在此补审计
                 raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理")
             # 需求 BS-10：重复建课时提示冲突，确认后才允许（这里按"更新已有任务"处理）
             repo.update_task(int(existing["id"]), title=data["title"], due_date=due_text)
@@ -94,7 +86,7 @@ def rollback(
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
     # 归属校验：组长只能回退本组任务，不能跨组改别人状态（R2-4）
-    if not _can_touch(repo, user, task):
+    if not task_rules.can_touch(user, task):
         audit_service.record(
             repo, actor_id=int(user.get("id") or 0), action="authz.denied", target_type="task",
             target_id=str(task_id), detail={"reason": "task_scope", "path": "/api/v1/tasks/rollback"},
@@ -267,9 +259,30 @@ def _owned_task(repo: Repo, user: dict[str, Any], task_id: int) -> dict[str, Any
     task = repo.get_task(int(task_id))
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    if not _can_touch(repo, user, task):
+    if not task_rules.can_touch(user, task):
         raise AppError("FORBIDDEN", "只能操作本人或本组任务")
     return task
+
+
+def _raise_conflict(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> None:
+    """同身份任务已存在：409 业务冲突，不写越权审计（T1/T2）。"""
+    owner_name = str((repo.get_task(int(task["id"])) or {}).get("teacher") or "")
+    details = {"taskId": int(task["id"]), "ownerId": int(task["owner_id"]),
+               "ownerName": owner_name, "canOverwrite": task_rules.can_overwrite(user, task)}
+    if task_rules.can_touch(user, task):
+        raise AppError("TASK_ALREADY_EXISTS", "同一班级的同一课题已存在；确认覆盖请带 confirm=true", details)
+    raise AppError("TASK_TAKEN_BY_OTHER", f"该课题任务已由{owner_name or '其他教师'}创建，不能覆盖", details)
+
+
+def _deny_overwrite(repo: Repo, user: dict[str, Any], task: dict[str, Any], ip: str, trace_id: str) -> None:
+    """显式覆盖他人任务：真实越权，事务外留审计（R3-F2）。"""
+    audit_service.record(
+        repo, actor_id=int(user.get("id") or 0), action="authz.denied",
+        target_type="task", target_id=str(task["id"]),
+        detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
+        ip=ip, trace_id=trace_id,
+    )
+    raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理")
 
 
 def package(
@@ -278,7 +291,7 @@ def package(
     task = repo.get_task(task_id)
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    if not _can_touch(repo, user, task):
+    if not task_rules.can_touch(user, task):
         raise AppError("FORBIDDEN", "无权访问该任务")
     template = engine.draft_plan(int(task["week"]), int(task["session"]), str(task["title"]), str(task["course"]))
     if not template:
@@ -300,17 +313,6 @@ def _nearest_sample(repo: Repo, task: dict[str, Any]) -> int | None:
         )
         sample = rows[0] if rows else None
     return int(sample["id"]) if sample is not None else None
-
-
-def _can_touch(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> bool:
-    """本人的任务、或本组任务（组长建的任务组内教师可推进）；管理员全部。"""
-    if str(user.get("role") or "") == "admin":
-        return True
-    if int(user.get("id") or 0) == int(task["owner_id"]):
-        return True
-    group = str(user.get("group_name") or "").strip()
-    task_group = str(task.get("group_name") or task.get("owner_group") or "").strip()
-    return bool(group) and group == task_group
 
 
 def _item(

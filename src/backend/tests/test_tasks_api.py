@@ -77,7 +77,11 @@ class TestTasksApi(unittest.TestCase):
         first = self._create()
         self.assertEqual(first.status_code, 201, first.text)
         self.assertFalse(first.json()["overdue"])
-        self.assertEqual(self._create().status_code, 409)
+        duplicate = self._create()
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(duplicate.json()["code"], "TASK_ALREADY_EXISTS")
+        self.assertEqual(duplicate.json()["details"]["taskId"], first.json()["taskId"])
+        self.assertTrue(duplicate.json()["details"]["canOverwrite"])
         past = self._create(title="逾期课", session=2, dueDate=(date.today() - timedelta(days=1)).isoformat())
         self.assertEqual(past.status_code, 201, past.text)
         self.assertTrue(past.json()["overdue"])
@@ -163,8 +167,33 @@ class TestTasksApi(unittest.TestCase):
         self.assertIn("term", meta)
         self.assertEqual(meta["expectedSchemaVersion"], 1)
 
+    def test_cross_teacher_conflict_is_409_without_authz_audit(self) -> None:
+        # T1/T2：同身份任务被他人占用是业务冲突而不是越权，不能写 authz.denied
+        mine = self._create().json()
+        other_csrf = self._login("teacher2")
+        conflict = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班"},
+            headers={"X-CSRF-Token": other_csrf},
+        )
+        self.assertEqual(conflict.status_code, 409, conflict.text)
+        body = conflict.json()
+        self.assertEqual(body["code"], "TASK_TAKEN_BY_OTHER")
+        self.assertEqual(body["details"]["taskId"], mine["taskId"])
+        self.assertEqual(body["details"]["ownerId"], mine["ownerId"])
+        self.assertFalse(body["details"]["canOverwrite"])
+        self.assertTrue(body["details"]["ownerName"])
+        connection = open_database(self.db_file)
+        try:
+            actions = [row["action"] for row in Repo(connection).list_audit(200)]
+        finally:
+            connection.close()
+        self.assertNotIn("authz.denied", actions)
+        self._login("teacher1")
+
     def test_cross_teacher_confirm_is_denied_and_audited(self) -> None:
-        # R3-F2：越权审计不能被事务回滚掉
+        # R3-F2：显式覆盖他人任务是真实越权，审计不能被事务回滚掉
         mine = self._create().json()
         other_csrf = self._login("teacher2")
         denied = self.client.post(
@@ -175,6 +204,7 @@ class TestTasksApi(unittest.TestCase):
             headers={"X-CSRF-Token": other_csrf},
         )
         self.assertEqual(denied.status_code, 403, denied.text)
+        self.assertEqual(denied.json()["code"], "FORBIDDEN")
         connection = open_database(self.db_file)
         try:
             rows = Repo(connection).list_audit(200)
@@ -258,7 +288,7 @@ class TestTasksApi(unittest.TestCase):
             thread.start()
         for thread in threads:
             thread.join(timeout=15)
-        self.assertCountEqual(outcomes, ["created", "CONFLICT_STALE"])
+        self.assertCountEqual(outcomes, ["created", "TASK_ALREADY_EXISTS"])
         connection = open_database(self.db_file)
         try:
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM task").fetchone()[0], 1)
@@ -322,7 +352,9 @@ class TestTasksApi(unittest.TestCase):
         first = self._create()
         self.assertEqual(first.status_code, 201, first.text)
         # 完全相同的身份（课程/周次/课次/班级/课题）才算重复
-        self.assertEqual(self._create().status_code, 409)
+        duplicate = self._create()
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(duplicate.json()["code"], "TASK_ALREADY_EXISTS")
         confirmed = self._create(confirm=True)
         self.assertEqual(confirmed.status_code, 200, confirmed.text)
         self.assertEqual(confirmed.json()["taskId"], first.json()["taskId"])

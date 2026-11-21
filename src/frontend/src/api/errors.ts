@@ -9,6 +9,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   METHOD_NOT_ALLOWED: '该操作方式不被支持，请刷新页面后重试',
   CONFLICT_STALE: '版本已变化，请刷新后重试',
   CONFLICT_DELETED: '该教案已被删除，请刷新后重试',
+  TASK_TAKEN_BY_OTHER: '该课题任务已被其他教师创建，请改名或联系占用人',
+  TASK_ALREADY_EXISTS: '任务已存在，确认后可覆盖已有任务',
   HASH_MISMATCH: '哈希不一致，文件可能被篡改',
   SCHEMA_UNSUPPORTED: '契约版本不受支持',
   STRUCTURE_INVALID: '教案未通过结构校验',
