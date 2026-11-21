@@ -36,8 +36,12 @@ export function getTaskBoard(query: Pick<TaskQuery, 'course' | 'week' | 'teacher
   return client.get<TaskBoard>('/api/v1/tasks/board', query as Record<string, unknown>)
 }
 
-export function createTask(payload: TaskCreatePayload): Promise<TaskItem> {
-  return client.post<TaskItem>('/api/v1/tasks', payload)
+/** 同身份任务已存在时带 confirm=true 才是"确认覆盖"，否则一律按冲突返回 409。 */
+export function createTask(
+  payload: TaskCreatePayload,
+  options: { confirm?: boolean } = {},
+): Promise<TaskItem> {
+  return client.post<TaskItem>('/api/v1/tasks', payload, options.confirm ? { confirm: true } : undefined)
 }
 
 export function moveTask(taskId: number, payload: TaskMovePayload): Promise<TaskItem> {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { sealSuccess } from '@/utils/seal-toast'
@@ -98,6 +98,48 @@ function handleError(caught: unknown, fallback: string): RequestError {
     ElMessage.error(`${requestError.message || fallback}（${requestError.code}）`)
   }
   return requestError
+}
+
+/** 同身份任务已存在：本人可确认覆盖，他人/他组只能改名或联系占用人。 */
+const CONFLICT_CODES = new Set(['TASK_ALREADY_EXISTS', 'TASK_TAKEN_BY_OTHER'])
+
+interface TaskConflict {
+  message: string
+  ownerName: string
+  canOverwrite: boolean
+  /** 产生这次冲突的任务身份，用来判断用户点「确认覆盖」前有没有改过表单 */
+  identity: string
+  /** 产生冲突时提交的原始内容：确认覆盖时按它重放，避免拿改过的表单去覆盖别的任务 */
+  payload: TaskCreatePayload
+}
+
+const conflict = ref<TaskConflict | null>(null)
+
+function taskIdentity(payload: TaskCreatePayload): string {
+  return JSON.stringify([
+    payload.course,
+    payload.week,
+    payload.session,
+    payload.className,
+    payload.title,
+  ])
+}
+
+function readConflict(requestError: RequestError, payload: TaskCreatePayload): TaskConflict | null {
+  if (!CONFLICT_CODES.has(requestError.code)) return null
+  const details = requestError.details as { ownerName?: unknown; canOverwrite?: unknown }
+  const ownerName = typeof details.ownerName === 'string' ? details.ownerName : ''
+  return {
+    // 不用后端 message：那里带 "confirm=true" 这类接口层措辞，教师看不懂
+    message:
+      requestError.code === 'TASK_ALREADY_EXISTS'
+        ? '同一班级的同一课题已存在，可确认覆盖'
+        : `该课题已由${ownerName || '其他教师'}创建，不能覆盖`,
+    ownerName,
+    canOverwrite: details.canOverwrite === true,
+    identity: taskIdentity(payload),
+    payload,
+  }
 }
 
 async function loadAll(): Promise<void> {
@@ -206,16 +248,12 @@ const rules: FormRules = {
 
 function openCreate(): void {
   formError.value = ''
+  conflict.value = null
   dialogVisible.value = true
 }
 
-async function submitCreate(): Promise<void> {
-  if (!formRef.value) return
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-  saving.value = true
-  formError.value = ''
-  const payload: TaskCreatePayload = {
+function buildPayload(): TaskCreatePayload {
+  return {
     course: form.course.trim(),
     week: form.week,
     session: form.session,
@@ -224,22 +262,56 @@ async function submitCreate(): Promise<void> {
     dueDate: form.dueDate,
     quadrant: form.quadrant,
   }
+}
+
+/** confirm=true 只在用户点了「确认覆盖已有任务」时传，避免手滑覆盖别人的课。 */
+async function submitCreate(confirm = false): Promise<void> {
+  if (!formRef.value) return
+  // 确认覆盖重放冲突时的原始内容（只把教师后改的截止日期带上）；
+  // 身份一致才重放，飞行中被改过的表单按普通创建重新提交
+  const snapshot =
+    confirm && conflict.value && conflict.value.identity === taskIdentity(buildPayload())
+      ? { ...conflict.value.payload, dueDate: form.dueDate }
+      : null
+  if (snapshot === null) {
+    const valid = await formRef.value.validate().catch(() => false)
+    if (!valid) return
+  }
+  const payload = snapshot ?? buildPayload()
+  saving.value = true
+  formError.value = ''
+  conflict.value = null
   try {
-    const created = await createTask(payload)
-    sealSuccess(`已创建「${created.title}」`)
+    const created = await createTask(payload, { confirm: snapshot !== null })
+    sealSuccess(snapshot !== null ? `已保存「${created.title}」` : `已创建「${created.title}」`)
     dialogVisible.value = false
     formRef.value.resetFields()
     page.value = 1
     await loadAll()
   } catch (caught) {
-    const requestError = handleError(caught, '创建任务失败')
-    formError.value = `${requestError.message}（${requestError.code}${
-      requestError.traceId ? ` / ${requestError.traceId}` : ''
-    }）`
+    const requestError = caught instanceof RequestError ? caught : toApiError(caught)
+    const found = readConflict(requestError, payload)
+    if (found) {
+      // 冲突不关窗、不清表单、不弹全局提示，只在对话框内给覆盖入口（BS-10/T1）
+      conflict.value = found
+    } else {
+      const handled = handleError(requestError, '创建任务失败')
+      formError.value = `${handled.message}（${handled.code}${
+        handled.traceId ? ` / ${handled.traceId}` : ''
+      }）`
+    }
   } finally {
     saving.value = false
   }
 }
+
+// 冲突提示对应的是当时的任务身份：用户改了课程/周次/课次/班级/课题，覆盖入口立即失效
+watch(
+  () => taskIdentity(buildPayload()),
+  (identity) => {
+    if (conflict.value && conflict.value.identity !== identity) conflict.value = null
+  },
+)
 
 onMounted(() => {
   void loadAll()
@@ -422,6 +494,31 @@ onMounted(() => {
 
     <el-dialog v-model="dialogVisible" title="新建任务" width="min(520px, 92vw)" destroy-on-close>
       <el-alert v-if="formError" :title="formError" type="error" :closable="false" show-icon />
+      <el-alert
+        v-if="conflict"
+        class="create-form__conflict"
+        type="warning"
+        :closable="false"
+        show-icon
+      >
+        <template #title>{{ conflict.message }}</template>
+        <p class="create-form__hint">
+          {{
+            conflict.canOverwrite
+              ? '确认后只更新该任务的截止日期，其余内容保持不变。'
+              : `需要保留各自的任务，请换一个课题，或联系${conflict.ownerName || '占用者'}处理。`
+          }}
+        </p>
+        <el-button
+          v-if="conflict.canOverwrite"
+          type="primary"
+          size="small"
+          :loading="saving"
+          @click="submitCreate(true)"
+        >
+          确认覆盖已有任务
+        </el-button>
+      </el-alert>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="create-form">
         <el-form-item label="课题" prop="title">
           <el-input v-model="form.title" maxlength="80" show-word-limit placeholder="例：一级考证辅导2" />
@@ -458,7 +555,7 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submitCreate">创建</el-button>
+        <el-button type="primary" :loading="saving" @click="submitCreate()">创建</el-button>
       </template>
     </el-dialog>
   </div>
@@ -588,6 +685,21 @@ onMounted(() => {
 
 .create-form {
   margin-top: 14px;
+}
+
+.create-form__conflict {
+  margin-bottom: 12px;
+}
+
+.create-form__conflict .el-button {
+  margin-top: 6px;
+}
+
+.create-form__hint {
+  margin: 4px 0 0;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
 }
 
 .create-form__row {
