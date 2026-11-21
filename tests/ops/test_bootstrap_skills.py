@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -53,7 +55,12 @@ class TestBootstrapSkills(unittest.TestCase):
         )
 
     def tearDown(self) -> None:
-        shutil.rmtree(self.root, ignore_errors=True)
+        # git 产物是只读的，Windows 上 rmtree 会卡住，先去掉只读位再删
+        def _on_error(func, path, _exc) -> None:
+            os.chmod(path, stat.S_IWRITE)
+            func(path)
+
+        shutil.rmtree(self.root, onexc=_on_error)
 
     def _prepare_cache(self, cache: Path) -> None:
         target = bootstrap_skills._cache_dir(cache, str(self.source))
