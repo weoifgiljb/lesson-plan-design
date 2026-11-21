@@ -41,6 +41,7 @@ const props = withDefaults(
     forceFallback?: boolean
     metricsLink?: string
     footerNote?: string
+    canExport?: boolean
   }>(),
   {
     scopeLabel: '',
@@ -56,11 +57,13 @@ const props = withDefaults(
     forceFallback: false,
     metricsLink: '',
     footerNote: '',
+    canExport: true,
   },
 )
 
 const emit = defineEmits<{
   (event: 'primary'): void
+  (event: 'upload'): void
   (event: 'retry'): void
   (event: 'open-todo', todo: OverviewTodo): void
   (event: 'board-move', payload: { taskId: number; quadrant: TaskQuadrant; position: number; boardVersion: number }): void
@@ -88,7 +91,7 @@ const todayItems = computed<OverviewTodo[]>(() => {
   const items = [...props.todos]
   for (const task of props.boardTasks) {
     if (!task.overdue) continue
-    if (items.some((item) => item.title === task.title)) continue
+    if (items.some((item) => item.id === `task-${task.taskId}`)) continue
     items.push({
       id: `task-${task.taskId}`,
       kind: '逾期',
@@ -96,9 +99,12 @@ const todayItems = computed<OverviewTodo[]>(() => {
       detail: `${task.course} / 第 ${task.week} 周第 ${task.session} 次`,
       due: '已逾期',
       overdue: true,
+      taskId: task.taskId,
     })
   }
-  return items.slice(0, 4)
+  return items
+    .sort((left, right) => Number(Boolean(right.overdue)) - Number(Boolean(left.overdue)))
+    .slice(0, 4)
 })
 
 type TabKey = 'all' | 'review' | 'repair' | 'passed'
@@ -237,7 +243,7 @@ function clearFilters(): void {
           </div>
           <div v-else class="today-empty">
             <p>今天没有紧急待办。可以先导入一份契约包，或从样例库挑一份改。</p>
-            <el-button type="primary" @click="emit('primary')">上传契约包</el-button>
+            <el-button type="primary" @click="emit('upload')">上传契约包</el-button>
           </div>
         </div>
 
@@ -251,9 +257,9 @@ function clearFilters(): void {
             <router-link v-if="metricsLink" class="text-link" :to="metricsLink">查看统计口径</router-link>
           </div>
           <nav class="quick-actions" aria-label="快捷动作">
-            <button type="button" class="quick-action" @click="emit('primary')">上传契约包</button>
+            <button type="button" class="quick-action" @click="emit('upload')">上传契约包</button>
             <router-link class="quick-action" to="/plans">继续最近草稿</router-link>
-            <router-link class="quick-action" to="/exports">批量导出</router-link>
+            <router-link v-if="canExport" class="quick-action" to="/exports">批量导出</router-link>
           </nav>
         </aside>
       </section>

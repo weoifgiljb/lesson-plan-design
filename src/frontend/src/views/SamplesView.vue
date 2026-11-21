@@ -107,7 +107,7 @@ async function download(row: SampleItem): Promise<void> {
         class="sample-card"
         tabindex="0"
         @click="openDetail(row)"
-        @keyup.enter="openDetail(row)"
+        @keyup.enter.self="openDetail(row)"
       >
         <div class="sample-cover" :class="{ 'is-incomplete': !row.complete || !row.valid }">
           <span class="cover-initial">{{ row.course?.slice(0, 1) || '课' }}</span>

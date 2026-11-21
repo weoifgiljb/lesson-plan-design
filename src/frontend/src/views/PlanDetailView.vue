@@ -384,6 +384,7 @@ onMounted(() => {
           :error="versionsRequest.error.value"
           row-key="versionNo"
           aria-label="版本历史"
+          empty-title="还没有版本记录"
           empty-text="还没有版本记录"
           @retry="versionsRequest.load()"
         >

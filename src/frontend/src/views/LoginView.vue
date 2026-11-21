@@ -221,7 +221,7 @@ onMounted(() => {
 
 .story-kicker {
   margin-bottom: 14px;
-  color: var(--lpp-accent);
+  color: var(--lpp-accent-on-dark);
   font-family: var(--lpp-font-hand);
   font-size: var(--lpp-font-sm);
   letter-spacing: 0.12em;
@@ -274,7 +274,7 @@ onMounted(() => {
 }
 
 .story-rules em {
-  color: var(--lpp-accent);
+  color: var(--lpp-accent-on-dark);
   font-family: var(--lpp-font-numeric);
   font-size: 11px;
   font-style: normal;
@@ -441,6 +441,12 @@ onMounted(() => {
   color: var(--lpp-text-muted);
   font-size: 12px;
   text-align: center;
+}
+
+@media (max-width: 1280px) {
+  .story-art-frame {
+    display: none;
+  }
 }
 
 @media (max-width: 980px) {

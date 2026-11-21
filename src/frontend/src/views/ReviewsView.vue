@@ -210,7 +210,12 @@ async function openReview(row: ReviewListItem): Promise<void> {
         </el-table-column>
         <el-table-column label="证据链" width="140">
           <template #default="{ row }">
-            <span class="evidence-cell" :class="{ 'is-gap': !row.evidence.complete }">
+            <span
+              class="evidence-cell"
+              :class="{ 'is-gap': !row.evidence.complete }"
+              role="img"
+              :aria-label="`证据 ${row.evidence.passed}/${row.evidence.total}${row.evidence.complete ? '' : '，不完整'}`"
+            >
               <span class="evidence-dots" aria-hidden="true">
                 <i v-for="index in row.evidence.total" :key="index" :class="{ 'is-passed': index <= row.evidence.passed }" />
               </span>

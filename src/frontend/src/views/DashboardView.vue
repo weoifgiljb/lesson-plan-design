@@ -276,7 +276,15 @@ function openTodo(todo: OverviewTodo): void {
     void router.push(`/plans/${todo.planId}`)
     return
   }
-  if (todo.taskId) void router.push('/tasks')
+  if (todo.taskId) {
+    void router.push('/tasks')
+    return
+  }
+  if (todo.reviewId) void router.push('/reviews')
+}
+
+function openUpload(): void {
+  void router.push({ path: '/plans', query: { upload: '1' } })
 }
 
 async function loadAll(options: { silent?: boolean } = {}): Promise<void> {
@@ -389,8 +397,10 @@ onBeforeUnmount(() => {
     :freshness="freshness"
     :error="coreError"
     :partial-notice="partialNotice"
+    :can-export="isReviewer"
     footer-note="数据来自当前账号可见范围；指标以分子/分母为准，完整口径与下钻见统计看板任务。"
     @primary="loadAll()"
+    @upload="openUpload"
     @retry="loadAll()"
     @open-todo="openTodo"
     @board-move="onBoardMove"

@@ -502,7 +502,7 @@ onBeforeUnmount(() => {
 }
 
 .evidence--ok {
-  fill: var(--lpp-brass);
+  fill: var(--lpp-success);
 }
 
 .evidence--bad {

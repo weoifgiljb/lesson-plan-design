@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { sealSuccess } from '@/utils/seal-toast'
@@ -128,8 +128,13 @@ function openPlan(plan: PlanListItem): void {
   void router.push(`/plans/${plan.planId}`)
 }
 
-onMounted(() => {
-  void load()
+onMounted(async () => {
+  await load()
+  if (route.query.upload === '1' && canImport.value) {
+    await nextTick()
+    pickFile()
+    await router.replace({ path: '/plans' })
+  }
 })
 </script>
 

@@ -75,7 +75,7 @@ async function readAll(): Promise<void> {
 }
 
 .notice.is-unread {
-  border-left: 3px solid var(--lpp-accent);
+  border-left: 3px solid var(--lpp-brass);
 }
 
 .notice__main p {

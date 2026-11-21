@@ -187,7 +187,7 @@ async function copyHash(job: ExportJob): Promise<void> {
           <p class="file-meta">v{{ job.versionNo }} · 引擎 {{ job.engineVersion }} · 任务 #{{ job.exportId }}</p>
           <p class="file-hash">
             报告哈希
-            <span class="mono">{{ job.reportHash ? `${job.reportHash.slice(0, 12)}…` : '未记录' }}</span>
+            <span class="mono" :title="job.reportHash">{{ job.reportHash ? `${job.reportHash.slice(0, 12)}…` : '未记录' }}</span>
             <el-button v-if="job.reportHash" link type="primary" size="small" @click="copyHash(job)">复制</el-button>
           </p>
         </div>

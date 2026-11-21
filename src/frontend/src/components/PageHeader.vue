@@ -48,7 +48,7 @@ defineProps<{
   bottom: -5px;
   left: 0;
   height: 2px;
-  background: var(--lpp-accent);
+  background: var(--lpp-brass);
   transform-origin: left center;
   animation: ink-underline 320ms ease-out 80ms both;
 }

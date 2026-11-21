@@ -31,7 +31,7 @@ const emit = defineEmits<{ (event: 'detail'): void }>()
     <h2>审查</h2>
     <template v-if="latestReview">
       <StatusTag :code="latestReview.status" :status="latestReview.status" />
-      <p class="margin-note">第 {{ latestReview.round }} 轮 · {{ latestReview.reviewerMode ?? '教师审查' }}</p>
+      <p class="margin-note">第 {{ latestReview.round }} 轮 · {{ latestReview.reviewerMode ?? '审查方式未记录' }}</p>
     </template>
     <p v-else class="margin-note">这份教案还没有审查记录。</p>
   </section>

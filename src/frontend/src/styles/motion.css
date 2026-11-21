@@ -48,7 +48,7 @@
   color: var(--lpp-seal);
   box-shadow: var(--lpp-shadow-paper);
   font-family: var(--lpp-font-display);
-  transform: rotate(-1deg);
+  rotate: -1deg;
 }
 
 .el-message.seal-toast .el-message__content {

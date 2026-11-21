@@ -405,6 +405,17 @@ samp {
   }
 }
 
+@media print {
+  .sidebar,
+  .commandbar,
+  .page-header__actions,
+  .el-overlay,
+  .el-drawer,
+  .el-message {
+    display: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

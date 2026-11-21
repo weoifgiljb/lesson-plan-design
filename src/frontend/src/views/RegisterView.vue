@@ -204,7 +204,7 @@ async function submit(): Promise<void> {
 
 .aside-kicker {
   margin-top: 28px;
-  color: var(--lpp-accent);
+  color: var(--lpp-accent-on-dark);
   font-family: var(--lpp-font-hand);
   font-size: var(--lpp-font-sm);
   letter-spacing: 0.12em;
@@ -240,7 +240,7 @@ async function submit(): Promise<void> {
 }
 
 .aside-steps em {
-  color: var(--lpp-accent);
+  color: var(--lpp-accent-on-dark);
   font-family: var(--lpp-font-numeric);
   font-style: normal;
   letter-spacing: 0.08em;
@@ -320,6 +320,12 @@ async function submit(): Promise<void> {
   min-height: 34px;
   border-radius: var(--lpp-radius-control);
   box-shadow: 0 0 0 1px var(--lpp-border) inset;
+}
+
+.auth-card :deep(.el-input__wrapper.is-focus) {
+  box-shadow:
+    0 0 0 1px var(--lpp-primary) inset,
+    0 0 0 3px var(--lpp-focus-soft);
 }
 
 .card-foot {
