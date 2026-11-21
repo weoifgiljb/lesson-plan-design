@@ -277,9 +277,10 @@ def _owned_task(repo: Repo, user: dict[str, Any], task_id: int) -> dict[str, Any
 def _raise_conflict(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> None:
     """同身份任务已存在：409 业务冲突，不写越权审计（T1/T2）。"""
     owner_name = str((repo.get_task(int(task["id"])) or {}).get("teacher") or "")
+    overwritable = task_rules.can_overwrite(user, task)
     details = {"taskId": int(task["id"]), "ownerId": int(task["owner_id"]),
-               "ownerName": owner_name, "canOverwrite": task_rules.can_overwrite(user, task)}
-    if task_rules.can_overwrite(user, task):
+               "ownerName": owner_name, "canOverwrite": overwritable}
+    if overwritable:
         raise AppError("TASK_ALREADY_EXISTS", "同一班级的同一课题已存在；确认覆盖请带 confirm=true", details)
     raise AppError("TASK_TAKEN_BY_OTHER", f"该课题任务已由{owner_name or '其他教师'}创建，不能覆盖", details)
 
