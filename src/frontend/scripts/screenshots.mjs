@@ -134,6 +134,12 @@ try {
       await capture(page, 'plan-detail', '.plan-detail')
       await page.goto(`${detailUrl}/content`, { waitUntil: 'networkidle' })
       await capture(page, 'plan-content', '.proof-layout')
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.click('.margin-toggle')
+      await page.waitForSelector('.el-drawer', { timeout: 20000 })
+      await page.waitForTimeout(400)
+      await page.screenshot({ path: `${outDir}/plan-content-margin-390.png`, fullPage: true })
+      console.log('saved', `${outDir}/plan-content-margin-390.png`)
     }
 
     await context.close()

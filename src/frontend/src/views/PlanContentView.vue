@@ -8,8 +8,8 @@ import { RequestError, toApiError } from '@/api/client-error'
 import { getPlan, importPlan } from '@/api/plans'
 import MarkdownView from '@/components/MarkdownView.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import PlanMargin from '@/components/PlanMargin.vue'
 import StatePanel from '@/components/StatePanel.vue'
-import StatusTag from '@/components/StatusTag.vue'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
 import { saveBlob } from '@/utils/download'
@@ -24,6 +24,7 @@ const canImport = computed(() => session.role === 'teacher' || session.role === 
 const detail = useApiRequest(() => getPlan(planId))
 const booting = ref(true)
 const sourceMode = ref(false)
+const marginOpen = ref(false)
 const importing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -172,36 +173,29 @@ onMounted(() => {
         </article>
 
         <aside class="proof-margin" aria-label="版本、审查与证据">
-          <section class="margin-block">
-            <h2>版本</h2>
-            <dl>
-              <div><dt>稿次</dt><dd>第 {{ plan.versionNo }} 稿</dd></div>
-              <div><dt>课程</dt><dd>{{ plan.course }}</dd></div>
-              <div><dt>周次</dt><dd>第 {{ plan.week }} 周第 {{ plan.session }} 次</dd></div>
-              <div><dt>哈希</dt><dd class="mono">{{ plan.planHash.slice(0, 12) }}…</dd></div>
-            </dl>
-          </section>
-
-          <section class="margin-block">
-            <h2>审查</h2>
-            <template v-if="latestReview">
-              <StatusTag :code="latestReview.status" :status="latestReview.status" />
-              <p class="margin-note">第 {{ latestReview.round }} 轮 · {{ latestReview.reviewerMode ?? '教师审查' }}</p>
-            </template>
-            <p v-else class="margin-note">这份教案还没有审查记录。</p>
-          </section>
-
-          <section class="margin-block">
-            <h2>证据链</h2>
-            <p v-if="latestReview" class="margin-note">
-              报告哈希
-              <span class="mono">{{ reportHash ? `${reportHash.slice(0, 12)}…` : '未记录' }}</span>
-            </p>
-            <p v-else class="margin-note">审查后会在这里留下报告哈希与轮次。</p>
-            <el-button link type="primary" @click="openDetail">查看详情与版本历史</el-button>
-          </section>
+          <PlanMargin
+            :plan="plan"
+            :latest-review="latestReview"
+            :report-hash="reportHash"
+            @detail="openDetail"
+          />
         </aside>
       </div>
+
+      <el-button class="margin-toggle" type="primary" plain @click="marginOpen = true">
+        审查与证据
+      </el-button>
+
+      <el-drawer v-model="marginOpen" title="审查与证据" size="min(420px, 92vw)">
+        <div class="margin-drawer">
+          <PlanMargin
+            :plan="plan"
+            :latest-review="latestReview"
+            :report-hash="reportHash"
+            @detail="openDetail"
+          />
+        </div>
+      </el-drawer>
     </template>
   </div>
 </template>
@@ -361,14 +355,28 @@ onMounted(() => {
   white-space: pre-wrap;
 }
 
+.margin-toggle {
+  display: none;
+  justify-self: start;
+}
+
+.margin-drawer {
+  display: grid;
+  gap: 16px;
+}
+
 @media (max-width: 980px) {
   .proof-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 
   .proof-margin {
-    position: static;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: none;
+  }
+
+  .margin-toggle {
+    display: inline-flex;
+    justify-self: start;
   }
 }
 
@@ -377,16 +385,48 @@ onMounted(() => {
     padding: 20px 18px 24px 36px;
   }
 
-  .proof-margin {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .proof-binding {
     left: 10px;
   }
 
   .proof-sheet::before {
     left: 26px;
+  }
+}
+
+@media print {
+  .proof-margin,
+  .margin-toggle,
+  .notice,
+  .hidden-file {
+    display: none !important;
+  }
+
+  .proof-layout {
+    display: block;
+  }
+
+  .proof-sheet {
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .proof-binding,
+  .proof-sheet::before {
+    display: none;
+  }
+
+  .proof-sheet :deep(.markdown-body h2) {
+    break-after: avoid;
+  }
+
+  .proof-sheet :deep(.markdown-body table) {
+    break-inside: auto;
+  }
+
+  .proof-sheet :deep(.markdown-body tr) {
+    break-inside: avoid;
   }
 }
 </style>
