@@ -66,3 +66,32 @@ def can_touch(user: dict[str, Any], task: dict[str, Any]) -> bool:
 def can_overwrite(user: dict[str, Any], task: dict[str, Any]) -> bool:
     """覆盖（改标题/截止）只允许本人或管理员；组内共享只读+推进（R3-F6）。"""
     return str(user.get("role") or "") == "admin" or int(user.get("id") or 0) == int(task["owner_id"])
+
+
+#: 建课冲突文案：本人/同组可见占用者；跨组只给泛化提示，不回传任何任务信息（T1/T2）
+CONFLICT_SELF = "同一班级的同一课题已存在；确认覆盖请带 confirm=true"
+CONFLICT_GROUP = "该课题任务已由{owner}创建，不能覆盖"
+CONFLICT_OTHER = "同一身份的课题任务已存在（其他教师），请调整课题或联系管理员"
+FORBIDDEN_OVERWRITE = "只能覆盖自己创建的任务；他人任务请由本人或管理员处理"
+
+
+def conflict_for(
+    user: dict[str, Any], task: dict[str, Any], owner_name: str = ""
+) -> tuple[str, str, dict[str, Any]]:
+    """同身份任务已存在时的 409 语义：返回 (错误码, 文案, details)。
+
+    本人可覆盖 → TASK_ALREADY_EXISTS；同组非本人 → TASK_TAKEN_BY_OTHER 且占用者可见；
+    跨组（can_touch 为假）→ TASK_TAKEN_BY_OTHER 且 details 不含 taskId/ownerId/ownerName。
+    """
+    overwritable = can_overwrite(user, task)
+    if not can_touch(user, task):
+        return "TASK_TAKEN_BY_OTHER", CONFLICT_OTHER, {"canOverwrite": False}
+    details = {
+        "taskId": int(task["id"]),
+        "ownerId": int(task["owner_id"]),
+        "ownerName": owner_name,
+        "canOverwrite": overwritable,
+    }
+    if overwritable:
+        return "TASK_ALREADY_EXISTS", CONFLICT_SELF, details
+    return "TASK_TAKEN_BY_OTHER", CONFLICT_GROUP.format(owner=owner_name or "其他教师"), details
