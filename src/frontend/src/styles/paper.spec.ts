@@ -36,4 +36,13 @@ describe('UI-03 纸感材质', () => {
     expect(base).toMatch(/body\s*\{[^}]*background-image:\s*url\("data:image\/svg\+xml/s)
     expect(base).not.toMatch(/\.markdown-body[^}]*background-image/s)
   })
+
+  it('print mode releases table clipping but keeps filter summaries', () => {
+    const print = base.slice(base.indexOf('@media print'))
+    expect(print).toContain('.data-table,')
+    expect(print).toContain('.stats-filters__form,')
+    expect(print).toContain('.board-filters > .el-button,')
+    expect(print).not.toContain('  .stats-filters,')
+    expect(print).not.toContain('  .board-filters,')
+  })
 })

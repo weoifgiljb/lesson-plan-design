@@ -423,8 +423,11 @@ samp {
   .data-table__toolbar,
   .data-table__footer,
   .data-table__hint,
-  .stats-filters,
-  .board-filters,
+  .stats-filters__form,
+  .stats-filters__actions,
+  .board-filters > .el-input,
+  .board-filters > .el-input-number,
+  .board-filters > .el-button,
   .filters,
   .quick-actions,
   .el-overlay,
@@ -433,6 +436,7 @@ samp {
     display: none !important;
   }
 
+  .data-table,
   .data-table__scroll,
   .table-wrap,
   .quadrant-sheet,
