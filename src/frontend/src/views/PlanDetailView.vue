@@ -403,8 +403,7 @@ onMounted(() => {
             <span class="mono" :title="row.planHash">{{ shortHash(row.planHash) }}</span>
           </template>
           <template #cell-status="{ row }">
-            <StatusTag v-if="versionStatus(row)" :code="versionStatus(row)" :status="versionStatus(row)" />
-            <span v-else class="muted">—</span>
+            <StatusTag :code="versionStatus(row)" :status="versionStatus(row)" />
           </template>
           <template #cell-round="{ row }">{{ row.round ?? '—' }}</template>
           <template #cell-createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>

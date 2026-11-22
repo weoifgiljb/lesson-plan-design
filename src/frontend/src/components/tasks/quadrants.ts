@@ -26,7 +26,8 @@ export function taskStatusLabel(task: Pick<TaskItem, 'status' | 'discarded'>): s
   return task.status
 }
 
-export function groupTasks(tasks: TaskItem[]): Record<TaskQuadrant, TaskItem[]> {  const grouped: Record<TaskQuadrant, TaskItem[]> = {
+export function groupTasks(tasks: TaskItem[]): Record<TaskQuadrant, TaskItem[]> {
+  const grouped: Record<TaskQuadrant, TaskItem[]> = {
     urgent_important: [],
     important_not_urgent: [],
     urgent_not_important: [],

@@ -256,6 +256,38 @@ describe('TasksView', () => {
     wrapper.unmount()
   })
 
+  it('ignores a second draft click while the first request is still pending', async () => {
+    const { wrapper } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    let resolveDraft: ((value: unknown) => void) | undefined
+    draftTask.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDraft = resolve
+        }),
+    )
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    // 第一次请求还没回来，再点一次不应叠出第二个确认框/第二次请求
+    const second = wrapper.findAll('button').find((item) => item.text() === '生成草稿教案')
+    await second!.trigger('click')
+    await flushPromises()
+    expect(draftTask).toHaveBeenCalledTimes(1)
+
+    resolveDraft!({
+      planId: 12,
+      versionNo: 1,
+      planHash: 'draft-hash',
+      reviewStatus: '',
+      duplicate: false,
+    })
+    await flushPromises()
+    await flushPromises()
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
   it('keeps the list usable and stays on the page when draft generation fails', async () => {
     const { wrapper, router } = await mountView()
     const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)

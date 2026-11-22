@@ -75,7 +75,9 @@ describe('buildPlanMarkdown', () => {
     }
     const markdown = buildPlanMarkdown(draft)
     expect(markdown).toContain('未审查')
-    expect(markdown).toContain('（尚未审查）')
+    // 「未审查」只出现在状态行；版本行不再重复，也不打印 null
+    expect(markdown).toContain('- 版本：v2\n')
     expect(markdown).not.toContain('null')
+    expect(markdown).not.toContain('尚未审查')
   })
 })

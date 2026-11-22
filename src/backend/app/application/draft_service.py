@@ -89,7 +89,7 @@ def _write_draft(repo: Repo, plan_id: int, plan: dict[str, Any], plan_hash: str)
     """落 v1 草稿版本并切成当前版本；返回版本号。"""
     info = engine.engine_versions()
     version_no = repo.next_version_no(plan_id)
-    version_id, _created = repo.insert_version_or_existing(
+    version_id, created = repo.insert_version_or_existing(
         plan_id,
         version_no,
         json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
@@ -101,6 +101,9 @@ def _write_draft(repo: Repo, plan_id: int, plan: dict[str, Any], plan_hash: str)
         str(info.get("templateVersion") or ""),
         source="draft",
     )
+    if not created:
+        # 唯一键冲突时返回的是既有版本：不能把旧版本推成当前版本，也不能声称新建
+        raise AppError("CONFLICT_STALE", "草稿版本冲突，请重试")
     repo.set_current_version(plan_id, version_id)
     repo.insert_sync_event("version", plan_id, version_id)
     return version_no

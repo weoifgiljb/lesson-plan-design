@@ -25,7 +25,8 @@ export function buildPlanMarkdown(detail: PlanDetail): string {
     `> ${plan.course} · 第 ${plan.week} 周第 ${plan.session} 次课 · ${plan.teacher}`,
     '',
     `- 状态：${reviewStatusLabel(plan.reviewStatus)}`,
-    `- 版本：v${plan.versionNo}${plan.reviewRound ? `（第 ${plan.reviewRound} 轮）` : '（尚未审查）'}`,
+    // 轮次只在真有审查记录时展示，避免与上一行「未审查」重复表达
+    `- 版本：v${plan.versionNo}${plan.reviewRound === null ? '' : `（第 ${plan.reviewRound} 轮）`}`,
     `- planHash：\`${plan.planHash}\``,
     `- 入库时间：${formatDateTime(plan.versionCreatedAt)}`,
     '',

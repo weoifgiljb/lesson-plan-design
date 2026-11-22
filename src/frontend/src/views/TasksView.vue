@@ -235,7 +235,12 @@ async function onDraft(task: TaskItem): Promise<void> {
   }
   if (planId === null) return
   try {
-    await router.push(`/plans/${planId}`)
+    // push 被取消/重定向时只 resolve NavigationFailure 不 reject：不能提示"已打开"
+    const navFailure = await router.push(`/plans/${planId}`)
+    if (navFailure) {
+      ElMessage.warning('草稿已生成，请到教案库手动打开')
+      return
+    }
     sealSuccess(duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）')
   } catch {
     // 草稿已经落库：跳转失败只能提示去教案库打开，不能报成"生成失败"
