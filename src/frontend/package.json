@@ -16,7 +16,8 @@
     "smoke": "node scripts/smoke-dashboard.mjs",
     "smoke:tasks": "node scripts/smoke-tasks.mjs",
     "smoke:plans": "node scripts/smoke-plans.mjs",
-    "smoke:stats": "node scripts/smoke-stats.mjs"
+    "smoke:stats": "node scripts/smoke-stats.mjs",
+    "e2e:teacher": "node scripts/e2e-teacher-journey.mjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",

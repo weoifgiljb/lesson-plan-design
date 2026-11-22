@@ -1,17 +1,17 @@
-# 校标教案双端平台 B/S 端功能需求说明书
+﻿# 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.15**
+**双端协同 · 平台端 · v1.16**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.15 |
+| 文档版本 | v1.16 |
 | 编制日期 | 2026-10-26 |
-| 修订日期 | 2026-11-15 |
-| 修订说明 | v1.15：BS-16 日志 30 天轮转落地并升 ✅，平台端 16 条全部完成；v1.14：BS-14 升 ✅；v1.13：BS-13 升 ✅；v1.12：BS-11 升 ✅；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅ |
-| 状态基线 | 2026-11-15，`develop@63c6bb5`；三态标注见第 0 节 |
+| 修订日期 | 2026-11-21 |
+| 修订说明 | v1.16：按教师端 E2E 复跑（13/13 全绿）回填 BS-01/02/03 证据；BS-07、BS-10 发现验收缺口，由 ✅ 降 🟡；v1.15：BS-16 日志 30 天轮转落地并升 ✅，平台端 16 条全部完成；v1.14：BS-14 升 ✅；v1.13：BS-13 升 ✅；v1.12：BS-11 升 ✅；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅ |
+| 状态基线 | 2026-11-21，`develop@4963bd0`；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
-| 配套文档 | 《功能优化需求-校标教案生成平台》v1.4（插件端 18 条需求，下称"插件端需求"） |
+| 配套文档 | 《功能优化需求-校标教案生成平台》v1.7（插件端 18 条需求，下称"插件端需求"） |
 | 覆盖范围 | B/S 平台端（浏览器端 + 服务端）与双端协同契约 |
 | 目标读者 | 指导教师、答辩评审组、计算机教研组、开发与测试人员 |
 | 文档性质 | 平台端为新建，本文档写"要做成什么样、怎么验收"，不含实现补丁 |
@@ -22,14 +22,16 @@
 
 **状态图例**：`✅ 已完成`＝实现与验收用例均已落地；`🟡 部分完成`＝主链路可用但仍有验收缺口；`⬜ 未开始`＝无实现或无测试。
 
-**状态基线**：2026-11-15，`develop@63c6bb5`。判定依据为代码入口、测试文件与 v1.2.0 发布记录；后续实现合入时同批更新状态、证据与缺口。
+**状态基线**：2026-11-21，`develop@4963bd0`。判定依据为代码入口、测试文件、v1.2.0 发布记录与教师端 E2E 复跑；后续实现合入时同批更新状态、证据与缺口。
 
 **测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、259 项通过；backend gate block 0、后端 283 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
 
+**教师端 E2E 基线**：2026-11-21，`src/frontend/scripts/e2e-teacher-journey.mjs`（`npm run e2e:teacher`）在 `develop@4963bd0` 上 **13/13 步通过**，耗时约 4 秒：注册 → 首次强制改密 → 新建教案任务 → 下载任务包 → 导入契约包 → 教案库/正文 → 审查中心 → 导出 DOCX → 篡改包被拒 → 重复导入 → 退出登录。脚本是入库证据；本次截图、任务包与导出的 DOCX 在本机 `.qa/e2e/`（gitignored），风险与下一版对策见 [`docs/dev/PreMortem-校标教案平台-2026-11-21.md`](../dev/PreMortem-校标教案平台-2026-11-21.md)。
+
 | 状态 | 数量 | 编号 |
 |---|---:|---|
-| ✅ 已完成 | 16 | BS-01—BS-16 |
-| 🟡 部分完成 | 0 | — |
+| ✅ 已完成 | 14 | BS-01—BS-06、BS-08、BS-09、BS-11—BS-16 |
+| 🟡 部分完成 | 2 | BS-07、BS-10 |
 | ⬜ 未开始 | 0 | — |
 
 ## 摘要
@@ -217,10 +219,10 @@
 | BS-04 | 双端同步与冲突 | P0 | baseHash、sync_log | 双端一致率 ≥98% | ✅ 已完成 |
 | BS-05 | 角色权限与会话 | P0 | user、role | 越权 0 | ✅ 已完成 |
 | BS-06 | 审计台账 | P0 | audit_log | 写操作留痕 100% | ✅ 已完成 |
-| BS-07 | 导出中心 | P1 | export_job、engineVersion | 50 份 ≤5 分钟 | ✅ 已完成 |
+| BS-07 | 导出中心 | P1 | export_job、engineVersion | 50 份 ≤5 分钟 | 🟡 部分完成 |
 | BS-08 | 统计看板 | P1 | 指标口径 | 与开题表 2 一致 | ✅ 已完成 |
 | BS-09 | 样例库与资产 | P1 | sample、asset | 样例与插件端一致 | ✅ 已完成 |
-| BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | ✅ 已完成 |
+| BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | 🟡 部分完成 |
 | BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | ✅ 已完成 |
 | BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | ✅ 已完成 |
 | BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ✅ 已完成 |
@@ -233,7 +235,7 @@
 #### BS-01 契约复校入库
 
 **状态**：✅ 已完成
-**证据**：`src/backend/app/application/ingest_service.py`、`app/domain/ingest.py`、`tests/test_import_api.py`、`tests/test_ingest_negative.py`；v1.2.0 基线。
+**证据**：`src/backend/app/application/ingest_service.py`、`app/domain/ingest.py`、`tests/test_import_api.py`、`tests/test_ingest_negative.py`；v1.2.0 基线。教师端 E2E 2026-11-21：导入被篡改的契约包返回 422 `HASH_MISMATCH`，页面提示「教案内容哈希与 manifest 声明不一致（HASH_MISMATCH）」，库内无新版本、不跳错误页；合法包导入后直接落教案详情。
 
 **现状**：平台端未建设；插件端已能产出教案 JSON、审查报告与 DOCX；`planHash` 与结构校验逻辑已存在于 `lib.py`。
 
@@ -259,7 +261,7 @@
 #### BS-02 教案库与不可变版本
 
 **状态**：✅ 已完成
-**证据**：`src/backend/app/api/routers/plans.py`、`app/application/plan_service.py`、`app/domain/diff.py`、`tests/test_plans_api.py`；v1.2.0 基线。
+**证据**：`src/backend/app/api/routers/plans.py`、`app/application/plan_service.py`、`app/domain/diff.py`、`tests/test_plans_api.py`；v1.2.0 基线。教师端 E2E 2026-11-21：导入后详情页显示第 1 版、`planHash`、入库时间与版本历史，教案库列表可见并可再次打开；同一课题重复导入按追加版本处理。
 
 **现状**：平台端未建设；插件端每次修订都会让旧审查报告因哈希不匹配失效，但没有平台侧版本链。
 
@@ -283,7 +285,7 @@
 #### BS-03 审查中心与证据链
 
 **状态**：✅ 已完成
-**证据**：`src/backend/app/api/routers/reviews.py`、`app/domain/evidence.py`、`tests/test_reviews_api.py`、`tests/test_evidence_domain.py`；v1.2.0 基线。
+**证据**：`src/backend/app/api/routers/reviews.py`、`app/domain/evidence.py`、`tests/test_reviews_api.py`、`tests/test_evidence_domain.py`；v1.2.0 基线。教师端 E2E 2026-11-21：审查中心列表显示「通过」结论、证据链 5/5，行内「导出」可用并把 `planVersionId` 带入导出页。
 
 **现状**：插件端已有审查报告与门禁，但报告只存在教师本机；平台端没有集中查看入口。
 
@@ -382,8 +384,9 @@
 
 #### BS-07 导出中心
 
-**状态**：✅ 已完成
-**证据**：`src/backend/app/api/routers/exports.py`、`app/application/export_service.py`、`tests/test_export_api.py`；v1.2.0 基线。
+**状态**：🟡 部分完成
+**证据**：`src/backend/app/api/routers/exports.py`、`app/application/export_service.py`、`tests/test_export_api.py`；v1.2.0 基线。教师端 E2E 2026-11-21：从审查中心点「导出」带入版本 ID 后，导出任务 100% 完成，下载到 `plan-<planId>-v<ver>.docx`（5831 字节，含学校/编号/授课日期等完整校标正文），报告哈希与引擎版本随之展示。
+**缺口**：导出页没有候选版本清单——`loadCandidates()` 只调统计接口并提示「可在统计页下钻查看」，不填充任何可选版本；教师必须手填版本 ID 或从审查中心跳转才导得出来。验收标准「选择若干教案版本批量导出」目前只在接口层满足，UI 层未满足（详情与修法见 `docs/dev/PreMortem-校标教案平台-2026-11-21.md` 的 T4）。
 
 **现状**：插件端可本地导出 DOCX；平台端没有批量导出与模板管理。
 
@@ -452,8 +455,9 @@
 
 #### BS-10 任务与建课
 
-**状态**：✅ 已完成
-**证据**：`src/backend/app/api/routers/tasks.py`、`app/application/task_service.py`、`tests/test_tasks_api.py`；v1.2.0 基线。
+**状态**：🟡 部分完成
+**证据**：`src/backend/app/api/routers/tasks.py`、`app/application/task_service.py`、`tests/test_tasks_api.py`；v1.2.0 基线。教师端 E2E 2026-11-21：新建任务（课题/课程/班级/周次/课次）后看板与列表都出现卡片，状态为「待开始」；下载任务包得到 `task-<id>-<周>-<次>.zip`，内含 `task.json`、校标骨架 `plan.json` 与 `README.md`。
+**缺口**：验收标准第 2 条「重复建课时提示冲突，确认后才允许」在 UI 层不达标。① 同一身份（课程+周次+课次+班级+课题）的任务属于他人时，后端返回 `403 FORBIDDEN`「该任务属于其他教师，不能覆盖」并先写一条 `authz.denied` 越权审计；前端 `TasksView.vue` 的 `handleError()` 一律 `router.replace('/403')`，教师被踢到「没有访问权限 / 越权访问已记录」整页，看不到真实原因，已填表单丢失。② 本人重复建课时后端返回 `CONFLICT_STALE`「确认覆盖请带 confirm=true」，但 `api/tasks.ts#createTask` 从不带 `confirm`、UI 也没有确认入口，教师看到的是「版本已变化，请刷新后重试」，照做无效。修法与排期见 `docs/dev/PreMortem-校标教案平台-2026-11-21.md` 的 T1。
 
 **现状**：平台端未建设；插件端由教师直接说"第几周第几次"开始。
 
