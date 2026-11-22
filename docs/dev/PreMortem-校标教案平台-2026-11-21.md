@@ -85,7 +85,7 @@
 
 ## 6 复验方式（怎么证明修好了）
 
-1. 现有教师端脚本必须回归全绿：`cd src/frontend && npm run e2e:teacher`（13/13）。
+1. 现有教师端脚本必须回归全绿：`cd src/frontend && npm run e2e:teacher`（v2.1 起 **16/16**）；角色矩阵 `npm run e2e:roles`（**10/10**）。
 2. T1 的验收要加一步负例：以 A 教师建任务、B 教师建同身份任务 → 断言对话框仍在、提示含 `TASK_TAKEN_BY_OTHER` 与占用者、URL 不变成 `/403`、审计表无 `authz.denied`。
 3. T3 的验收：无 Agent 环境下，任务详情点「生成草稿教案」→ 教案库出现该课题 `v1`、状态「未审查」、正文页可渲染八步骨架、可走审查与导出流程（导出需先有审查报告，或明确降级为"仅内部预览"）。
 4. T4 的验收：导出页候选列表勾选 2 份 → 创建导出 → 两条都 succeeded 且可下载。
@@ -109,5 +109,23 @@ BS-01/02/03 维持 ✅，但证据追加了本次 E2E 的实测结果（篡改�
 **只做三件事**：T1（含 T2）、T3、T4；配套补 T5 的 role-matrix 脚本与两条 UI 缺口。其余（专家评分采集、审计日志可视化、性能压测）留到 v2.2——答辩前每多一个功能，就多一个现场失败面。
 
 **明确的取舍**：v2.1 不引入任何新的外部依赖（不装队列、不装对象存储、不换 ORM），T3 也只复用已有 `engine.draft_plan()`，保证换机后一条命令还能跑起来。
+
+## 9 v2.1 处置记录（2026-11-22）
+
+本文第 5 节行动清单已在 `test/integration@4c575c7` 执行完毕，五条风险的处理与证据如下：
+
+| 编号 | 状态 | 怎么关的 | 证据 |
+|---|---|---|---|
+| T1 重复建课 → 403 整页 | ✅ 已关闭 | 他人/他组占用改 **409** `TASK_TAKEN_BY_OTHER`（同组 `details` 带已有 `taskId`/占用者，跨组只回泛化提示不泄露任务信息）；本人重复改 409 `TASK_ALREADY_EXISTS`，`confirm=true` 才覆盖并恢复已废弃任务；前端只在真权限码跳 `/403`，冲突留在对话框内联提示 + 「确认覆盖已有任务」，保留已填内容 | `tests/test_tasks_api.py`（本人/他人/同组/跨组/并发）、`application/task_conflict.py`；E2E 第 13 步「重复建课冲突留在对话框且不跳 403」 |
+| T2 越权审计被日常操作污染 | ✅ 已关闭 | 冲突两条路径**不再写** `authz.denied`；只有"确认覆盖他人任务"这类真越权才 403 + 审计（含并发回滚补写） | `test_tasks_api.py::test_cross_teacher_confirm_is_denied_and_audited`（断言冲突后审计无 `authz.denied`、confirm 越权有审计） |
+| T3 平台内产不出教案 | ✅ 已关闭 | 新增 `POST /api/v1/tasks/{task_id}/draft`：复用 `engine.draft_plan()` 落 v1 草稿（`report_sha256=''`、`source='draft'`、状态「未审查」），仅任务本人、幂等、不推进任务状态、不覆盖已审查版本；任务列表/看板给「生成草稿教案」；草稿仍需审查报告才能导出 | `tests/test_draft_api.py`（7 例：落库/八步骨架/未审查/挂任务/审计/幂等/越权/废弃/跨班/导出被拒）；E2E 第 14 步 |
+| T4 导出页只能手填版本 ID | ✅ 已关闭 | 导出页候选清单复用 `GET /api/v1/reviews` 的 `planVersionId/exportable`（课题/周次课次/第 N 稿/审查结论，按版本取最新轮次去重，上限 50），勾选+手填合并去重；手填保留为高级入口 | `ExportsView.spec.ts`（19 例）；E2E 第 15 步「导出中心候选版本勾选导出」 |
+| T5 角色矩阵无自动化 | ✅ 已关闭 | 新增 `src/frontend/scripts/e2e-role-matrix.mjs`（`npm run e2e:roles`）：lead 任务/导出可用且 `/admin`→403；admin 管理页可用且 `/exports`→403；teacher 无管理入口且 `/admin`→403 | 实跑 **10/10** 步通过；侧栏/命令面板同批改为按路由 `meta.roles` 收敛，admin 不再看到任务/审查/导出入口（直链仍 403，契约本就只给 teacher/lead） |
+
+**同批关闭的 UI 缺口**：UI-04 登录页删除「本地开发：teacher01 / Lesson2026」误导提示，改由 `VITE_DEV_USERNAME` 预填且**永不预填口令**（`utils/dev-prefill.ts` + 3 例单测；未采用"读 `/api/v1/meta`"，因该接口需登录）；UI-12 路由成功换页时清理 toast、4 处"先导航后提示"、`.el-message` 设 `pointer-events:none`，错误提示不再挡筛选栏点击。
+
+**Elephants 第 4 条（双端版本漂移）**：演示前检查清单加入 `py -3 scripts/doctor.py` 的引擎/模板版本比对，E2E 一律用隔离数据目录（`LPP_DATA_DIR`）与种子账号，避免撞上旧库版本。
+
+**遗留到 v2.2**：教案库「未审查」筛选（需后端 `rv.id IS NULL`）；旧谱系库 `plan_version.source` 需 `repair_schema.py --apply`；`ExportResult` 可辨识联合；两份 E2E harness 抽公共库；看板组件测试缺失；专家评分/SUS 仍为"待采集"。
 
 > 参考方法：[How Meta and Instagram Use Pre-Mortems to Avoid Post-Mortems](https://www.productcompass.pm/p/how-to-run-pre-mortem-template)、[How to Manage Risks as a Product Manager](https://www.productcompass.pm/p/how-to-manage-risks-as-a-product-manager)

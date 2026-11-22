@@ -25,9 +25,9 @@
 | 文档 | 版本 | 状态 | 说明 |
 |---|---|---|---|
 | [功能优化需求-校标教案生成平台.md](requirements/功能优化需求-校标教案生成平台.md) | v1.7 | ✅ 18 / 🟡 0 / ⬜ 0 | 插件端 18 条可判定需求（FR-01—FR-18），含三态状态、证据与缺口 |
-| [功能优化需求-BS平台端.md](requirements/功能优化需求-BS平台端.md) | v1.16 | ✅ 14 / 🟡 2 / ⬜ 0 | 平台端 16 条需求（BS-01—BS-16），含契约、错误码、验收口径与状态；BS-07/BS-10 因教师端 E2E 回填缺口降 🟡 |
+| [功能优化需求-BS平台端.md](requirements/功能优化需求-BS平台端.md) | v1.17 | ✅ 16 / 🟡 0 / ⬜ 0 | 平台端 16 条需求（BS-01—BS-16），含契约（58 接口 / 25 错误码）、验收口径与状态；v2.1 收口 BS-07 导出候选与 BS-10 冲突/草稿后全部 ✅ |
 | [跨端配置与数据恢复需求.md](requirements/跨端配置与数据恢复需求.md) | v1.4 | ✅ 8 / 🟡 0 / ⬜ 0 | 跨端配置与数据恢复 8 条需求（OPS-01—OPS-08），收敛 BS-14，含快照/恢复/防呆验收口径 |
-| [界面风格优化需求.md](requirements/界面风格优化需求.md) | v1.19 | ✅ 7 / 🟡 6 / ⬜ 0 | 平台端视觉升级 13 条（UI-01—UI-13），与功能基线独立统计；UI-04/UI-12 缺口按 E2E 回填 |
+| [界面风格优化需求.md](requirements/界面风格优化需求.md) | v1.20 | ✅ 7 / 🟡 6 / ⬜ 0 | 平台端视觉升级 13 条（UI-01—UI-13），与功能基线独立统计；UI-04/UI-12 子缺口已关闭，整体仍 🟡（试用记录/录屏） |
 | [插图资产台账](assets/illustrations/README.md) | — | — | UI-001 的 A1—A11 资产槽位、降级与接入规则 |
 | [需求分工与协作说明.md](requirements/需求分工与协作说明.md) | v1.0 | — | 角色、归属、交接与评审节点 |
 
@@ -38,7 +38,8 @@
 | 文档 | 说明 |
 |---|---|
 | [测试用例_markmap.md](testing/测试用例_markmap.md) | 12 个模块的 TC 用例；插件端以源码实测为证据，平台端已于 v1.2.0 实现，用例状态待逐条回填（见优化路线图） |
-| [`src/frontend/scripts/e2e-teacher-journey.mjs`](../src/frontend/scripts/e2e-teacher-journey.mjs) | 教师端端到端脚本（`npm run e2e:teacher`）：注册→强制改密→建任务→任务包→导入→详情/正文→审查→导出 DOCX→负例，13 步全绿即通过 |
+| [`src/frontend/scripts/e2e-teacher-journey.mjs`](../src/frontend/scripts/e2e-teacher-journey.mjs) | 教师端端到端脚本（`npm run e2e:teacher`）：注册→强制改密→建任务→任务包→导入→详情/正文→审查→导出 DOCX→负例→冲突不跳 403→生成草稿教案→候选勾选导出，**16 步**全绿即通过 |
+| [`src/frontend/scripts/e2e-role-matrix.mjs`](../src/frontend/scripts/e2e-role-matrix.mjs) | 角色矩阵脚本（`npm run e2e:roles`）：lead/admin/teacher 三角色越权只出现在真实越权路由，**10 步**全绿即通过（前置 `py -3 scripts/seed_users.py` 建 `e2elead`/`e2eadmin`/`teacher1`） |
 | [coverage.md](testing/coverage.md) | 核心模块覆盖率门禁：`py -3 scripts/coverage_gate.py`，当前 91.2% |
 | [cross-host-smoke.md](testing/cross-host-smoke.md) | 5 个宿主安装冒烟清单与当前执行状态 |
 | [测试用例.schema.yaml](testing/测试用例.schema.yaml) | 由 markmap 抽取的机器可读用例（生成物，勿手改） |
