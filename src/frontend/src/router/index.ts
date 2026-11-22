@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 import { passwordChangeRedirect, roleRedirect } from '@/router/auth-guard'
 import { useSessionStore } from '@/stores/session'
@@ -150,6 +151,8 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
+  // UI-12：跨页不残留上一页的 toast（例如「已创建」一路带到教案库/导出页）
+  ElMessage.closeAll()
   document.title = to.meta.title ? `${to.meta.title} · 校本教案平台` : '校本教案平台'
 })
 
