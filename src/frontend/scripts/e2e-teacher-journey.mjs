@@ -59,7 +59,9 @@ const context = await browser.newContext({
 const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', (response) => {
-  if (response.status() < 400) return
+  // 只统计业务接口；退出登录瞬间的 401 是已知观察项（pre-mortem §5），不进失败判据
+  if (response.status() < 400 || !response.url().includes('/api/')) return
+  if (response.url().includes('/api/v1/auth/logout')) return
   // 响应体读取是异步的：登记成 Promise，汇总前统一 await，避免预期错误漏判
   const task = (async () => {
     let body = ''
@@ -514,21 +516,30 @@ await Promise.allSettled([...pendingResponses])
 await browser.close()
 
 const failed = results.filter((item) => !item.ok)
+// 预期外 4xx/5xx 与未捕获前端异常同样算验收失败（预期错误已在 expectedHttp 里精确豁免）
+const uniqueHttp = [...new Set(httpErrors)]
+const ok = !failed.length && uniqueHttp.length === 0 && pageErrors.length === 0
 console.log(`\n账号：${username} / ${finalPassword}（首次口令 ${initPassword}）`)
 console.log(`产物目录：${outDir}`)
 if (versionId) console.log(`导出教案版本 ID：${versionId}`)
 console.log(`DOCX 字节数：${docxBytes || '未产出'}`)
-if (httpErrors.length) {
-  console.log(`\n4xx/5xx 响应 ${httpErrors.length} 条：`)
-  for (const item of [...new Set(httpErrors)]) console.log(' -', item)
+if (uniqueHttp.length) {
+  console.log(`\n4xx/5xx 响应 ${uniqueHttp.length} 条（计入失败）：`)
+  for (const item of uniqueHttp) console.log(' -', item)
 }
 if (pageErrors.length) {
-  console.log(`\n未捕获前端异常 ${pageErrors.length} 条：`)
+  console.log(`\n未捕获前端异常 ${pageErrors.length} 条（计入失败）：`)
   for (const item of [...new Set(pageErrors)]) console.log(' -', item)
 }
 console.log(`\n结果：${results.length - failed.length}/${steps.length} 步通过`)
 if (failed.length) {
   for (const item of failed) console.log(` FAIL ${item.name} → ${item.detail}`)
-  process.exit(1)
 }
-process.exit(0)
+if (!ok) {
+  const reasons = []
+  if (failed.length) reasons.push(`${failed.length} 步失败`)
+  if (uniqueHttp.length) reasons.push(`${uniqueHttp.length} 条预期外 4xx/5xx`)
+  if (pageErrors.length) reasons.push(`${pageErrors.length} 条前端异常`)
+  console.log(`失败原因：${reasons.join('；')}`)
+}
+process.exitCode = ok ? 0 : 1

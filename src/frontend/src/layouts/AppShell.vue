@@ -52,8 +52,10 @@ const displayName = computed(() => session.user?.displayName ?? '预览访客')
 
 // 导航条目统一走 canOpen：可见性只由路由 meta.roles 决定，没有目标地址的入口不渲染，
 // 避免禁用占位按钮被读屏与 E2E 当成真实入口。
-const groups = computed<NavGroup[]>(() =>
-  [
+const groups = computed<NavGroup[]>(() => {
+  // 管理入口解析一次，避免 canOpen/openTo 各 resolve 一遍
+  const adminTo = openTo('/admin')
+  return [
     {
       label: '工作台',
       items: [
@@ -77,8 +79,8 @@ const groups = computed<NavGroup[]>(() =>
         { label: '样例库', icon: 'samples' as const, to: openTo('/samples') },
       ],
     },
-    ...(canOpen('/admin')
-      ? [{ label: '管理', items: [{ label: '管理', icon: 'admin' as const, to: openTo('/admin') }] }]
+    ...(adminTo
+      ? [{ label: '管理', items: [{ label: '管理', icon: 'admin' as const, to: adminTo }] }]
       : []),
     ...(isDev
       ? [{ label: '设计', items: [{ label: '风格验收', icon: 'design' as const, to: openTo('/styleguide') }] }]
@@ -88,8 +90,8 @@ const groups = computed<NavGroup[]>(() =>
       ...group,
       items: group.items.filter((item) => Boolean(item.to)),
     }))
-    .filter((group) => group.items.length > 0),
-)
+    .filter((group) => group.items.length > 0)
+})
 
 const pageTitle = computed(() => route.meta.title ?? '平台端')
 const pageSection = computed(() => route.meta.section ?? '平台端')
