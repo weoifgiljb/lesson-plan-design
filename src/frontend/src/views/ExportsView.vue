@@ -22,6 +22,7 @@ const message = ref('')
 const error = ref('')
 
 const candidates = ref<ReviewListItem[]>([])
+const candidatesTotal = ref(0)
 const candidatesLoading = ref(false)
 const candidatesError = ref('')
 const selected = ref<number[]>([])
@@ -35,20 +36,25 @@ const progressPercent = computed(() =>
   jobs.value.length ? Math.round((finishedCount.value / jobs.value.length) * 100) : 0,
 )
 
-// 候选只取后端乐观判定可导出的版本；同一版本可能有多轮审查，保留首条（列表按 review id 倒序 = 最新轮次）
+// 同一版本可能有多轮审查：先保留最新一轮（列表按 review id 倒序），再看它是否可导出，
+// 与后端 LATEST_REVIEW_JOIN / export_service 的"最大 round 为准"口径一致。
 const candidateRows = computed(() => {
   const seen = new Set<number>()
   const rows: ReviewListItem[] = []
   for (const item of candidates.value) {
-    if (!item.exportable || seen.has(item.planVersionId)) continue
+    if (seen.has(item.planVersionId)) continue
     seen.add(item.planVersionId)
+    if (!item.exportable) continue
     rows.push(item)
     if (rows.length >= MAX_CANDIDATES) break
   }
   return rows
 })
+const exportableVersionCount = computed(
+  () => new Set(candidates.value.filter((item) => item.exportable).map((item) => item.planVersionId)).size,
+)
 const candidatesTruncated = computed(
-  () => candidates.value.filter((item) => item.exportable).length > candidateRows.value.length,
+  () => exportableVersionCount.value > candidateRows.value.length || candidatesTotal.value > candidates.value.length,
 )
 
 function readVersionId(value: unknown): number | null {
@@ -100,6 +106,10 @@ async function submit(): Promise<void> {
   message.value = ''
   if (ids.length === 0) {
     error.value = '请勾选候选版本，或填写教案版本 ID（逗号分隔）'
+    return
+  }
+  if (ids.length > MAX_CANDIDATES) {
+    error.value = `单次最多导出 ${MAX_CANDIDATES} 份，请减少勾选或手填的版本 ID`
     return
   }
   creating.value = true
@@ -163,6 +173,10 @@ async function loadCandidates(): Promise<void> {
   try {
     const page = await listReviews({ pageSize: 100 })
     candidates.value = page.items
+    candidatesTotal.value = page.total
+    // 刷新后把已失效（不再可导出/已不在候选里）的勾选裁掉，避免静默提交过期 ID
+    const available = new Set(candidateRows.value.map((item) => item.planVersionId))
+    selected.value = selected.value.filter((id) => available.has(id))
   } catch (caught) {
     candidatesError.value = caught instanceof Error ? caught.message : '加载候选版本失败'
   } finally {
@@ -222,7 +236,7 @@ async function copyHash(job: ExportJob): Promise<void> {
           <StatusTag :code="item.status" :status="item.status" />
         </el-checkbox>
       </el-checkbox-group>
-      <p v-if="!candidatesLoading && !candidateRows.length" class="hint">
+      <p v-if="!candidatesLoading && !candidatesError && !candidateRows.length" class="hint">
         暂无已通过且可导出的教案版本；可从审查中心选一份已通过的教案，或用下方高级入口手填版本 ID。
       </p>
       <p v-if="candidatesTruncated" class="hint">候选较多，仅显示最近 {{ MAX_CANDIDATES }} 份可导出教案。</p>

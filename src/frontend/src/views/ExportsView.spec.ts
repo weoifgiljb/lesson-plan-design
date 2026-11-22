@@ -190,6 +190,37 @@ describe('ExportsView', () => {
     wrapper.unmount()
   })
 
+  it('drops selections that are no longer candidates after a refresh', async () => {
+    const { wrapper } = await mountAt('/exports')
+    await candidateCheckboxes(wrapper)[0].setValue(true)
+    await flushPromises()
+    expect(wrapper.text()).toContain('已勾选 1 / 可导出 2 份')
+
+    listReviews.mockResolvedValue({
+      items: [candidate({ planVersionId: 22, contentTitle: '数据类型、变量与常量' })],
+      page: 1,
+      pageSize: 100,
+      total: 1,
+    })
+    await wrapper.findAll('button').find((button) => button.text().includes('刷新候选'))!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已勾选 0 / 可导出 1 份')
+    wrapper.unmount()
+  })
+
+  it('rejects a submission above the backend batch limit', async () => {
+    const { wrapper } = await mountAt('/exports')
+    const many = Array.from({ length: 51 }, (_, index) => String(100 + index)).join(',')
+    await wrapper.find('input[aria-label="教案版本 ID"]').setValue(many)
+    await submitButton(wrapper)!.trigger('click')
+    await flushPromises()
+
+    expect(createExports).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('单次最多导出 50 份')
+    wrapper.unmount()
+  })
+
   it('prefills the version id from the review center without auto submitting', async () => {
     const { wrapper } = await mountAt('/exports?planVersionId=33')
 
