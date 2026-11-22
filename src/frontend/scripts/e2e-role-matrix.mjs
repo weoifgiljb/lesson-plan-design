@@ -165,10 +165,10 @@ steps.push([
   async () => {
     await navTo('管理')
     await page.waitForURL('**/admin', { timeout: 15000 })
-    const body = await bodyText()
-    must(body.includes('账号'), '管理页没有「账号」页签')
-    must(body.includes('审计'), '管理页没有「审计」页签')
-    must(body.includes('删除申请'), '管理页没有「删除申请」页签')
+    // 断言页签元素本身：头部说明文案里也含「账号」「审计」，不能拿整页正文当证据
+    await page.locator('.el-tabs__item', { hasText: '账号' }).waitFor({ timeout: 15000 })
+    await page.locator('.el-tabs__item', { hasText: '审计' }).waitFor({ timeout: 15000 })
+    await page.locator('.el-tabs__item', { hasText: '删除申请' }).waitFor({ timeout: 15000 })
   },
 ])
 steps.push([

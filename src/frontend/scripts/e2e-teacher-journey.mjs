@@ -415,7 +415,7 @@ steps.push([
     await page.waitForFunction(() => /已勾选 1 \/ 可导出/.test(document.body.innerText), undefined, {
       timeout: 10000,
     })
-    // 第 10 步已导出过同一版本，这里必须确认是「新建导出」而不是复用旧任务，否则链路没被验证
+    // 第 10 步已导出过同一版本：这里验证的是「候选清单 → 提交」链路按复用口径回到已成功任务
     const [exportResponse] = await Promise.all([
       page.waitForResponse(
         (response) =>
@@ -425,7 +425,11 @@ steps.push([
       page.getByRole('button', { name: '创建导出' }).click(),
     ])
     const exportPayload = await exportResponse.json()
-    must(exportPayload.reused === 0, '候选导出复用了第 10 步的旧任务，没验证「候选清单→新导出」链路')
+    // 第 10 步已导出过同一版本：后端按「版本+引擎+报告哈希」复用，这里应命中复用而不是新建
+    must(
+      exportPayload.reused === 1 && exportPayload.created === 0,
+      `候选导出的复用口径不符：reused=${exportPayload.reused} created=${exportPayload.created}`,
+    )
     await page.waitForFunction(() => /已提交 \d+ 个导出任务/.test(document.body.innerText), undefined, {
       timeout: 20000,
     })

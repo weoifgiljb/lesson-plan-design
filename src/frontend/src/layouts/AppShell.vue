@@ -266,25 +266,14 @@ onBeforeUnmount(() => {
       <nav class="sidebar-nav">
         <section v-for="group in groups" :key="group.label" class="nav-group">
           <h2 class="nav-group__label">{{ group.label }}</h2>
-          <template v-for="item in group.items" :key="`${group.label}-${item.label}`">
+          <!-- 无权限/未上线的入口直接不渲染：禁用占位按钮会被读屏与 E2E 当成真实入口 -->
+          <template v-for="item in group.items.filter((entry) => entry.to)" :key="`${group.label}-${item.label}`">
             <button
-              v-if="item.to"
               type="button"
               class="nav-item"
               :class="{ 'is-active': isActive(item) }"
               :aria-current="isActive(item) ? 'page' : undefined"
               @click="go(item)"
-            >
-              <AppIcon :name="item.icon" :size="18" />
-              <span class="nav-item__label">{{ item.label }}</span>
-              <span v-if="item.count" class="nav-item__count">{{ item.count }}</span>
-            </button>
-            <button
-              v-else
-              type="button"
-              class="nav-item nav-item--disabled"
-              disabled
-              :title="`${item.label}将在后续 FE 任务上线`"
             >
               <AppIcon :name="item.icon" :size="18" />
               <span class="nav-item__label">{{ item.label }}</span>
@@ -487,16 +476,6 @@ onBeforeUnmount(() => {
 .nav-item.is-active .nav-item__count {
   background: var(--lpp-surface);
   color: var(--lpp-primary);
-}
-
-.nav-item--disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.nav-item--disabled:hover {
-  background: transparent;
-  color: var(--lpp-text-muted);
 }
 
 .sidebar-identity {
