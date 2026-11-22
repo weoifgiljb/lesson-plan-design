@@ -54,8 +54,9 @@ try {
   page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
   // 响应体读取是异步的：登记成 Promise，判定前统一 await，避免 4xx 漏判/误报
   page.on('response', (response) => {
-    // 只统计业务接口：静态资源/HMR 的 4xx 与本轮角色矩阵无关
+    // 只统计业务接口；退出登录瞬间的 401 是已知观察项（pre-mortem §5），与教师端脚本保持一致
     if (response.status() < 400 || !response.url().includes('/api/')) return
+    if (response.status() === 401 && response.url().includes('/api/v1/auth/logout')) return
     const task = response
       .text()
       .then((text) =>
@@ -133,9 +134,8 @@ try {
   async function expectForbidden(path) {
     await page.goto(`${base}${path}`)
     await page.waitForURL('**/403', { timeout: 15000 })
-    const body = await bodyText()
-    must(body.includes('没有访问权限'), `403 页没有「没有访问权限」：${body.slice(0, 120)}`)
-    must(body.includes('越权访问已记录'), '403 页没有展示越权文案（服务端审计由后端用例覆盖）')
+    // 403 页文案是静态的，只当"页面渲染成功"的冒烟断言；服务端是否落审计由后端用例覆盖
+    must((await bodyText()).includes('没有访问权限'), '403 页没有渲染「没有访问权限」')
     // /403 是独立 public 页面，没有主导航与退出按钮：回到概览供后续步骤继续操作
     await page.goto(`${base}/dashboard`, { waitUntil: 'networkidle' })
     await page.waitForSelector('[aria-label="主导航"]', { timeout: 15000 })

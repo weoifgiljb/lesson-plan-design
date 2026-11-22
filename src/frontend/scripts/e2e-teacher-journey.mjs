@@ -59,9 +59,9 @@ const context = await browser.newContext({
 const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', (response) => {
-  // 只统计业务接口；退出登录瞬间的 401 是已知观察项（pre-mortem §5），不进失败判据
+  // 只统计业务接口；仅豁免退出登录瞬间的 401（pre-mortem §5 已知竞态），其它状态码仍计入失败
   if (response.status() < 400 || !response.url().includes('/api/')) return
-  if (response.url().includes('/api/v1/auth/logout')) return
+  if (response.status() === 401 && response.url().includes('/api/v1/auth/logout')) return
   // 响应体读取是异步的：登记成 Promise，汇总前统一 await，避免预期错误漏判
   const task = (async () => {
     let body = ''
@@ -479,6 +479,7 @@ steps.push([
       ),
       page.getByRole('button', { name: '创建导出' }).click(),
     ])
+    must(exportResponse.ok(), `创建导出接口返回 HTTP ${exportResponse.status()}（非 2xx）`)
     const exportPayload = await exportResponse.json()
     // 第 10 步已导出过同一版本：后端按「版本+引擎+报告哈希」复用，这里应命中复用而不是新建
     must(

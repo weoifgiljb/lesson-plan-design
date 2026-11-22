@@ -28,7 +28,10 @@ export function passwordChangeRedirect(
 }
 
 /** 角色是否满足路由要求；未声明 roles 时放行，未知角色一律拒绝（fail-closed）。 */
-export function roleAllowed(role: string | null | undefined, roles?: string[]): boolean {
+export function roleAllowed(
+  role: string | null | undefined,
+  roles?: readonly string[],
+): boolean {
   if (!roles || roles.length === 0) return true
   // 未登录场景由 router.beforeEach 的会话检查统一拦截，这里不再对空 role 放行
   return typeof role === 'string' && role.length > 0 && roles.includes(role)

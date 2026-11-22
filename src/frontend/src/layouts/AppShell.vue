@@ -7,7 +7,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import BrandMark from '@/components/BrandMark.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import type { CommandItem } from '@/components/command-types'
-import { roleAllowed } from '@/router/auth-guard'
+import { navVisible } from '@/router/visibility'
 import { useSessionStore } from '@/stores/session'
 
 interface NavItem {
@@ -26,16 +26,13 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
-// 导航可见性与路由守卫共用同一份权限契约（router meta.roles + roleAllowed）。
-// 受限路由对"未知身份"（未登录访客/身份未加载）fail-closed，未注册路径也不渲染，避免入口点了落空。
 function openTo(path: string): string | undefined {
   const resolved = router.resolve(path)
-  // 未注册路径会被全局 catch-all 接走：命中 not-found 视为"没有这个页面"，不渲染入口
   const last = resolved.matched[resolved.matched.length - 1]
-  if (!last || last.name === 'not-found') return undefined
-  const roles = resolved.meta.roles
-  if (!roles || roles.length === 0) return path
-  return roleAllowed(session.role, roles) ? path : undefined
+  if (!last || !navVisible(last.name as string | null | undefined, resolved.meta.roles, session.role)) {
+    return undefined
+  }
+  return path
 }
 const canOpen = (path: string): boolean => openTo(path) !== undefined
 
