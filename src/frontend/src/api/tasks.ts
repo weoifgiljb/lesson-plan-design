@@ -41,7 +41,7 @@ export function createTask(
   payload: TaskCreatePayload,
   options: { confirm?: boolean } = {},
 ): Promise<TaskItem> {
-  return client.post<TaskItem>('/api/v1/tasks', payload, options.confirm ? { confirm: true } : undefined)
+  return client.post<TaskItem>('/api/v1/tasks', payload, options.confirm ? { params: { confirm: true } } : undefined)
 }
 
 export function moveTask(taskId: number, payload: TaskMovePayload): Promise<TaskItem> {

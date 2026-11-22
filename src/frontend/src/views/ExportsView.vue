@@ -1,15 +1,24 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
-import { createExports, downloadExport, getExport } from '@/api/exports'
-import { getStatsSummary, listStatRecords } from '@/api/stats'
-import type { ExportJob } from '@/api/models'
+import { RequestError, isForbidden, isUnauthorized } from '@/api/client-error'
+import { createExports, downloadExport, getExport, EXPORT_BATCH_LIMIT } from '@/api/exports'
+import { errorMessage } from '@/api/errors'
+import { listReviews } from '@/api/reviews'
+import type { ExportJob, ReviewListItem } from '@/api/models'
+import StatusTag from '@/components/StatusTag.vue'
 import { copyText } from '@/utils/clipboard'
 import { saveBlob } from '@/utils/download'
 import { EXPORT_STATUS_LABELS } from '@/utils/labels'
 
+// 候选清单最多渲染的行数，超出提示用手填 ID
+const MAX_CANDIDATE_ROWS = 50
+// 候选最多翻几页审查记录（每页 100 条），避免极端数据下无限翻页
+const MAX_CANDIDATE_PAGES = 5
+
 const route = useRoute()
+const router = useRouter()
 const versionInput = ref('')
 // 从审查中心「导出」跳过来时带的版本 ID；只手填入框，不自动提交
 const prefilledId = ref<number | null>(null)
@@ -17,10 +26,18 @@ const jobs = ref<ExportJob[]>([])
 const creating = ref(false)
 const message = ref('')
 const error = ref('')
+const notice = ref('')
 
-const summary = reactive({ loading: false })
+const candidates = ref<ReviewListItem[]>([])
+const candidatesTotal = ref(0)
+const candidatesLoading = ref(false)
+const candidatesError = ref('')
+const candidatesMoreFailed = ref(false)
+const selected = ref<number[]>([])
 
 let timer: number | undefined
+// 候选加载轮次：刷新/卸载时自增，作废在途的补页请求
+let loadToken = 0
 
 const pending = computed(() => jobs.value.filter((job) => job.status !== 'succeeded' && job.status !== 'failed'))
 const finishedCount = computed(() => jobs.value.filter((job) => job.status === 'succeeded' || job.status === 'failed').length)
@@ -28,6 +45,25 @@ const failedCount = computed(() => jobs.value.filter((job) => job.status === 'fa
 const progressPercent = computed(() =>
   jobs.value.length ? Math.round((finishedCount.value / jobs.value.length) * 100) : 0,
 )
+
+// 同一版本可能有多轮审查：按 round 取最新一轮，再看它是否可导出，
+// 与后端 LATEST_REVIEW_JOIN / export_service 的"最大 round 为准"口径一致（不依赖列表顺序）。
+function latestByVersion(items: ReviewListItem[]): ReviewListItem[] {
+  const latest = new Map<number, ReviewListItem>()
+  for (const item of items) {
+    const current = latest.get(item.planVersionId)
+    if (!current || item.round > current.round) latest.set(item.planVersionId, item)
+  }
+  return [...latest.values()]
+}
+const latestRows = computed(() => latestByVersion(candidates.value))
+const exportableRows = computed(() => latestRows.value.filter((item) => item.exportable))
+const candidateRows = computed(() => exportableRows.value.slice(0, MAX_CANDIDATE_ROWS))
+// 截断（可导出项超过渲染上限）与"审查记录没翻完"是两个不同状态，提示语必须分开
+const candidatesCapped = computed(() => exportableRows.value.length > candidateRows.value.length)
+const candidatesPartial = computed(() => candidatesTotal.value > candidates.value.length)
+// 只有这些码重试无意义（版本已不存在/无权）；其余（含未来新增码）默认保留给用户重试
+const NON_RETRYABLE_FAILURE_CODES = new Set(['NOT_FOUND', 'FORBIDDEN'])
 
 function readVersionId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value
@@ -64,23 +100,87 @@ function parseIds(text: string): number[] {
     .filter((item) => Number.isInteger(item) && item > 0)
 }
 
+function collectIds(): number[] {
+  const ids: number[] = []
+  for (const id of [...selected.value, ...parseIds(versionInput.value)]) {
+    if (!ids.includes(id)) ids.push(id)
+  }
+  return ids
+}
+
 async function submit(): Promise<void> {
-  const ids = parseIds(versionInput.value)
+  const ids = collectIds()
   error.value = ''
   message.value = ''
+  notice.value = ''
   if (ids.length === 0) {
-    error.value = '请填写教案版本 ID（逗号分隔）'
+    error.value = '请勾选候选版本，或填写教案版本 ID（逗号分隔）'
+    return
+  }
+  if (ids.length > EXPORT_BATCH_LIMIT) {
+    error.value = `单次最多导出 ${EXPORT_BATCH_LIMIT} 份，请减少勾选或手填的版本 ID`
     return
   }
   creating.value = true
   try {
     const result = await createExports(ids)
-    const items: ExportJob[] = ((result as unknown as { items?: ExportJob[] }).items ?? []) as ExportJob[]
-    if (items.length) jobs.value = [...items, ...jobs.value.filter((job) => !items.some((it) => it.exportId === job.exportId))]
-    message.value = `已提交 ${result.items?.length ?? ids.length} 个导出任务`
-    startPolling()
+    const rawItems = result.items ?? []
+    // 创建/复用项后端返回完整 ExportJob（export_service._job_payload），ExportItem 只声明了子集；
+    // 门禁拒绝项没有 exportId，只带 planVersionId/code/message，不能当任务卡片渲染。
+    const created = rawItems.filter((item) => typeof item.exportId === 'number') as unknown as ExportJob[]
+    const rejected = rawItems.filter((item) => typeof item.exportId !== 'number')
+    if (created.length) {
+      jobs.value = [...created, ...jobs.value.filter((job) => !created.some((it) => it.exportId === job.exportId))]
+      message.value = `已提交 ${created.length} 个导出任务`
+      const submitted = new Set(created.map((item) => item.planVersionId))
+      selected.value = selected.value.filter((id) => !submitted.has(id))
+      // 手填框里的成功项也清掉，避免再点一次把同一批 ID 原样重发
+      const typed = parseIds(versionInput.value)
+      const remaining = typed.filter((id) => !submitted.has(id))
+      if (remaining.length !== typed.length) {
+        versionInput.value = remaining.join(',')
+        if (prefilledId.value !== null && !remaining.includes(prefilledId.value)) prefilledId.value = null
+      }
+      startPolling()
+    }
+    if (rejected.length) {
+      // 明确不可重试的（版本不存在/无权）才丢弃；其余码默认保留给用户重试
+      const blocked = new Set(
+        rejected
+          .filter((item) => NON_RETRYABLE_FAILURE_CODES.has(String(item.code ?? '')))
+          .map((item) => item.planVersionId),
+      )
+      const retryableCount = rejected.filter((item) => !blocked.has(item.planVersionId)).length
+      selected.value = selected.value.filter((id) => !blocked.has(id))
+      const attempted = parseIds(versionInput.value)
+      const kept = attempted.filter((id) => !blocked.has(id))
+      if (kept.length !== attempted.length) {
+        versionInput.value = kept.join(',')
+        if (prefilledId.value !== null && !kept.includes(prefilledId.value)) prefilledId.value = null
+      }
+      // 按 code+message 分组：同码不同原因（如各版本缺不同媒体）也要分别说清
+      const grouped = new Map<string, { message: string; ids: number[] }>()
+      for (const item of rejected) {
+        const code = String(item.code ?? 'UNKNOWN')
+        const message = item.message || errorMessage(code)
+        const key = `${code}|${message}`
+        const group = grouped.get(key) ?? { message, ids: [] }
+        group.ids.push(item.planVersionId)
+        grouped.set(key, group)
+      }
+      const detail = [...grouped.values()].map((group) => `${group.message}（版本 ${group.ids.join(', ')}）`).join('；')
+      error.value = `有 ${rejected.length} 份导出失败：${detail}`
+      if (retryableCount) error.value += `（${retryableCount} 份可修正后重试，已保留勾选）`
+      // 有失败时不保留纯成功提示：失败明细已含成功/失败口径，避免两个 alert 并列误读
+      message.value = ''
+    }
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
+    if (redirectOnAuthError(caught)) return
+    if (caught instanceof RequestError && caught.code === 'PAYLOAD_REJECTED') {
+      error.value = `提交失败：${caught.message}`
+    } else {
+      error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
+    }
   } finally {
     creating.value = false
   }
@@ -114,7 +214,11 @@ function stopPolling(): void {
   }
 }
 
-onUnmounted(stopPolling)
+onUnmounted(() => {
+  stopPolling()
+  // 作废在途的首屏/补页请求，避免离开页面后继续翻页并写回已卸载组件
+  loadToken += 1
+})
 
 async function download(job: ExportJob): Promise<void> {
   error.value = ''
@@ -126,19 +230,98 @@ async function download(job: ExportJob): Promise<void> {
   }
 }
 
+/** 只保留仍可勾选（已加载）的勾选，并把被取消的数量说清楚，避免静默丢弃。 */
+function trimSelection(): void {
+  // 补页失败时候选本就不完整，此时裁剪会把仍有效的勾选当成失效清掉
+  if (candidatesMoreFailed.value) return
+  const available = new Set(exportableRows.value.map((item) => item.planVersionId))
+  const before = selected.value.length
+  selected.value = selected.value.filter((id) => available.has(id))
+  const dropped = before - selected.value.length
+  if (dropped > 0) notice.value = `有 ${dropped} 个勾选因候选变化已取消`
+}
+
 async function loadCandidates(): Promise<void> {
-  summary.loading = true
+  const token = (loadToken += 1)
+  candidatesLoading.value = true
+  candidatesError.value = ''
+  candidatesMoreFailed.value = false
   error.value = ''
+  notice.value = ''
+  message.value = ''
   try {
-    await getStatsSummary({})
-    const page = await listStatRecords({ pageSize: 20 })
-    message.value = `可在统计页下钻查看候选教案；本次载入 ${page.items.length} 条记录`
+    // 先渲染第 1 页，避免可导出项很少时首屏被串行翻页阻塞；
+    // 勾选裁剪要等补页结束再做，否则第 2..N 页的合法勾选会被当成失效清掉
+    const first = await listReviews({ pageSize: 100, page: 1 })
+    if (token !== loadToken) return
+    candidates.value = first.items
+    candidatesTotal.value = first.total
+    if (first.items.length < first.total) {
+      // 补页结束前保持"读取中"，避免空态先给出"暂无可导出"的假结论
+      void loadMorePages(token, first.items).finally(() => {
+        if (token !== loadToken) return
+        candidatesLoading.value = false
+        trimSelection()
+      })
+    } else {
+      candidatesLoading.value = false
+      trimSelection()
+    }
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '加载候选失败'
-  } finally {
-    summary.loading = false
+    if (token !== loadToken) return
+    candidatesLoading.value = false
+    // 与其他页面一致：会话失效回登录、真越权回 403，而不是只留红字
+    if (redirectOnAuthError(caught)) return
+    // 刷新失败就别让过期候选继续可勾选/可提交
+    candidates.value = []
+    candidatesTotal.value = 0
+    selected.value = []
+    candidatesError.value = caught instanceof Error ? caught.message : '加载候选版本失败'
   }
 }
+
+/** 401 回登录、改密未完成回改密页、403 回越权页；返回 true 表示已跳转，调用方不要再展示行内错误。 */
+function redirectOnAuthError(caught: unknown): boolean {
+  if (isUnauthorized(caught)) {
+    void router.replace({ path: '/login', query: { redirect: route.fullPath } })
+    return true
+  }
+  if (caught instanceof RequestError && caught.code === 'PASSWORD_CHANGE_REQUIRED') {
+    void router.replace({ path: '/change-password', query: { redirect: route.fullPath } })
+    return true
+  }
+  if (isForbidden(caught)) {
+    void router.replace('/403')
+    return true
+  }
+  return false
+}
+
+async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<void> {
+  let items = loaded
+  for (let page = 2; page <= MAX_CANDIDATE_PAGES; page += 1) {
+    if (items.length >= candidatesTotal.value) return
+    // 首屏已到渲染上限就没必要再翻页
+    if (exportableRows.value.length >= MAX_CANDIDATE_ROWS) return
+    try {
+      const data = await listReviews({ pageSize: 100, page })
+      if (token !== loadToken) return
+      items = items.concat(data.items)
+      candidates.value = items
+      candidatesTotal.value = data.total
+      if (items.length >= data.total) return
+    } catch (caught) {
+      if (token !== loadToken) return
+      if (redirectOnAuthError(caught)) return
+      candidatesMoreFailed.value = true
+      return /* 后台补页失败不打断已渲染的候选，但要提示候选可能不完整 */
+    }
+  }
+}
+
+onMounted(() => {
+  void loadCandidates()
+})
 
 // 后端导出任务只有 pending / succeeded / failed 三态（export_service），
 // 以前写死的 queued/running 永远不会出现，导致 pending 直接显示英文。
@@ -157,13 +340,49 @@ async function copyHash(job: ExportJob): Promise<void> {
     <header class="head">
       <div>
         <h1>导出中心</h1>
-        <p class="lead">按教案版本批量导出 DOCX；同一版本 + 引擎 + 报告哈希只会生成一次。</p>
+        <p class="lead">勾选已通过的教案版本批量导出 DOCX；同一版本 + 引擎 + 报告哈希只会生成一次。</p>
       </div>
-      <el-button :loading="summary.loading" @click="loadCandidates">载入候选版本</el-button>
+      <el-button :loading="candidatesLoading" @click="loadCandidates">刷新候选</el-button>
     </header>
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" />
+    <el-alert v-if="notice" type="warning" :closable="false" show-icon :title="notice" />
     <el-alert v-if="message" type="success" :closable="false" show-icon :title="message" />
+
+    <section class="candidates" aria-label="候选版本">
+      <div class="candidates__head">
+        <h2>候选版本</h2>
+        <span class="hint">
+          {{ candidatesLoading ? '正在读取…' : `已勾选 ${selected.length} / 可导出 ${exportableRows.length} 份` }}
+        </span>
+      </div>
+      <el-alert v-if="candidatesError" type="error" :closable="false" show-icon :title="candidatesError" />
+      <el-checkbox-group v-model="selected" class="candidates__list">
+        <el-checkbox
+          v-for="item in candidateRows"
+          :key="item.planVersionId"
+          :value="item.planVersionId"
+          class="candidate"
+        >
+          <span class="candidate__title">{{ item.contentTitle }}</span>
+          <span class="candidate__meta">
+            第 {{ item.week }} 周第 {{ item.session }} 次 · 第 {{ item.versionNo }} 稿
+            <template v-if="item.teacher"> · {{ item.teacher }}</template>
+          </span>
+          <StatusTag :code="item.status" :status="item.status" />
+        </el-checkbox>
+      </el-checkbox-group>
+      <p v-if="!candidatesLoading && !candidatesError && !candidateRows.length" class="hint">
+        {{ candidatesPartial ? `最近 ${candidates.length} 条审查记录里暂无可导出的已通过版本` : '暂无已通过且可导出的教案版本' }}；可从审查中心选一份已通过的教案，或用下方高级入口手填版本 ID。
+      </p>
+      <p v-if="candidatesCapped" class="hint">
+        候选较多：最多展示最近 {{ MAX_CANDIDATE_ROWS }} 份可导出教案，更早的版本请用下方高级入口手填版本 ID。
+      </p>
+      <p v-if="candidatesMoreFailed" class="hint">候选可能不完整（补页失败），可点「刷新候选」重试。</p>
+      <p v-else-if="candidatesPartial && candidateRows.length" class="hint">
+        仅检索了最近 {{ candidates.length }} 条审查记录，更早的版本请用下方高级入口手填版本 ID。
+      </p>
+    </section>
 
     <p v-if="prefilledId" class="hint">
       已从审查中心带入教案版本 ID {{ prefilledId }}，确认后点「创建导出」。
@@ -173,7 +392,7 @@ async function copyHash(job: ExportJob): Promise<void> {
       <el-input
         v-model="versionInput"
         class="ids"
-        placeholder="教案版本 ID，逗号分隔，例如 12,15"
+        placeholder="高级：教案版本 ID，逗号分隔，例如 12,15"
         aria-label="教案版本 ID"
       />
       <el-button type="primary" :loading="creating" @click="submit">创建导出</el-button>
@@ -208,7 +427,7 @@ async function copyHash(job: ExportJob): Promise<void> {
 
       <div v-if="!jobs.length" class="empty">
         <p class="empty-title">还没有导出任务</p>
-        <p class="empty-desc">从审查中心选一份已通过的教案，或在上方填入版本 ID 后创建导出。</p>
+        <p class="empty-desc">勾选上方候选版本，或从审查中心选一份已通过的教案后创建导出。</p>
       </div>
     </div>
 
@@ -259,6 +478,64 @@ async function copyHash(job: ExportJob): Promise<void> {
   margin: 0;
   font-size: 13px;
   color: var(--lpp-text-muted);
+}
+
+.candidates {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface-2);
+}
+
+.candidates__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.candidates__head h2 {
+  margin: 0;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-md);
+}
+
+.candidates__list {
+  display: grid;
+  gap: 6px;
+}
+
+.candidate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface);
+  min-height: 40px;
+}
+
+.candidate :deep(.el-checkbox__label) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.candidate__title {
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  font-weight: 600;
+}
+
+.candidate__meta {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
 }
 
 .form {

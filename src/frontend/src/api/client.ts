@@ -2,6 +2,12 @@ import axios from 'axios'
 
 import { RequestError, toApiError } from './client-error'
 
+/** POST 的可选 axios config 子集：这里是 HTTP 客户端的唯一适配层，不把 axios 类型泄漏到 api/*.ts */
+export interface RequestOptions {
+  params?: Record<string, unknown>
+  timeout?: number
+}
+
 const CSRF_COOKIE = 'lpp_csrf'
 const CSRF_HEADER = 'X-CSRF-Token'
 
@@ -39,8 +45,8 @@ export const client = {
     const response = await http.get<T>(path, { params })
     return response.data
   },
-  async post<T>(path: string, body?: unknown, params?: Record<string, unknown>): Promise<T> {
-    const response = await http.post<T>(path, body, { params })
+  async post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    const response = await http.post<T>(path, body, options)
     return response.data
   },
   async patch<T>(path: string, body?: unknown): Promise<T> {
