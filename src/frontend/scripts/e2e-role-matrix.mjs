@@ -25,6 +25,8 @@ const outDir =
 mkdirSync(outDir, { recursive: true })
 // 越权页是前端路由守卫拦截的：这里只验证"教师看到的页面文案"，服务端是否落审计由后端用例覆盖。
 const httpErrors = []
+// 响应体读取是异步的：登记成 Promise，判定前统一 await，避免 4xx 漏判/误报
+const pendingResponses = new Set()
 const pageErrors = []
 const results = []
 let index = 0
@@ -42,12 +44,23 @@ try {
   })
   const page = await context.newPage()
   page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
-  page.on('response', async (response) => {
+  // 响应体读取是异步的：登记成 Promise，判定前统一 await，避免 4xx 漏判/误报
+  page.on('response', (response) => {
     if (response.status() < 400) return
-    const text = await response.text().catch(() => '(响应体不可读)')
-    httpErrors.push(
-      `HTTP ${response.status()} ${response.url().replace(base, '')} → ${text.replace(/\s+/g, ' ').slice(0, 240)}`,
-    )
+    const task = response
+      .text()
+      .then((text) =>
+        httpErrors.push(
+          `HTTP ${response.status()} ${response.url().replace(base, '')} → ${text.replace(/\s+/g, ' ').slice(0, 240)}`,
+        ),
+      )
+      .catch(() => {
+        httpErrors.push(
+          `HTTP ${response.status()} ${response.url().replace(base, '')} → (响应体不可读)`,
+        )
+      })
+      .finally(() => pendingResponses.delete(task))
+    pendingResponses.add(task)
   })
 
   const bodyText = () => page.locator('body').innerText()
@@ -221,6 +234,8 @@ try {
     if (!(await run(name, fn))) break
   }
 } finally {
+  // 先把在途的 4xx/5xx 响应体读完再关浏览器，否则最后一步的错误会漏进汇总
+  await Promise.allSettled([...pendingResponses])
   await browser?.close()
 }
 

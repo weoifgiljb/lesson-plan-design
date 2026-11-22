@@ -26,12 +26,16 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
-// 导航可见性与路由守卫共用同一份权限契约（router meta.roles + roleAllowed），
-// 避免"守卫放行但导航无入口"或"有入口点进 403"的漂移。
-function canOpen(path: string): boolean {
-  return roleAllowed(session.role, router.resolve(path).meta.roles)
+// 导航可见性与路由守卫共用同一份权限契约（router meta.roles + roleAllowed）。
+// 受限路由对"未知身份"（未登录访客/身份未加载）fail-closed，未注册路径也不渲染，避免入口点了落空。
+function openTo(path: string): string | undefined {
+  const resolved = router.resolve(path)
+  if (resolved.matched.length === 0) return undefined
+  const roles = resolved.meta.roles
+  if (!roles || roles.length === 0) return path
+  return session.user && roleAllowed(session.role, roles) ? path : undefined
 }
-const openTo = (path: string): string | undefined => (canOpen(path) ? path : undefined)
+const canOpen = (path: string): boolean => openTo(path) !== undefined
 
 const drawerOpen = ref(false)
 const paletteOpen = ref(false)

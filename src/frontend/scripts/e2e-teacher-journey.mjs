@@ -37,8 +37,8 @@ if (!existsSync(packagePath)) throw new Error(`契约包不存在：${packagePat
 
 const httpErrors = []
 const pageErrors = []
-// 第 13 步预期会收到一次 409 冲突响应：精确匹配一次即作废，别让它污染 4xx/5xx 汇总
-let expectedConflict = null
+// 预期内的 HTTP 错误：按「状态码+方法+路径后缀」精确登记一次，命中即移除，避免污染 4xx/5xx 汇总
+let expectedHttp = []
 const results = []
 let docxBytes = 0
 let versionId = null
@@ -59,13 +59,14 @@ const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', async (response) => {
   if (response.status() < 400) return
-  if (
-    expectedConflict &&
-    response.status() === expectedConflict.status &&
-    response.request().method() === expectedConflict.method &&
-    response.url().endsWith(expectedConflict.path)
-  ) {
-    expectedConflict = null
+  const expectedIndex = expectedHttp.findIndex(
+    (item) =>
+      response.status() === item.status &&
+      response.request().method() === item.method &&
+      response.url().endsWith(item.path),
+  )
+  if (expectedIndex >= 0) {
+    expectedHttp.splice(expectedIndex, 1)
     return
   }
   let body = ''
@@ -302,6 +303,8 @@ steps.push([
   async () => {
     await navTo('教案库')
     await page.waitForURL('**/plans', { timeout: 15000 })
+    // 篡改包预期 422 HASH_MISMATCH：这是本步要验证的拒绝行为，不计入 4xx/5xx 异常汇总
+    expectedHttp.push({ path: '/api/v1/plans/import', method: 'POST', status: 422 })
     const [chooser] = await Promise.all([
       page.waitForEvent('filechooser', { timeout: 15000 }),
       page.getByRole('button', { name: '导入契约包' }).first().click(),
@@ -312,6 +315,7 @@ steps.push([
     const message = (await toast.innerText()).replace(/\s+/g, ' ')
     must(/HASH_MISMATCH|哈希|失败/.test(message), `错误提示没有点明原因：${message}`)
     must(page.url().includes('/plans'), `导入失败后不该离开教案库：${page.url()}`)
+    expectedHttp = []
   },
 ])
 steps.push([
@@ -340,7 +344,7 @@ steps.push([
     await dialog.waitFor({ timeout: 10000 })
     // 第 4 步已用同一身份建过任务，这里原样再提交一次（本人重复 → 409 TASK_ALREADY_EXISTS）
     await fillTaskDialog(dialog, { title: lessonTitle, week: slotWeek, session: slotSession })
-    expectedConflict = { path: '/api/v1/tasks', method: 'POST', status: 409 }
+    expectedHttp.push({ path: '/api/v1/tasks', method: 'POST', status: 409 })
     let conflictBody = {}
     try {
       const [conflict] = await Promise.all([
@@ -355,7 +359,7 @@ steps.push([
       ])
       conflictBody = await conflict.json()
     } finally {
-      expectedConflict = null
+      expectedHttp = []
     }
     must(
       conflictBody.code === 'TASK_ALREADY_EXISTS',
