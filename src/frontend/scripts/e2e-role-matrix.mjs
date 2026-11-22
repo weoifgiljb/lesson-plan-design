@@ -39,12 +39,8 @@ const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', async (response) => {
   if (response.status() < 400) return
-  let body = ''
-  try {
-    body = (await response.text()).replace(/\s+/g, ' ').slice(0, 240)
-  } catch {
-    body = '(响应体不可读)'
-  }
+  const text = await response.text().catch(() => '(响应体不可读)')
+  const body = text.replace(/\s+/g, ' ').slice(0, 240)
   httpErrors.push(`HTTP ${response.status()} ${response.url().replace(base, '')} → ${body}`)
 })
 
@@ -107,6 +103,17 @@ async function expectForbidden(path) {
   const body = await bodyText()
   must(body.includes('没有访问权限'), `403 页没有「没有访问权限」：${body.slice(0, 120)}`)
   must(body.includes('越权访问已记录'), '403 页没有越权留痕提示')
+  // /403 是独立 public 页面，没有主导航与退出按钮：回到概览供后续步骤继续操作
+  await page.goto(`${base}/dashboard`, { waitUntil: 'networkidle' })
+  await page.waitForSelector('[aria-label="主导航"]', { timeout: 15000 })
+}
+// 越权页应是"直链才出现"的结果：侧边栏先把该角色的入口隐藏掉
+async function expectNavHidden(name, who) {
+  const count = await page
+    .locator('[aria-label="主导航"]')
+    .getByRole('button', { name, exact: true })
+    .count()
+  must(count === 0, `${who} 侧边栏不该出现「${name}」入口`)
 }
 const steps = []
 steps.push([
@@ -165,8 +172,9 @@ steps.push([
   },
 ])
 steps.push([
-  '7 admin 访问导出中心被拦截（真实越权）',
+  '7 admin 看不到导出入口、直链被拦截',
   async () => {
+    await expectNavHidden('导出', 'admin')
     await expectForbidden('/exports')
   },
 ])
@@ -180,8 +188,9 @@ steps.push([
   },
 ])
 steps.push([
-  '9 teacher 访问管理页被拦截',
+  '9 teacher 看不到管理入口、直链被拦截',
   async () => {
+    await expectNavHidden('管理', 'teacher')
     await expectForbidden('/admin')
   },
 ])
@@ -202,19 +211,19 @@ for (const [name, fn] of steps) {
 await browser.close()
 
 const failed = results.filter((item) => !item.ok)
+const ok = !failed.length && httpErrors.length === 0 && pageErrors.length === 0
 console.log(`\n账号：lead=${accounts.lead} / admin=${accounts.admin} / teacher=${accounts.teacher}`)
 console.log(`产物目录：${outDir}`)
 if (httpErrors.length) {
-  console.log(`\n4xx/5xx 响应 ${httpErrors.length} 条：`)
+  console.log(`\n4xx/5xx 响应 ${httpErrors.length} 条（计入失败）：`)
   for (const item of [...new Set(httpErrors)]) console.log(' -', item)
 }
 if (pageErrors.length) {
-  console.log(`\n未捕获前端异常 ${pageErrors.length} 条：`)
+  console.log(`\n未捕获前端异常 ${pageErrors.length} 条（计入失败）：`)
   for (const item of [...new Set(pageErrors)]) console.log(' -', item)
 }
-console.log(`\n结果：${results.length - failed.length}/${steps.length} 步通过`)
+console.log(`\n结果：${results.length - failed.length}/${results.length} 步通过（共 ${steps.length} 步）`)
 if (failed.length) {
   for (const item of failed) console.log(` FAIL ${item.name} → ${item.detail}`)
-  process.exit(1)
 }
-process.exit(0)
+process.exitCode = ok ? 0 : 1

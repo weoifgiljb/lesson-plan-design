@@ -19,6 +19,9 @@ const finalPassword = 'E2eFinal2026'
 const slotWeek = 6 + (Number.parseInt(stamp.slice(-4), 36) % 20)
 const slotSession = 1 + (Number.parseInt(stamp.slice(-2), 36) % 8)
 const lessonTitle = `E2E第${slotWeek}周第${slotSession}次：分支结构（${stamp.slice(-4)}）`
+// 建课身份字段只在这里定义：第 4 步建课与第 13 步「本人重复」必须完全一致，否则会变成新建成功
+const lessonCourse = 'C语言程序设计'
+const lessonClass = '24计算机1班'
 const planTitle = '一级考证辅导2'
 const packagePath =
   process.env.E2E_PACKAGE ||
@@ -34,6 +37,8 @@ if (!existsSync(packagePath)) throw new Error(`契约包不存在：${packagePat
 
 const httpErrors = []
 const pageErrors = []
+// 第 13 步预期会收到 409 冲突响应，别让它污染 4xx/5xx 汇总
+let expectConflictResponse = false
 const results = []
 let docxBytes = 0
 let versionId = null
@@ -54,6 +59,7 @@ const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', async (response) => {
   if (response.status() < 400) return
+  if (expectConflictResponse && response.status() === 409 && response.url().includes('/api/v1/tasks')) return
   let body = ''
   try {
     body = (await response.text()).replace(/\s+/g, ' ').slice(0, 240)
@@ -67,6 +73,15 @@ const bodyText = () => page.locator('body').innerText()
 // 侧边导航里的同名按钮会和页面内的“返回教案库”等按钮撞名，统一从主导航里点。
 const navTo = (name) =>
   page.locator('[aria-label="主导航"]').getByRole('button', { name, exact: true }).click()
+
+// 建课表单填写只走这一处：第 4 步建课与第 13 步「本人重复」必须填完全相同的身份字段
+async function fillTaskDialog(dialog, { title, week, session }) {
+  await dialog.getByRole('textbox', { name: '*课题' }).fill(title)
+  await dialog.getByRole('textbox', { name: '*课程' }).fill(lessonCourse)
+  await dialog.getByRole('textbox', { name: '班级' }).fill(lessonClass)
+  await dialog.getByRole('spinbutton', { name: '*周次' }).fill(String(week))
+  await dialog.getByRole('spinbutton', { name: '*课次' }).fill(String(session))
+}
 
 async function run(name, fn) {
   index += 1
@@ -140,19 +155,15 @@ steps.push([
     await page.getByRole('button', { name: '新建任务' }).first().click()
     const dialog = page.locator('.el-dialog')
     await dialog.waitFor({ timeout: 10000 })
-    await dialog.getByRole('textbox', { name: '*课题' }).fill(lessonTitle)
-    await dialog.getByRole('textbox', { name: '*课程' }).fill('C语言程序设计')
-    await dialog.getByRole('textbox', { name: '班级' }).fill('24计算机1班')
-    await dialog.getByRole('spinbutton', { name: '*周次' }).fill(String(slotWeek))
-    await dialog.getByRole('spinbutton', { name: '*课次' }).fill(String(slotSession))
+    await fillTaskDialog(dialog, { title: lessonTitle, week: slotWeek, session: slotSession })
     await dialog.getByRole('button', { name: '创建' }).click()
     await dialog.waitFor({ state: 'hidden', timeout: 15000 })
     await page.waitForFunction(
-      (title) => {
+      ({ title, className }) => {
         const body = document.body.innerText
-        return body.includes(title) && body.includes('24计算机1班') && body.includes('待开始')
+        return body.includes(title) && body.includes(className) && body.includes('待开始')
       },
-      lessonTitle,
+      { title: lessonTitle, className: lessonClass },
       { timeout: 15000 },
     )
   },
@@ -320,12 +331,28 @@ steps.push([
     const dialog = page.locator('.el-dialog')
     await dialog.waitFor({ timeout: 10000 })
     // 第 4 步已用同一身份建过任务，这里原样再提交一次（本人重复 → 409 TASK_ALREADY_EXISTS）
-    await dialog.getByRole('textbox', { name: '*课题' }).fill(lessonTitle)
-    await dialog.getByRole('textbox', { name: '*课程' }).fill('C语言程序设计')
-    await dialog.getByRole('textbox', { name: '班级' }).fill('24计算机1班')
-    await dialog.getByRole('spinbutton', { name: '*周次' }).fill(String(slotWeek))
-    await dialog.getByRole('spinbutton', { name: '*课次' }).fill(String(slotSession))
-    await dialog.getByRole('button', { name: '创建' }).click()
+    await fillTaskDialog(dialog, { title: lessonTitle, week: slotWeek, session: slotSession })
+    expectConflictResponse = true
+    let conflictBody = {}
+    try {
+      const [conflict] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/v1/tasks') &&
+            response.request().method() === 'POST' &&
+            response.status() === 409,
+          { timeout: 20000 },
+        ),
+        dialog.getByRole('button', { name: '创建' }).click(),
+      ])
+      conflictBody = await conflict.json()
+    } finally {
+      expectConflictResponse = false
+    }
+    must(
+      conflictBody.code === 'TASK_ALREADY_EXISTS',
+      `本人重复建课的冲突码不是 TASK_ALREADY_EXISTS：${conflictBody.code || '(无响应)'}`,
+    )
     await page.waitForFunction(() => document.body.innerText.includes('可确认覆盖'), undefined, {
       timeout: 20000,
     })
@@ -336,7 +363,6 @@ steps.push([
       '本人重复建课没有给出「确认覆盖已有任务」入口',
     )
     must(page.url().includes('/tasks'), `重复建课离开了任务页：${page.url()}`)
-    must(!page.url().includes('/403'), `重复建课被踢到 403：${page.url()}`)
     // 只验证提示，不真的覆盖；关掉对话框继续后续步骤
     await dialog.getByRole('button', { name: '取消' }).click()
     await dialog.waitFor({ state: 'hidden', timeout: 10000 })
@@ -359,9 +385,11 @@ steps.push([
     await box.getByRole('button', { name: '生成草稿' }).click()
     await page.waitForURL(/\/plans\/\d+$/, { timeout: 30000 })
     await page.waitForSelector('[data-structure-ready="true"]', { timeout: 25000 })
-    const body = await bodyText()
-    must(body.includes(lessonTitle), `草稿详情标题不是任务课题：${body.slice(0, 120)}`)
-    must(body.includes('未审查'), '草稿没有显示「未审查」')
+    const meta = await page.locator('[aria-label="教案信息"]').innerText()
+    const flat = meta.replace(/\s+/g, ' ')
+    must((await bodyText()).includes(lessonTitle), `草稿详情标题不是任务课题：${flat.slice(0, 120)}`)
+    must(flat.includes('未审查'), `草稿详情没在教案信息里显示「未审查」：${flat.slice(0, 120)}`)
+    must(/当前版本\s*v1\b/.test(flat), `草稿当前版本不是 v1：${flat.slice(0, 120)}`)
   },
 ])
 steps.push([
@@ -375,19 +403,35 @@ steps.push([
       undefined,
       { timeout: 30000 },
     )
-    const candidates = page.locator('[aria-label="候选版本"] .el-checkbox')
-    must((await candidates.count()) > 0, '导出页没有可勾选的候选版本')
-    await candidates.first().click()
+    // T4 的核心契约：候选只列已通过版本——第 14 步刚生成的未审查草稿不能混进来
+    const board = page.locator('[aria-label="候选版本"]')
+    must(
+      !(await board.innerText()).includes(lessonTitle),
+      '未审查的草稿版本不该出现在候选清单里',
+    )
+    const target = page.locator('[aria-label="候选版本"] .el-checkbox', { hasText: planTitle })
+    must((await target.count()) === 1, `候选清单里没有唯一一份已通过的「${planTitle}」`)
+    await target.first().click()
     await page.waitForFunction(() => /已勾选 1 \/ 可导出/.test(document.body.innerText), undefined, {
       timeout: 10000,
     })
-    await page.getByRole('button', { name: '创建导出' }).click()
+    // 第 10 步已导出过同一版本，这里必须确认是「新建导出」而不是复用旧任务，否则链路没被验证
+    const [exportResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/v1/exports') && response.request().method() === 'POST',
+        { timeout: 20000 },
+      ),
+      page.getByRole('button', { name: '创建导出' }).click(),
+    ])
+    const exportPayload = await exportResponse.json()
+    must(exportPayload.reused === 0, '候选导出复用了第 10 步的旧任务，没验证「候选清单→新导出」链路')
     await page.waitForFunction(() => /已提交 \d+ 个导出任务/.test(document.body.innerText), undefined, {
       timeout: 20000,
     })
     await page.waitForFunction(
       () => {
-        const head = document.querySelector('.batch-progress__head')
+        const head = document.querySelector('[aria-label="批量导出进度"]')
         return Boolean(head) && /已完成 1 \/ 1/.test(head.textContent || '')
       },
       undefined,

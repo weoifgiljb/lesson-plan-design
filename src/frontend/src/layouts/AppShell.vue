@@ -67,8 +67,18 @@ const groups = computed<NavGroup[]>(() => [
         ready: canUseTasks.value,
       },
       { label: '教案库', icon: 'plans', to: '/plans', ready: true },
-      { label: '审查', icon: 'reviews', to: '/reviews', ready: true },
-      { label: '导出', icon: 'exports', to: '/exports', ready: true },
+      {
+        label: '审查',
+        icon: 'reviews',
+        to: canUseTasks.value ? '/reviews' : undefined,
+        ready: canUseTasks.value,
+      },
+      {
+        label: '导出',
+        icon: 'exports',
+        to: canUseTasks.value ? '/exports' : undefined,
+        ready: canUseTasks.value,
+      },
     ],
   },
   {
