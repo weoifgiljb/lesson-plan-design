@@ -163,8 +163,9 @@ async function removePlan(): Promise<void> {
   deleting.value = true
   try {
     await deletePlan(planId)
-    sealSuccess('教案已删除')
+    // 先导航后提示：路由切换会清掉上一页的 toast，提示必须落在导航之后
     await router.push('/plans')
+    sealSuccess('教案已删除')
   } catch (caught) {
     handleError(caught, '删除教案失败')
   } finally {
@@ -204,13 +205,14 @@ async function onVersionFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
+    if (result.planId === planId) await loadAll()
+    else await router.push(`/plans/${result.planId}`)
+    // 先导航后提示：路由切换会清掉上一页的 toast
     sealSuccess(
       result.duplicate
         ? `契约包已存在，当前为第 ${result.versionNo} 版`
         : `新版本 v${result.versionNo} 已入库`,
     )
-    if (result.planId === planId) await loadAll()
-    else await router.push(`/plans/${result.planId}`)
   } catch (caught) {
     handleError(caught, '上传新版本失败')
   } finally {
