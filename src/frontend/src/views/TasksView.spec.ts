@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ElementPlus, { ElMessageBox } from 'element-plus'
-import { createPinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import TasksView from './TasksView.vue'
 import { RequestError } from '@/api/client-error'
 import type { TaskItem } from '@/api/models'
+import { useSessionStore } from '@/stores/session'
 
 const listTasks = vi.fn()
 const getTaskBoard = vi.fn()
@@ -97,8 +98,12 @@ async function mountView(items: TaskItem[] = [task]) {
   })
   await router.push('/tasks')
   await router.isReady()
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  // 草稿入口只对任务归属人开放：断言/交互都按当前登录教师 id=1 判断
+  useSessionStore().user = { id: 1, username: 'teacher1', displayName: '张老师', role: 'teacher' }
   const wrapper = mount(TasksView, {
-    global: { plugins: [ElementPlus, router, createPinia()] },
+    global: { plugins: [ElementPlus, router, pinia] },
     attachTo: document.body,
   })
   await flushPromises()
@@ -254,6 +259,7 @@ describe('TasksView', () => {
   it('hides the draft entry for discarded or read-only tasks', async () => {
     const { wrapper } = await mountView([
       { ...task, taskId: 21, title: '别人的课', canEdit: false },
+      { ...task, taskId: 23, title: '管理员能编辑但不是本人', ownerId: 2, canEdit: true },
       { ...task, taskId: 22, title: '废弃的课', discarded: true, discardedAt: '2026-10-30T00:00:00+00:00' },
     ])
     await switchToList(wrapper)

@@ -183,6 +183,8 @@ function switchView(mode: 'board' | 'list'): void {
 
 const downloadingId = ref<number | null>(null)
 const draftingId = ref<number | null>(null)
+/** 确认框阶段单独占位：避免双击叠出两个确认框，又不让列表提前显示"生成中" */
+const confirmingDraftId = ref<number | null>(null)
 
 async function download(task: TaskItem): Promise<void> {
   downloadingId.value = task.taskId
@@ -199,12 +201,17 @@ async function download(task: TaskItem): Promise<void> {
 
 /** 无 Agent 环境下的降级路径：把任务落成平台内 v1 草稿（未审查），直接进教案详情。 */
 async function onDraft(task: TaskItem): Promise<void> {
-  if (draftingId.value !== null) {
+  if (confirmingDraftId.value !== null || draftingId.value !== null) {
     ElMessage.info('正在生成草稿教案，请稍候')
     return
   }
-  // 先占位再确认：confirm 是 await 的，否则双击会叠出两个确认框、发出两次请求
-  draftingId.value = task.taskId
+  if (task.ownerId !== session.user?.id) {
+    // 后端只允许任务归属人代建草稿（管理员/组长点他人任务会 403），入口先挡
+    ElMessage.warning('只能为自己创建的任务生成草稿教案')
+    return
+  }
+  confirmingDraftId.value = task.taskId
+  let planId: number | null = null
   try {
     try {
       await ElMessageBox.confirm(
@@ -215,15 +222,24 @@ async function onDraft(task: TaskItem): Promise<void> {
     } catch {
       return
     }
+    draftingId.value = task.taskId
     const result = await draftTask(task.taskId)
     sealSuccess(
       result.duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）',
     )
-    await router.push(`/plans/${result.planId}`)
+    planId = result.planId
   } catch (caught) {
     handleError(caught, '生成草稿教案失败')
   } finally {
+    confirmingDraftId.value = null
     draftingId.value = null
+  }
+  if (planId === null) return
+  try {
+    await router.push(`/plans/${planId}`)
+  } catch {
+    // 草稿已经落库：跳转失败只能提示去教案库打开，不能报成"生成失败"
+    ElMessage.warning('草稿已生成，请到教案库手动打开')
   }
 }
 
@@ -459,6 +475,7 @@ onMounted(() => {
         v-else
         :tasks="boardTasks"
         :show-header="false"
+        :current-user-id="session.user?.id"
         draftable
         @move="onMove"
         @discard="onDiscard"
@@ -535,11 +552,11 @@ onMounted(() => {
       </template>
       <template #cell-actions="{ row }">
         <el-button
-          v-if="row.canEdit && !row.discarded"
+          v-if="row.canEdit && !row.discarded && row.ownerId === session.user?.id"
           link
           type="primary"
           :loading="draftingId === row.taskId"
-          :disabled="draftingId !== null || downloadingId === row.taskId"
+          :disabled="confirmingDraftId !== null || draftingId !== null || downloadingId === row.taskId"
           @click="onDraft(row)"
         >
           生成草稿教案
