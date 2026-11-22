@@ -19,6 +19,7 @@ const emit = defineEmits<{
   (event: 'move', payload: { taskId: number; quadrant: TaskQuadrant; position: number; boardVersion: number }): void
   (event: 'discard', task: TaskItem): void
   (event: 'download', task: TaskItem): void
+  (event: 'draft', task: TaskItem): void
   (event: 'open-board'): void
 }>()
 
@@ -68,6 +69,22 @@ function moveTo(task: TaskItem, quadrant: TaskQuadrant): void {
     position: 0,
     boardVersion: task.boardVersion,
   })
+}
+
+function onCommand(task: TaskItem, command: string): void {
+  if (command === 'discard') {
+    discard(task)
+    return
+  }
+  if (command === 'download') {
+    emit('download', task)
+    return
+  }
+  if (command === 'draft') {
+    emit('draft', task)
+    return
+  }
+  moveTo(task, command as TaskQuadrant)
 }
 
 function discard(task: TaskItem): void {
@@ -136,7 +153,7 @@ function discard(task: TaskItem): void {
                 <strong>{{ task.title }}</strong>
                 <el-dropdown
                   trigger="click"
-                  @command="(command: string) => command === 'discard' ? discard(task) : command === 'download' ? emit('download', task) : moveTo(task, command as TaskQuadrant)"
+                  @command="(command: string) => onCommand(task, command)"
                 >
                   <button type="button" class="task-card__more" aria-label="任务操作">⋯</button>
                   <template #dropdown>
@@ -150,6 +167,9 @@ function discard(task: TaskItem): void {
                         移到{{ option.label }}
                       </el-dropdown-item>
                       <el-dropdown-item command="download" divided>下载任务包</el-dropdown-item>
+                      <el-dropdown-item v-if="task.canEdit && !task.discarded" command="draft" divided>
+                        生成草稿教案
+                      </el-dropdown-item>
                       <el-dropdown-item v-if="task.canEdit" command="discard" divided>标记废弃</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>

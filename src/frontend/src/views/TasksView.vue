@@ -199,6 +199,16 @@ async function download(task: TaskItem): Promise<void> {
 
 /** 无 Agent 环境下的降级路径：把任务落成平台内 v1 草稿（未审查），直接进教案详情。 */
 async function onDraft(task: TaskItem): Promise<void> {
+  if (draftingId.value !== null) return
+  try {
+    await ElMessageBox.confirm(
+      `将为「${task.title}」生成一版校标草稿教案（未审查，可在教案库查看和删除）。继续？`,
+      '生成草稿教案',
+      { type: 'info', confirmButtonText: '生成草稿', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
   draftingId.value = task.taskId
   try {
     const result = await draftTask(task.taskId)
@@ -448,6 +458,7 @@ onMounted(() => {
         @move="onMove"
         @discard="onDiscard"
         @download="download"
+        @draft="onDraft"
       />
     </template>
 
@@ -523,7 +534,7 @@ onMounted(() => {
           link
           type="primary"
           :loading="draftingId === row.taskId"
-          :disabled="downloadingId === row.taskId"
+          :disabled="draftingId !== null || downloadingId === row.taskId"
           @click="onDraft(row)"
         >
           生成草稿教案

@@ -65,7 +65,7 @@ export interface TaskDraftResult {
   planId: number
   versionNo: number
   planHash: string
-  /** 草稿没有审查记录，恒为空串/空值 */
+  /** 新生成草稿为空串；duplicate=true 时返回该教案当前版本的最新审查状态 */
   reviewStatus: string
   /** true 表示该任务已有教案版本，本次没有新增 */
   duplicate: boolean

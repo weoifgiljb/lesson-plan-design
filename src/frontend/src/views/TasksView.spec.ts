@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import ElementPlus from 'element-plus'
+import ElementPlus, { ElMessageBox } from 'element-plus'
 import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
@@ -154,6 +154,7 @@ async function clickRowButton(wrapper: ReturnType<typeof mount>, label: string):
   expect(button).toBeTruthy()
   await button!.trigger('click')
   await flushPromises()
+  await flushPromises()
 }
 
 describe('TasksView', () => {
@@ -199,6 +200,7 @@ describe('TasksView', () => {
 
   it('generates a draft plan from the task and opens the plan detail', async () => {
     const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
     draftTask.mockResolvedValue({
       planId: 12,
       versionNo: 1,
@@ -209,13 +211,17 @@ describe('TasksView', () => {
     await switchToList(wrapper)
     await clickRowButton(wrapper, '生成草稿教案')
 
+    // 草稿会落库且不可撤销：先二次确认再请求
+    expect(confirm).toHaveBeenCalled()
     expect(draftTask).toHaveBeenCalledWith(9)
     expect(router.currentRoute.value.path).toBe('/plans/12')
+    confirm.mockRestore()
     wrapper.unmount()
   })
 
   it('opens the existing plan when the task already produced one', async () => {
     const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
     draftTask.mockResolvedValue({
       planId: 12,
       versionNo: 2,
@@ -229,6 +235,19 @@ describe('TasksView', () => {
     // 幂等：不新增版本，只打开已有教案，并明确告诉教师
     expect(document.body.textContent).toContain('已有教案')
     expect(router.currentRoute.value.path).toBe('/plans/12')
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('does nothing when the draft confirmation is cancelled', async () => {
+    const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue('cancel')
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    expect(draftTask).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/tasks')
+    confirm.mockRestore()
     wrapper.unmount()
   })
 

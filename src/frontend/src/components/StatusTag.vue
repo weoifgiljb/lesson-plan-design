@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { UNREVIEWED_TEXT } from '@/utils/labels'
+
 const props = defineProps<{
   code: string
   status: string
@@ -16,7 +18,7 @@ const LABELS: Record<string, { text: string; tone: StatusTone }> = {
   pending_reviewer: { text: '待审', tone: 'warning' },
   structure_invalid: { text: '结构失败', tone: 'danger' },
   // 草稿教案：有版本但没有审查记录
-  unreviewed: { text: '未审查', tone: 'info' },
+  unreviewed: { text: UNREVIEWED_TEXT, tone: 'info' },
   succeeded: { text: '成功', tone: 'success' },
   failed: { text: '失败', tone: 'danger' },
   pending: { text: '排队中', tone: 'info' },

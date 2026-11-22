@@ -67,4 +67,15 @@ describe('buildPlanMarkdown', () => {
     expect(markdown).toContain('重点 | 难点')
     expect(markdown).not.toContain('undefined')
   })
+
+  it('marks a draft version as unreviewed instead of printing null', () => {
+    const draft: PlanDetail = {
+      ...detail,
+      plan: { ...detail.plan, reviewStatus: null, reviewRound: null },
+    }
+    const markdown = buildPlanMarkdown(draft)
+    expect(markdown).toContain('未审查')
+    expect(markdown).toContain('（尚未审查）')
+    expect(markdown).not.toContain('null')
+  })
 })
