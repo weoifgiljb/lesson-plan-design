@@ -60,6 +60,21 @@ export function downloadTaskPackage(taskId: number): Promise<Blob> {
   return client.download(`/api/v1/tasks/${taskId}/package`)
 }
 
+/** 平台内生成一版校标草稿教案（无 Agent 时的降级路径，PreMortem T3）。 */
+export interface TaskDraftResult {
+  planId: number
+  versionNo: number
+  planHash: string
+  /** 新生成草稿为空串；duplicate=true 时返回该教案当前版本的最新审查状态 */
+  reviewStatus: string
+  /** true 表示该任务已有教案版本，本次没有新增 */
+  duplicate: boolean
+}
+
+export function draftTask(taskId: number): Promise<TaskDraftResult> {
+  return client.post<TaskDraftResult>(`/api/v1/tasks/${taskId}/draft`)
+}
+
 /** 人工回退任务状态（管理员/组长）：用于误推进后的纠正。 */
 export function rollbackTask(taskId: number, status: string): Promise<TaskItem> {
   return client.post<TaskItem>(`/api/v1/tasks/${taskId}/rollback`, { status })

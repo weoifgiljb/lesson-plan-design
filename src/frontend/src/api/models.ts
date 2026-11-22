@@ -71,8 +71,9 @@ export interface PlanListItem {
   teacher: string
   versionNo: number
   planHash: string
-  reviewStatus: string
-  reviewRound: number
+  /** 草稿版本没有审查记录：后端返回 null，前端统一展示为「未审查」 */
+  reviewStatus: string | null
+  reviewRound: number | null
   versionCreatedAt: string
 }
 
@@ -82,8 +83,9 @@ export interface PlanVersion {
   engineVersion?: string
   createdAt: string
   content?: Record<string, unknown>
-  round?: number
-  status?: string
+  round?: number | null
+  /** 草稿版本没有审查记录：后端返回 null */
+  status?: string | null
   reportSha256?: string
 }
 

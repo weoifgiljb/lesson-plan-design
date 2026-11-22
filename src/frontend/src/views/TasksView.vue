@@ -12,6 +12,7 @@ import {
   createTask,
   discardTask,
   downloadTaskPackage,
+  draftTask,
   getTaskBoard,
   listTasks,
   moveTask,
@@ -23,7 +24,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TaskQuadrantBoard from '@/components/tasks/TaskQuadrantBoard.vue'
-import { QUADRANTS, taskStatusLabel } from '@/components/tasks/quadrants'
+import { QUADRANTS, canDraftPlan, taskStatusLabel } from '@/components/tasks/quadrants'
 import type { TableColumn } from '@/components/table-types'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { usePagedQuery } from '@/composables/usePagedQuery'
@@ -75,7 +76,7 @@ const columns: TableColumn[] = [
   { key: 'teacher', label: '教师', width: 90 },
   { key: 'status', label: '状态', width: 96 },
   { key: 'dueDate', label: '截止', width: 150 },
-  { key: 'actions', label: '操作', width: 150, align: 'right' },
+  { key: 'actions', label: '操作', width: 230, align: 'right' },
 ]
 
 const statusOptions = [
@@ -181,6 +182,9 @@ function switchView(mode: 'board' | 'list'): void {
 }
 
 const downloadingId = ref<number | null>(null)
+const draftingId = ref<number | null>(null)
+/** 确认框阶段单独占位：避免双击叠出两个确认框，又不让列表提前显示"生成中" */
+const confirmingDraftId = ref<number | null>(null)
 
 async function download(task: TaskItem): Promise<void> {
   downloadingId.value = task.taskId
@@ -192,6 +196,56 @@ async function download(task: TaskItem): Promise<void> {
     handleError(caught, '下载任务包失败')
   } finally {
     downloadingId.value = null
+  }
+}
+
+/** 无 Agent 环境下的降级路径：把任务落成平台内 v1 草稿（未审查），直接进教案详情。 */
+async function onDraft(task: TaskItem): Promise<void> {
+  if (confirmingDraftId.value !== null || draftingId.value !== null) {
+    ElMessage.info('正在生成草稿教案，请稍候')
+    return
+  }
+  if (!canDraftPlan(task, session.user?.id)) {
+    // 后端只允许任务归属人代建草稿（管理员/组长点他人任务会 403），入口先挡
+    ElMessage.warning('只能为自己创建的任务生成草稿教案')
+    return
+  }
+  confirmingDraftId.value = task.taskId
+  let planId: number | null = null
+  let duplicate = false
+  try {
+    try {
+      await ElMessageBox.confirm(
+        `将为「${task.title}」生成一版校标草稿教案（未审查，可在教案库查看和删除）。继续？`,
+        '生成草稿教案',
+        { type: 'info', confirmButtonText: '生成草稿', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+    draftingId.value = task.taskId
+    const result = await draftTask(task.taskId)
+    planId = result.planId
+    duplicate = result.duplicate
+  } catch (caught) {
+    handleError(caught, '生成草稿教案失败')
+  } finally {
+    confirmingDraftId.value = null
+    draftingId.value = null
+  }
+  if (planId === null) return
+  const openedElsewhere = duplicate ? '教案已存在，请到教案库手动打开' : '草稿已生成，请到教案库手动打开'
+  try {
+    // push 被取消/重定向时只 resolve NavigationFailure 不 reject：不能提示"已打开"
+    const navFailure = await router.push(`/plans/${planId}`)
+    if (navFailure) {
+      ElMessage.warning(openedElsewhere)
+      return
+    }
+    sealSuccess(duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）')
+  } catch {
+    // 草稿已经落库：跳转失败只能提示去教案库打开，不能报成"生成失败"
+    ElMessage.warning(openedElsewhere)
   }
 }
 
@@ -427,9 +481,12 @@ onMounted(() => {
         v-else
         :tasks="boardTasks"
         :show-header="false"
+        :current-user-id="session.user?.id"
+        draftable
         @move="onMove"
         @discard="onDiscard"
         @download="download"
+        @draft="onDraft"
       />
     </template>
 
@@ -501,9 +558,20 @@ onMounted(() => {
       </template>
       <template #cell-actions="{ row }">
         <el-button
+          v-if="canDraftPlan(row, session.user?.id)"
+          link
+          type="primary"
+          :loading="draftingId === row.taskId"
+          :disabled="confirmingDraftId !== null || draftingId !== null || downloadingId === row.taskId"
+          @click="onDraft(row)"
+        >
+          生成草稿教案
+        </el-button>
+        <el-button
           link
           type="primary"
           :loading="downloadingId === row.taskId"
+          :disabled="draftingId === row.taskId"
           @click="download(row)"
         >
           下载任务包
@@ -518,7 +586,9 @@ onMounted(() => {
       </template>
     </DataTable>
 
-    <p class="footnote">任务包由插件端读取后生成教案；看板不显示已完成或已废弃任务，列表可恢复。</p>
+    <p class="footnote">
+      任务包由插件端读取后生成教案；没有 Agent 时点「生成草稿教案」可在平台内先落一版校标草稿（未审查，导出前仍需导入审查报告）。
+    </p>
 
     <el-dialog v-model="dialogVisible" title="新建任务" width="min(520px, 92vw)" destroy-on-close>
       <el-alert v-if="formError" :title="formError" type="error" :closable="false" show-icon />

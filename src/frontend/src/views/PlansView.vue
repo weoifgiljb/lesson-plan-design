@@ -14,6 +14,7 @@ import type { TableColumn } from '@/components/table-types'
 import { usePagedQuery } from '@/composables/usePagedQuery'
 import { useSessionStore } from '@/stores/session'
 import { formatShortDateTime } from '@/utils/datetime'
+import { UNREVIEWED_STATUS } from '@/utils/labels'
 
 const router = useRouter()
 const route = useRoute()
@@ -245,7 +246,10 @@ onMounted(async () => {
         <span class="version-tag" :class="{ 'is-new': row.versionNo > 1 }">第 {{ row.versionNo }} 稿</span>
       </template>
       <template #cell-reviewStatus="{ row }">
-        <StatusTag :code="String(row.reviewStatus)" :status="String(row.reviewStatus)" />
+        <StatusTag
+          :code="row.reviewStatus || UNREVIEWED_STATUS"
+          :status="row.reviewStatus || UNREVIEWED_STATUS"
+        />
       </template>
       <template #cell-versionCreatedAt="{ row }">
         <span class="muted">{{ formatShortDateTime(row.versionCreatedAt) }}</span>

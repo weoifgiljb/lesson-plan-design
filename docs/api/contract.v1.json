@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.5 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-11-15",
+  "updatedAt": "2026-11-22",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -1031,6 +1031,29 @@
         401,
         403,
         404
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/{task_id}/draft",
+      "summary": "由任务生成校标草稿教案",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        201,
+        401,
+        403,
+        404,
+        409,
+        422
       ],
       "client": "ui",
       "implemented": true

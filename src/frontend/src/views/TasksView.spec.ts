@@ -1,16 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import ElementPlus from 'element-plus'
-import { createPinia } from 'pinia'
+import ElementPlus, { ElMessageBox } from 'element-plus'
+import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import TasksView from './TasksView.vue'
 import { RequestError } from '@/api/client-error'
 import type { TaskItem } from '@/api/models'
+import { useSessionStore } from '@/stores/session'
 
 const listTasks = vi.fn()
 const getTaskBoard = vi.fn()
 const downloadTaskPackage = vi.fn()
+const draftTask = vi.fn()
 const createTask = vi.fn()
 const moveTask = vi.fn()
 const discardTask = vi.fn()
@@ -21,6 +23,7 @@ vi.mock('@/api/tasks', () => ({
   listTasks: (...args: unknown[]) => listTasks(...args),
   getTaskBoard: (...args: unknown[]) => getTaskBoard(...args),
   downloadTaskPackage: (...args: unknown[]) => downloadTaskPackage(...args),
+  draftTask: (...args: unknown[]) => draftTask(...args),
   createTask: (...args: unknown[]) => createTask(...args),
   moveTask: (...args: unknown[]) => moveTask(...args),
   discardTask: (...args: unknown[]) => discardTask(...args),
@@ -68,14 +71,14 @@ function conflictError(
   })
 }
 
-async function mountView() {
-  listTasks.mockResolvedValue({ items: [task], page: 1, pageSize: 20, total: 1 })
+async function mountView(items: TaskItem[] = [task]) {
+  listTasks.mockResolvedValue({ items, page: 1, pageSize: 20, total: items.length })
   getTaskBoard.mockResolvedValue({
-    items: [task],
-    total: 1,
+    items,
+    total: items.length,
     counts: {
       urgent_important: 0,
-      important_not_urgent: 1,
+      important_not_urgent: items.length,
       urgent_not_important: 0,
       not_urgent_not_important: 0,
     },
@@ -83,18 +86,24 @@ async function mountView() {
   })
   downloadTaskPackage.mockResolvedValue(new Blob(['zip']))
   createTask.mockReset()
+  draftTask.mockReset()
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/tasks', component: { template: '<div />' } },
+      { path: '/plans/:id', component: { template: '<div />' } },
       { path: '/login', component: { template: '<div />' } },
       { path: '/403', component: { template: '<div />' } },
     ],
   })
   await router.push('/tasks')
   await router.isReady()
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  // 草稿入口只对任务归属人开放：断言/交互都按当前登录教师 id=1 判断
+  useSessionStore().user = { id: 1, username: 'teacher1', displayName: '张老师', role: 'teacher' }
   const wrapper = mount(TasksView, {
-    global: { plugins: [ElementPlus, router, createPinia()] },
+    global: { plugins: [ElementPlus, router, pinia] },
     attachTo: document.body,
   })
   await flushPromises()
@@ -136,6 +145,23 @@ function conflictButton(): HTMLButtonElement | undefined {
   )
 }
 
+async function switchToList(wrapper: ReturnType<typeof mount>): Promise<void> {
+  const list = wrapper.findAll('button').find((item) => item.text() === '列表')
+  expect(list).toBeTruthy()
+  await list!.trigger('click')
+  await flushPromises()
+}
+
+async function clickRowButton(wrapper: ReturnType<typeof mount>, label: string): Promise<void> {
+  const row = wrapper.findAll('.el-table__row').find((item) => item.text().includes('一级考证辅导2'))
+  expect(row).toBeTruthy()
+  const button = row!.findAll('button').find((item) => item.text().includes(label))
+  expect(button).toBeTruthy()
+  await button!.trigger('click')
+  await flushPromises()
+  await flushPromises()
+}
+
 describe('TasksView', () => {
   it('renders the quadrant board and the list view', async () => {
     const { wrapper } = await mountView()
@@ -174,6 +200,129 @@ describe('TasksView', () => {
     await flushPromises()
     expect(downloadTaskPackage).toHaveBeenCalledWith(9)
     expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'task-9-2-1.zip')
+    wrapper.unmount()
+  })
+
+  it('generates a draft plan from the task and opens the plan detail', async () => {
+    const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    draftTask.mockResolvedValue({
+      planId: 12,
+      versionNo: 1,
+      planHash: 'draft-hash',
+      reviewStatus: '',
+      duplicate: false,
+    })
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    // 草稿会落库且不可撤销：先二次确认再请求
+    expect(confirm).toHaveBeenCalled()
+    expect(draftTask).toHaveBeenCalledWith(9)
+    expect(router.currentRoute.value.path).toBe('/plans/12')
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('opens the existing plan when the task already produced one', async () => {
+    const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    draftTask.mockResolvedValue({
+      planId: 12,
+      versionNo: 2,
+      planHash: 'existing-hash',
+      reviewStatus: 'passed',
+      duplicate: true,
+    })
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    // 幂等：不新增版本，只打开已有教案，并明确告诉教师
+    expect(document.body.textContent).toContain('已有教案')
+    expect(router.currentRoute.value.path).toBe('/plans/12')
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('does nothing when the draft confirmation is cancelled', async () => {
+    const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockRejectedValue('cancel')
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    expect(draftTask).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/tasks')
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('ignores a second draft click while the first request is still pending', async () => {
+    const { wrapper } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    let resolveDraft: ((value: unknown) => void) | undefined
+    draftTask.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDraft = resolve
+        }),
+    )
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    // 第一次请求还没回来，再点一次不应叠出第二个确认框/第二次请求
+    const second = wrapper.findAll('button').find((item) => item.text() === '生成草稿教案')
+    await second!.trigger('click')
+    await flushPromises()
+    expect(draftTask).toHaveBeenCalledTimes(1)
+
+    resolveDraft!({
+      planId: 12,
+      versionNo: 1,
+      planHash: 'draft-hash',
+      reviewStatus: '',
+      duplicate: false,
+    })
+    await flushPromises()
+    await flushPromises()
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('keeps the list usable and stays on the page when draft generation fails', async () => {
+    const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    draftTask.mockRejectedValueOnce(
+      new RequestError({
+        code: 'PAYLOAD_REJECTED',
+        message: '已废弃任务不能生成草稿',
+        details: {},
+        traceId: 'trace-4',
+        status: 422,
+      }),
+    )
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    expect(router.currentRoute.value.path).toBe('/tasks')
+    expect(document.body.textContent).toContain('已废弃任务不能生成草稿')
+    // 失败后状态要清理干净：按钮恢复可用，不会残留 loading
+    const button = wrapper.findAll('button').find((item) => item.text() === '生成草稿教案')
+    expect(button).toBeTruthy()
+    expect(button!.classes()).not.toContain('is-loading')
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('hides the draft entry for discarded or read-only tasks', async () => {
+    const { wrapper } = await mountView([
+      { ...task, taskId: 21, title: '别人的课', canEdit: false },
+      { ...task, taskId: 23, title: '管理员能编辑但不是本人', ownerId: 2, canEdit: true },
+      { ...task, taskId: 22, title: '废弃的课', discarded: true, discardedAt: '2026-10-30T00:00:00+00:00' },
+    ])
+    await switchToList(wrapper)
+
+    const draftButtons = wrapper.findAll('button').filter((item) => item.text() === '生成草稿教案')
+    expect(draftButtons).toHaveLength(0)
     wrapper.unmount()
   })
 
