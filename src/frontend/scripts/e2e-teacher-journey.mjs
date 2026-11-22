@@ -458,14 +458,14 @@ steps.push([
       !(await board.innerText()).includes(lessonTitle),
       '未审查的草稿版本不该出现在候选清单里',
     )
-    // 优先用第 10 步记录的版本 ID 精确定位（同名课题可能有多个已通过版本），找不到再退回课题文案
-    let target = page
+    // 优先用第 10 步记录的版本 ID 精确定位；不要退回同名课题匹配，否则可能选中别的版本让 reused 断言误判
+    const target = page
       .locator('[aria-label="候选版本"] .el-checkbox')
       .filter({ has: page.locator(`input[value="${versionId}"]`) })
-    if ((await target.count()) === 0) {
-      target = page.locator('[aria-label="候选版本"] .el-checkbox', { hasText: planTitle })
-    }
-    must((await target.count()) >= 1, `候选清单里没有第 10 步导出的版本，也没有「${planTitle}」`)
+    must(
+      (await target.count()) >= 1,
+      `候选清单里没有第 10 步导出的版本 ${versionId}（候选与导出记录不一致）`,
+    )
     await target.first().click()
     await page.waitForFunction(() => /已勾选 1 \/ 可导出/.test(document.body.innerText), undefined, {
       timeout: 10000,

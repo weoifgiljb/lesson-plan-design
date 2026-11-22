@@ -7,7 +7,7 @@ import { roleAllowed } from './auth-guard'
 export const NOT_FOUND_ROUTE_NAME = 'not-found'
 
 export function navVisible(
-  lastMatchedName: string | null | undefined,
+  lastMatchedName: string | symbol | null | undefined,
   roles: readonly string[] | undefined,
   role: string | null | undefined,
 ): boolean {

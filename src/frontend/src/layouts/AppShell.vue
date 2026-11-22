@@ -29,9 +29,7 @@ const isDev = import.meta.env.DEV
 function openTo(path: string): string | undefined {
   const resolved = router.resolve(path)
   const last = resolved.matched[resolved.matched.length - 1]
-  if (!last || !navVisible(last.name as string | null | undefined, resolved.meta.roles, session.role)) {
-    return undefined
-  }
+  if (!last || !navVisible(last.name, resolved.meta.roles, session.role)) return undefined
   return path
 }
 const canOpen = (path: string): boolean => openTo(path) !== undefined
@@ -222,7 +220,11 @@ watch(
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
   // 公开子路由（如 dev 的 /styleguide）直达时守卫不会加载会话，这里补一次，避免受限入口永久隐藏
-  if (!session.user && !session.loading) void session.load()
+  if (!session.user && !session.loading) {
+    void session.load().then((ok) => {
+      if (!ok) ElMessage.warning('会话加载失败，部分导航入口暂不可用')
+    })
+  }
 })
 
 onBeforeUnmount(() => {

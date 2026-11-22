@@ -23,7 +23,6 @@ const accounts = {
 const stamp = Date.now().toString(36)
 const outDir =
   process.env.E2E_DIR || fileURLToPath(new URL(`../../../.qa/e2e/roles-${stamp}`, import.meta.url))
-mkdirSync(outDir, { recursive: true })
 // 越权页是前端路由守卫拦截的：这里只验证"教师看到的页面文案"，服务端是否落审计由后端用例覆盖。
 const httpErrors = []
 // 响应体读取是异步的：登记成 Promise，判定前统一 await，避免 4xx 漏判/误报
@@ -40,6 +39,7 @@ function must(condition, message) {
 
 let browser
 try {
+  mkdirSync(outDir, { recursive: true })
   browser = await chromium.launch({
     // 与 screenshots.mjs 一致：默认走系统 Edge，可用 E2E_CHANNEL 覆盖（CI 上用 chromium）
     channel: process.env.E2E_CHANNEL || 'msedge',
