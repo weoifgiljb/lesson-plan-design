@@ -54,9 +54,11 @@ function latestByVersion(items: ReviewListItem[]): ReviewListItem[] {
 const latestRows = computed(() => latestByVersion(candidates.value))
 const exportableRows = computed(() => latestRows.value.filter((item) => item.exportable))
 const candidateRows = computed(() => exportableRows.value.slice(0, MAX_CANDIDATE_ROWS))
-const candidatesTruncated = computed(
-  () => exportableRows.value.length > candidateRows.value.length || candidatesTotal.value > candidates.value.length,
-)
+// 截断（可导出项超过渲染上限）与"审查记录没翻完"是两个不同状态，提示语必须分开
+const candidatesCapped = computed(() => exportableRows.value.length > candidateRows.value.length)
+const candidatesPartial = computed(() => candidatesTotal.value > candidates.value.length)
+// 只有这些失败码可能靠修教案/报告后重试解决；NOT_FOUND/FORBIDDEN 重试无意义
+const RETRYABLE_FAILURE_CODES = new Set(['REPORT_INCONSISTENT', 'STRUCTURE_INVALID', 'MEDIA_MISSING', 'CONFLICT_STALE', 'INTERNAL'])
 
 function readVersionId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value
@@ -125,13 +127,20 @@ async function submit(): Promise<void> {
       message.value = `已提交 ${created.length} 个导出任务`
       const submitted = new Set(created.map((item) => item.planVersionId))
       selected.value = selected.value.filter((id) => !submitted.has(id))
+      // 手填框里的成功项也清掉，避免再点一次把同一批 ID 原样重发
+      const typed = parseIds(versionInput.value)
+      const remaining = typed.filter((id) => !submitted.has(id))
+      if (remaining.length !== typed.length) versionInput.value = remaining.join(',')
       startPolling()
     }
     if (rejected.length) {
-      const rejectedIds = new Set(rejected.map((item) => item.planVersionId))
-      selected.value = selected.value.filter((id) => rejectedIds.has(id))
-      const codes = [...new Set(rejected.map((item) => item.code ?? 'UNKNOWN'))].join('、')
-      error.value = `有 ${rejected.length} 份未通过导出门禁（${codes}），仍保留勾选可重试`
+      const retryable = rejected.filter((item) => RETRYABLE_FAILURE_CODES.has(String(item.code ?? '')))
+      const retryableIds = new Set(retryable.map((item) => item.planVersionId))
+      selected.value = selected.value.filter((id) => retryableIds.has(id))
+      const first = rejected[0]
+      const reason = [first.code ?? 'UNKNOWN', first.message ?? ''].join(' ').trim()
+      error.value = `有 ${rejected.length} 份导出失败：${reason}`
+      if (retryable.length) error.value += `（${retryable.length} 份可修正后重试，已保留勾选）`
     }
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
@@ -180,31 +189,58 @@ async function download(job: ExportJob): Promise<void> {
   }
 }
 
+let loadToken = 0
+
+/** 只保留仍可勾选（当前可见候选）的勾选，并把被取消的数量说清楚，避免静默丢弃。 */
+function trimSelection(): void {
+  const available = new Set(candidateRows.value.map((item) => item.planVersionId))
+  const before = selected.value.length
+  selected.value = selected.value.filter((id) => available.has(id))
+  const dropped = before - selected.value.length
+  if (dropped > 0) message.value = `有 ${dropped} 个勾选因候选变化已取消`
+}
+
 async function loadCandidates(): Promise<void> {
+  const token = (loadToken += 1)
   candidatesLoading.value = true
   candidatesError.value = ''
   error.value = ''
   try {
-    // 审查列表按页返回：翻到够 MAX_CANDIDATE_ROWS 个可导出版本或读完全部为止，
-    // 避免第 1 页里几乎没有可导出项时被判成"暂无候选"。
-    let items: ReviewListItem[] = []
-    let total = 0
-    for (let page = 1; page <= MAX_CANDIDATE_PAGES; page += 1) {
-      const data = await listReviews({ pageSize: 100, page })
-      items = items.concat(data.items)
-      total = data.total
-      const exportable = latestByVersion(items).filter((item) => item.exportable)
-      if (items.length >= total || exportable.length >= MAX_CANDIDATE_ROWS) break
-    }
-    candidates.value = items
-    candidatesTotal.value = total
-    // 刷新后把已失效（不再可导出/已不在候选里）的勾选裁掉，避免静默提交过期 ID
-    const available = new Set(exportableRows.value.map((item) => item.planVersionId))
-    selected.value = selected.value.filter((id) => available.has(id))
-  } catch (caught) {
-    candidatesError.value = caught instanceof Error ? caught.message : '加载候选版本失败'
-  } finally {
+    // 先渲染第 1 页，避免可导出项很少时首屏被串行翻页阻塞
+    const first = await listReviews({ pageSize: 100, page: 1 })
+    if (token !== loadToken) return
+    candidates.value = first.items
+    candidatesTotal.value = first.total
     candidatesLoading.value = false
+    trimSelection()
+    if (first.items.length < first.total) void loadMorePages(token, first.items)
+  } catch (caught) {
+    if (token !== loadToken) return
+    // 刷新失败就别让过期候选继续可勾选/可提交
+    candidates.value = []
+    candidatesTotal.value = 0
+    selected.value = []
+    candidatesError.value = caught instanceof Error ? caught.message : '加载候选版本失败'
+    candidatesLoading.value = false
+  }
+}
+
+async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<void> {
+  let items = loaded
+  for (let page = 2; page <= MAX_CANDIDATE_PAGES; page += 1) {
+    if (items.length >= candidatesTotal.value) return
+    try {
+      const data = await listReviews({ pageSize: 100, page })
+      if (token !== loadToken) return
+      items = items.concat(data.items)
+      candidates.value = items
+      candidatesTotal.value = data.total
+      trimSelection()
+      if (items.length >= data.total) return
+      if (exportableRows.value.length > MAX_CANDIDATE_ROWS) return
+    } catch {
+      return /* 后台补页失败不打断已渲染的候选 */
+    }
   }
 }
 
@@ -241,7 +277,7 @@ async function copyHash(job: ExportJob): Promise<void> {
       <div class="candidates__head">
         <h2>候选版本</h2>
         <span class="hint">
-          {{ candidatesLoading ? '正在读取…' : `已勾选 ${selected.length} / 可导出 ${candidateRows.length} 份` }}
+          {{ candidatesLoading ? '正在读取…' : `已勾选 ${selected.length} / 可导出 ${exportableRows.length} 份` }}
         </span>
       </div>
       <el-alert v-if="candidatesError" type="error" :closable="false" show-icon :title="candidatesError" />
@@ -261,10 +297,13 @@ async function copyHash(job: ExportJob): Promise<void> {
         </el-checkbox>
       </el-checkbox-group>
       <p v-if="!candidatesLoading && !candidatesError && !candidateRows.length" class="hint">
-        暂无已通过且可导出的教案版本；可从审查中心选一份已通过的教案，或用下方高级入口手填版本 ID。
+        {{ candidatesPartial ? `最近 ${candidates.length} 条审查记录里暂无可导出的已通过版本` : '暂无已通过且可导出的教案版本' }}；可从审查中心选一份已通过的教案，或用下方高级入口手填版本 ID。
       </p>
-      <p v-if="candidatesTruncated" class="hint">
+      <p v-if="candidatesCapped" class="hint">
         候选较多：最多展示最近 {{ MAX_CANDIDATE_ROWS }} 份可导出教案，更早的版本请用下方高级入口手填版本 ID。
+      </p>
+      <p v-else-if="candidatesPartial" class="hint">
+        仅检索了最近 {{ candidates.length }} 条审查记录，更早的版本请用下方高级入口手填版本 ID。
       </p>
     </section>
 

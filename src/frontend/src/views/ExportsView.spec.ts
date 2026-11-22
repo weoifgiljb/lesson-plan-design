@@ -206,6 +206,7 @@ describe('ExportsView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('已勾选 0 / 可导出 1 份')
+    expect(wrapper.text()).toContain('因候选变化已取消')
     wrapper.unmount()
   })
 
@@ -265,7 +266,8 @@ describe('ExportsView', () => {
     await submitButton(wrapper)!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('未通过导出门禁')
+    expect(wrapper.text()).toContain('导出失败')
+    expect(wrapper.text()).toContain('可修正后重试')
     expect(wrapper.text()).toContain('已勾选 1 / 可导出 2 份')
     wrapper.unmount()
   })
