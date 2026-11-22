@@ -25,6 +25,7 @@ const jobs = ref<ExportJob[]>([])
 const creating = ref(false)
 const message = ref('')
 const error = ref('')
+const notice = ref('')
 
 const candidates = ref<ReviewListItem[]>([])
 const candidatesTotal = ref(0)
@@ -58,7 +59,7 @@ const candidateRows = computed(() => exportableRows.value.slice(0, MAX_CANDIDATE
 const candidatesCapped = computed(() => exportableRows.value.length > candidateRows.value.length)
 const candidatesPartial = computed(() => candidatesTotal.value > candidates.value.length)
 // 只有这些失败码可能靠修教案/报告后重试解决；NOT_FOUND/FORBIDDEN 重试无意义
-const RETRYABLE_FAILURE_CODES = new Set(['REPORT_INCONSISTENT', 'STRUCTURE_INVALID', 'MEDIA_MISSING', 'CONFLICT_STALE', 'INTERNAL'])
+const RETRYABLE_FAILURE_CODES = new Set(['REPORT_INCONSISTENT', 'STRUCTURE_INVALID', 'MEDIA_MISSING', 'CONFLICT_STALE'])
 
 function readVersionId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value
@@ -130,16 +131,23 @@ async function submit(): Promise<void> {
       // 手填框里的成功项也清掉，避免再点一次把同一批 ID 原样重发
       const typed = parseIds(versionInput.value)
       const remaining = typed.filter((id) => !submitted.has(id))
-      if (remaining.length !== typed.length) versionInput.value = remaining.join(',')
+      if (remaining.length !== typed.length) {
+        versionInput.value = remaining.join(',')
+        if (prefilledId.value !== null && !remaining.includes(prefilledId.value)) prefilledId.value = null
+      }
       startPolling()
     }
     if (rejected.length) {
       const retryable = rejected.filter((item) => RETRYABLE_FAILURE_CODES.has(String(item.code ?? '')))
       const retryableIds = new Set(retryable.map((item) => item.planVersionId))
       selected.value = selected.value.filter((id) => retryableIds.has(id))
-      const first = rejected[0]
-      const reason = [first.code ?? 'UNKNOWN', first.message ?? ''].join(' ').trim()
-      error.value = `有 ${rejected.length} 份导出失败：${reason}`
+      const grouped = new Map<string, number[]>()
+      for (const item of rejected) {
+        const code = String(item.code ?? 'UNKNOWN')
+        grouped.set(code, [...(grouped.get(code) ?? []), item.planVersionId])
+      }
+      const detail = [...grouped].map(([code, ids]) => `${code}: ${ids.join(', ')}`).join('；')
+      error.value = `有 ${rejected.length} 份导出失败：${detail}`
       if (retryable.length) error.value += `（${retryable.length} 份可修正后重试，已保留勾选）`
     }
   } catch (caught) {
@@ -177,7 +185,11 @@ function stopPolling(): void {
   }
 }
 
-onUnmounted(stopPolling)
+onUnmounted(() => {
+  stopPolling()
+  // 作废在途的首屏/补页请求，避免离开页面后继续翻页并写回已卸载组件
+  loadToken += 1
+})
 
 async function download(job: ExportJob): Promise<void> {
   error.value = ''
@@ -197,7 +209,7 @@ function trimSelection(): void {
   const before = selected.value.length
   selected.value = selected.value.filter((id) => available.has(id))
   const dropped = before - selected.value.length
-  if (dropped > 0) message.value = `有 ${dropped} 个勾选因候选变化已取消`
+  if (dropped > 0) notice.value = `有 ${dropped} 个勾选因候选变化已取消`
 }
 
 async function loadCandidates(): Promise<void> {
@@ -205,6 +217,7 @@ async function loadCandidates(): Promise<void> {
   candidatesLoading.value = true
   candidatesError.value = ''
   error.value = ''
+  notice.value = ''
   try {
     // 先渲染第 1 页，避免可导出项很少时首屏被串行翻页阻塞
     const first = await listReviews({ pageSize: 100, page: 1 })
@@ -271,6 +284,7 @@ async function copyHash(job: ExportJob): Promise<void> {
     </header>
 
     <el-alert v-if="error" type="error" :closable="false" show-icon :title="error" />
+    <el-alert v-if="notice" type="warning" :closable="false" show-icon :title="notice" />
     <el-alert v-if="message" type="success" :closable="false" show-icon :title="message" />
 
     <section class="candidates" aria-label="候选版本">

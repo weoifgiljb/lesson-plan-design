@@ -48,11 +48,30 @@ const defaultCandidates: ReviewListItem[] = [
   candidate({ reviewId: 2, planVersionId: 22, contentTitle: '数据类型、变量与常量', week: 3, versionNo: 2, teacher: '李老师' }),
 ]
 
-async function mountAt(path: string, items: ReviewListItem[] = defaultCandidates) {
+interface MountOptions {
+  items?: ReviewListItem[]
+  /** 按调用顺序返回的页码响应；给定时覆盖 items */
+  pages?: { items: ReviewListItem[]; total: number }[]
+  fail?: boolean
+}
+
+async function mountAt(path: string, options: MountOptions | ReviewListItem[] = {}) {
+  const normalized: MountOptions = Array.isArray(options) ? { items: options } : options
   createExports.mockReset()
   createExports.mockResolvedValue({ items: [], created: 0, reused: 0 })
   listReviews.mockReset()
-  listReviews.mockResolvedValue({ items, page: 1, pageSize: 100, total: items.length })
+  if (normalized.fail) {
+    listReviews.mockRejectedValue(new Error('候选加载失败'))
+  } else if (normalized.pages) {
+    const pages = [...normalized.pages]
+    listReviews.mockImplementation((query: { page?: number }) => {
+      const next = pages.shift() ?? { items: [], total: 0 }
+      return Promise.resolve({ items: next.items, page: query?.page ?? 1, pageSize: 100, total: next.total })
+    })
+  } else {
+    const items = normalized.items ?? defaultCandidates
+    listReviews.mockResolvedValue({ items, page: 1, pageSize: 100, total: items.length })
+  }
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/exports', component: { template: '<div />' } }],
@@ -331,6 +350,31 @@ describe('ExportsView', () => {
     await flushPromises()
 
     expect(createExports).toHaveBeenCalledWith([33])
+    wrapper.unmount()
+  })
+
+  it('merges additional candidate pages until the review list is read', async () => {
+    const { wrapper } = await mountAt('/exports', {
+      pages: [
+        { items: [candidate()], total: 2 },
+        { items: [candidate({ reviewId: 2, planVersionId: 22, contentTitle: '第二页课' })], total: 2 },
+      ],
+    })
+    await flushPromises()
+
+    expect(listReviews).toHaveBeenCalledTimes(2)
+    expect(listReviews.mock.calls[1][0]).toMatchObject({ page: 2 })
+    expect(wrapper.text()).toContain('第二页课')
+    expect(wrapper.text()).toContain('可导出 2 份')
+    wrapper.unmount()
+  })
+
+  it('shows the error and clears candidates when the review list fails', async () => {
+    const { wrapper } = await mountAt('/exports', { fail: true })
+
+    expect(wrapper.text()).toContain('候选加载失败')
+    expect(wrapper.findAll('.candidate')).toHaveLength(0)
+    expect(createExports).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 })
