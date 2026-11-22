@@ -14,10 +14,7 @@ const session = useSessionStore()
 const isDev = import.meta.env.DEV
 // 开发账号由 Vite 环境变量提供（VITE_DEV_USERNAME），源码里不写死：写死会与种子账号漂移（UI-04 缺口）。
 // 只预填用户名、绝不预填口令：VITE_ 变量会被构建期内联，口令放进去等于写进前端产物。
-// 在调用点保留 DEV 三元：生产构建能被折叠成 ''，字面量随 DCE 消失。
-const devUsername = import.meta.env.DEV
-  ? devPrefillUsername(true, import.meta.env.VITE_DEV_USERNAME)
-  : ''
+const devUsername = devPrefillUsername(isDev, import.meta.env.VITE_DEV_USERNAME)
 
 const formRef = ref<FormInstance>()
 const usernameRef = ref<{ focus: () => void } | null>(null)
