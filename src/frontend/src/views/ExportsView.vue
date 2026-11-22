@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { RequestError, isForbidden, isUnauthorized } from '@/api/client-error'
-import { createExports, downloadExport, getExport } from '@/api/exports'
+import { createExports, downloadExport, getExport, EXPORT_BATCH_LIMIT } from '@/api/exports'
 import { errorMessage } from '@/api/errors'
 import { listReviews } from '@/api/reviews'
 import type { ExportJob, ReviewListItem } from '@/api/models'
@@ -12,8 +12,6 @@ import { copyText } from '@/utils/clipboard'
 import { saveBlob } from '@/utils/download'
 import { EXPORT_STATUS_LABELS } from '@/utils/labels'
 
-// 后端 export_service.MAX_BATCH 同步为 50：提交前用它校验，避免整批被 PAYLOAD_REJECTED
-const EXPORT_BATCH_LIMIT = 50
 // 候选清单最多渲染的行数，超出提示用手填 ID
 const MAX_CANDIDATE_ROWS = 50
 // 候选最多翻几页审查记录（每页 100 条），避免极端数据下无限翻页
@@ -38,6 +36,8 @@ const candidatesMoreFailed = ref(false)
 const selected = ref<number[]>([])
 
 let timer: number | undefined
+// 候选加载轮次：刷新/卸载时自增，作废在途的补页请求
+let loadToken = 0
 
 const pending = computed(() => jobs.value.filter((job) => job.status !== 'succeeded' && job.status !== 'failed'))
 const finishedCount = computed(() => jobs.value.filter((job) => job.status === 'succeeded' || job.status === 'failed').length)
@@ -175,6 +175,7 @@ async function submit(): Promise<void> {
       if (created.length) message.value = `提交 ${ids.length} 份：成功 ${created.length}，失败 ${rejected.length}`
     }
   } catch (caught) {
+    if (redirectOnAuthError(caught)) return
     if (caught instanceof RequestError && caught.code === 'PAYLOAD_REJECTED') {
       error.value = `提交失败：${caught.message}`
     } else {
@@ -229,11 +230,11 @@ async function download(job: ExportJob): Promise<void> {
   }
 }
 
-let loadToken = 0
-
-/** 只保留仍可勾选（当前可见候选）的勾选，并把被取消的数量说清楚，避免静默丢弃。 */
+/** 只保留仍可勾选（已加载）的勾选，并把被取消的数量说清楚，避免静默丢弃。 */
 function trimSelection(): void {
-  const available = new Set(candidateRows.value.map((item) => item.planVersionId))
+  // 补页失败时候选本就不完整，此时裁剪会把仍有效的勾选当成失效清掉
+  if (candidatesMoreFailed.value) return
+  const available = new Set(exportableRows.value.map((item) => item.planVersionId))
   const before = selected.value.length
   selected.value = selected.value.filter((id) => available.has(id))
   const dropped = before - selected.value.length
@@ -247,6 +248,7 @@ async function loadCandidates(): Promise<void> {
   candidatesMoreFailed.value = false
   error.value = ''
   notice.value = ''
+  message.value = ''
   try {
     // 先渲染第 1 页，避免可导出项很少时首屏被串行翻页阻塞；
     // 勾选裁剪要等补页结束再做，否则第 2..N 页的合法勾选会被当成失效清掉
@@ -254,32 +256,41 @@ async function loadCandidates(): Promise<void> {
     if (token !== loadToken) return
     candidates.value = first.items
     candidatesTotal.value = first.total
-    candidatesLoading.value = false
     if (first.items.length < first.total) {
+      // 补页结束前保持"读取中"，避免空态先给出"暂无可导出"的假结论
       void loadMorePages(token, first.items).finally(() => {
-        if (token === loadToken) trimSelection()
+        if (token !== loadToken) return
+        candidatesLoading.value = false
+        trimSelection()
       })
     } else {
+      candidatesLoading.value = false
       trimSelection()
     }
   } catch (caught) {
     if (token !== loadToken) return
     candidatesLoading.value = false
     // 与其他页面一致：会话失效回登录、真越权回 403，而不是只留红字
-    if (isUnauthorized(caught)) {
-      void router.replace({ path: '/login', query: { redirect: route.fullPath } })
-      return
-    }
-    if (isForbidden(caught)) {
-      void router.replace('/403')
-      return
-    }
+    if (redirectOnAuthError(caught)) return
     // 刷新失败就别让过期候选继续可勾选/可提交
     candidates.value = []
     candidatesTotal.value = 0
     selected.value = []
     candidatesError.value = caught instanceof Error ? caught.message : '加载候选版本失败'
   }
+}
+
+/** 401 回登录、403 回越权页；返回 true 表示已跳转，调用方不要再展示行内错误。 */
+function redirectOnAuthError(caught: unknown): boolean {
+  if (isUnauthorized(caught)) {
+    void router.replace({ path: '/login', query: { redirect: route.fullPath } })
+    return true
+  }
+  if (isForbidden(caught)) {
+    void router.replace('/403')
+    return true
+  }
+  return false
 }
 
 async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<void> {
