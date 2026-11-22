@@ -36,10 +36,11 @@ describe('roleRedirect', () => {
 })
 
 describe('roleAllowed', () => {
-  it('导航与守卫共用同一判定：空 role 放行、角色不匹配拒绝', () => {
+  it('导航与守卫共用同一判定：未知身份放行、已知角色按 roles 判定', () => {
     expect(roleAllowed('admin', ['admin'])).toBe(true)
     expect(roleAllowed('teacher', ['admin'])).toBe(false)
-    expect(roleAllowed('', ['admin'])).toBe(false)
+    expect(roleAllowed('', ['admin'])).toBe(true)
+    expect(roleAllowed(null, ['admin'])).toBe(true)
     expect(roleAllowed(undefined, undefined)).toBe(true)
     expect(roleAllowed('teacher', [])).toBe(true)
   })

@@ -419,7 +419,8 @@ steps.push([
       '未审查的草稿版本不该出现在候选清单里',
     )
     const target = page.locator('[aria-label="候选版本"] .el-checkbox', { hasText: planTitle })
-    must((await target.count()) === 1, `候选清单里没有唯一一份已通过的「${planTitle}」`)
+    // 复用已有账号（E2E_USER）时同名课题可能有多个已通过版本，只要有候选即可
+    must((await target.count()) >= 1, `候选清单里没有已通过的「${planTitle}」`)
     await target.first().click()
     await page.waitForFunction(() => /已勾选 1 \/ 可导出/.test(document.body.innerText), undefined, {
       timeout: 10000,

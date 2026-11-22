@@ -27,10 +27,12 @@ export function passwordChangeRedirect(
   return { path: PASSWORD_PATH, query: { redirect: target.fullPath } }
 }
 
-/** 角色是否满足路由要求；空 role 视为未知身份，允许直达（与历史守卫行为一致）。 */
+/** 角色是否满足路由要求；未声明 roles 时放行，未知身份（空 role）不在这里拒绝。 */
 export function roleAllowed(role: string | null | undefined, roles?: string[]): boolean {
   if (!roles || roles.length === 0) return true
-  return typeof role === 'string' && role.length > 0 && roles.includes(role)
+  // 空 role 交给 beforeEach 的登录检查处理：历史守卫对 null 用户是放行，不能在这里改成 403
+  if (!role) return true
+  return roles.includes(role)
 }
 
 /** 角色不满足时的跳转目标；通过返回 null。 */

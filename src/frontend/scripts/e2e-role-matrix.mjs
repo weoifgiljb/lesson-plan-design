@@ -1,9 +1,10 @@
 // 角色矩阵端到端：lead / admin / teacher 三账号走关键页面，验证「越权页只出现在真实越权操作上」。
 // 前置（必须在同一个数据目录下建号，账号需 must_change_password=0；脚本被要求改密会直接失败）：
-//   py -3 scripts/seed_users.py --lead  e2elead  --password "$env:E2E_PASSWORD" --name 端到端组长
-//   py -3 scripts/seed_users.py --admin e2eadmin --password "$env:E2E_PASSWORD" --name 端到端管理员
-//   py -3 scripts/seed_users.py --teacher teacher1 --password "$env:E2E_PASSWORD" --name 张老师
-// 用法：BASE_URL=http://127.0.0.1:5174 E2E_PASSWORD=<本地测试口令> node src/frontend/scripts/e2e-role-matrix.mjs
+//   py -3 scripts/seed_users.py --lead  e2elead  --password 'Lesson2026' --name 端到端组长
+//   py -3 scripts/seed_users.py --admin e2eadmin --password 'Lesson2026' --name 端到端管理员
+//   py -3 scripts/seed_users.py --teacher teacher1 --password 'Lesson2026' --name 张老师
+// 口令：脚本默认用 Lesson2026（与上面 seed 命令一致）；联调/CI 可用 E2E_PASSWORD 覆盖，seed 时传同一口令。
+// 用法：BASE_URL=http://127.0.0.1:5174 node src/frontend/scripts/e2e-role-matrix.mjs
 // 可选环境变量：E2E_LEAD / E2E_ADMIN / E2E_TEACHER / E2E_PASSWORD / E2E_DIR
 // E2E_PASSWORD 缺省取本地种子口令（Lesson2026）；联调/CI 请显式传入，不要把口令写进命令历史。
 // 失败即停（fail-fast），单步失败会打印页面 URL、正文摘要与 4xx/5xx 响应体。
@@ -91,7 +92,7 @@ try {
     )
     must(
       !page.url().includes('/change-password'),
-      `账号 ${username} 被要求先改密；请先用 scripts/seed_users.py 建 must_change_password=0 的账号`,
+      `账号 ${username} 仍要求改密或已被锁定；请确认它 must_change_password=0、未锁定，或换新账号重跑`,
     )
     await page.waitForSelector('[aria-label="主导航"]', { timeout: 15000 })
   }

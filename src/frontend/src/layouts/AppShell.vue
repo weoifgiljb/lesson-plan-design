@@ -29,8 +29,9 @@ const isDev = import.meta.env.DEV
 // 导航可见性与路由守卫共用同一份权限契约（router meta.roles + roleAllowed），
 // 避免"守卫放行但导航无入口"或"有入口点进 403"的漂移。
 function canOpen(path: string): boolean {
-  return roleAllowed(session.role, router.resolve(path).meta.roles as string[] | undefined)
+  return roleAllowed(session.role, router.resolve(path).meta.roles)
 }
+const openTo = (path: string): string | undefined => (canOpen(path) ? path : undefined)
 
 const drawerOpen = ref(false)
 const paletteOpen = ref(false)
@@ -43,38 +44,38 @@ const roleLabel = computed(() => {
 })
 const displayName = computed(() => session.user?.displayName ?? '预览访客')
 
-// 导航可见性只看 item.to：没有目标地址的入口（角色无权限/未上线）直接不渲染，
+// 导航条目统一走 canOpen：可见性只由路由 meta.roles 决定，没有目标地址的入口不渲染，
 // 避免禁用占位按钮被读屏与 E2E 当成真实入口。
 const groups = computed<NavGroup[]>(() =>
   [
     {
       label: '工作台',
       items: [
-        { label: '概览', icon: 'overview' as const, to: '/dashboard' },
-        { label: '通知', icon: 'alert' as const, to: '/notifications' },
+        { label: '概览', icon: 'overview' as const, to: openTo('/dashboard') },
+        { label: '通知', icon: 'alert' as const, to: openTo('/notifications') },
       ],
     },
     {
       label: '教案',
       items: [
-        { label: '任务', icon: 'tasks' as const, to: canOpen('/tasks') ? '/tasks' : undefined },
-        { label: '教案库', icon: 'plans' as const, to: '/plans' },
-        { label: '审查', icon: 'reviews' as const, to: canOpen('/reviews') ? '/reviews' : undefined },
-        { label: '导出', icon: 'exports' as const, to: canOpen('/exports') ? '/exports' : undefined },
+        { label: '任务', icon: 'tasks' as const, to: openTo('/tasks') },
+        { label: '教案库', icon: 'plans' as const, to: openTo('/plans') },
+        { label: '审查', icon: 'reviews' as const, to: openTo('/reviews') },
+        { label: '导出', icon: 'exports' as const, to: openTo('/exports') },
       ],
     },
     {
       label: '数据',
       items: [
-        { label: '统计', icon: 'stats' as const, to: '/stats' },
-        { label: '样例库', icon: 'samples' as const, to: '/samples' },
+        { label: '统计', icon: 'stats' as const, to: openTo('/stats') },
+        { label: '样例库', icon: 'samples' as const, to: openTo('/samples') },
       ],
     },
     ...(canOpen('/admin')
-      ? [{ label: '管理', items: [{ label: '管理', icon: 'admin' as const, to: '/admin' }] }]
+      ? [{ label: '管理', items: [{ label: '管理', icon: 'admin' as const, to: openTo('/admin') }] }]
       : []),
     ...(isDev
-      ? [{ label: '设计', items: [{ label: '风格验收', icon: 'design' as const, to: '/styleguide' }] }]
+      ? [{ label: '设计', items: [{ label: '风格验收', icon: 'design' as const, to: openTo('/styleguide') }] }]
       : []),
   ]
     .map((group) => ({
