@@ -27,6 +27,11 @@ function readCsrf(): string {
   return entry ? decodeURIComponent(entry.slice(CSRF_COOKIE.length + 1)) : ''
 }
 
+/** 是否存在登录线索（CSRF cookie）：用于决定要不要主动探测会话，避免匿名访问公开页触发 401。 */
+export function hasCsrfCookie(): boolean {
+  return readCsrf() !== ''
+}
+
 http.interceptors.request.use((config) => {
   const method = (config.method ?? 'get').toLowerCase()
   if (!['get', 'head', 'options'].includes(method)) {

@@ -7,6 +7,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import BrandMark from '@/components/BrandMark.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import type { CommandItem } from '@/components/command-types'
+import { hasCsrfCookie } from '@/api/client'
 import { navVisible } from '@/router/visibility'
 import { useSessionStore } from '@/stores/session'
 
@@ -223,7 +224,7 @@ onMounted(() => {
   // 公开子路由（如 dev 的 /styleguide）直达时守卫不会加载会话，这里补一次，避免受限入口永久隐藏。
   // 匿名访问公开页会打出一次 401（Chromium 记为 console error，screenshots.mjs 会判失败），
   // 因此只在存在可读会话线索（登录时下发的 lpp_csrf）时才探测。
-  if (!session.user && !session.loading && document.cookie.includes('lpp_csrf=')) {
+  if (!session.user && !session.loading && hasCsrfCookie()) {
     void session.load()
   }
 })
