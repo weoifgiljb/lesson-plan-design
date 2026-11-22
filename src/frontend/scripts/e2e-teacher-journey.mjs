@@ -59,21 +59,23 @@ const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', async (response) => {
   if (response.status() < 400) return
-  const expectedIndex = expectedHttp.findIndex(
-    (item) =>
-      response.status() === item.status &&
-      response.request().method() === item.method &&
-      response.url().endsWith(item.path),
-  )
-  if (expectedIndex >= 0) {
-    expectedHttp.splice(expectedIndex, 1)
-    return
-  }
   let body = ''
   try {
     body = (await response.text()).replace(/\s+/g, ' ').slice(0, 240)
   } catch {
     body = '(响应体不可读)'
+  }
+  // 预期错误必须连业务码一起匹配，避免"换成别的 422 也照样 PASS"把真实缺陷洗白
+  const expectedIndex = expectedHttp.findIndex(
+    (item) =>
+      response.status() === item.status &&
+      response.request().method() === item.method &&
+      response.url().endsWith(item.path) &&
+      (!item.code || body.includes(item.code)),
+  )
+  if (expectedIndex >= 0) {
+    expectedHttp.splice(expectedIndex, 1)
+    return
   }
   httpErrors.push(`HTTP ${response.status()} ${response.url().replace(base, '')} → ${body}`)
 })
@@ -304,12 +306,31 @@ steps.push([
     await navTo('教案库')
     await page.waitForURL('**/plans', { timeout: 15000 })
     // 篡改包预期 422 HASH_MISMATCH：这是本步要验证的拒绝行为，不计入 4xx/5xx 异常汇总
-    expectedHttp.push({ path: '/api/v1/plans/import', method: 'POST', status: 422 })
+    expectedHttp.push({
+      path: '/api/v1/plans/import',
+      method: 'POST',
+      status: 422,
+      code: 'HASH_MISMATCH',
+    })
     const [chooser] = await Promise.all([
       page.waitForEvent('filechooser', { timeout: 15000 }),
       page.getByRole('button', { name: '导入契约包' }).first().click(),
     ])
-    await chooser.setFiles(tamperedPath)
+    const [rejected] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/v1/plans/import') &&
+          response.request().method() === 'POST' &&
+          response.status() === 422,
+        { timeout: 25000 },
+      ),
+      chooser.setFiles(tamperedPath),
+    ])
+    const rejectedBody = await rejected.json()
+    must(
+      rejectedBody.code === 'HASH_MISMATCH',
+      `篡改包没有按 HASH_MISMATCH 拒绝：${rejectedBody.code || '(无 code)'}`,
+    )
     const toast = page.locator('.el-message--error').first()
     await toast.waitFor({ timeout: 25000 })
     const message = (await toast.innerText()).replace(/\s+/g, ' ')
@@ -344,7 +365,12 @@ steps.push([
     await dialog.waitFor({ timeout: 10000 })
     // 第 4 步已用同一身份建过任务，这里原样再提交一次（本人重复 → 409 TASK_ALREADY_EXISTS）
     await fillTaskDialog(dialog, { title: lessonTitle, week: slotWeek, session: slotSession })
-    expectedHttp.push({ path: '/api/v1/tasks', method: 'POST', status: 409 })
+    expectedHttp.push({
+      path: '/api/v1/tasks',
+      method: 'POST',
+      status: 409,
+      code: 'TASK_ALREADY_EXISTS',
+    })
     let conflictBody = {}
     try {
       const [conflict] = await Promise.all([

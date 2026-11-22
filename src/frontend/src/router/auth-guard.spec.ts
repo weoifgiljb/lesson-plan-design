@@ -31,16 +31,17 @@ describe('roleRedirect', () => {
   it('角色允许或未声明角色限制时放行', () => {
     expect(roleRedirect({ role: 'admin' }, ['admin'])).toBeNull()
     expect(roleRedirect({ role: 'teacher' }, undefined)).toBeNull()
-    expect(roleRedirect(null, ['admin'])).toBeNull()
+    // 未登录由 beforeEach 的会话检查拦截；守卫本身对未知角色 fail-closed
+    expect(roleRedirect(null, ['admin'])).toBe('/403')
   })
 })
 
 describe('roleAllowed', () => {
-  it('导航与守卫共用同一判定：未知身份放行、已知角色按 roles 判定', () => {
+  it('导航与守卫共用同一判定：未知角色拒绝、已知角色按 roles 判定', () => {
     expect(roleAllowed('admin', ['admin'])).toBe(true)
     expect(roleAllowed('teacher', ['admin'])).toBe(false)
-    expect(roleAllowed('', ['admin'])).toBe(true)
-    expect(roleAllowed(null, ['admin'])).toBe(true)
+    expect(roleAllowed('', ['admin'])).toBe(false)
+    expect(roleAllowed(null, ['admin'])).toBe(false)
     expect(roleAllowed(undefined, undefined)).toBe(true)
     expect(roleAllowed('teacher', [])).toBe(true)
   })

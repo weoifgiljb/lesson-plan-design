@@ -29,6 +29,7 @@ const httpErrors = []
 const pendingResponses = new Set()
 const pageErrors = []
 const results = []
+const steps = []
 let index = 0
 function must(condition, message) {
   if (!condition) throw new Error(message)
@@ -46,7 +47,8 @@ try {
   page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
   // 响应体读取是异步的：登记成 Promise，判定前统一 await，避免 4xx 漏判/误报
   page.on('response', (response) => {
-    if (response.status() < 400) return
+    // 只统计业务接口：静态资源/HMR 的 4xx 与本轮角色矩阵无关
+    if (response.status() < 400 || !response.url().includes('/api/')) return
     const task = response
       .text()
       .then((text) =>
@@ -141,7 +143,6 @@ try {
     must(count === 0, `${who} 侧边栏不该出现「${name}」入口`)
   }
 
-  const steps = []
   steps.push([
     '1 lead 登录进入概览',
     async () => {
@@ -233,6 +234,10 @@ try {
   for (const [name, fn] of steps) {
     if (!(await run(name, fn))) break
   }
+} catch (error) {
+  const detail = String(error?.message ?? error).split('\n')[0]
+  console.error(`运行失败：${detail}`)
+  results.push({ name: '运行（启动/环境）', ok: false, detail })
 } finally {
   // 先把在途的 4xx/5xx 响应体读完再关浏览器，否则最后一步的错误会漏进汇总
   await Promise.allSettled([...pendingResponses])
@@ -253,7 +258,7 @@ if (pageErrors.length) {
   for (const item of [...new Set(pageErrors)]) console.log(' -', item)
 }
 console.log(
-  `\n结果：${results.length - failed.length}/${results.length} 步通过（已执行 ${results.length} 步，未执行 ${steps.length - results.length} 步）`,
+  `\n结果：${results.length - failed.length}/${steps.length} 步通过（已执行 ${results.length} 步，未执行 ${Math.max(0, steps.length - results.length)} 步）`,
 )
 if (failed.length) {
   for (const item of failed) console.log(` FAIL ${item.name} → ${item.detail}`)

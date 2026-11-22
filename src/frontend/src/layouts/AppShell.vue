@@ -30,7 +30,9 @@ const isDev = import.meta.env.DEV
 // 受限路由对"未知身份"（未登录访客/身份未加载）fail-closed，未注册路径也不渲染，避免入口点了落空。
 function openTo(path: string): string | undefined {
   const resolved = router.resolve(path)
-  if (resolved.matched.length === 0) return undefined
+  // 未注册路径会被全局 catch-all 接走：把命中 catch-all 视为"没有这个页面"，不渲染入口
+  const last = resolved.matched[resolved.matched.length - 1]
+  if (!last || last.path.includes(':pathMatch')) return undefined
   const roles = resolved.meta.roles
   if (!roles || roles.length === 0) return path
   return session.user && roleAllowed(session.role, roles) ? path : undefined
