@@ -9,7 +9,7 @@
 // 失败即停（fail-fast），单步失败会打印页面 URL、正文摘要与 4xx/5xx 响应体。
 import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { chromium } from 'playwright'
+import { chromium } from '@playwright/test'
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5174'
 const password = process.env.E2E_PASSWORD || 'Lesson2026'
@@ -22,8 +22,7 @@ const stamp = Date.now().toString(36)
 const outDir =
   process.env.E2E_DIR || fileURLToPath(new URL(`../../../.qa/e2e/roles-${stamp}`, import.meta.url))
 mkdirSync(outDir, { recursive: true })
-// 预期内的 4xx 先在这里登记，避免与真实缺陷混在一起
-const EXPECTED_HTTP_ERRORS = []
+// 越权页是前端路由守卫拦截的：这里只验证"教师看到的页面文案"，服务端是否落审计由后端用例覆盖。
 const httpErrors = []
 const pageErrors = []
 const results = []
@@ -113,7 +112,7 @@ try {
     await page.waitForURL('**/403', { timeout: 15000 })
     const body = await bodyText()
     must(body.includes('没有访问权限'), `403 页没有「没有访问权限」：${body.slice(0, 120)}`)
-    must(body.includes('越权访问已记录'), '403 页没有越权留痕提示')
+    must(body.includes('越权访问已记录'), '403 页没有展示越权文案（服务端审计由后端用例覆盖）')
     // /403 是独立 public 页面，没有主导航与退出按钮：回到概览供后续步骤继续操作
     await page.goto(`${base}/dashboard`, { waitUntil: 'networkidle' })
     await page.waitForSelector('[aria-label="主导航"]', { timeout: 15000 })
@@ -225,14 +224,12 @@ try {
 }
 
 const failed = results.filter((item) => !item.ok)
-const unexpectedHttp = httpErrors.filter(
-  (item) => !EXPECTED_HTTP_ERRORS.some((rule) => rule.test(item)),
-)
-const ok = !failed.length && unexpectedHttp.length === 0 && pageErrors.length === 0
+// 全部 4xx/5xx 都视为缺陷：本脚本的越权拦截走前端路由守卫，不会产生预期内的 API 错误
+const ok = !failed.length && httpErrors.length === 0 && pageErrors.length === 0
 console.log(`\n账号：lead=${accounts.lead} / admin=${accounts.admin} / teacher=${accounts.teacher}`)
 console.log(`产物目录：${outDir}`)
 if (httpErrors.length) {
-  console.log(`\n4xx/5xx 响应 ${httpErrors.length} 条（未预期 ${unexpectedHttp.length} 条，计入失败）：`)
+  console.log(`\n4xx/5xx 响应 ${httpErrors.length} 条（计入失败）：`)
   for (const item of [...new Set(httpErrors)]) console.log(' -', item)
 }
 if (pageErrors.length) {
@@ -240,7 +237,7 @@ if (pageErrors.length) {
   for (const item of [...new Set(pageErrors)]) console.log(' -', item)
 }
 console.log(
-  `\n结果：${results.length - failed.length}/${steps.length} 步通过（已执行 ${results.length} 步）`,
+  `\n结果：${results.length - failed.length}/${results.length} 步通过（已执行 ${results.length} 步，未执行 ${steps.length - results.length} 步）`,
 )
 if (failed.length) {
   for (const item of failed) console.log(` FAIL ${item.name} → ${item.detail}`)
@@ -248,7 +245,7 @@ if (failed.length) {
 if (!ok) {
   const reasons = []
   if (failed.length) reasons.push(`${failed.length} 步失败`)
-  if (unexpectedHttp.length) reasons.push(`${unexpectedHttp.length} 条未预期 4xx/5xx`)
+  if (httpErrors.length) reasons.push(`${httpErrors.length} 条 4xx/5xx`)
   if (pageErrors.length) reasons.push(`${pageErrors.length} 条前端异常`)
   console.log(`失败原因：${reasons.join('；')}`)
 }

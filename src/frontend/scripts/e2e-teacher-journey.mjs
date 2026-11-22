@@ -37,8 +37,8 @@ if (!existsSync(packagePath)) throw new Error(`契约包不存在：${packagePat
 
 const httpErrors = []
 const pageErrors = []
-// 第 13 步预期会收到 409 冲突响应，别让它污染 4xx/5xx 汇总
-let expectConflictResponse = false
+// 第 13 步预期会收到一次 409 冲突响应：精确匹配一次即作废，别让它污染 4xx/5xx 汇总
+let expectedConflict = null
 const results = []
 let docxBytes = 0
 let versionId = null
@@ -59,7 +59,15 @@ const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', async (response) => {
   if (response.status() < 400) return
-  if (expectConflictResponse && response.status() === 409 && response.url().includes('/api/v1/tasks')) return
+  if (
+    expectedConflict &&
+    response.status() === expectedConflict.status &&
+    response.request().method() === expectedConflict.method &&
+    response.url().endsWith(expectedConflict.path)
+  ) {
+    expectedConflict = null
+    return
+  }
   let body = ''
   try {
     body = (await response.text()).replace(/\s+/g, ' ').slice(0, 240)
@@ -332,7 +340,7 @@ steps.push([
     await dialog.waitFor({ timeout: 10000 })
     // 第 4 步已用同一身份建过任务，这里原样再提交一次（本人重复 → 409 TASK_ALREADY_EXISTS）
     await fillTaskDialog(dialog, { title: lessonTitle, week: slotWeek, session: slotSession })
-    expectConflictResponse = true
+    expectedConflict = { path: '/api/v1/tasks', method: 'POST', status: 409 }
     let conflictBody = {}
     try {
       const [conflict] = await Promise.all([
@@ -347,7 +355,7 @@ steps.push([
       ])
       conflictBody = await conflict.json()
     } finally {
-      expectConflictResponse = false
+      expectedConflict = null
     }
     must(
       conflictBody.code === 'TASK_ALREADY_EXISTS',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { PASSWORD_PATH, passwordChangeRedirect, roleRedirect } from './auth-guard'
+import { PASSWORD_PATH, passwordChangeRedirect, roleAllowed, roleRedirect } from './auth-guard'
 
 describe('passwordChangeRedirect', () => {
   it('未改密账号访问业务页时跳到改密页并保留来源', () => {
@@ -32,5 +32,15 @@ describe('roleRedirect', () => {
     expect(roleRedirect({ role: 'admin' }, ['admin'])).toBeNull()
     expect(roleRedirect({ role: 'teacher' }, undefined)).toBeNull()
     expect(roleRedirect(null, ['admin'])).toBeNull()
+  })
+})
+
+describe('roleAllowed', () => {
+  it('导航与守卫共用同一判定：空 role 放行、角色不匹配拒绝', () => {
+    expect(roleAllowed('admin', ['admin'])).toBe(true)
+    expect(roleAllowed('teacher', ['admin'])).toBe(false)
+    expect(roleAllowed('', ['admin'])).toBe(false)
+    expect(roleAllowed(undefined, undefined)).toBe(true)
+    expect(roleAllowed('teacher', [])).toBe(true)
   })
 })

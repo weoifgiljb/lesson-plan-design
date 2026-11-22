@@ -7,6 +7,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import BrandMark from '@/components/BrandMark.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import type { CommandItem } from '@/components/command-types'
+import { roleAllowed } from '@/router/auth-guard'
 import { useSessionStore } from '@/stores/session'
 
 interface NavItem {
@@ -25,11 +26,10 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
-// 导航可见性与路由守卫共用同一份权限契约（router meta.roles），避免"有权限无入口/有入口点进 403"
+// 导航可见性与路由守卫共用同一份权限契约（router meta.roles + roleAllowed），
+// 避免"守卫放行但导航无入口"或"有入口点进 403"的漂移。
 function canOpen(path: string): boolean {
-  const roles = router.resolve(path).meta.roles as string[] | undefined
-  if (!roles || roles.length === 0) return true
-  return Boolean(session.role) && roles.includes(session.role)
+  return roleAllowed(session.role, router.resolve(path).meta.roles as string[] | undefined)
 }
 
 const drawerOpen = ref(false)
@@ -70,7 +70,7 @@ const groups = computed<NavGroup[]>(() =>
         { label: '样例库', icon: 'samples' as const, to: '/samples' },
       ],
     },
-    ...(session.isAdmin
+    ...(canOpen('/admin')
       ? [{ label: '管理', items: [{ label: '管理', icon: 'admin' as const, to: '/admin' }] }]
       : []),
     ...(isDev
