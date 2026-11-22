@@ -115,6 +115,7 @@ def create_task(
             "FORBIDDEN:只能操作本人或本组任务",
             "NOT_FOUND:任务不存在",
             "PAYLOAD_REJECTED:已废弃任务不能生成草稿",
+            "CONFLICT_STALE:数据库繁忙或并发写入冲突，请重试",
         ),
     },
 )

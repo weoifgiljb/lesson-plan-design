@@ -3038,6 +3038,10 @@
           "422": {
             "description": "已废弃任务不能生成草稿",
             "x-error-code": "PAYLOAD_REJECTED"
+          },
+          "409": {
+            "description": "数据库繁忙或并发写入冲突，请重试",
+            "x-error-code": "CONFLICT_STALE"
           }
         }
       }

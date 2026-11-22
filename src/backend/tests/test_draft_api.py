@@ -152,6 +152,75 @@ class TestDraftApi(unittest.TestCase):
         )
         self.assertEqual(self._draft(discarded).status_code, 422)
 
+    def test_group_lead_task_cannot_be_drafted_by_teacher(self) -> None:
+        # 教案绑定要求任务与教案同 owner：组长的任务只能由本人生成，避免"成功但没挂上"
+        lead = self._login("lead1")
+        created = self.client.post(
+            "/api/v1/tasks",
+            json={
+                "course": "信息技术",
+                "week": 2,
+                "session": 1,
+                "title": "组长布置的课",
+                "className": "计算机1班",
+            },
+            headers={"X-CSRF-Token": lead},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        task_id = int(created.json()["taskId"])
+        self.csrf = self._login("teacher1")
+        response = self._draft(task_id)
+        self.assertEqual(response.status_code, 403, response.text)
+        connection, _repo = self._db()
+        try:
+            plans = connection.execute(
+                "SELECT COUNT(*) AS total FROM plan WHERE owner_id = 1"
+            ).fetchone()
+        finally:
+            connection.close()
+        self.assertEqual(int(plans["total"]), 0)
+
+    def test_second_class_same_topic_is_rejected_not_silently_duplicated(self) -> None:
+        # 教案身份不含班级：第二个班级的任务不能拿到第一个班级的教案
+        first = self._create_task()
+        plan_id = self._draft(first).json()["planId"]
+        second = self.client.post(
+            "/api/v1/tasks",
+            json={
+                "course": "信息技术",
+                "week": 2,
+                "session": 1,
+                "title": "一级考证辅导2",
+                "className": "计算机2班",
+            },
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(second.status_code, 201, second.text)
+        response = self._draft(int(second.json()["taskId"]))
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(response.json()["details"]["planId"], plan_id)
+        versions = self.client.get(f"/api/v1/plans/{plan_id}/versions").json()
+        self.assertEqual(versions["total"], 1)
+
+    def test_duplicate_repairs_missing_task_binding(self) -> None:
+        task_id = self._create_task()
+        plan_id = self._draft(task_id).json()["planId"]
+        connection, _repo = self._db()
+        try:
+            connection.execute("UPDATE plan SET task_id = NULL WHERE id = ?", (plan_id,))
+            connection.commit()
+        finally:
+            connection.close()
+        response = self._draft(task_id)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.json()["duplicate"])
+        connection, _repo = self._db()
+        try:
+            row = connection.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        finally:
+            connection.close()
+        self.assertEqual(int(row["task_id"]), task_id)
+
     def test_draft_cannot_be_exported_before_review(self) -> None:
         task_id = self._create_task()
         plan_id = self._draft(task_id).json()["planId"]
