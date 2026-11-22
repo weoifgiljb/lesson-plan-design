@@ -221,6 +221,23 @@ describe('ExportsView', () => {
     wrapper.unmount()
   })
 
+  it('keeps the selection when a version is rejected by the export gate', async () => {
+    const { wrapper } = await mountAt('/exports')
+    createExports.mockResolvedValue({
+      items: [{ planVersionId: 21, status: 'failed', code: 'REPORT_INCONSISTENT', message: '审查状态不允许导出' }],
+      created: 0,
+      reused: 0,
+    })
+    await candidateCheckboxes(wrapper)[0].setValue(true)
+    await flushPromises()
+    await submitButton(wrapper)!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('未通过导出门禁')
+    expect(wrapper.text()).toContain('已勾选 1 / 可导出 2 份')
+    wrapper.unmount()
+  })
+
   it('prefills the version id from the review center without auto submitting', async () => {
     const { wrapper } = await mountAt('/exports?planVersionId=33')
 

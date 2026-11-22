@@ -10,7 +10,10 @@ import { copyText } from '@/utils/clipboard'
 import { saveBlob } from '@/utils/download'
 import { EXPORT_STATUS_LABELS } from '@/utils/labels'
 
-const MAX_CANDIDATES = 50
+// 后端 export_service.MAX_BATCH 同步为 50：提交前用它校验，避免整批被 PAYLOAD_REJECTED
+const EXPORT_BATCH_LIMIT = 50
+// 候选清单最多渲染的行数，超出提示用手填 ID
+const MAX_CANDIDATE_ROWS = 50
 
 const route = useRoute()
 const versionInput = ref('')
@@ -36,25 +39,20 @@ const progressPercent = computed(() =>
   jobs.value.length ? Math.round((finishedCount.value / jobs.value.length) * 100) : 0,
 )
 
-// 同一版本可能有多轮审查：先保留最新一轮（列表按 review id 倒序），再看它是否可导出，
-// 与后端 LATEST_REVIEW_JOIN / export_service 的"最大 round 为准"口径一致。
-const candidateRows = computed(() => {
-  const seen = new Set<number>()
-  const rows: ReviewListItem[] = []
+// 同一版本可能有多轮审查：按 round 取最新一轮，再看它是否可导出，
+// 与后端 LATEST_REVIEW_JOIN / export_service 的"最大 round 为准"口径一致（不依赖列表顺序）。
+const latestRows = computed(() => {
+  const latest = new Map<number, ReviewListItem>()
   for (const item of candidates.value) {
-    if (seen.has(item.planVersionId)) continue
-    seen.add(item.planVersionId)
-    if (!item.exportable) continue
-    rows.push(item)
-    if (rows.length >= MAX_CANDIDATES) break
+    const current = latest.get(item.planVersionId)
+    if (!current || item.round > current.round) latest.set(item.planVersionId, item)
   }
-  return rows
+  return [...latest.values()]
 })
-const exportableVersionCount = computed(
-  () => new Set(candidates.value.filter((item) => item.exportable).map((item) => item.planVersionId)).size,
-)
+const exportableRows = computed(() => latestRows.value.filter((item) => item.exportable))
+const candidateRows = computed(() => exportableRows.value.slice(0, MAX_CANDIDATE_ROWS))
 const candidatesTruncated = computed(
-  () => exportableVersionCount.value > candidateRows.value.length || candidatesTotal.value > candidates.value.length,
+  () => exportableRows.value.length > candidateRows.value.length || candidatesTotal.value > candidates.value.length,
 )
 
 function readVersionId(value: unknown): number | null {
@@ -108,17 +106,27 @@ async function submit(): Promise<void> {
     error.value = '请勾选候选版本，或填写教案版本 ID（逗号分隔）'
     return
   }
-  if (ids.length > MAX_CANDIDATES) {
-    error.value = `单次最多导出 ${MAX_CANDIDATES} 份，请减少勾选或手填的版本 ID`
+  if (ids.length > EXPORT_BATCH_LIMIT) {
+    error.value = `单次最多导出 ${EXPORT_BATCH_LIMIT} 份，请减少勾选或手填的版本 ID`
     return
   }
   creating.value = true
   try {
     const result = await createExports(ids)
-    const items: ExportJob[] = ((result as unknown as { items?: ExportJob[] }).items ?? []) as ExportJob[]
+    // 门禁拒绝项没有 exportId，只带 planVersionId/status/code/message（后端 _failed 的形状）
+    type ExportResultItem = ExportJob & { code?: string }
+    const raw = ((result as unknown as { items?: Partial<ExportResultItem>[] }).items ?? []) as Partial<ExportResultItem>[]
+    // 门禁拒绝项没有 exportId，只带 planVersionId/code/message：不能当任务卡片渲染，单独提示
+    const items = raw.filter((item): item is ExportJob => typeof item.exportId === 'number')
+    const rejected = raw.filter((item) => typeof item.exportId !== 'number')
     if (items.length) jobs.value = [...items, ...jobs.value.filter((job) => !items.some((it) => it.exportId === job.exportId))]
-    message.value = `已提交 ${result.items?.length ?? ids.length} 个导出任务`
-    selected.value = []
+    message.value = `已提交 ${items.length} 个导出任务`
+    if (rejected.length) {
+      const codes = [...new Set(rejected.map((item) => item.code ?? 'UNKNOWN'))].join('、')
+      error.value = `有 ${rejected.length} 份未通过导出门禁（${codes}），仍保留勾选可重试`
+    } else {
+      selected.value = []
+    }
     startPolling()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
@@ -170,6 +178,7 @@ async function download(job: ExportJob): Promise<void> {
 async function loadCandidates(): Promise<void> {
   candidatesLoading.value = true
   candidatesError.value = ''
+  error.value = ''
   try {
     const page = await listReviews({ pageSize: 100 })
     candidates.value = page.items
@@ -239,7 +248,9 @@ async function copyHash(job: ExportJob): Promise<void> {
       <p v-if="!candidatesLoading && !candidatesError && !candidateRows.length" class="hint">
         暂无已通过且可导出的教案版本；可从审查中心选一份已通过的教案，或用下方高级入口手填版本 ID。
       </p>
-      <p v-if="candidatesTruncated" class="hint">候选较多，仅显示最近 {{ MAX_CANDIDATES }} 份可导出教案。</p>
+      <p v-if="candidatesTruncated" class="hint">
+        候选较多：最多展示最近 {{ MAX_CANDIDATE_ROWS }} 份可导出教案，更早的版本请用下方高级入口手填版本 ID。
+      </p>
     </section>
 
     <p v-if="prefilledId" class="hint">
