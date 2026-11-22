@@ -199,18 +199,22 @@ async function download(task: TaskItem): Promise<void> {
 
 /** 无 Agent 环境下的降级路径：把任务落成平台内 v1 草稿（未审查），直接进教案详情。 */
 async function onDraft(task: TaskItem): Promise<void> {
-  if (draftingId.value !== null) return
-  try {
-    await ElMessageBox.confirm(
-      `将为「${task.title}」生成一版校标草稿教案（未审查，可在教案库查看和删除）。继续？`,
-      '生成草稿教案',
-      { type: 'info', confirmButtonText: '生成草稿', cancelButtonText: '取消' },
-    )
-  } catch {
+  if (draftingId.value !== null) {
+    ElMessage.info('正在生成草稿教案，请稍候')
     return
   }
+  // 先占位再确认：confirm 是 await 的，否则双击会叠出两个确认框、发出两次请求
   draftingId.value = task.taskId
   try {
+    try {
+      await ElMessageBox.confirm(
+        `将为「${task.title}」生成一版校标草稿教案（未审查，可在教案库查看和删除）。继续？`,
+        '生成草稿教案',
+        { type: 'info', confirmButtonText: '生成草稿', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
     const result = await draftTask(task.taskId)
     sealSuccess(
       result.duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）',
@@ -455,6 +459,7 @@ onMounted(() => {
         v-else
         :tasks="boardTasks"
         :show-header="false"
+        draftable
         @move="onMove"
         @discard="onDiscard"
         @download="download"

@@ -21,6 +21,7 @@ import { useSessionStore } from '@/stores/session'
 import { formatDateTime } from '@/utils/datetime'
 import { saveBlob } from '@/utils/download'
 import { toLessonStructure } from '@/utils/plan-structure'
+import { UNREVIEWED_STATUS } from '@/utils/labels'
 
 const route = useRoute()
 const router = useRouter()
@@ -332,8 +333,8 @@ onMounted(() => {
               <dt>状态</dt>
               <dd>
                 <StatusTag
-                  :code="plan.reviewStatus || 'unreviewed'"
-                  :status="plan.reviewStatus || 'unreviewed'"
+                  :code="plan.reviewStatus || UNREVIEWED_STATUS"
+                  :status="plan.reviewStatus || UNREVIEWED_STATUS"
                 />
               </dd>
             </div>

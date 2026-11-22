@@ -11,8 +11,10 @@ const props = withDefaults(
     tasks: TaskItem[]
     compact?: boolean
     showHeader?: boolean
+    /** 只有父组件接了 @draft 才显示「生成草稿教案」，避免看板出现死入口 */
+    draftable?: boolean
   }>(),
-  { compact: false, showHeader: true },
+  { compact: false, showHeader: true, draftable: false },
 )
 
 const emit = defineEmits<{
@@ -81,10 +83,13 @@ function onCommand(task: TaskItem, command: string): void {
     return
   }
   if (command === 'draft') {
-    emit('draft', task)
+    if (props.draftable) emit('draft', task)
     return
   }
-  moveTo(task, command as TaskQuadrant)
+  // 只有登记过的象限才移动任务，避免新菜单项漏登记时发出非法看板请求
+  const target = QUADRANTS.find((option) => option.key === command)
+  if (!target) return
+  moveTo(task, target.key)
 }
 
 function discard(task: TaskItem): void {
@@ -167,7 +172,11 @@ function discard(task: TaskItem): void {
                         移到{{ option.label }}
                       </el-dropdown-item>
                       <el-dropdown-item command="download" divided>下载任务包</el-dropdown-item>
-                      <el-dropdown-item v-if="task.canEdit && !task.discarded" command="draft" divided>
+                      <el-dropdown-item
+                        v-if="draftable && task.canEdit && !task.discarded"
+                        command="draft"
+                        divided
+                      >
                         生成草稿教案
                       </el-dropdown-item>
                       <el-dropdown-item v-if="task.canEdit" command="discard" divided>标记废弃</el-dropdown-item>

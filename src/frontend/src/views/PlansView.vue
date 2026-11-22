@@ -14,6 +14,7 @@ import type { TableColumn } from '@/components/table-types'
 import { usePagedQuery } from '@/composables/usePagedQuery'
 import { useSessionStore } from '@/stores/session'
 import { formatShortDateTime } from '@/utils/datetime'
+import { UNREVIEWED_STATUS } from '@/utils/labels'
 
 const router = useRouter()
 const route = useRoute()
@@ -246,8 +247,8 @@ onMounted(async () => {
       </template>
       <template #cell-reviewStatus="{ row }">
         <StatusTag
-          :code="row.reviewStatus || 'unreviewed'"
-          :status="row.reviewStatus || 'unreviewed'"
+          :code="row.reviewStatus || UNREVIEWED_STATUS"
+          :status="row.reviewStatus || UNREVIEWED_STATUS"
         />
       </template>
       <template #cell-versionCreatedAt="{ row }">
