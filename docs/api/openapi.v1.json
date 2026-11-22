@@ -2895,15 +2895,21 @@
           "200": {
             "description": "confirm=true 且已存在同一任务时，更新并返回已有任务"
           },
+          "401": {
+            "description": "未登录",
+            "x-error-code": "AUTH_REQUIRED"
+          },
+          "403": {
+            "description": "只能覆盖自己创建的任务（他人任务请由本人或管理员处理）",
+            "x-error-code": "FORBIDDEN"
+          },
+          "409": {
+            "description": "本人重复建同一身份任务，确认后可覆盖；任务已被他人或他组占用；数据库繁忙或并发写入冲突，请重试",
+            "x-error-code": "TASK_ALREADY_EXISTS,TASK_TAKEN_BY_OTHER,CONFLICT_STALE"
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "建课参数不合法",
+            "x-error-code": "PAYLOAD_REJECTED"
           }
         }
       }

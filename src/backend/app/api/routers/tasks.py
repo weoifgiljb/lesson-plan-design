@@ -77,7 +77,17 @@ def task_board(
 @router.post(
     "/tasks",
     status_code=201,
-    responses={200: {"description": "confirm=true 且已存在同一任务时，更新并返回已有任务"}},
+    responses={
+        200: {"description": "confirm=true 且已存在同一任务时，更新并返回已有任务"},
+        **error_responses(
+            "AUTH_REQUIRED:未登录",
+            "FORBIDDEN:只能覆盖自己创建的任务（他人任务请由本人或管理员处理）",
+            "TASK_ALREADY_EXISTS:本人重复建同一身份任务，确认后可覆盖",
+            "TASK_TAKEN_BY_OTHER:任务已被他人或他组占用",
+            "CONFLICT_STALE:数据库繁忙或并发写入冲突，请重试",
+            "PAYLOAD_REJECTED:建课参数不合法",
+        ),
+    },
 )
 def create_task(
     request: Request,

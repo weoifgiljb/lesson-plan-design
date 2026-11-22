@@ -1,4 +1,4 @@
-// openapi-sha256: 9e7d11cd8208fcab88d1a43b07b20f7939dd39e6eadca832b64d98d18f31aad9
+// openapi-sha256: 26957675c9429bd76f7b2434f3733be4b2d70052943c76f55bda2bb753d14a63
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
