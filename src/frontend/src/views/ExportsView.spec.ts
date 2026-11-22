@@ -221,6 +221,38 @@ describe('ExportsView', () => {
     wrapper.unmount()
   })
 
+  it('keeps only the latest review round per version', async () => {
+    const { wrapper } = await mountAt('/exports', [
+      candidate({ reviewId: 11, planVersionId: 21, round: 2, status: 'needs_repair', exportable: false, contentTitle: '最新轮失败' }),
+      candidate({ reviewId: 10, planVersionId: 21, round: 1, status: 'passed', exportable: true, contentTitle: '旧轮通过' }),
+      candidate({
+        reviewId: 12,
+        planVersionId: 22,
+        round: 2,
+        status: 'passed_with_accepted_minor',
+        exportable: true,
+        contentTitle: '最新轮通过',
+      }),
+      candidate({ reviewId: 9, planVersionId: 22, round: 1, status: 'passed', exportable: true, contentTitle: '旧轮' }),
+    ])
+
+    expect(wrapper.findAll('.candidate')).toHaveLength(1)
+    expect(wrapper.text()).toContain('最新轮通过')
+    expect(wrapper.text()).not.toContain('旧轮通过')
+    wrapper.unmount()
+  })
+
+  it('caps the candidate rows and points to the manual entry', async () => {
+    const many = Array.from({ length: 51 }, (_, index) =>
+      candidate({ reviewId: 100 + index, planVersionId: 500 + index, contentTitle: `候选课 ${index + 1}` }),
+    )
+    const { wrapper } = await mountAt('/exports', many)
+
+    expect(wrapper.findAll('.candidate')).toHaveLength(50)
+    expect(wrapper.text()).toContain('更早的版本请用下方高级入口手填版本 ID')
+    wrapper.unmount()
+  })
+
   it('keeps the selection when a version is rejected by the export gate', async () => {
     const { wrapper } = await mountAt('/exports')
     createExports.mockResolvedValue({

@@ -14,6 +14,8 @@ import { EXPORT_STATUS_LABELS } from '@/utils/labels'
 const EXPORT_BATCH_LIMIT = 50
 // 候选清单最多渲染的行数，超出提示用手填 ID
 const MAX_CANDIDATE_ROWS = 50
+// 候选最多翻几页审查记录（每页 100 条），避免极端数据下无限翻页
+const MAX_CANDIDATE_PAGES = 5
 
 const route = useRoute()
 const versionInput = ref('')
@@ -41,14 +43,15 @@ const progressPercent = computed(() =>
 
 // 同一版本可能有多轮审查：按 round 取最新一轮，再看它是否可导出，
 // 与后端 LATEST_REVIEW_JOIN / export_service 的"最大 round 为准"口径一致（不依赖列表顺序）。
-const latestRows = computed(() => {
+function latestByVersion(items: ReviewListItem[]): ReviewListItem[] {
   const latest = new Map<number, ReviewListItem>()
-  for (const item of candidates.value) {
+  for (const item of items) {
     const current = latest.get(item.planVersionId)
     if (!current || item.round > current.round) latest.set(item.planVersionId, item)
   }
   return [...latest.values()]
-})
+}
+const latestRows = computed(() => latestByVersion(candidates.value))
 const exportableRows = computed(() => latestRows.value.filter((item) => item.exportable))
 const candidateRows = computed(() => exportableRows.value.slice(0, MAX_CANDIDATE_ROWS))
 const candidatesTruncated = computed(
@@ -182,11 +185,20 @@ async function loadCandidates(): Promise<void> {
   candidatesError.value = ''
   error.value = ''
   try {
-    const page = await listReviews({ pageSize: 100 })
-    candidates.value = page.items
-    candidatesTotal.value = page.total
-    // 刷新后把已失效（不再可导出/已不在候选里）的勾选裁掉，避免静默提交过期 ID；
-    // 用未截断的 exportableRows，避免合法勾选被前 50 条之外挤掉。
+    // 审查列表按页返回：翻到够 MAX_CANDIDATE_ROWS 个可导出版本或读完全部为止，
+    // 避免第 1 页里几乎没有可导出项时被判成"暂无候选"。
+    let items: ReviewListItem[] = []
+    let total = 0
+    for (let page = 1; page <= MAX_CANDIDATE_PAGES; page += 1) {
+      const data = await listReviews({ pageSize: 100, page })
+      items = items.concat(data.items)
+      total = data.total
+      const exportable = latestByVersion(items).filter((item) => item.exportable)
+      if (items.length >= total || exportable.length >= MAX_CANDIDATE_ROWS) break
+    }
+    candidates.value = items
+    candidatesTotal.value = total
+    // 刷新后把已失效（不再可导出/已不在候选里）的勾选裁掉，避免静默提交过期 ID
     const available = new Set(exportableRows.value.map((item) => item.planVersionId))
     selected.value = selected.value.filter((id) => available.has(id))
   } catch (caught) {
