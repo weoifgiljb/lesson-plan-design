@@ -1,4 +1,5 @@
 import axios from 'axios'
+import type { AxiosRequestConfig } from 'axios'
 
 import { RequestError, toApiError } from './client-error'
 
@@ -42,7 +43,7 @@ export const client = {
   async post<T>(
     path: string,
     body?: unknown,
-    options?: { params?: Record<string, unknown>; timeout?: number },
+    options?: Pick<AxiosRequestConfig, 'params' | 'timeout'>,
   ): Promise<T> {
     const response = await http.post<T>(path, body, options)
     return response.data

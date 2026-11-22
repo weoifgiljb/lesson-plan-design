@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
-import { RequestError } from '@/api/client-error'
+import { RequestError, isForbidden, isUnauthorized } from '@/api/client-error'
 import { createExports, downloadExport, getExport } from '@/api/exports'
 import { errorMessage } from '@/api/errors'
 import { listReviews } from '@/api/reviews'
@@ -20,6 +20,7 @@ const MAX_CANDIDATE_ROWS = 50
 const MAX_CANDIDATE_PAGES = 5
 
 const route = useRoute()
+const router = useRouter()
 const versionInput = ref('')
 // 从审查中心「导出」跳过来时带的版本 ID；只手填入框，不自动提交
 const prefilledId = ref<number | null>(null)
@@ -175,7 +176,7 @@ async function submit(): Promise<void> {
     }
   } catch (caught) {
     if (caught instanceof RequestError && caught.code === 'PAYLOAD_REJECTED') {
-      error.value = `提交失败：${caught.message}（单次最多 ${EXPORT_BATCH_LIMIT} 份）`
+      error.value = `提交失败：${caught.message}`
     } else {
       error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
     }
@@ -247,22 +248,37 @@ async function loadCandidates(): Promise<void> {
   error.value = ''
   notice.value = ''
   try {
-    // 先渲染第 1 页，避免可导出项很少时首屏被串行翻页阻塞
+    // 先渲染第 1 页，避免可导出项很少时首屏被串行翻页阻塞；
+    // 勾选裁剪要等补页结束再做，否则第 2..N 页的合法勾选会被当成失效清掉
     const first = await listReviews({ pageSize: 100, page: 1 })
     if (token !== loadToken) return
     candidates.value = first.items
     candidatesTotal.value = first.total
     candidatesLoading.value = false
-    trimSelection()
-    if (first.items.length < first.total) void loadMorePages(token, first.items)
+    if (first.items.length < first.total) {
+      void loadMorePages(token, first.items).finally(() => {
+        if (token === loadToken) trimSelection()
+      })
+    } else {
+      trimSelection()
+    }
   } catch (caught) {
     if (token !== loadToken) return
+    candidatesLoading.value = false
+    // 与其他页面一致：会话失效回登录、真越权回 403，而不是只留红字
+    if (isUnauthorized(caught)) {
+      void router.replace({ path: '/login', query: { redirect: route.fullPath } })
+      return
+    }
+    if (isForbidden(caught)) {
+      void router.replace('/403')
+      return
+    }
     // 刷新失败就别让过期候选继续可勾选/可提交
     candidates.value = []
     candidatesTotal.value = 0
     selected.value = []
     candidatesError.value = caught instanceof Error ? caught.message : '加载候选版本失败'
-    candidatesLoading.value = false
   }
 }
 
@@ -278,7 +294,6 @@ async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<v
       items = items.concat(data.items)
       candidates.value = items
       candidatesTotal.value = data.total
-      trimSelection()
       if (items.length >= data.total) return
     } catch {
       if (token !== loadToken) return
