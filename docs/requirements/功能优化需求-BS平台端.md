@@ -1,15 +1,15 @@
-﻿# 校标教案双端平台 B/S 端功能需求说明书
+# 校标教案双端平台 B/S 端功能需求说明书
 
-**双端协同 · 平台端 · v1.16**
+**双端协同 · 平台端 · v1.17**
 
 | 项目 | 内容 |
 |---|---|
 | 文档编号 | LPP-BS-001 |
-| 文档版本 | v1.16 |
+| 文档版本 | v1.17 |
 | 编制日期 | 2026-10-26 |
-| 修订日期 | 2026-11-21 |
-| 修订说明 | v1.16：按教师端 E2E 复跑（13/13 全绿）回填 BS-01/02/03 证据；BS-07、BS-10 发现验收缺口，由 ✅ 降 🟡；v1.15：BS-16 日志 30 天轮转落地并升 ✅，平台端 16 条全部完成；v1.14：BS-14 升 ✅；v1.13：BS-13 升 ✅；v1.12：BS-11 升 ✅；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅ |
-| 状态基线 | 2026-11-21，`develop@4963bd0`；三态标注见第 0 节 |
+| 修订日期 | 2026-11-22 |
+| 修订说明 | v1.17：按 PreMortem T1–T5 收口 v2.1——BS-10 重复建课改 409 冲突语义并支持确认覆盖，新增平台内「生成草稿教案」降级路径；BS-07 导出页补候选版本勾选；BS-07、BS-10 回升 ✅，平台端 16 条全部完成；v1.16：按教师端 E2E 复跑（13/13 全绿）回填 BS-01/02/03 证据；BS-07、BS-10 发现验收缺口，由 ✅ 降 🟡；v1.15：BS-16 日志 30 天轮转落地并升 ✅，平台端 16 条全部完成；v1.14：BS-14 升 ✅；v1.13：BS-13 升 ✅；v1.12：BS-11 升 ✅；v1.11：BS-15 升 ✅；v1.10：BS-12 升 ✅ |
+| 状态基线 | 2026-11-22，`test/integration@4c575c7`（v2.1 联调基线，待 PR 回合 develop）；三态标注见第 0 节 |
 | 适用基线 | 插件端 commit `ecbdf49`；《开题报告-校标教案双端平台》 |
 | 配套文档 | 《功能优化需求-校标教案生成平台》v1.7（插件端 18 条需求，下称"插件端需求"） |
 | 覆盖范围 | B/S 平台端（浏览器端 + 服务端）与双端协同契约 |
@@ -22,16 +22,16 @@
 
 **状态图例**：`✅ 已完成`＝实现与验收用例均已落地；`🟡 部分完成`＝主链路可用但仍有验收缺口；`⬜ 未开始`＝无实现或无测试。
 
-**状态基线**：2026-11-21，`develop@4963bd0`。判定依据为代码入口、测试文件、v1.2.0 发布记录与教师端 E2E 复跑；后续实现合入时同批更新状态、证据与缺口。
+**状态基线**：2026-11-22，`test/integration@4c575c7`（v2.1 联调基线）。判定依据为代码入口、测试文件、v1.2.0 发布记录与教师端 E2E 复跑；后续实现合入 `develop` 时同批更新状态、证据与缺口。
 
-**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。项目 `.venv` 下 `run_all_tests.py` 12/12 套件、259 项通过；backend gate block 0、后端 283 项通过。`py -3` 仍缺 `python-multipart`，跑后端测试请用 `.venv` 或先装依赖。
+**测试基线说明**：`tests/fixtures/dual-end` 的 manifest 已与磁盘文件对齐，`run_plugin_fixtures.py` 额外核验 5 个包目录与 5 个 zip 的一致性。v2.1 联调基线实测：`run_all_tests.py` **12/12 套件、259 项通过**；backend gate **block 0 / warn 21**、后端 **294 项通过**；前端 `vitest run` **43 文件 / 205 项通过**。跑后端测试请先装 `src/backend/requirements.txt`（含 `python-multipart`），或在已装依赖的解释器下执行。
 
-**教师端 E2E 基线**：2026-11-21，`src/frontend/scripts/e2e-teacher-journey.mjs`（`npm run e2e:teacher`）在 `develop@4963bd0` 上 **13/13 步通过**，耗时约 4 秒：注册 → 首次强制改密 → 新建教案任务 → 下载任务包 → 导入契约包 → 教案库/正文 → 审查中心 → 导出 DOCX → 篡改包被拒 → 重复导入 → 退出登录。脚本是入库证据；本次截图、任务包与导出的 DOCX 在本机 `.qa/e2e/`（gitignored），风险与下一版对策见 [`docs/dev/PreMortem-校标教案平台-2026-11-21.md`](../dev/PreMortem-校标教案平台-2026-11-21.md)。
+**教师端 E2E 基线**：2026-11-22，`src/frontend/scripts/e2e-teacher-journey.mjs`（`npm run e2e:teacher`）在 `test/integration@4c575c7` 上 **16/16 步通过**：注册 → 首次强制改密 → 新建教案任务 → 下载任务包 → 导入契约包 → 教案库/正文 → 审查中心 → 导出 DOCX → 篡改包被拒 → 重复导入 → **重复建课冲突留在对话框且不跳 403** → **从任务生成草稿教案（未审查）** → **导出中心候选版本勾选导出** → 退出登录。角色矩阵脚本 `npm run e2e:roles` 同批 **10/10 步通过**（lead/admin/teacher 越权只出现在真实越权路由）。脚本是入库证据；本次截图、任务包与导出的 DOCX 在本机 `.qa/e2e/`（gitignored），风险与下一版对策见 [`docs/dev/PreMortem-校标教案平台-2026-11-21.md`](../dev/PreMortem-校标教案平台-2026-11-21.md)。
 
 | 状态 | 数量 | 编号 |
-|---|---:|---|
-| ✅ 已完成 | 14 | BS-01—BS-06、BS-08、BS-09、BS-11—BS-16 |
-| 🟡 部分完成 | 2 | BS-07、BS-10 |
+|---|---|---:|
+| ✅ 已完成 | 16 | BS-01—BS-16 |
+| 🟡 部分完成 | 0 | — |
 | ⬜ 未开始 | 0 | — |
 
 ## 摘要
@@ -219,10 +219,10 @@
 | BS-04 | 双端同步与冲突 | P0 | baseHash、sync_log | 双端一致率 ≥98% | ✅ 已完成 |
 | BS-05 | 角色权限与会话 | P0 | user、role | 越权 0 | ✅ 已完成 |
 | BS-06 | 审计台账 | P0 | audit_log | 写操作留痕 100% | ✅ 已完成 |
-| BS-07 | 导出中心 | P1 | export_job、engineVersion | 50 份 ≤5 分钟 | 🟡 部分完成 |
+| BS-07 | 导出中心 | P1 | export_job、engineVersion | 50 份 ≤5 分钟 | ✅ 已完成 |
 | BS-08 | 统计看板 | P1 | 指标口径 | 与开题表 2 一致 | ✅ 已完成 |
 | BS-09 | 样例库与资产 | P1 | sample、asset | 样例与插件端一致 | ✅ 已完成 |
-| BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | 🟡 部分完成 |
+| BS-10 | 任务与建课 | P1 | task | 任务完成率 ≥90% | ✅ 已完成 |
 | BS-11 | 隐私与脱敏 | P1 | user、class | 无学生 PII | ✅ 已完成 |
 | BS-12 | 检索与版本对比 | P2 | plan_version | 检索 p95 <500 毫秒 | ✅ 已完成 |
 | BS-13 | 通知与待办 | P2 | notification | 关键事件 100% 通知 | ✅ 已完成 |
@@ -384,9 +384,9 @@
 
 #### BS-07 导出中心
 
-**状态**：🟡 部分完成
-**证据**：`src/backend/app/api/routers/exports.py`、`app/application/export_service.py`、`tests/test_export_api.py`；v1.2.0 基线。教师端 E2E 2026-11-21：从审查中心点「导出」带入版本 ID 后，导出任务 100% 完成，下载到 `plan-<planId>-v<ver>.docx`（5831 字节，含学校/编号/授课日期等完整校标正文），报告哈希与引擎版本随之展示。
-**缺口**：导出页没有候选版本清单——`loadCandidates()` 只调统计接口并提示「可在统计页下钻查看」，不填充任何可选版本；教师必须手填版本 ID 或从审查中心跳转才导得出来。验收标准「选择若干教案版本批量导出」目前只在接口层满足，UI 层未满足（详情与修法见 `docs/dev/PreMortem-校标教案平台-2026-11-21.md` 的 T4）。
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/exports.py`、`app/application/export_service.py`、`tests/test_export_api.py`；v1.2.0 基线。教师端 E2E 2026-11-21：从审查中心点「导出」带入版本 ID 后，导出任务 100% 完成，下载到 `plan-<planId>-v<ver>.docx`（5831 字节，含学校/编号/授课日期等完整校标正文），报告哈希与引擎版本随之展示。v2.1（2026-11-22）：导出页新增候选版本清单——复用 `GET /api/v1/reviews` 的 `planVersionId / exportable / versionNo / status`，只列可导出（通过类且证据完整）的版本，按版本号取最新审查轮次去重，勾选与手填 ID 合并去重后批量提交（上限 50，与后端 `MAX_BATCH` 一致），手填 ID 保留为高级入口；审查中心与候选清单同批排除软删教案（`test_reviews_api.py::test_deleted_plan_hidden_from_reviews`）。前端用例 `ExportsView.spec.ts`（19 例）覆盖候选加载/翻页合并/轮次去重/截断/勾选/失败项清理；教师端 E2E 第 15 步「导出中心候选版本勾选导出」通过。
+**缺口**：无（v1.16 记录的"导出页没有候选版本清单"已于 v2.1 关闭）。
 
 **现状**：插件端可本地导出 DOCX；平台端没有批量导出与模板管理。
 
@@ -455,9 +455,10 @@
 
 #### BS-10 任务与建课
 
-**状态**：🟡 部分完成
-**证据**：`src/backend/app/api/routers/tasks.py`、`app/application/task_service.py`、`tests/test_tasks_api.py`；v1.2.0 基线。教师端 E2E 2026-11-21：新建任务（课题/课程/班级/周次/课次）后看板与列表都出现卡片，状态为「待开始」；下载任务包得到 `task-<id>-<周>-<次>.zip`，内含 `task.json`、校标骨架 `plan.json` 与 `README.md`。
-**缺口**：验收标准第 2 条「重复建课时提示冲突，确认后才允许」在 UI 层不达标。① 同一身份（课程+周次+课次+班级+课题）的任务属于他人时，后端返回 `403 FORBIDDEN`「该任务属于其他教师，不能覆盖」并先写一条 `authz.denied` 越权审计；前端 `TasksView.vue` 的 `handleError()` 一律 `router.replace('/403')`，教师被踢到「没有访问权限 / 越权访问已记录」整页，看不到真实原因，已填表单丢失。② 本人重复建课时后端返回 `CONFLICT_STALE`「确认覆盖请带 confirm=true」，但 `api/tasks.ts#createTask` 从不带 `confirm`、UI 也没有确认入口，教师看到的是「版本已变化，请刷新后重试」，照做无效。修法与排期见 `docs/dev/PreMortem-校标教案平台-2026-11-21.md` 的 T1。
+**状态**：✅ 已完成
+**证据**：`src/backend/app/api/routers/tasks.py`、`app/application/task_service.py`、`app/application/task_conflict.py`、`app/application/draft_service.py`、`tests/test_tasks_api.py`、`tests/test_draft_api.py`；v1.2.0 基线。教师端 E2E 2026-11-21：新建任务（课题/课程/班级/周次/课次）后看板与列表都出现卡片，状态为「待开始」；下载任务包得到 `task-<id>-<周>-<次>.zip`，内含 `task.json`、校标骨架 `plan.json` 与 `README.md`。v2.1（2026-11-22）冲突语义与草稿路径：
+- 同身份任务重复建课返回 **409**：本人/管理员 `TASK_ALREADY_EXISTS`（`details` 带 `taskId`，可带 `confirm=true` 覆盖并恢复已废弃任务），同组他人 `TASK_TAKEN_BY_OTHER`（带占用者），跨组只回泛化提示不泄露任务信息；冲突路径**不再写** `authz.denied`（越权审计只留给"确认覆盖他人任务"这类真越权）。前端 `TasksView.vue` 只在真权限码时跳 `/403`，冲突留在对话框内联提示并给「确认覆盖已有任务」，保留已填内容；E2E 第 13 步「重复建课冲突留在对话框且不跳 403」通过。
+- 新增 `POST /api/v1/tasks/{task_id}/draft`：复用 `engine.draft_plan()` 把校标骨架落成平台内 v1 草稿（`report_sha256=''`、`source='draft'`、状态「未审查」），仅任务本人可生成，二次点击幂等返回已有版本，不覆盖已审查版本、不推进任务状态；草稿仍须导入审查报告后才能导出（E2E 第 14 步、`test_draft_api.py` 7 例）。**缺口**：无（v1.16 记录的两条缺口已于 v2.1 关闭；组内教师替组长任务生成草稿仍不支持，属已知限制）。
 
 **现状**：平台端未建设；插件端由教师直接说"第几周第几次"开始。
 
@@ -601,7 +602,7 @@
 
 ### 5.2 REST 接口清单
 
-机器可读契约：`docs/api/contract.v1.json`（57 个接口、23 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
+机器可读契约：`docs/api/contract.v1.json`（58 个接口、25 个错误码、4 个版本字段、3 个角色）是平台端与前端实现的唯一依据；`docs/api/openapi.v1.json` 为从代码生成的快照，两者不一致按接口漂移处理。下表为人工阅读版，契约文件与它必须一致。
 
 | 方法 | 路径 | 角色 | 说明 | 幂等 |
 |---|---|---|---|---|
@@ -618,6 +619,7 @@
 | PATCH | /api/v1/tasks/{task_id}/board | 教师、组长 | 看板内移动任务（乐观锁） | 否 |
 | POST | /api/v1/tasks/{task_id}/discard | 教师、组长 | 废弃任务 | 是 |
 | POST | /api/v1/tasks/{task_id}/restore | 教师、组长 | 恢复已废弃任务 | 是 |
+| POST | /api/v1/tasks/{task_id}/draft | 教师、组长（任务本人） | 由任务生成校标草稿教案（未审查） | 是 |
 | GET | /api/v1/tasks/{id}/package | 登录 + 归属 | 下载任务包 | 是 |
 | POST | /api/v1/plans/import | 教师、组长 | 契约包入库 | 是 |
 | GET | /api/v1/plans | 登录 | 列表与筛选 | 是 |
@@ -711,6 +713,8 @@
 | REGISTRATION_CLOSED | 自助注册已关闭 | `LPP_ALLOW_REGISTRATION=0` 时的自助注册请求 |
 | PASSWORD_CHANGE_REQUIRED | 需先改密 | 账号 `must_change_password=1` 时访问改密以外的业务接口 |
 | CONFLICT_DELETED | 对象已删除 | 带 `planId` 推送时目标教案已软删除（HTTP 409） |
+| TASK_TAKEN_BY_OTHER | 任务已被占用 | 同身份任务已由他人或他组创建（HTTP 409；同组可见占用者，跨组只回泛化提示） |
+| TASK_ALREADY_EXISTS | 任务已存在 | 本人重复建同一身份任务，确认覆盖后更新已有任务（HTTP 409） |
 | SERVICE_UNAVAILABLE | 服务暂不可用 | 数据库结构未对齐或磁盘不可写（HTTP 503） |
 | INTERNAL | 服务端错误 | 未预期异常，附 `traceId` |
 
