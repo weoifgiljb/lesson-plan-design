@@ -39,8 +39,12 @@ export const client = {
     const response = await http.get<T>(path, { params })
     return response.data
   },
-  async post<T>(path: string, body?: unknown, params?: Record<string, unknown>): Promise<T> {
-    const response = await http.post<T>(path, body, { params })
+  async post<T>(
+    path: string,
+    body?: unknown,
+    options?: { params?: Record<string, unknown>; timeout?: number },
+  ): Promise<T> {
+    const response = await http.post<T>(path, body, options)
     return response.data
   },
   async patch<T>(path: string, body?: unknown): Promise<T> {

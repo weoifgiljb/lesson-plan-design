@@ -31,6 +31,7 @@ const candidates = ref<ReviewListItem[]>([])
 const candidatesTotal = ref(0)
 const candidatesLoading = ref(false)
 const candidatesError = ref('')
+const candidatesMoreFailed = ref(false)
 const selected = ref<number[]>([])
 
 let timer: number | undefined
@@ -108,6 +109,7 @@ async function submit(): Promise<void> {
   const ids = collectIds()
   error.value = ''
   message.value = ''
+  notice.value = ''
   if (ids.length === 0) {
     error.value = '请勾选候选版本，或填写教案版本 ID（逗号分隔）'
     return
@@ -141,6 +143,16 @@ async function submit(): Promise<void> {
       const retryable = rejected.filter((item) => RETRYABLE_FAILURE_CODES.has(String(item.code ?? '')))
       const retryableIds = new Set(retryable.map((item) => item.planVersionId))
       selected.value = selected.value.filter((id) => retryableIds.has(id))
+      // 非可重试失败（NOT_FOUND/FORBIDDEN/INTERNAL 等）也从手填框剔除，否则再点一次会原样重发必然失败的 ID
+      const blocked = new Set(
+        rejected.filter((item) => !retryableIds.has(item.planVersionId)).map((item) => item.planVersionId),
+      )
+      const attempted = parseIds(versionInput.value)
+      const kept = attempted.filter((id) => !blocked.has(id))
+      if (kept.length !== attempted.length) {
+        versionInput.value = kept.join(',')
+        if (prefilledId.value !== null && !kept.includes(prefilledId.value)) prefilledId.value = null
+      }
       const grouped = new Map<string, number[]>()
       for (const item of rejected) {
         const code = String(item.code ?? 'UNKNOWN')
@@ -216,6 +228,7 @@ async function loadCandidates(): Promise<void> {
   const token = (loadToken += 1)
   candidatesLoading.value = true
   candidatesError.value = ''
+  candidatesMoreFailed.value = false
   error.value = ''
   notice.value = ''
   try {
@@ -242,6 +255,8 @@ async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<v
   let items = loaded
   for (let page = 2; page <= MAX_CANDIDATE_PAGES; page += 1) {
     if (items.length >= candidatesTotal.value) return
+    // 首屏已到渲染上限就没必要再翻页
+    if (exportableRows.value.length > MAX_CANDIDATE_ROWS) return
     try {
       const data = await listReviews({ pageSize: 100, page })
       if (token !== loadToken) return
@@ -250,9 +265,9 @@ async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<v
       candidatesTotal.value = data.total
       trimSelection()
       if (items.length >= data.total) return
-      if (exportableRows.value.length > MAX_CANDIDATE_ROWS) return
     } catch {
-      return /* 后台补页失败不打断已渲染的候选 */
+      candidatesMoreFailed.value = true
+      return /* 后台补页失败不打断已渲染的候选，但要提示候选可能不完整 */
     }
   }
 }
@@ -316,7 +331,8 @@ async function copyHash(job: ExportJob): Promise<void> {
       <p v-if="candidatesCapped" class="hint">
         候选较多：最多展示最近 {{ MAX_CANDIDATE_ROWS }} 份可导出教案，更早的版本请用下方高级入口手填版本 ID。
       </p>
-      <p v-else-if="candidatesPartial" class="hint">
+      <p v-if="candidatesMoreFailed" class="hint">候选可能不完整（补页失败），可点「刷新候选」重试。</p>
+      <p v-else-if="candidatesPartial && candidateRows.length" class="hint">
         仅检索了最近 {{ candidates.length }} 条审查记录，更早的版本请用下方高级入口手填版本 ID。
       </p>
     </section>

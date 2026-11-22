@@ -353,6 +353,23 @@ describe('ExportsView', () => {
     wrapper.unmount()
   })
 
+  it('drops non-retryable failed ids from the manual input', async () => {
+    const { wrapper } = await mountAt('/exports?planVersionId=99')
+    createExports.mockResolvedValue({
+      items: [{ planVersionId: 99, status: 'failed', code: 'NOT_FOUND', message: '教案版本不存在' }],
+      created: 0,
+      reused: 0,
+    })
+    await submitButton(wrapper)!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('NOT_FOUND')
+    expect(wrapper.text()).not.toContain('可修正后重试')
+    expect(versionInput(wrapper).value).toBe('')
+    expect(wrapper.text()).not.toContain('已从审查中心带入')
+    wrapper.unmount()
+  })
+
   it('merges additional candidate pages until the review list is read', async () => {
     const { wrapper } = await mountAt('/exports', {
       pages: [
