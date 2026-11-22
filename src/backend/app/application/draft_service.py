@@ -44,8 +44,7 @@ def draft_from_task(
             if bound is None:
                 # 之前入库时启发式匹配落空导致未绑定：重试补绑，避免任务永远看不到草稿
                 _bind_task(repo, plan, plan_id, task_id)
-            current = existing[-1]
-            return _payload(plan_id, int(current["version_no"]), current, duplicate=True)
+            return _duplicate(repo, plan_id, existing[-1], task_id, owner_id, ip, trace_id)
         version_no = _write_draft(repo, plan_id, plan, plan_hash)
         _bind_task(repo, plan, plan_id, task_id)
         audit_service.record(
@@ -112,3 +111,22 @@ def _payload(
         "reviewStatus": str(version.get("status") or ""),
         "duplicate": duplicate,
     }
+
+
+def _duplicate(
+    repo: Repo, plan_id: int, current: dict[str, Any], task_id: int,
+    actor_id: int, ip: str, trace_id: str,
+) -> dict[str, Any]:
+    """重复点击也要留痕（与导入的 plan.import.duplicate 对齐，BS-06 写操作留痕）。"""
+    version_no = int(current["version_no"])
+    audit_service.record(
+        repo,
+        actor_id=actor_id,
+        action="task.draft.duplicate",
+        target_type="task",
+        target_id=str(task_id),
+        detail={"planId": plan_id, "versionNo": version_no},
+        ip=ip,
+        trace_id=trace_id,
+    )
+    return _payload(plan_id, version_no, current, duplicate=True)

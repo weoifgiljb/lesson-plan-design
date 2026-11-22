@@ -3036,7 +3036,7 @@
             "x-error-code": "NOT_FOUND"
           },
           "422": {
-            "description": "已废弃任务不能生成草稿",
+            "description": "已废弃任务或该课题已绑定其他班级任务，不能生成草稿",
             "x-error-code": "PAYLOAD_REJECTED"
           },
           "409": {

@@ -134,6 +134,13 @@ class TestDraftApi(unittest.TestCase):
         versions = self.client.get(f"/api/v1/plans/{first.json()['planId']}/versions").json()
         self.assertEqual(versions["total"], 1)
 
+        connection, repo = self._db()
+        try:
+            actions = [entry["action"] for entry in repo.list_audit(200)]
+        finally:
+            connection.close()
+        self.assertIn("task.draft.duplicate", actions)
+
     def test_draft_permissions_and_rejected_tasks(self) -> None:
         task_id = self._create_task()
         self.assertEqual(self._draft(9999).status_code, 404)
