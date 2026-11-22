@@ -30,6 +30,8 @@ def draft_from_task(
     owner_id = int(user.get("id") or 0)
     task_id = int(task["id"])
     with repo.transaction():
+        # 事务内复检：模板生成与写库之间任务可能被废弃或改名，不能把旧标题的草稿绑上去
+        _recheck(repo, task)
         plan_id = repo.find_or_create_plan(owner_id, plan)
         bound = repo.task_for_plan(plan_id)
         if bound is not None and int(bound["id"]) != task_id:
@@ -62,14 +64,25 @@ def draft_from_task(
 
 
 def _touchable_task(repo: Repo, user: dict[str, Any], task_id: int) -> dict[str, Any]:
+    """草稿是新内容，只有任务本人（或管理员）能建：组内共享是只读+推进，不替别人建教案。"""
     task = repo.get_task(int(task_id))
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    if not task_rules.can_touch(user, task):
-        raise AppError("FORBIDDEN", "只能操作本人或本组任务")
+    if not task_rules.can_overwrite(user, task):
+        raise AppError("FORBIDDEN", "只能为自己创建的任务生成草稿")
     if task.get("discarded_at") is not None:
         raise AppError("PAYLOAD_REJECTED", "已废弃任务不能生成草稿")
     return task
+
+
+def _recheck(repo: Repo, task: dict[str, Any]) -> None:
+    fresh = repo.get_task(int(task["id"]))
+    if fresh is None or fresh.get("discarded_at") is not None:
+        raise AppError("PAYLOAD_REJECTED", "已废弃任务不能生成草稿")
+    if (fresh["title"], fresh["week"], fresh["session"], fresh["course"]) != (
+        task["title"], task["week"], task["session"], task["course"]
+    ):
+        raise AppError("CONFLICT_STALE", "任务已被修改，请刷新后重试")
 
 
 def _write_draft(repo: Repo, plan_id: int, plan: dict[str, Any], plan_hash: str) -> int:

@@ -112,7 +112,7 @@ def create_task(
         200: {"description": "该任务已有教案版本，返回已有版本（幂等，不新增版本）"},
         **error_responses(
             "AUTH_REQUIRED:未登录",
-            "FORBIDDEN:只能操作本人或本组任务",
+            "FORBIDDEN:只能为自己创建的任务生成草稿",
             "NOT_FOUND:任务不存在",
             "PAYLOAD_REJECTED:已废弃任务或该课题已绑定其他班级任务，不能生成草稿",
             "CONFLICT_STALE:数据库繁忙或并发写入冲突，请重试",
