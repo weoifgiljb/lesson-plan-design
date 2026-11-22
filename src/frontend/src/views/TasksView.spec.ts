@@ -11,6 +11,7 @@ import type { TaskItem } from '@/api/models'
 const listTasks = vi.fn()
 const getTaskBoard = vi.fn()
 const downloadTaskPackage = vi.fn()
+const draftTask = vi.fn()
 const createTask = vi.fn()
 const moveTask = vi.fn()
 const discardTask = vi.fn()
@@ -21,6 +22,7 @@ vi.mock('@/api/tasks', () => ({
   listTasks: (...args: unknown[]) => listTasks(...args),
   getTaskBoard: (...args: unknown[]) => getTaskBoard(...args),
   downloadTaskPackage: (...args: unknown[]) => downloadTaskPackage(...args),
+  draftTask: (...args: unknown[]) => draftTask(...args),
   createTask: (...args: unknown[]) => createTask(...args),
   moveTask: (...args: unknown[]) => moveTask(...args),
   discardTask: (...args: unknown[]) => discardTask(...args),
@@ -68,14 +70,14 @@ function conflictError(
   })
 }
 
-async function mountView() {
-  listTasks.mockResolvedValue({ items: [task], page: 1, pageSize: 20, total: 1 })
+async function mountView(items: TaskItem[] = [task]) {
+  listTasks.mockResolvedValue({ items, page: 1, pageSize: 20, total: items.length })
   getTaskBoard.mockResolvedValue({
-    items: [task],
-    total: 1,
+    items,
+    total: items.length,
     counts: {
       urgent_important: 0,
-      important_not_urgent: 1,
+      important_not_urgent: items.length,
       urgent_not_important: 0,
       not_urgent_not_important: 0,
     },
@@ -83,10 +85,12 @@ async function mountView() {
   })
   downloadTaskPackage.mockResolvedValue(new Blob(['zip']))
   createTask.mockReset()
+  draftTask.mockReset()
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       { path: '/tasks', component: { template: '<div />' } },
+      { path: '/plans/:id', component: { template: '<div />' } },
       { path: '/login', component: { template: '<div />' } },
       { path: '/403', component: { template: '<div />' } },
     ],
@@ -136,6 +140,22 @@ function conflictButton(): HTMLButtonElement | undefined {
   )
 }
 
+async function switchToList(wrapper: ReturnType<typeof mount>): Promise<void> {
+  const list = wrapper.findAll('button').find((item) => item.text() === '列表')
+  expect(list).toBeTruthy()
+  await list!.trigger('click')
+  await flushPromises()
+}
+
+async function clickRowButton(wrapper: ReturnType<typeof mount>, label: string): Promise<void> {
+  const row = wrapper.findAll('.el-table__row').find((item) => item.text().includes('一级考证辅导2'))
+  expect(row).toBeTruthy()
+  const button = row!.findAll('button').find((item) => item.text().includes(label))
+  expect(button).toBeTruthy()
+  await button!.trigger('click')
+  await flushPromises()
+}
+
 describe('TasksView', () => {
   it('renders the quadrant board and the list view', async () => {
     const { wrapper } = await mountView()
@@ -174,6 +194,53 @@ describe('TasksView', () => {
     await flushPromises()
     expect(downloadTaskPackage).toHaveBeenCalledWith(9)
     expect(saveBlob).toHaveBeenCalledWith(expect.any(Blob), 'task-9-2-1.zip')
+    wrapper.unmount()
+  })
+
+  it('generates a draft plan from the task and opens the plan detail', async () => {
+    const { wrapper, router } = await mountView()
+    draftTask.mockResolvedValue({
+      planId: 12,
+      versionNo: 1,
+      planHash: 'draft-hash',
+      reviewStatus: '',
+      duplicate: false,
+    })
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    expect(draftTask).toHaveBeenCalledWith(9)
+    expect(router.currentRoute.value.path).toBe('/plans/12')
+    wrapper.unmount()
+  })
+
+  it('opens the existing plan when the task already produced one', async () => {
+    const { wrapper, router } = await mountView()
+    draftTask.mockResolvedValue({
+      planId: 12,
+      versionNo: 2,
+      planHash: 'existing-hash',
+      reviewStatus: 'passed',
+      duplicate: true,
+    })
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    // 幂等：不新增版本，只打开已有教案，并明确告诉教师
+    expect(document.body.textContent).toContain('已有教案')
+    expect(router.currentRoute.value.path).toBe('/plans/12')
+    wrapper.unmount()
+  })
+
+  it('hides the draft entry for discarded or read-only tasks', async () => {
+    const { wrapper } = await mountView([
+      { ...task, taskId: 21, title: '别人的课', canEdit: false },
+      { ...task, taskId: 22, title: '废弃的课', discarded: true, discardedAt: '2026-10-30T00:00:00+00:00' },
+    ])
+    await switchToList(wrapper)
+
+    const draftButtons = wrapper.findAll('button').filter((item) => item.text() === '生成草稿教案')
+    expect(draftButtons).toHaveLength(0)
     wrapper.unmount()
   })
 

@@ -330,7 +330,12 @@ onMounted(() => {
           <dl class="meta-list">
             <div>
               <dt>状态</dt>
-              <dd><StatusTag :code="String(plan.reviewStatus)" :status="String(plan.reviewStatus)" /></dd>
+              <dd>
+                <StatusTag
+                  :code="plan.reviewStatus || 'unreviewed'"
+                  :status="plan.reviewStatus || 'unreviewed'"
+                />
+              </dd>
             </div>
             <div>
               <dt>课程</dt>
@@ -346,7 +351,10 @@ onMounted(() => {
             </div>
             <div>
               <dt>当前版本</dt>
-              <dd>v{{ plan.versionNo }} · 第 {{ plan.reviewRound }} 轮</dd>
+              <dd>
+                v{{ plan.versionNo }}
+                <template v-if="plan.reviewRound"> · 第 {{ plan.reviewRound }} 轮</template>
+              </dd>
             </div>
             <div>
               <dt>最新审查</dt>

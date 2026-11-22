@@ -126,7 +126,7 @@ const queue = computed<OverviewQueueRow[]>(() => {
       session: plan.session,
       teacher: plan.teacher,
       versionNo: plan.versionNo,
-      status: plan.reviewStatus,
+      status: plan.reviewStatus ?? 'unreviewed',
       updatedAt: formatShortDateTime(plan.versionCreatedAt),
     })) ?? []
   )

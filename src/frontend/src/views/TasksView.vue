@@ -12,6 +12,7 @@ import {
   createTask,
   discardTask,
   downloadTaskPackage,
+  draftTask,
   getTaskBoard,
   listTasks,
   moveTask,
@@ -75,7 +76,7 @@ const columns: TableColumn[] = [
   { key: 'teacher', label: '教师', width: 90 },
   { key: 'status', label: '状态', width: 96 },
   { key: 'dueDate', label: '截止', width: 150 },
-  { key: 'actions', label: '操作', width: 150, align: 'right' },
+  { key: 'actions', label: '操作', width: 230, align: 'right' },
 ]
 
 const statusOptions = [
@@ -181,6 +182,7 @@ function switchView(mode: 'board' | 'list'): void {
 }
 
 const downloadingId = ref<number | null>(null)
+const draftingId = ref<number | null>(null)
 
 async function download(task: TaskItem): Promise<void> {
   downloadingId.value = task.taskId
@@ -192,6 +194,22 @@ async function download(task: TaskItem): Promise<void> {
     handleError(caught, '下载任务包失败')
   } finally {
     downloadingId.value = null
+  }
+}
+
+/** 无 Agent 环境下的降级路径：把任务落成平台内 v1 草稿（未审查），直接进教案详情。 */
+async function onDraft(task: TaskItem): Promise<void> {
+  draftingId.value = task.taskId
+  try {
+    const result = await draftTask(task.taskId)
+    sealSuccess(
+      result.duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）',
+    )
+    await router.push(`/plans/${result.planId}`)
+  } catch (caught) {
+    handleError(caught, '生成草稿教案失败')
+  } finally {
+    draftingId.value = null
   }
 }
 
@@ -501,9 +519,20 @@ onMounted(() => {
       </template>
       <template #cell-actions="{ row }">
         <el-button
+          v-if="row.canEdit && !row.discarded"
+          link
+          type="primary"
+          :loading="draftingId === row.taskId"
+          :disabled="downloadingId === row.taskId"
+          @click="onDraft(row)"
+        >
+          生成草稿教案
+        </el-button>
+        <el-button
           link
           type="primary"
           :loading="downloadingId === row.taskId"
+          :disabled="draftingId === row.taskId"
           @click="download(row)"
         >
           下载任务包
@@ -518,7 +547,9 @@ onMounted(() => {
       </template>
     </DataTable>
 
-    <p class="footnote">任务包由插件端读取后生成教案；看板不显示已完成或已废弃任务，列表可恢复。</p>
+    <p class="footnote">
+      任务包由插件端读取后生成教案；没有 Agent 时点「生成草稿教案」可在平台内先落一版校标草稿（未审查，导出前仍需导入审查报告）。
+    </p>
 
     <el-dialog v-model="dialogVisible" title="新建任务" width="min(520px, 92vw)" destroy-on-close>
       <el-alert v-if="formError" :title="formError" type="error" :closable="false" show-icon />

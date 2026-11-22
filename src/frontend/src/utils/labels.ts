@@ -41,7 +41,9 @@ export const SCOPE_LABELS: Record<string, string> = {
 export const UNAVAILABLE_TEXT = '不可用'
 export const UNREVIEWED_TEXT = '未审查'
 
-export function reviewStatusLabel(status: string): string {
+export function reviewStatusLabel(status: string | null | undefined): string {
+  // 草稿版本没有审查记录：null/空串/统计页的 unknown 都按「未审查」展示
+  if (!status || status === 'unknown' || status === 'unreviewed') return UNREVIEWED_TEXT
   return REVIEW_STATUS_LABELS[status] ?? status
 }
 

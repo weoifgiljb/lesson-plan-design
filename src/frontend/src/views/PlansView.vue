@@ -245,7 +245,10 @@ onMounted(async () => {
         <span class="version-tag" :class="{ 'is-new': row.versionNo > 1 }">第 {{ row.versionNo }} 稿</span>
       </template>
       <template #cell-reviewStatus="{ row }">
-        <StatusTag :code="String(row.reviewStatus)" :status="String(row.reviewStatus)" />
+        <StatusTag
+          :code="row.reviewStatus || 'unreviewed'"
+          :status="row.reviewStatus || 'unreviewed'"
+        />
       </template>
       <template #cell-versionCreatedAt="{ row }">
         <span class="muted">{{ formatShortDateTime(row.versionCreatedAt) }}</span>
