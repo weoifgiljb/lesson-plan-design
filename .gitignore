@@ -20,6 +20,8 @@ work-plan.docx
 *.db-wal
 *.db-shm
 *.db-journal
-# 本地开发账号（VITE_DEV_USERNAME），含口令，不入库
-.env*.local
+# 本地开发账号（VITE_DEV_USERNAME），不入库；口令不要写进 VITE_ 变量
+.env
+.env.*
+!.env.example
 

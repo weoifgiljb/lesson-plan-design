@@ -6,6 +6,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import BrandMark from '@/components/BrandMark.vue'
 import { RequestError } from '@/api/client-error'
 import { useSessionStore } from '@/stores/session'
+import { devPrefillUsername } from '@/utils/dev-prefill'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,10 +14,11 @@ const session = useSessionStore()
 const isDev = import.meta.env.DEV
 // 开发账号由 Vite 环境变量提供（VITE_DEV_USERNAME），源码里不写死：写死会与种子账号漂移（UI-04 缺口）。
 // 只预填用户名、绝不预填口令：VITE_ 变量会被构建期内联，口令放进去等于写进前端产物。
-const devUsername = isDev ? String(import.meta.env.VITE_DEV_USERNAME ?? '') : ''
+const devUsername = devPrefillUsername(isDev, import.meta.env.VITE_DEV_USERNAME)
 
 const formRef = ref<FormInstance>()
 const usernameRef = ref<{ focus: () => void } | null>(null)
+const passwordRef = ref<{ focus: () => void } | null>(null)
 const form = reactive({
   username: devUsername,
   password: '',
@@ -62,7 +64,9 @@ function goRegister(): void {
 }
 
 onMounted(() => {
-  usernameRef.value?.focus()
+  // 预填了用户名时把焦点直接放到密码框，开发者少按一次 Tab
+  if (form.username) passwordRef.value?.focus()
+  else usernameRef.value?.focus()
 })
 </script>
 
@@ -144,6 +148,7 @@ onMounted(() => {
           </el-form-item>
           <el-form-item label="密码" prop="password">
             <el-input
+              ref="passwordRef"
               v-model="form.password"
               type="password"
               show-password
