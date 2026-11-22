@@ -148,6 +148,13 @@ class TestDraftApi(unittest.TestCase):
         self.assertEqual(self._draft(task_id, other).status_code, 403)
         admin = self._login("admin1")
         self.assertEqual(self._draft(task_id, admin).status_code, 403)
+        # 归属越权必须留痕（BS-06/AC-06）：403 也要有 authz.denied
+        connection = open_database(self.db_file)
+        try:
+            actions = [row["action"] for row in Repo(connection).list_audit(200)]
+        finally:
+            connection.close()
+        self.assertIn("authz.denied", actions)
 
         self.csrf = self._login("teacher1")
         discarded = self._create_task(title="废弃课", session=2)

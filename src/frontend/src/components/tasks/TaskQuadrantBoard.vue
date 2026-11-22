@@ -90,7 +90,8 @@ function onCommand(task: TaskItem, command: string): void {
     return
   }
   if (command === 'draft') {
-    if (props.draftable) emit('draft', task)
+    // 纵深防御：命令可能由别处/键盘触发，规则仍走 canDraftPlan（归属+可编辑+未废弃）
+    if (canDraft(task)) emit('draft', task)
     return
   }
   // 只有登记过的象限才移动任务，避免新菜单项漏登记时发出非法看板请求

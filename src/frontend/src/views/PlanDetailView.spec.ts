@@ -116,7 +116,11 @@ describe('PlanDetailView', () => {
       },
       latestReview: null,
     })
-    listPlanVersions.mockResolvedValue({ planId: 1, total: 1, items: [] })
+    listPlanVersions.mockResolvedValue({
+      planId: 1,
+      total: 1,
+      items: [{ versionNo: 1, planHash: 'cccc', createdAt: '2026-10-29T02:00:00+00:00', status: null, round: null }],
+    })
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/plans/:id', component: { template: '<div />' } }],
@@ -129,6 +133,8 @@ describe('PlanDetailView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('未审查')
+    // 标题栏与版本历史都要按「未审查」展示，不能出现 null/— 当数据缺失
+    expect(wrapper.text().match(/未审查/g)?.length ?? 0).toBeGreaterThanOrEqual(2)
     expect(wrapper.text()).not.toContain('null')
     expect(wrapper.text()).not.toContain('第 null 轮')
     wrapper.unmount()

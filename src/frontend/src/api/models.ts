@@ -83,8 +83,9 @@ export interface PlanVersion {
   engineVersion?: string
   createdAt: string
   content?: Record<string, unknown>
-  round?: number
-  status?: string
+  round?: number | null
+  /** 草稿版本没有审查记录：后端返回 null */
+  status?: string | null
   reportSha256?: string
 }
 

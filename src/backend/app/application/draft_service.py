@@ -20,7 +20,7 @@ def draft_from_task(
     repo: Repo, user: dict[str, Any], task_id: int, *, ip: str = "", trace_id: str = ""
 ) -> dict[str, Any]:
     """生成或返回该任务的草稿教案；同一身份已有版本时幂等返回，不覆盖已审查版本。"""
-    task = _touchable_task(repo, user, task_id)
+    task = _touchable_task(repo, user, task_id, ip=ip, trace_id=trace_id)
     plan = engine.draft_plan(
         int(task["week"]), int(task["session"]), str(task["title"]), str(task["course"])
     )
@@ -63,12 +63,25 @@ def draft_from_task(
     return _payload(plan_id, version_no, {"plan_hash": plan_hash, "status": ""}, duplicate=False)
 
 
-def _touchable_task(repo: Repo, user: dict[str, Any], task_id: int) -> dict[str, Any]:
+def _touchable_task(
+    repo: Repo, user: dict[str, Any], task_id: int, *, ip: str = "", trace_id: str = ""
+) -> dict[str, Any]:
     """草稿是新内容，只有任务本人（或管理员）能建：组内共享是只读+推进，不替别人建教案。"""
     task = repo.get_task(int(task_id))
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
     if not task_rules.can_overwrite(user, task):
+        # 归属越权必须留痕（BS-06/AC-06）：与 task_service/task_conflict 的 authz.denied 口径一致
+        audit_service.record(
+            repo,
+            actor_id=int(user.get("id") or 0),
+            action="authz.denied",
+            target_type="task",
+            target_id=str(int(task["id"])),
+            detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks/{task_id}/draft"},
+            ip=ip,
+            trace_id=trace_id,
+        )
         raise AppError("FORBIDDEN", "只能为自己创建的任务生成草稿")
     if task.get("discarded_at") is not None:
         raise AppError("PAYLOAD_REJECTED", "已废弃任务不能生成草稿")
