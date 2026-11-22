@@ -37,8 +37,9 @@ if (!existsSync(packagePath)) throw new Error(`契约包不存在：${packagePat
 
 const httpErrors = []
 const pageErrors = []
-// 预期内的 HTTP 错误：按「状态码+方法+路径后缀」精确登记一次，命中即移除，避免污染 4xx/5xx 汇总
-let expectedHttp = []
+// 预期内的 HTTP 错误：按「状态码+方法+路径后缀+业务码」精确登记一次，命中即移除，避免污染 4xx/5xx 汇总
+const expectedHttp = []
+const pendingResponses = new Set()
 const results = []
 let docxBytes = 0
 let versionId = null
@@ -57,27 +58,31 @@ const context = await browser.newContext({
 })
 const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
-page.on('response', async (response) => {
+page.on('response', (response) => {
   if (response.status() < 400) return
-  let body = ''
-  try {
-    body = (await response.text()).replace(/\s+/g, ' ').slice(0, 240)
-  } catch {
-    body = '(响应体不可读)'
-  }
-  // 预期错误必须连业务码一起匹配，避免"换成别的 422 也照样 PASS"把真实缺陷洗白
-  const expectedIndex = expectedHttp.findIndex(
-    (item) =>
-      response.status() === item.status &&
-      response.request().method() === item.method &&
-      response.url().endsWith(item.path) &&
-      (!item.code || body.includes(item.code)),
-  )
-  if (expectedIndex >= 0) {
-    expectedHttp.splice(expectedIndex, 1)
-    return
-  }
-  httpErrors.push(`HTTP ${response.status()} ${response.url().replace(base, '')} → ${body}`)
+  // 响应体读取是异步的：登记成 Promise，汇总前统一 await，避免预期错误漏判
+  const task = (async () => {
+    let body = ''
+    try {
+      body = (await response.text()).replace(/\s+/g, ' ').slice(0, 240)
+    } catch {
+      body = '(响应体不可读)'
+    }
+    // 预期错误必须连业务码一起匹配，避免"换成别的 422 也照样 PASS"把真实缺陷洗白
+    const expectedIndex = expectedHttp.findIndex(
+      (item) =>
+        response.status() === item.status &&
+        response.request().method() === item.method &&
+        response.url().endsWith(item.path) &&
+        (!item.code || body.includes(item.code)),
+    )
+    if (expectedIndex >= 0) {
+      expectedHttp.splice(expectedIndex, 1)
+      return
+    }
+    httpErrors.push(`HTTP ${response.status()} ${response.url().replace(base, '')} → ${body}`)
+  })().finally(() => pendingResponses.delete(task))
+  pendingResponses.add(task)
 })
 
 const bodyText = () => page.locator('body').innerText()
@@ -336,7 +341,7 @@ steps.push([
     const message = (await toast.innerText()).replace(/\s+/g, ' ')
     must(/HASH_MISMATCH|哈希|失败/.test(message), `错误提示没有点明原因：${message}`)
     must(page.url().includes('/plans'), `导入失败后不该离开教案库：${page.url()}`)
-    expectedHttp = []
+    expectedHttp.length = 0
   },
 ])
 steps.push([
@@ -385,7 +390,7 @@ steps.push([
       ])
       conflictBody = await conflict.json()
     } finally {
-      expectedHttp = []
+      expectedHttp.length = 0
     }
     must(
       conflictBody.code === 'TASK_ALREADY_EXISTS',
@@ -497,6 +502,7 @@ for (const [name, fn] of steps) {
   if (!(await run(name, fn))) break
 }
 
+await Promise.allSettled([...pendingResponses])
 await browser.close()
 
 const failed = results.filter((item) => !item.ok)

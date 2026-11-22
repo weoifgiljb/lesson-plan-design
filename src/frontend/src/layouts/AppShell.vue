@@ -30,12 +30,12 @@ const isDev = import.meta.env.DEV
 // 受限路由对"未知身份"（未登录访客/身份未加载）fail-closed，未注册路径也不渲染，避免入口点了落空。
 function openTo(path: string): string | undefined {
   const resolved = router.resolve(path)
-  // 未注册路径会被全局 catch-all 接走：把命中 catch-all 视为"没有这个页面"，不渲染入口
+  // 未注册路径会被全局 catch-all 接走：命中 not-found 视为"没有这个页面"，不渲染入口
   const last = resolved.matched[resolved.matched.length - 1]
-  if (!last || last.path.includes(':pathMatch')) return undefined
+  if (!last || last.name === 'not-found' || last.path.includes(':pathMatch')) return undefined
   const roles = resolved.meta.roles
   if (!roles || roles.length === 0) return path
-  return session.user && roleAllowed(session.role, roles) ? path : undefined
+  return roleAllowed(session.role, roles) ? path : undefined
 }
 const canOpen = (path: string): boolean => openTo(path) !== undefined
 
@@ -222,6 +222,8 @@ watch(
 
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
+  // 公开子路由（如 dev 的 /styleguide）直达时守卫不会加载会话，这里补一次，避免受限入口永久隐藏
+  if (!session.user && !session.loading) void session.load()
 })
 
 onBeforeUnmount(() => {

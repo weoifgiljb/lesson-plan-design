@@ -13,7 +13,8 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
 
 const base = process.env.BASE_URL || 'http://127.0.0.1:5174'
-const password = process.env.E2E_PASSWORD || 'Lesson2026'
+// 口令：脚本默认用 Lesson2026；与仓库 smoke-*.mjs 一致，可用 LPP_PASSWORD 或 E2E_PASSWORD 覆盖。
+const password = process.env.E2E_PASSWORD || process.env.LPP_PASSWORD || 'Lesson2026'
 const accounts = {
   lead: process.env.E2E_LEAD || 'e2elead',
   admin: process.env.E2E_ADMIN || 'e2eadmin',
@@ -37,7 +38,11 @@ function must(condition, message) {
 
 let browser
 try {
-  browser = await chromium.launch({ channel: 'msedge', args: ['--enable-unsafe-swiftshader'] })
+  browser = await chromium.launch({
+    // 与 screenshots.mjs 一致：默认走系统 Edge，可用 E2E_CHANNEL 覆盖（CI 上用 chromium）
+    channel: process.env.E2E_CHANNEL || 'msedge',
+    args: ['--enable-unsafe-swiftshader'],
+  })
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     reducedMotion: 'reduce',

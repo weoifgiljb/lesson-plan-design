@@ -116,6 +116,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/:pathMatch(.*)*',
+    name: 'not-found',
     component: NotFoundView,
     meta: { public: true, title: '页面不存在' },
   },
