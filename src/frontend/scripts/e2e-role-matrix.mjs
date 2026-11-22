@@ -1,4 +1,4 @@
-// 角色矩阵端到端：lead / admin / teacher 三账号走关键页面，验证「越权页只出现在真实越权操作上」。
+﻿// 角色矩阵端到端：lead / admin / teacher 三账号走关键页面，验证「越权页只出现在真实越权操作上」。
 // 前置（必须在同一个数据目录下建号，账号需 must_change_password=0；脚本被要求改密会直接失败）：
 //   py -3 scripts/seed_users.py --lead  e2elead  --password 'Lesson2026' --name 端到端组长
 //   py -3 scripts/seed_users.py --admin e2eadmin --password 'Lesson2026' --name 端到端管理员
@@ -54,8 +54,10 @@ try {
   page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
   // 响应体读取是异步的：登记成 Promise，判定前统一 await，避免 4xx 漏判/误报
   page.on('response', (response) => {
-    // 只统计业务接口；退出登录瞬间的 401 是已知观察项（pre-mortem §5），与教师端脚本保持一致
-    if (response.status() < 400 || !response.url().includes('/api/')) return
+    // 与教师端脚本口径一致：只忽略 dev/构建噪声，页面级 5xx 与资源 404 同样计入失败
+    if (response.status() < 400) return
+    if (/\/@vite\/|\.map(\?|$)|favicon/.test(response.url())) return
+    // 退出登录瞬间的 401 是已知观察项（pre-mortem §5），与教师端脚本保持一致
     if (response.status() === 401 && response.url().includes('/api/v1/auth/logout')) return
     const task = response
       .text()
@@ -166,7 +168,7 @@ try {
       await page.waitForURL('**/tasks', { timeout: 15000 })
       // 主导航常驻于布局层，必须等任务页自身入口出现，才能证明页面已渲染
       await page.getByRole('button', { name: '新建任务' }).first().waitFor({ timeout: 15000 })
-      must(!page.url().includes('/403'), 'lead 访问任务页被误判越权')
+      // waitForURL 已保证当前就是目标页，越权回归由 expectForbidden/页面元素等待兜住
     },
   ])
   steps.push([
@@ -183,7 +185,7 @@ try {
       await page.waitForURL('**/exports', { timeout: 15000 })
       // 面包屑也会渲染「导出中心」，必须等导出页自身的入口出现
       await page.getByRole('button', { name: '创建导出' }).waitFor({ timeout: 15000 })
-      must(!page.url().includes('/403'), 'lead 访问导出页被误判越权')
+      // waitForURL 已保证当前就是目标页，越权回归由 expectForbidden/页面元素等待兜住
     },
   ])
   steps.push([
@@ -244,7 +246,7 @@ try {
       await navTo('导出')
       await page.waitForURL('**/exports', { timeout: 15000 })
       await page.getByRole('button', { name: '创建导出' }).waitFor({ timeout: 15000 })
-      must(!page.url().includes('/403'), 'teacher 访问任务/审查/导出被误判越权')
+      // waitForURL 已保证当前就是目标页，越权回归由 expectForbidden/页面元素等待兜住
     },
   ])
 

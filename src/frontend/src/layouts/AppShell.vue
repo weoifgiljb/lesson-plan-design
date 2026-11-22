@@ -28,9 +28,9 @@ const session = useSessionStore()
 const isDev = import.meta.env.DEV
 function openTo(path: string): string | undefined {
   const resolved = router.resolve(path)
-  // 只看目标路由自己的 meta（merged meta 会被父级路由污染）
+  // name 取末级记录（识别 catch-all）；roles 与守卫同口径，用合并后的 meta（会继承父级 roles）
   const last = resolved.matched[resolved.matched.length - 1]
-  if (!last || !navVisible(last.name, last.meta.roles, session.role)) return undefined
+  if (!last || !navVisible(last.name, resolved.meta.roles, session.role)) return undefined
   return path
 }
 const canOpen = (path: string): boolean => openTo(path) !== undefined
@@ -113,7 +113,7 @@ const commands = computed<CommandItem[]>(() => {
       keywords: 'task 建课 任务包',
     })
   }
-  if (openTo('/plans')) {
+  if (session.user) {
     list.push({
       id: 'plans',
       title: '教案库',
@@ -221,8 +221,11 @@ watch(
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
   // 公开子路由（如 dev 的 /styleguide）直达时守卫不会加载会话，这里补一次，避免受限入口永久隐藏。
-  // 匿名访问公开页时 /api/v1/me 返回 401 属正常情况，不弹错误提示。
-  if (!session.user && !session.loading) void session.load()
+  // 匿名访问公开页会打出一次 401（Chromium 记为 console error，screenshots.mjs 会判失败），
+  // 因此只在存在可读会话线索（登录时下发的 lpp_csrf）时才探测。
+  if (!session.user && !session.loading && document.cookie.includes('lpp_csrf=')) {
+    void session.load()
+  }
 })
 
 onBeforeUnmount(() => {
