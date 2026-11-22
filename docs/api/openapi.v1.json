@@ -2992,6 +2992,56 @@
         }
       }
     },
+    "/api/v1/tasks/{task_id}/draft": {
+      "post": {
+        "summary": "Draft Task",
+        "operationId": "draft_task_api_v1_tasks__task_id__draft_post",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Draft Task Api V1 Tasks  Task Id  Draft Post"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "该任务已有教案版本，返回已有版本（幂等，不新增版本）"
+          },
+          "401": {
+            "description": "未登录",
+            "x-error-code": "AUTH_REQUIRED"
+          },
+          "403": {
+            "description": "只能操作本人或本组任务",
+            "x-error-code": "FORBIDDEN"
+          },
+          "404": {
+            "description": "任务不存在",
+            "x-error-code": "NOT_FOUND"
+          },
+          "422": {
+            "description": "已废弃任务不能生成草稿",
+            "x-error-code": "PAYLOAD_REJECTED"
+          }
+        }
+      }
+    },
     "/api/v1/tasks/{task_id}/rollback": {
       "post": {
         "summary": "Rollback Task",

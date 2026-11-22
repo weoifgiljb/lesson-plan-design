@@ -12,6 +12,7 @@ from test_audit_api import TestAuditApi  # noqa: E402,F401
 from test_auth_api import TestAuthApi  # noqa: E402,F401
 from test_auth_domain import TestAuthRules, TestRoles  # noqa: E402,F401
 from test_db_schema import TestDatabaseSchema  # noqa: E402,F401
+from test_draft_api import TestDraftApi  # noqa: E402,F401
 from test_engine import TestEngineParity  # noqa: E402,F401
 from test_errors_api import TestErrorEnvelope  # noqa: E402,F401
 from test_export_api import TestExportApi  # noqa: E402,F401

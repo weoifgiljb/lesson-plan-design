@@ -1262,16 +1262,17 @@ class Repo:
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
         report_sha256: str, schema_version: int, rubric_version: str, engine_version: str,
-        template_version: str = "",
+        template_version: str = "", source: str = "import",
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
                 "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
-                " schema_version, rubric_version, engine_version, template_version, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " schema_version, rubric_version, engine_version, template_version, source, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     plan_id, version_no, content_json, plan_hash, report_sha256,
-                    schema_version, rubric_version, engine_version, template_version, clock.now_iso(),
+                    schema_version, rubric_version, engine_version, template_version, source,
+                    clock.now_iso(),
                 ),
             )
             return int(cursor.lastrowid or 0), True

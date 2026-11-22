@@ -1036,6 +1036,28 @@
       "implemented": true
     },
     {
+      "method": "POST",
+      "path": "/api/v1/tasks/{task_id}/draft",
+      "summary": "由任务生成校标草稿教案",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        201,
+        401,
+        403,
+        404,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
       "method": "GET",
       "path": "/api/v1/plans/{id}/diff/export",
       "summary": "导出两版差异 CSV",
