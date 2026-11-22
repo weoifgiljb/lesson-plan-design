@@ -2,7 +2,9 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { RequestError } from '@/api/client-error'
 import { createExports, downloadExport, getExport } from '@/api/exports'
+import { errorMessage } from '@/api/errors'
 import { listReviews } from '@/api/reviews'
 import type { ExportJob, ReviewListItem } from '@/api/models'
 import StatusTag from '@/components/StatusTag.vue'
@@ -153,17 +155,24 @@ async function submit(): Promise<void> {
         versionInput.value = kept.join(',')
         if (prefilledId.value !== null && !kept.includes(prefilledId.value)) prefilledId.value = null
       }
-      const grouped = new Map<string, number[]>()
+      // 按码分组，但用后端给教师看的中文 message（缺失才回落错误码文案）
+      const grouped = new Map<string, { message: string; ids: number[] }>()
       for (const item of rejected) {
         const code = String(item.code ?? 'UNKNOWN')
-        grouped.set(code, [...(grouped.get(code) ?? []), item.planVersionId])
+        const group = grouped.get(code) ?? { message: item.message || errorMessage(code), ids: [] }
+        group.ids.push(item.planVersionId)
+        grouped.set(code, group)
       }
-      const detail = [...grouped].map(([code, ids]) => `${code}: ${ids.join(', ')}`).join('；')
+      const detail = [...grouped.values()].map((group) => `${group.message}（版本 ${group.ids.join(', ')}）`).join('；')
       error.value = `有 ${rejected.length} 份导出失败：${detail}`
       if (retryable.length) error.value += `（${retryable.length} 份可修正后重试，已保留勾选）`
     }
   } catch (caught) {
-    error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
+    if (caught instanceof RequestError && caught.code === 'PAYLOAD_REJECTED') {
+      error.value = `提交失败：${caught.message}（单次最多 ${EXPORT_BATCH_LIMIT} 份）`
+    } else {
+      error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
+    }
   } finally {
     creating.value = false
   }
@@ -256,7 +265,7 @@ async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<v
   for (let page = 2; page <= MAX_CANDIDATE_PAGES; page += 1) {
     if (items.length >= candidatesTotal.value) return
     // 首屏已到渲染上限就没必要再翻页
-    if (exportableRows.value.length > MAX_CANDIDATE_ROWS) return
+    if (exportableRows.value.length >= MAX_CANDIDATE_ROWS) return
     try {
       const data = await listReviews({ pageSize: 100, page })
       if (token !== loadToken) return
@@ -266,6 +275,7 @@ async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<v
       trimSelection()
       if (items.length >= data.total) return
     } catch {
+      if (token !== loadToken) return
       candidatesMoreFailed.value = true
       return /* 后台补页失败不打断已渲染的候选，但要提示候选可能不完整 */
     }

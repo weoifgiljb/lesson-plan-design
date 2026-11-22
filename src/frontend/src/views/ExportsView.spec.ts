@@ -363,7 +363,7 @@ describe('ExportsView', () => {
     await submitButton(wrapper)!.trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('NOT_FOUND')
+    expect(wrapper.text()).toContain('教案版本不存在')
     expect(wrapper.text()).not.toContain('可修正后重试')
     expect(versionInput(wrapper).value).toBe('')
     expect(wrapper.text()).not.toContain('已从审查中心带入')
