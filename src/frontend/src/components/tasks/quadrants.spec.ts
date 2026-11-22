@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { TaskItem } from '@/api/models'
-import { groupTasks, taskStatusLabel } from './quadrants'
+import { canDraftPlan, groupTasks, taskStatusLabel } from './quadrants'
 
 function task(overrides: Partial<TaskItem>): TaskItem {
   return {
@@ -46,5 +46,13 @@ describe('task quadrants', () => {
     expect(taskStatusLabel(task({ status: 'reviewing' }))).toBe('进行中')
     expect(taskStatusLabel(task({ status: 'passed' }))).toBe('已完成')
     expect(taskStatusLabel(task({ discarded: true }))).toBe('已废弃')
+  })
+
+  it('only offers draft generation to the task owner', () => {
+    expect(canDraftPlan(task({}), 1)).toBe(true)
+    expect(canDraftPlan(task({}), 2)).toBe(false)
+    expect(canDraftPlan(task({}), undefined)).toBe(false)
+    expect(canDraftPlan(task({ canEdit: false }), 1)).toBe(false)
+    expect(canDraftPlan(task({ discarded: true }), 1)).toBe(false)
   })
 })

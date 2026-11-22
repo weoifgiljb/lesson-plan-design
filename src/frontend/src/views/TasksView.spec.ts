@@ -256,6 +256,31 @@ describe('TasksView', () => {
     wrapper.unmount()
   })
 
+  it('keeps the list usable and stays on the page when draft generation fails', async () => {
+    const { wrapper, router } = await mountView()
+    const confirm = vi.spyOn(ElMessageBox, 'confirm').mockResolvedValue('confirm' as never)
+    draftTask.mockRejectedValueOnce(
+      new RequestError({
+        code: 'PAYLOAD_REJECTED',
+        message: '已废弃任务不能生成草稿',
+        details: {},
+        traceId: 'trace-4',
+        status: 422,
+      }),
+    )
+    await switchToList(wrapper)
+    await clickRowButton(wrapper, '生成草稿教案')
+
+    expect(router.currentRoute.value.path).toBe('/tasks')
+    expect(document.body.textContent).toContain('已废弃任务不能生成草稿')
+    // 失败后状态要清理干净：按钮恢复可用，不会残留 loading
+    const button = wrapper.findAll('button').find((item) => item.text() === '生成草稿教案')
+    expect(button).toBeTruthy()
+    expect(button!.classes()).not.toContain('is-loading')
+    confirm.mockRestore()
+    wrapper.unmount()
+  })
+
   it('hides the draft entry for discarded or read-only tasks', async () => {
     const { wrapper } = await mountView([
       { ...task, taskId: 21, title: '别人的课', canEdit: false },

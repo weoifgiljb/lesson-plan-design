@@ -24,7 +24,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TaskQuadrantBoard from '@/components/tasks/TaskQuadrantBoard.vue'
-import { QUADRANTS, taskStatusLabel } from '@/components/tasks/quadrants'
+import { QUADRANTS, canDraftPlan, taskStatusLabel } from '@/components/tasks/quadrants'
 import type { TableColumn } from '@/components/table-types'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { usePagedQuery } from '@/composables/usePagedQuery'
@@ -205,13 +205,14 @@ async function onDraft(task: TaskItem): Promise<void> {
     ElMessage.info('正在生成草稿教案，请稍候')
     return
   }
-  if (task.ownerId !== session.user?.id) {
+  if (!canDraftPlan(task, session.user?.id)) {
     // 后端只允许任务归属人代建草稿（管理员/组长点他人任务会 403），入口先挡
     ElMessage.warning('只能为自己创建的任务生成草稿教案')
     return
   }
   confirmingDraftId.value = task.taskId
   let planId: number | null = null
+  let duplicate = false
   try {
     try {
       await ElMessageBox.confirm(
@@ -224,10 +225,8 @@ async function onDraft(task: TaskItem): Promise<void> {
     }
     draftingId.value = task.taskId
     const result = await draftTask(task.taskId)
-    sealSuccess(
-      result.duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）',
-    )
     planId = result.planId
+    duplicate = result.duplicate
   } catch (caught) {
     handleError(caught, '生成草稿教案失败')
   } finally {
@@ -237,6 +236,7 @@ async function onDraft(task: TaskItem): Promise<void> {
   if (planId === null) return
   try {
     await router.push(`/plans/${planId}`)
+    sealSuccess(duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）')
   } catch {
     // 草稿已经落库：跳转失败只能提示去教案库打开，不能报成"生成失败"
     ElMessage.warning('草稿已生成，请到教案库手动打开')
@@ -552,7 +552,7 @@ onMounted(() => {
       </template>
       <template #cell-actions="{ row }">
         <el-button
-          v-if="row.canEdit && !row.discarded && row.ownerId === session.user?.id"
+          v-if="canDraftPlan(row, session.user?.id)"
           link
           type="primary"
           :loading="draftingId === row.taskId"

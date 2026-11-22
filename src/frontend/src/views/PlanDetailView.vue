@@ -184,7 +184,8 @@ function formatValue(value: unknown): string {
 }
 
 function versionStatus(version: PlanVersion): string {
-  return version.status ? String(version.status) : ''
+  // 草稿版本没有审查记录：与标题栏一致显示「未审查」，不要退化成 —（看起来像数据缺失）
+  return version.status ? String(version.status) : UNREVIEWED_STATUS
 }
 
 function openVersionPicker(): void {

@@ -4,7 +4,7 @@ import draggable from 'vuedraggable'
 
 import type { TaskItem, TaskQuadrant } from '@/api/models'
 import { formatDate, formatOverdue } from '@/utils/datetime'
-import { QUADRANTS, groupTasks, taskStatusLabel } from './quadrants'
+import { canDraftPlan, QUADRANTS, groupTasks, taskStatusLabel } from './quadrants'
 
 const props = withDefaults(
   defineProps<{
@@ -77,7 +77,7 @@ function moveTo(task: TaskItem, quadrant: TaskQuadrant): void {
 
 function canDraft(task: TaskItem): boolean {
   // 草稿后端只允许任务归属人代建：管理员/组长对他人的任务会 403，入口先过滤
-  return props.draftable && task.canEdit && !task.discarded && task.ownerId === props.currentUserId
+  return props.draftable && canDraftPlan(task, props.currentUserId)
 }
 
 function onCommand(task: TaskItem, command: string): void {
