@@ -1,5 +1,7 @@
-// 教师视角端到端：注册 → 首次改密 → 建教案任务 → 下载任务包（交给插件生成教案）
-// → 导入契约包 → 教案列表/详情/正文 → 审查中心 → 导出 DOCX → 退出。
+// 教师视角端到端（16 步）：注册 → 首次改密 → 建教案任务 → 下载任务包（交给插件生成教案）
+// → 导入契约包 → 教案列表/详情/正文 → 审查中心 → 导出 DOCX
+// → 重复建课冲突留在对话框（不跳 /403）→ 平台内生成草稿教案（未审查）
+// → 导出页候选版本勾选导出 → 退出。
 // 用法：BASE_URL=http://127.0.0.1:5174 node src/frontend/scripts/e2e-teacher-journey.mjs
 // 失败即停（fail-fast），单步失败会打印页面 URL、正文摘要与 4xx/5xx 响应体。
 import { existsSync, mkdirSync, statSync } from 'node:fs'
@@ -310,7 +312,92 @@ steps.push([
   },
 ])
 steps.push([
-  '13 退出登录回到登录页',
+  '13 重复建课冲突留在对话框且不跳 403',
+  async () => {
+    await navTo('任务')
+    await page.waitForURL('**/tasks', { timeout: 15000 })
+    await page.getByRole('button', { name: '新建任务' }).first().click()
+    const dialog = page.locator('.el-dialog')
+    await dialog.waitFor({ timeout: 10000 })
+    // 第 4 步已用同一身份建过任务，这里原样再提交一次（本人重复 → 409 TASK_ALREADY_EXISTS）
+    await dialog.getByRole('textbox', { name: '*课题' }).fill(lessonTitle)
+    await dialog.getByRole('textbox', { name: '*课程' }).fill('C语言程序设计')
+    await dialog.getByRole('textbox', { name: '班级' }).fill('24计算机1班')
+    await dialog.getByRole('spinbutton', { name: '*周次' }).fill(String(slotWeek))
+    await dialog.getByRole('spinbutton', { name: '*课次' }).fill(String(slotSession))
+    await dialog.getByRole('button', { name: '创建' }).click()
+    await page.waitForFunction(() => document.body.innerText.includes('可确认覆盖'), undefined, {
+      timeout: 20000,
+    })
+    must(await dialog.isVisible(), '重复建课把对话框关掉了（教师会丢失已填内容）')
+    must((await dialog.innerText()).includes('已存在'), '冲突提示没有说明任务已存在')
+    must(
+      await dialog.getByRole('button', { name: '确认覆盖已有任务' }).isVisible(),
+      '本人重复建课没有给出「确认覆盖已有任务」入口',
+    )
+    must(page.url().includes('/tasks'), `重复建课离开了任务页：${page.url()}`)
+    must(!page.url().includes('/403'), `重复建课被踢到 403：${page.url()}`)
+    // 只验证提示，不真的覆盖；关掉对话框继续后续步骤
+    await dialog.getByRole('button', { name: '取消' }).click()
+    await dialog.waitFor({ state: 'hidden', timeout: 10000 })
+  },
+])
+steps.push([
+  '14 从任务生成草稿教案（未审查）',
+  async () => {
+    await navTo('任务')
+    await page.waitForURL('**/tasks', { timeout: 15000 })
+    await page.getByRole('button', { name: '列表' }).click()
+    await page.waitForSelector('[aria-label="任务列表"]', { timeout: 15000 })
+    const row = page.locator('[aria-label="任务列表"] tbody tr', { hasText: lessonTitle }).first()
+    await row.waitFor({ timeout: 10000 })
+    const draftButton = row.getByRole('button', { name: '生成草稿教案' })
+    must(await draftButton.isVisible(), '任务列表里没有「生成草稿教案」入口')
+    await draftButton.click()
+    const box = page.locator('.el-message-box')
+    await box.waitFor({ timeout: 10000 })
+    await box.getByRole('button', { name: '生成草稿' }).click()
+    await page.waitForURL(/\/plans\/\d+$/, { timeout: 30000 })
+    await page.waitForSelector('[data-structure-ready="true"]', { timeout: 25000 })
+    const body = await bodyText()
+    must(body.includes(lessonTitle), `草稿详情标题不是任务课题：${body.slice(0, 120)}`)
+    must(body.includes('未审查'), '草稿没有显示「未审查」')
+  },
+])
+steps.push([
+  '15 导出中心候选版本勾选导出',
+  async () => {
+    await navTo('导出')
+    await page.waitForURL('**/exports', { timeout: 15000 })
+    await page.waitForSelector('[aria-label="候选版本"]', { timeout: 15000 })
+    await page.waitForFunction(
+      () => document.querySelectorAll('[aria-label="候选版本"] .el-checkbox').length > 0,
+      undefined,
+      { timeout: 30000 },
+    )
+    const candidates = page.locator('[aria-label="候选版本"] .el-checkbox')
+    must((await candidates.count()) > 0, '导出页没有可勾选的候选版本')
+    await candidates.first().click()
+    await page.waitForFunction(() => /已勾选 1 \/ 可导出/.test(document.body.innerText), undefined, {
+      timeout: 10000,
+    })
+    await page.getByRole('button', { name: '创建导出' }).click()
+    await page.waitForFunction(() => /已提交 \d+ 个导出任务/.test(document.body.innerText), undefined, {
+      timeout: 20000,
+    })
+    await page.waitForFunction(
+      () => {
+        const head = document.querySelector('.batch-progress__head')
+        return Boolean(head) && /已完成 1 \/ 1/.test(head.textContent || '')
+      },
+      undefined,
+      { timeout: 90000, polling: 2000 },
+    )
+    must((await page.locator('.file-card.is-failed').count()) === 0, '候选导出出现了失败项')
+  },
+])
+steps.push([
+  '16 退出登录回到登录页',
   async () => {
     await page.getByRole('button', { name: '退出登录' }).click()
     await page.waitForURL('**/login**', { timeout: 15000 })
