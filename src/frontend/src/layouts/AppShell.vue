@@ -14,7 +14,6 @@ interface NavItem {
   icon: 'overview' | 'tasks' | 'plans' | 'reviews' | 'exports' | 'stats' | 'samples' | 'admin' | 'design' | 'alert'
   to?: string
   count?: number
-  ready: boolean
 }
 
 interface NavGroup {
@@ -39,72 +38,43 @@ const roleLabel = computed(() => {
 })
 const displayName = computed(() => session.user?.displayName ?? '预览访客')
 
-const groups = computed<NavGroup[]>(() => [
-  {
-    label: '工作台',
-    items: [
-      {
-        label: '概览',
-        icon: 'overview',
-        to: '/dashboard',
-        ready: true,
-      },
-      {
-        label: '通知',
-        icon: 'alert',
-        to: '/notifications',
-        ready: true,
-      },
-    ],
-  },
-  {
-    label: '教案',
-    items: [
-      {
-        label: '任务',
-        icon: 'tasks',
-        to: canUseTasks.value ? '/tasks' : undefined,
-        ready: canUseTasks.value,
-      },
-      { label: '教案库', icon: 'plans', to: '/plans', ready: true },
-      {
-        label: '审查',
-        icon: 'reviews',
-        to: canUseTasks.value ? '/reviews' : undefined,
-        ready: canUseTasks.value,
-      },
-      {
-        label: '导出',
-        icon: 'exports',
-        to: canUseTasks.value ? '/exports' : undefined,
-        ready: canUseTasks.value,
-      },
-    ],
-  },
-  {
-    label: '数据',
-    items: [
-      { label: '统计', icon: 'stats', to: '/stats', ready: true },
-      { label: '样例库', icon: 'samples', to: '/samples', ready: true },
-    ],
-  },
-  ...(session.isAdmin
-    ? [
-        {
-          label: '管理',
-          items: [{ label: '管理', icon: 'admin' as const, to: '/admin', ready: true }],
-        },
-      ]
-    : []),
-  ...(isDev
-    ? [
-        {
-          label: '设计',
-          items: [{ label: '风格验收', icon: 'design' as const, to: '/styleguide', ready: true }],
-        },
-      ]
-    : []),
-])
+// 导航可见性只看 item.to：没有目标地址的入口（角色无权限/未上线）直接不渲染，
+// 避免禁用占位按钮被读屏与 E2E 当成真实入口。
+const groups = computed<NavGroup[]>(() =>
+  [
+    {
+      label: '工作台',
+      items: [
+        { label: '概览', icon: 'overview' as const, to: '/dashboard' },
+        { label: '通知', icon: 'alert' as const, to: '/notifications' },
+      ],
+    },
+    {
+      label: '教案',
+      items: [
+        { label: '任务', icon: 'tasks' as const, to: canUseTasks.value ? '/tasks' : undefined },
+        { label: '教案库', icon: 'plans' as const, to: '/plans' },
+        { label: '审查', icon: 'reviews' as const, to: canUseTasks.value ? '/reviews' : undefined },
+        { label: '导出', icon: 'exports' as const, to: canUseTasks.value ? '/exports' : undefined },
+      ],
+    },
+    {
+      label: '数据',
+      items: [
+        { label: '统计', icon: 'stats' as const, to: '/stats' },
+        { label: '样例库', icon: 'samples' as const, to: '/samples' },
+      ],
+    },
+    ...(session.isAdmin
+      ? [{ label: '管理', items: [{ label: '管理', icon: 'admin' as const, to: '/admin' }] }]
+      : []),
+    ...(isDev
+      ? [{ label: '设计', items: [{ label: '风格验收', icon: 'design' as const, to: '/styleguide' }] }]
+      : []),
+  ]
+    .map((group) => ({ ...group, items: group.items.filter((item) => item.to) }))
+    .filter((group) => group.items.length > 0),
+)
 
 const pageTitle = computed(() => route.meta.title ?? '平台端')
 const pageSection = computed(() => route.meta.section ?? '平台端')
@@ -266,8 +236,7 @@ onBeforeUnmount(() => {
       <nav class="sidebar-nav">
         <section v-for="group in groups" :key="group.label" class="nav-group">
           <h2 class="nav-group__label">{{ group.label }}</h2>
-          <!-- 无权限/未上线的入口直接不渲染：禁用占位按钮会被读屏与 E2E 当成真实入口 -->
-          <template v-for="item in group.items.filter((entry) => entry.to)" :key="`${group.label}-${item.label}`">
+          <template v-for="item in group.items" :key="`${group.label}-${item.label}`">
             <button
               type="button"
               class="nav-item"

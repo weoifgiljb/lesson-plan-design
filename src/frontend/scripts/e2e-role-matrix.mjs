@@ -73,6 +73,11 @@ async function run(name, fn) {
   }
 }
 
+async function expectRoleLabel(expected, who) {
+  const label = (await page.locator('.sidebar-identity .identity-text > span').innerText()).trim()
+  must(label === expected, `${who} 侧边栏角色标签不是「${expected}」：${label}`)
+}
+
 async function login(role) {
   const username = accounts[role]
   await page.goto(`${base}/login`, { waitUntil: 'networkidle' })
@@ -121,7 +126,7 @@ steps.push([
   async () => {
     await login('lead')
     await page.waitForURL('**/dashboard', { timeout: 15000 })
-    must((await bodyText()).includes('教研组长'), '导航区没有显示 lead 角色')
+    await expectRoleLabel('教研组长', 'lead')
   },
 ])
 steps.push([
@@ -157,7 +162,7 @@ steps.push([
     await logout()
     await login('admin')
     await page.waitForURL('**/dashboard', { timeout: 15000 })
-    must((await bodyText()).includes('管理员'), '导航区没有显示 admin 角色')
+    await expectRoleLabel('管理员', 'admin')
   },
 ])
 steps.push([
@@ -184,7 +189,7 @@ steps.push([
     await logout()
     await login('teacher')
     await page.waitForURL('**/dashboard', { timeout: 15000 })
-    must((await bodyText()).includes('教师'), '导航区没有显示 teacher 角色')
+    await expectRoleLabel('教师', 'teacher')
   },
 ])
 steps.push([
@@ -222,7 +227,9 @@ if (pageErrors.length) {
   console.log(`\n未捕获前端异常 ${pageErrors.length} 条（计入失败）：`)
   for (const item of [...new Set(pageErrors)]) console.log(' -', item)
 }
-console.log(`\n结果：${results.length - failed.length}/${results.length} 步通过（共 ${steps.length} 步）`)
+console.log(
+  `\n结果：${results.length - failed.length}/${steps.length} 步通过（已执行 ${results.length} 步）`,
+)
 if (failed.length) {
   for (const item of failed) console.log(` FAIL ${item.name} → ${item.detail}`)
 }
