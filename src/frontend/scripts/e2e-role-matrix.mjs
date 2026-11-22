@@ -141,8 +141,9 @@ try {
     await page.waitForSelector('[aria-label="主导航"]', { timeout: 15000 })
   }
 
-  // 无权限入口直接不渲染（导航只渲染有 to 的项），这里断言的是"看不到"，不是"点不动"
+  // 无权限入口直接不渲染（导航只渲染有 to 的项）；先等导航项出现，避免异步渲染尚未就绪时 count=0 静默通过
   async function expectNavHidden(name, who) {
+    await page.locator('[aria-label="主导航"] .nav-item').first().waitFor({ timeout: 15000 })
     const count = await page
       .locator('[aria-label="主导航"]')
       .getByRole('button', { name, exact: true })
@@ -206,10 +207,12 @@ try {
     },
   ])
   steps.push([
-    '7 admin 看不到导出入口、直链被拦截',
+    '7 admin 看不到导出/任务入口、直链被拦截',
     async () => {
       await expectNavHidden('导出', 'admin')
       await expectForbidden('/exports')
+      await expectNavHidden('任务', 'admin')
+      await expectForbidden('/tasks')
     },
   ])
   steps.push([
@@ -229,12 +232,19 @@ try {
     },
   ])
   steps.push([
-    '10 teacher 导出中心可用',
+    '10 teacher 任务/审查/导出中心可用',
     async () => {
+      await navTo('任务')
+      await page.waitForURL('**/tasks', { timeout: 15000 })
+      await page.getByRole('button', { name: '新建任务' }).first().waitFor({ timeout: 15000 })
+      await navTo('审查')
+      await page.waitForURL('**/reviews', { timeout: 15000 })
+      // 空库也算可用：等页面标题，不要求已有审查记录
+      await page.getByRole('heading', { name: '审查中心' }).waitFor({ timeout: 15000 })
       await navTo('导出')
       await page.waitForURL('**/exports', { timeout: 15000 })
-      await page.waitForSelector('text=候选版本', { timeout: 15000 })
-      must(!page.url().includes('/403'), 'teacher 访问导出页被误判越权')
+      await page.getByRole('button', { name: '创建导出' }).waitFor({ timeout: 15000 })
+      must(!page.url().includes('/403'), 'teacher 访问任务/审查/导出被误判越权')
     },
   ])
 
