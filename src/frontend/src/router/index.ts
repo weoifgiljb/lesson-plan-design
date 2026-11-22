@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { passwordChangeRedirect, roleRedirect } from '@/router/auth-guard'
+import { NOT_FOUND_ROUTE_NAME } from '@/router/visibility'
 import { useSessionStore } from '@/stores/session'
 import AppShell from '@/layouts/AppShell.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
@@ -117,6 +118,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/:pathMatch(.*)*',
+    name: NOT_FOUND_ROUTE_NAME,
     component: NotFoundView,
     meta: { public: true, title: '页面不存在' },
   },

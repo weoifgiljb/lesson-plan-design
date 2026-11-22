@@ -7,6 +7,8 @@ import AppIcon from '@/components/AppIcon.vue'
 import BrandMark from '@/components/BrandMark.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import type { CommandItem } from '@/components/command-types'
+import { hasCsrfCookie } from '@/api/client'
+import { navVisible } from '@/router/visibility'
 import { useSessionStore } from '@/stores/session'
 
 interface NavItem {
@@ -14,7 +16,6 @@ interface NavItem {
   icon: 'overview' | 'tasks' | 'plans' | 'reviews' | 'exports' | 'stats' | 'samples' | 'admin' | 'design' | 'alert'
   to?: string
   count?: number
-  ready: boolean
 }
 
 interface NavGroup {
@@ -26,7 +27,14 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
-const canUseTasks = computed(() => session.role === 'teacher' || session.role === 'lead')
+function openTo(path: string): string | undefined {
+  const resolved = router.resolve(path)
+  // name 取末级记录（识别 catch-all）；roles 与守卫同口径，用合并后的 meta（会继承父级 roles）
+  const last = resolved.matched[resolved.matched.length - 1]
+  if (!last || !navVisible(last.name, resolved.meta.roles, session.role)) return undefined
+  return path
+}
+const canOpen = (path: string): boolean => openTo(path) !== undefined
 
 const drawerOpen = ref(false)
 const paletteOpen = ref(false)
@@ -39,62 +47,48 @@ const roleLabel = computed(() => {
 })
 const displayName = computed(() => session.user?.displayName ?? '预览访客')
 
-const groups = computed<NavGroup[]>(() => [
-  {
-    label: '工作台',
-    items: [
-      {
-        label: '概览',
-        icon: 'overview',
-        to: '/dashboard',
-        ready: true,
-      },
-      {
-        label: '通知',
-        icon: 'alert',
-        to: '/notifications',
-        ready: true,
-      },
-    ],
-  },
-  {
-    label: '教案',
-    items: [
-      {
-        label: '任务',
-        icon: 'tasks',
-        to: canUseTasks.value ? '/tasks' : undefined,
-        ready: canUseTasks.value,
-      },
-      { label: '教案库', icon: 'plans', to: '/plans', ready: true },
-      { label: '审查', icon: 'reviews', to: '/reviews', ready: true },
-      { label: '导出', icon: 'exports', to: '/exports', ready: true },
-    ],
-  },
-  {
-    label: '数据',
-    items: [
-      { label: '统计', icon: 'stats', to: '/stats', ready: true },
-      { label: '样例库', icon: 'samples', to: '/samples', ready: true },
-    ],
-  },
-  ...(session.isAdmin
-    ? [
-        {
-          label: '管理',
-          items: [{ label: '管理', icon: 'admin' as const, to: '/admin', ready: true }],
-        },
-      ]
-    : []),
-  ...(isDev
-    ? [
-        {
-          label: '设计',
-          items: [{ label: '风格验收', icon: 'design' as const, to: '/styleguide', ready: true }],
-        },
-      ]
-    : []),
-])
+// 导航条目统一走 canOpen：可见性只由路由 meta.roles 决定，没有目标地址的入口不渲染，
+// 避免禁用占位按钮被读屏与 E2E 当成真实入口。
+const groups = computed<NavGroup[]>(() => {
+  // 管理入口解析一次，避免 canOpen/openTo 各 resolve 一遍
+  const adminTo = openTo('/admin')
+  return [
+    {
+      label: '工作台',
+      items: [
+        { label: '概览', icon: 'overview' as const, to: openTo('/dashboard') },
+        { label: '通知', icon: 'alert' as const, to: openTo('/notifications') },
+      ],
+    },
+    {
+      label: '教案',
+      items: [
+        { label: '任务', icon: 'tasks' as const, to: openTo('/tasks') },
+        { label: '教案库', icon: 'plans' as const, to: openTo('/plans') },
+        { label: '审查', icon: 'reviews' as const, to: openTo('/reviews') },
+        { label: '导出', icon: 'exports' as const, to: openTo('/exports') },
+      ],
+    },
+    {
+      label: '数据',
+      items: [
+        { label: '统计', icon: 'stats' as const, to: openTo('/stats') },
+        { label: '样例库', icon: 'samples' as const, to: openTo('/samples') },
+      ],
+    },
+    ...(adminTo
+      ? [{ label: '管理', items: [{ label: '管理', icon: 'admin' as const, to: adminTo }] }]
+      : []),
+    ...(isDev
+      ? [{ label: '设计', items: [{ label: '风格验收', icon: 'design' as const, to: openTo('/styleguide') }] }]
+      : []),
+  ]
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => Boolean(item.to)),
+    }))
+    .filter((group) => group.items.length > 0)
+})
 
 const pageTitle = computed(() => route.meta.title ?? '平台端')
 const pageSection = computed(() => route.meta.section ?? '平台端')
@@ -110,7 +104,7 @@ const commands = computed<CommandItem[]>(() => {
       keywords: 'dashboard overview 工作台',
     },
   ]
-  if (canUseTasks.value) {
+  if (canOpen('/tasks')) {
     list.push({
       id: 'tasks',
       title: '任务',
@@ -130,7 +124,7 @@ const commands = computed<CommandItem[]>(() => {
       keywords: 'plan 教案 版本 差异',
     })
   }
-  if (isDev) {
+  if (openTo('/styleguide')) {
     list.push(
       {
         id: 'styleguide',
@@ -227,6 +221,12 @@ watch(
 
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
+  // 公开子路由（如 dev 的 /styleguide）直达时守卫不会加载会话，这里补一次，避免受限入口永久隐藏。
+  // 匿名访问公开页会打出一次 401（Chromium 记为 console error，screenshots.mjs 会判失败），
+  // 因此只在存在可读会话线索（登录时下发的 lpp_csrf）时才探测。
+  if (!session.user && !session.loading && hasCsrfCookie()) {
+    void session.load()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -258,23 +258,11 @@ onBeforeUnmount(() => {
           <h2 class="nav-group__label">{{ group.label }}</h2>
           <template v-for="item in group.items" :key="`${group.label}-${item.label}`">
             <button
-              v-if="item.to"
               type="button"
               class="nav-item"
               :class="{ 'is-active': isActive(item) }"
               :aria-current="isActive(item) ? 'page' : undefined"
               @click="go(item)"
-            >
-              <AppIcon :name="item.icon" :size="18" />
-              <span class="nav-item__label">{{ item.label }}</span>
-              <span v-if="item.count" class="nav-item__count">{{ item.count }}</span>
-            </button>
-            <button
-              v-else
-              type="button"
-              class="nav-item nav-item--disabled"
-              disabled
-              :title="`${item.label}将在后续 FE 任务上线`"
             >
               <AppIcon :name="item.icon" :size="18" />
               <span class="nav-item__label">{{ item.label }}</span>
@@ -289,7 +277,7 @@ onBeforeUnmount(() => {
           <span class="identity-avatar">{{ initial }}</span>
           <span class="identity-text">
             <strong>{{ displayName }}</strong>
-            <span>{{ roleLabel }}</span>
+            <span data-testid="role-label">{{ roleLabel }}</span>
           </span>
           <button
             v-if="session.user"
@@ -477,16 +465,6 @@ onBeforeUnmount(() => {
 .nav-item.is-active .nav-item__count {
   background: var(--lpp-surface);
   color: var(--lpp-primary);
-}
-
-.nav-item--disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.nav-item--disabled:hover {
-  background: transparent;
-  color: var(--lpp-text-muted);
 }
 
 .sidebar-identity {
