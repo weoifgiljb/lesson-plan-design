@@ -419,7 +419,9 @@
   border-radius: var(--lpp-radius-control);
   box-shadow: var(--lpp-shadow-flyout);
   font-size: var(--lpp-font-sm);
-  /* UI-12：toast 只做提示，不挡住下方筛选栏的点击；只有关闭按钮可交互 */
+  /* UI-12：toast 只做提示，不挡住下方筛选栏的点击；只有关闭按钮可交互。
+     ponytail: 代价是 toast 文本不能选中、悬停不再暂停自动关闭；若需要复制错误码，
+     去控制台看响应体（响应里有 code/traceId），别为可选中而恢复遮挡。 */
   pointer-events: none;
 }
 

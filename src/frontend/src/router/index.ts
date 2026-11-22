@@ -150,10 +150,11 @@ router.beforeEach(async (to) => {
   return true
 })
 
-router.afterEach((to, from) => {
+router.afterEach((to, from, failure) => {
   // UI-12：只在真正换页时清上一页遗留的 toast；同路径只改 query 的导航（如 /plans?upload=1 清理）
-  // 不能误杀本页刚弹出的引导/成功提示。需要跨页显示的提示请在 await push 之后调用 sealSuccess。
-  if (to.path !== from.path) ElMessage.closeAll()
+  // 与失败/被取消的导航不能误杀本页刚弹出的引导/成功提示。
+  // 需要跨页显示的提示请在 await push 之后调用 sealSuccess。
+  if (!failure && to.path !== from.path) ElMessage.closeAll()
   document.title = to.meta.title ? `${to.meta.title} · 校本教案平台` : '校本教案平台'
 })
 
