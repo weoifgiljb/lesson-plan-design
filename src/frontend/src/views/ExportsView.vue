@@ -171,8 +171,8 @@ async function submit(): Promise<void> {
       const detail = [...grouped.values()].map((group) => `${group.message}（版本 ${group.ids.join(', ')}）`).join('；')
       error.value = `有 ${rejected.length} 份导出失败：${detail}`
       if (retryableCount) error.value += `（${retryableCount} 份可修正后重试，已保留勾选）`
-      // 部分成功时用一条汇总，避免成功/失败两个 alert 并列
-      if (created.length) message.value = `提交 ${ids.length} 份：成功 ${created.length}，失败 ${rejected.length}`
+      // 有失败时不保留纯成功提示：失败明细已含成功/失败口径，避免两个 alert 并列误读
+      message.value = ''
     }
   } catch (caught) {
     if (redirectOnAuthError(caught)) return
@@ -280,10 +280,14 @@ async function loadCandidates(): Promise<void> {
   }
 }
 
-/** 401 回登录、403 回越权页；返回 true 表示已跳转，调用方不要再展示行内错误。 */
+/** 401 回登录、改密未完成回改密页、403 回越权页；返回 true 表示已跳转，调用方不要再展示行内错误。 */
 function redirectOnAuthError(caught: unknown): boolean {
   if (isUnauthorized(caught)) {
     void router.replace({ path: '/login', query: { redirect: route.fullPath } })
+    return true
+  }
+  if (caught instanceof RequestError && caught.code === 'PASSWORD_CHANGE_REQUIRED') {
+    void router.replace({ path: '/change-password', query: { redirect: route.fullPath } })
     return true
   }
   if (isForbidden(caught)) {
@@ -306,8 +310,9 @@ async function loadMorePages(token: number, loaded: ReviewListItem[]): Promise<v
       candidates.value = items
       candidatesTotal.value = data.total
       if (items.length >= data.total) return
-    } catch {
+    } catch (caught) {
       if (token !== loadToken) return
+      if (redirectOnAuthError(caught)) return
       candidatesMoreFailed.value = true
       return /* 后台补页失败不打断已渲染的候选，但要提示候选可能不完整 */
     }

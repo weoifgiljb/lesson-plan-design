@@ -15,6 +15,7 @@ vi.mock('@/api/exports', () => ({
   createExports: (...args: unknown[]) => createExports(...args),
   getExport: (...args: unknown[]) => getExport(...args),
   downloadExport: (...args: unknown[]) => downloadExport(...args),
+  EXPORT_BATCH_LIMIT: 50,
 }))
 
 vi.mock('@/api/reviews', () => ({
