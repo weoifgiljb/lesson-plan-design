@@ -59,8 +59,10 @@ const context = await browser.newContext({
 const page = await context.newPage()
 page.on('pageerror', (error) => pageErrors.push(`pageerror: ${error.message}`))
 page.on('response', (response) => {
-  // 只统计业务接口；仅豁免退出登录瞬间的 401（pre-mortem §5 已知竞态），其它状态码仍计入失败
-  if (response.status() < 400 || !response.url().includes('/api/')) return
+  // 只忽略 dev/构建噪声；chunk 404、页面 5xx 等真实问题仍计入失败
+  if (response.status() < 400) return
+  if (/\/@vite\/|\.map(\?|$)|favicon/.test(response.url())) return
+  // 退出登录瞬间的 401 是已知观察项（pre-mortem §5），其它状态码仍计入失败
   if (response.status() === 401 && response.url().includes('/api/v1/auth/logout')) return
   // 响应体读取是异步的：登记成 Promise，汇总前统一 await，避免预期错误漏判
   const task = (async () => {

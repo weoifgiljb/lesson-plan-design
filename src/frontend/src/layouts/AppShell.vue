@@ -28,8 +28,9 @@ const session = useSessionStore()
 const isDev = import.meta.env.DEV
 function openTo(path: string): string | undefined {
   const resolved = router.resolve(path)
+  // 只看目标路由自己的 meta（merged meta 会被父级路由污染）
   const last = resolved.matched[resolved.matched.length - 1]
-  if (!last || !navVisible(last.name, resolved.meta.roles, session.role)) return undefined
+  if (!last || !navVisible(last.name, last.meta.roles, session.role)) return undefined
   return path
 }
 const canOpen = (path: string): boolean => openTo(path) !== undefined
@@ -112,7 +113,7 @@ const commands = computed<CommandItem[]>(() => {
       keywords: 'task 建课 任务包',
     })
   }
-  if (session.user) {
+  if (openTo('/plans')) {
     list.push({
       id: 'plans',
       title: '教案库',
@@ -122,7 +123,7 @@ const commands = computed<CommandItem[]>(() => {
       keywords: 'plan 教案 版本 差异',
     })
   }
-  if (isDev) {
+  if (openTo('/styleguide')) {
     list.push(
       {
         id: 'styleguide',
