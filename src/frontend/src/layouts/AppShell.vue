@@ -25,7 +25,12 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
-const canUseTasks = computed(() => session.role === 'teacher' || session.role === 'lead')
+// 导航可见性与路由守卫共用同一份权限契约（router meta.roles），避免"有权限无入口/有入口点进 403"
+function canOpen(path: string): boolean {
+  const roles = router.resolve(path).meta.roles as string[] | undefined
+  if (!roles || roles.length === 0) return true
+  return Boolean(session.role) && roles.includes(session.role)
+}
 
 const drawerOpen = ref(false)
 const paletteOpen = ref(false)
@@ -52,10 +57,10 @@ const groups = computed<NavGroup[]>(() =>
     {
       label: '教案',
       items: [
-        { label: '任务', icon: 'tasks' as const, to: canUseTasks.value ? '/tasks' : undefined },
+        { label: '任务', icon: 'tasks' as const, to: canOpen('/tasks') ? '/tasks' : undefined },
         { label: '教案库', icon: 'plans' as const, to: '/plans' },
-        { label: '审查', icon: 'reviews' as const, to: canUseTasks.value ? '/reviews' : undefined },
-        { label: '导出', icon: 'exports' as const, to: canUseTasks.value ? '/exports' : undefined },
+        { label: '审查', icon: 'reviews' as const, to: canOpen('/reviews') ? '/reviews' : undefined },
+        { label: '导出', icon: 'exports' as const, to: canOpen('/exports') ? '/exports' : undefined },
       ],
     },
     {
@@ -72,7 +77,10 @@ const groups = computed<NavGroup[]>(() =>
       ? [{ label: '设计', items: [{ label: '风格验收', icon: 'design' as const, to: '/styleguide' }] }]
       : []),
   ]
-    .map((group) => ({ ...group, items: group.items.filter((item) => item.to) }))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item): item is NavItem & { to: string } => Boolean(item.to)),
+    }))
     .filter((group) => group.items.length > 0),
 )
 
@@ -90,7 +98,7 @@ const commands = computed<CommandItem[]>(() => {
       keywords: 'dashboard overview 工作台',
     },
   ]
-  if (canUseTasks.value) {
+  if (canOpen('/tasks')) {
     list.push({
       id: 'tasks',
       title: '任务',

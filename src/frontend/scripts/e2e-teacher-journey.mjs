@@ -387,7 +387,8 @@ steps.push([
     await page.waitForSelector('[data-structure-ready="true"]', { timeout: 25000 })
     const meta = await page.locator('[aria-label="教案信息"]').innerText()
     const flat = meta.replace(/\s+/g, ' ')
-    must((await bodyText()).includes(lessonTitle), `草稿详情标题不是任务课题：${flat.slice(0, 120)}`)
+    const pageText = await bodyText()
+    must(pageText.includes(lessonTitle), `草稿详情标题不是任务课题：${pageText.replace(/\s+/g, ' ').slice(0, 120)}`)
     must(flat.includes('未审查'), `草稿详情没在教案信息里显示「未审查」：${flat.slice(0, 120)}`)
     must(/当前版本\s*v1\b/.test(flat), `草稿当前版本不是 v1：${flat.slice(0, 120)}`)
   },
