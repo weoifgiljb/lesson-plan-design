@@ -32,7 +32,7 @@ function openTo(path: string): string | undefined {
   const resolved = router.resolve(path)
   // 未注册路径会被全局 catch-all 接走：命中 not-found 视为"没有这个页面"，不渲染入口
   const last = resolved.matched[resolved.matched.length - 1]
-  if (!last || last.name === 'not-found' || last.path.includes(':pathMatch')) return undefined
+  if (!last || last.name === 'not-found') return undefined
   const roles = resolved.meta.roles
   if (!roles || roles.length === 0) return path
   return roleAllowed(session.role, roles) ? path : undefined
@@ -86,7 +86,7 @@ const groups = computed<NavGroup[]>(() =>
   ]
     .map((group) => ({
       ...group,
-      items: group.items.filter((item): item is NavItem & { to: string } => Boolean(item.to)),
+      items: group.items.filter((item) => Boolean(item.to)),
     }))
     .filter((group) => group.items.length > 0),
 )

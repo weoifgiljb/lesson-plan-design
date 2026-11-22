@@ -341,6 +341,7 @@ steps.push([
     const message = (await toast.innerText()).replace(/\s+/g, ' ')
     must(/HASH_MISMATCH|哈希|失败/.test(message), `错误提示没有点明原因：${message}`)
     must(page.url().includes('/plans'), `导入失败后不该离开教案库：${page.url()}`)
+    await Promise.allSettled([...pendingResponses])
     expectedHttp.length = 0
   },
 ])
@@ -390,6 +391,8 @@ steps.push([
       ])
       conflictBody = await conflict.json()
     } finally {
+      // 先等在途响应体读完并消费白名单，再清理，避免预期 409 被误计入 4xx/5xx
+      await Promise.allSettled([...pendingResponses])
       expectedHttp.length = 0
     }
     must(
@@ -453,9 +456,14 @@ steps.push([
       !(await board.innerText()).includes(lessonTitle),
       '未审查的草稿版本不该出现在候选清单里',
     )
-    const target = page.locator('[aria-label="候选版本"] .el-checkbox', { hasText: planTitle })
-    // 复用已有账号（E2E_USER）时同名课题可能有多个已通过版本，只要有候选即可
-    must((await target.count()) >= 1, `候选清单里没有已通过的「${planTitle}」`)
+    // 优先用第 10 步记录的版本 ID 精确定位（同名课题可能有多个已通过版本），找不到再退回课题文案
+    let target = page
+      .locator('[aria-label="候选版本"] .el-checkbox')
+      .filter({ has: page.locator(`input[value="${versionId}"]`) })
+    if ((await target.count()) === 0) {
+      target = page.locator('[aria-label="候选版本"] .el-checkbox', { hasText: planTitle })
+    }
+    must((await target.count()) >= 1, `候选清单里没有第 10 步导出的版本，也没有「${planTitle}」`)
     await target.first().click()
     await page.waitForFunction(() => /已勾选 1 \/ 可导出/.test(document.body.innerText), undefined, {
       timeout: 10000,

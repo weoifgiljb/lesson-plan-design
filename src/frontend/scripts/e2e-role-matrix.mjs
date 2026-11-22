@@ -32,6 +32,8 @@ const pageErrors = []
 const results = []
 const steps = []
 let index = 0
+// 启动/环境异常（未装 Edge、端口不通…）单独记录，不并入步骤统计
+let runFailure = ''
 function must(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -240,9 +242,7 @@ try {
     if (!(await run(name, fn))) break
   }
 } catch (error) {
-  const detail = String(error?.message ?? error).split('\n')[0]
-  console.error(`运行失败：${detail}`)
-  results.push({ name: '运行（启动/环境）', ok: false, detail })
+  runFailure = String(error?.message ?? error).split('\n')[0]
 } finally {
   // 先把在途的 4xx/5xx 响应体读完再关浏览器，否则最后一步的错误会漏进汇总
   await Promise.allSettled([...pendingResponses])
@@ -251,12 +251,14 @@ try {
 
 const failed = results.filter((item) => !item.ok)
 // 全部 4xx/5xx 都视为缺陷：本脚本的越权拦截走前端路由守卫，不会产生预期内的 API 错误
-const ok = !failed.length && httpErrors.length === 0 && pageErrors.length === 0
+const uniqueHttp = [...new Set(httpErrors)]
+const ok = !runFailure && !failed.length && uniqueHttp.length === 0 && pageErrors.length === 0
 console.log(`\n账号：lead=${accounts.lead} / admin=${accounts.admin} / teacher=${accounts.teacher}`)
 console.log(`产物目录：${outDir}`)
-if (httpErrors.length) {
-  console.log(`\n4xx/5xx 响应 ${httpErrors.length} 条（计入失败）：`)
-  for (const item of [...new Set(httpErrors)]) console.log(' -', item)
+if (runFailure) console.error(`运行失败（启动/环境）：${runFailure}`)
+if (uniqueHttp.length) {
+  console.log(`\n4xx/5xx 响应 ${uniqueHttp.length} 条（去重后，计入失败）：`)
+  for (const item of uniqueHttp) console.log(' -', item)
 }
 if (pageErrors.length) {
   console.log(`\n未捕获前端异常 ${pageErrors.length} 条（计入失败）：`)
@@ -270,8 +272,9 @@ if (failed.length) {
 }
 if (!ok) {
   const reasons = []
+  if (runFailure) reasons.push('启动/环境失败')
   if (failed.length) reasons.push(`${failed.length} 步失败`)
-  if (httpErrors.length) reasons.push(`${httpErrors.length} 条 4xx/5xx`)
+  if (uniqueHttp.length) reasons.push(`${uniqueHttp.length} 条 4xx/5xx`)
   if (pageErrors.length) reasons.push(`${pageErrors.length} 条前端异常`)
   console.log(`失败原因：${reasons.join('；')}`)
 }
