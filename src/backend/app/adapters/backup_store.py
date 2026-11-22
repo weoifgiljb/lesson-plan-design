@@ -107,6 +107,7 @@ def restore(name: str) -> dict[str, Any]:
     if not snapshot.is_dir():
         raise AppError("BACKUP_INVALID", "快照不存在")
     module = _load("restore_data")
+    target: Path | None = None
     try:
         manifest = module.verify_snapshot(snapshot)
         target = data_dir().parent / f"data-restore-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
@@ -119,6 +120,7 @@ def restore(name: str) -> dict[str, Any]:
     except AppError:
         raise
     except Exception as exc:  # noqa: BLE001 - 适配层把恢复异常翻译为错误码
-        shutil.rmtree(locals().get("target", Path()), ignore_errors=True)
+        if target is not None:
+            shutil.rmtree(target, ignore_errors=True)
         raise AppError("BACKUP_INVALID", f"恢复失败：{type(exc).__name__}") from exc
     return {"snapshot": snapshot.name, "target": str(target), "rows": rows, "preRestore": pre["path"], "schemaVersion": manifest.get("schemaVersion")}
