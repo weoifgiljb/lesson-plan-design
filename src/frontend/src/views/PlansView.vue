@@ -113,10 +113,11 @@ async function onFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
+    await router.push(`/plans/${result.planId}`)
+    // 先导航后提示：路由切换会清掉上一页的 toast
     sealSuccess(
       result.duplicate ? `契约包已存在，打开第 ${result.versionNo} 版` : '契约包已导入',
     )
-    await router.push(`/plans/${result.planId}`)
   } catch (caught) {
     handleError(caught, '导入契约包失败')
   } finally {
