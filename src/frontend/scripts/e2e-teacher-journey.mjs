@@ -313,38 +313,43 @@ steps.push([
     await navTo('教案库')
     await page.waitForURL('**/plans', { timeout: 15000 })
     // 篡改包预期 422 HASH_MISMATCH：这是本步要验证的拒绝行为，不计入 4xx/5xx 异常汇总
-    expectedHttp.push({
+    const expectedImport = {
       path: '/api/v1/plans/import',
       method: 'POST',
       status: 422,
       code: 'HASH_MISMATCH',
-    })
-    const [chooser] = await Promise.all([
-      page.waitForEvent('filechooser', { timeout: 15000 }),
-      page.getByRole('button', { name: '导入契约包' }).first().click(),
-    ])
-    const [rejected] = await Promise.all([
-      page.waitForResponse(
-        (response) =>
-          response.url().endsWith('/api/v1/plans/import') &&
-          response.request().method() === 'POST' &&
-          response.status() === 422,
-        { timeout: 25000 },
-      ),
-      chooser.setFiles(tamperedPath),
-    ])
-    const rejectedBody = await rejected.json()
-    must(
-      rejectedBody.code === 'HASH_MISMATCH',
-      `篡改包没有按 HASH_MISMATCH 拒绝：${rejectedBody.code || '(无 code)'}`,
-    )
-    const toast = page.locator('.el-message--error').first()
-    await toast.waitFor({ timeout: 25000 })
-    const message = (await toast.innerText()).replace(/\s+/g, ' ')
-    must(/HASH_MISMATCH|哈希|失败/.test(message), `错误提示没有点明原因：${message}`)
-    must(page.url().includes('/plans'), `导入失败后不该离开教案库：${page.url()}`)
-    await Promise.allSettled([...pendingResponses])
-    expectedHttp.length = 0
+    }
+    expectedHttp.push(expectedImport)
+    try {
+      const [chooser] = await Promise.all([
+        page.waitForEvent('filechooser', { timeout: 15000 }),
+        page.getByRole('button', { name: '导入契约包' }).first().click(),
+      ])
+      const [rejected] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/v1/plans/import') &&
+            response.request().method() === 'POST' &&
+            response.status() === 422,
+          { timeout: 25000 },
+        ),
+        chooser.setFiles(tamperedPath),
+      ])
+      const rejectedBody = await rejected.json()
+      must(
+        rejectedBody.code === 'HASH_MISMATCH',
+        `篡改包没有按 HASH_MISMATCH 拒绝：${rejectedBody.code || '(无 code)'}`,
+      )
+      const toast = page.locator('.el-message--error').first()
+      await toast.waitFor({ timeout: 25000 })
+      const message = (await toast.innerText()).replace(/\s+/g, ' ')
+      must(/HASH_MISMATCH|哈希|失败/.test(message), `错误提示没有点明原因：${message}`)
+      must(page.url().includes('/plans'), `导入失败后不该离开教案库：${page.url()}`)
+    } finally {
+      await Promise.allSettled([...pendingResponses])
+      const hit = expectedHttp.indexOf(expectedImport)
+      if (hit >= 0) expectedHttp.splice(hit, 1)
+    }
   },
 ])
 steps.push([

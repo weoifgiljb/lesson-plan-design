@@ -127,7 +127,7 @@ try {
   }
 
   async function expectRoleLabel(expected, who) {
-    const label = (await page.locator('.sidebar-identity .identity-text > span').innerText()).trim()
+    const label = (await page.locator('[data-testid="role-label"]').innerText()).trim()
     must(label === expected, `${who} 侧边栏角色标签不是「${expected}」：${label}`)
   }
 

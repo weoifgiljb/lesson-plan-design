@@ -219,12 +219,9 @@ watch(
 
 onMounted(() => {
   window.addEventListener('keydown', onGlobalKeydown)
-  // 公开子路由（如 dev 的 /styleguide）直达时守卫不会加载会话，这里补一次，避免受限入口永久隐藏
-  if (!session.user && !session.loading) {
-    void session.load().then((ok) => {
-      if (!ok) ElMessage.warning('会话加载失败，部分导航入口暂不可用')
-    })
-  }
+  // 公开子路由（如 dev 的 /styleguide）直达时守卫不会加载会话，这里补一次，避免受限入口永久隐藏。
+  // 匿名访问公开页时 /api/v1/me 返回 401 属正常情况，不弹错误提示。
+  if (!session.user && !session.loading) void session.load()
 })
 
 onBeforeUnmount(() => {
@@ -275,7 +272,7 @@ onBeforeUnmount(() => {
           <span class="identity-avatar">{{ initial }}</span>
           <span class="identity-text">
             <strong>{{ displayName }}</strong>
-            <span>{{ roleLabel }}</span>
+            <span data-testid="role-label">{{ roleLabel }}</span>
           </span>
           <button
             v-if="session.user"
