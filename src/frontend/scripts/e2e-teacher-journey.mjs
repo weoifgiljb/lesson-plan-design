@@ -378,12 +378,13 @@ steps.push([
     await dialog.waitFor({ timeout: 10000 })
     // 第 4 步已用同一身份建过任务，这里原样再提交一次（本人重复 → 409 TASK_ALREADY_EXISTS）
     await fillTaskDialog(dialog, { title: lessonTitle, week: slotWeek, session: slotSession })
-    expectedHttp.push({
+    const expectedConflict = {
       path: '/api/v1/tasks',
       method: 'POST',
       status: 409,
       code: 'TASK_ALREADY_EXISTS',
-    })
+    }
+    expectedHttp.push(expectedConflict)
     let conflictBody = {}
     try {
       const [conflict] = await Promise.all([
@@ -398,9 +399,10 @@ steps.push([
       ])
       conflictBody = await conflict.json()
     } finally {
-      // 先等在途响应体读完并消费白名单，再清理，避免预期 409 被误计入 4xx/5xx
+      // 先等在途响应体读完并消费白名单，再按引用精确移除，避免预期 409 被误计入 4xx/5xx
       await Promise.allSettled([...pendingResponses])
-      expectedHttp.length = 0
+      const hit = expectedHttp.indexOf(expectedConflict)
+      if (hit >= 0) expectedHttp.splice(hit, 1)
     }
     must(
       conflictBody.code === 'TASK_ALREADY_EXISTS',

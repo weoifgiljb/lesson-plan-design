@@ -163,8 +163,8 @@ try {
     async () => {
       await navTo('任务')
       await page.waitForURL('**/tasks', { timeout: 15000 })
-      await page.waitForSelector('[aria-label="主导航"]', { timeout: 10000 })
-      must((await bodyText()).includes('新建任务'), '任务页没有渲染「新建任务」入口')
+      // 主导航常驻于布局层，必须等任务页自身入口出现，才能证明页面已渲染
+      await page.getByRole('button', { name: '新建任务' }).first().waitFor({ timeout: 15000 })
       must(!page.url().includes('/403'), 'lead 访问任务页被误判越权')
     },
   ])
@@ -180,8 +180,8 @@ try {
     async () => {
       await navTo('导出')
       await page.waitForURL('**/exports', { timeout: 15000 })
-      await page.waitForSelector('text=导出中心', { timeout: 15000 })
-      must((await bodyText()).includes('创建导出'), '导出页没有渲染创建导出入口')
+      // 面包屑也会渲染「导出中心」，必须等导出页自身的入口出现
+      await page.getByRole('button', { name: '创建导出' }).waitFor({ timeout: 15000 })
       must(!page.url().includes('/403'), 'lead 访问导出页被误判越权')
     },
   ])
