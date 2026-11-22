@@ -7,8 +7,9 @@ export interface ExportResult {
   reused: number
 }
 
-// 后端在同一请求里串行导出，50 份可能远超默认 30s：按 BS-07"50 份 ≤5 分钟"放宽超时
-const EXPORT_BATCH_TIMEOUT_MS = 5 * 60 * 1000
+// 后端在同一请求里串行导出，BS-07 预算为"50 份 ≤5 分钟"；客户端留一点网络/序列化余量，
+// 避免服务端还在写盘时浏览器先 abort。
+const EXPORT_BATCH_TIMEOUT_MS = 6 * 60 * 1000
 
 export function createExports(planVersionIds: number[]): Promise<ExportResult> {
   return client.post<ExportResult>('/api/v1/exports', { planVersionIds }, { timeout: EXPORT_BATCH_TIMEOUT_MS })

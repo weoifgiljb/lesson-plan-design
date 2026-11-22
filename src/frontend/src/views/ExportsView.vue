@@ -61,8 +61,8 @@ const candidateRows = computed(() => exportableRows.value.slice(0, MAX_CANDIDATE
 // 截断（可导出项超过渲染上限）与"审查记录没翻完"是两个不同状态，提示语必须分开
 const candidatesCapped = computed(() => exportableRows.value.length > candidateRows.value.length)
 const candidatesPartial = computed(() => candidatesTotal.value > candidates.value.length)
-// 只有这些失败码可能靠修教案/报告后重试解决；NOT_FOUND/FORBIDDEN 重试无意义
-const RETRYABLE_FAILURE_CODES = new Set(['REPORT_INCONSISTENT', 'STRUCTURE_INVALID', 'MEDIA_MISSING', 'CONFLICT_STALE'])
+// 只有这些码重试无意义（版本已不存在/无权）；其余（含未来新增码）默认保留给用户重试
+const NON_RETRYABLE_FAILURE_CODES = new Set(['NOT_FOUND', 'FORBIDDEN'])
 
 function readVersionId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value
@@ -123,10 +123,11 @@ async function submit(): Promise<void> {
   creating.value = true
   try {
     const result = await createExports(ids)
+    const rawItems = result.items ?? []
     // 创建/复用项后端返回完整 ExportJob（export_service._job_payload），ExportItem 只声明了子集；
     // 门禁拒绝项没有 exportId，只带 planVersionId/code/message，不能当任务卡片渲染。
-    const created = result.items.filter((item) => typeof item.exportId === 'number') as unknown as ExportJob[]
-    const rejected = result.items.filter((item) => typeof item.exportId !== 'number')
+    const created = rawItems.filter((item) => typeof item.exportId === 'number') as unknown as ExportJob[]
+    const rejected = rawItems.filter((item) => typeof item.exportId !== 'number')
     if (created.length) {
       jobs.value = [...created, ...jobs.value.filter((job) => !created.some((it) => it.exportId === job.exportId))]
       message.value = `已提交 ${created.length} 个导出任务`
@@ -142,30 +143,35 @@ async function submit(): Promise<void> {
       startPolling()
     }
     if (rejected.length) {
-      const retryable = rejected.filter((item) => RETRYABLE_FAILURE_CODES.has(String(item.code ?? '')))
-      const retryableIds = new Set(retryable.map((item) => item.planVersionId))
-      selected.value = selected.value.filter((id) => retryableIds.has(id))
-      // 非可重试失败（NOT_FOUND/FORBIDDEN/INTERNAL 等）也从手填框剔除，否则再点一次会原样重发必然失败的 ID
+      // 明确不可重试的（版本不存在/无权）才丢弃；其余码默认保留给用户重试
       const blocked = new Set(
-        rejected.filter((item) => !retryableIds.has(item.planVersionId)).map((item) => item.planVersionId),
+        rejected
+          .filter((item) => NON_RETRYABLE_FAILURE_CODES.has(String(item.code ?? '')))
+          .map((item) => item.planVersionId),
       )
+      const retryableCount = rejected.filter((item) => !blocked.has(item.planVersionId)).length
+      selected.value = selected.value.filter((id) => !blocked.has(id))
       const attempted = parseIds(versionInput.value)
       const kept = attempted.filter((id) => !blocked.has(id))
       if (kept.length !== attempted.length) {
         versionInput.value = kept.join(',')
         if (prefilledId.value !== null && !kept.includes(prefilledId.value)) prefilledId.value = null
       }
-      // 按码分组，但用后端给教师看的中文 message（缺失才回落错误码文案）
+      // 按 code+message 分组：同码不同原因（如各版本缺不同媒体）也要分别说清
       const grouped = new Map<string, { message: string; ids: number[] }>()
       for (const item of rejected) {
         const code = String(item.code ?? 'UNKNOWN')
-        const group = grouped.get(code) ?? { message: item.message || errorMessage(code), ids: [] }
+        const message = item.message || errorMessage(code)
+        const key = `${code}|${message}`
+        const group = grouped.get(key) ?? { message, ids: [] }
         group.ids.push(item.planVersionId)
-        grouped.set(code, group)
+        grouped.set(key, group)
       }
       const detail = [...grouped.values()].map((group) => `${group.message}（版本 ${group.ids.join(', ')}）`).join('；')
       error.value = `有 ${rejected.length} 份导出失败：${detail}`
-      if (retryable.length) error.value += `（${retryable.length} 份可修正后重试，已保留勾选）`
+      if (retryableCount) error.value += `（${retryableCount} 份可修正后重试，已保留勾选）`
+      // 部分成功时用一条汇总，避免成功/失败两个 alert 并列
+      if (created.length) message.value = `提交 ${ids.length} 份：成功 ${created.length}，失败 ${rejected.length}`
     }
   } catch (caught) {
     if (caught instanceof RequestError && caught.code === 'PAYLOAD_REJECTED') {
