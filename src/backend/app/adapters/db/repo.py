@@ -955,7 +955,8 @@ class Repo:
         return grouped
 
     def _review_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
-        where = ["1 = 1"]
+        # 软删教案的审查记录不应再出现在审查中心/导出候选里（导出服务对 deleted_at 非空直接 NOT_FOUND）
+        where = ["p.deleted_at IS NULL"]
         params: list[Any] = []
         owner_id = scope.get("owner_id")
         group_name = scope.get("group_name")

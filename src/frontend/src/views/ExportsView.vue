@@ -113,21 +113,23 @@ async function submit(): Promise<void> {
   creating.value = true
   try {
     const result = await createExports(ids)
-    // 门禁拒绝项没有 exportId，只带 planVersionId/status/code/message（后端 _failed 的形状）
-    type ExportResultItem = ExportJob & { code?: string }
-    const raw = ((result as unknown as { items?: Partial<ExportResultItem>[] }).items ?? []) as Partial<ExportResultItem>[]
-    // 门禁拒绝项没有 exportId，只带 planVersionId/code/message：不能当任务卡片渲染，单独提示
-    const items = raw.filter((item): item is ExportJob => typeof item.exportId === 'number')
-    const rejected = raw.filter((item) => typeof item.exportId !== 'number')
-    if (items.length) jobs.value = [...items, ...jobs.value.filter((job) => !items.some((it) => it.exportId === job.exportId))]
-    message.value = `已提交 ${items.length} 个导出任务`
+    // 创建/复用项后端返回完整 ExportJob（export_service._job_payload），ExportItem 只声明了子集；
+    // 门禁拒绝项没有 exportId，只带 planVersionId/code/message，不能当任务卡片渲染。
+    const created = result.items.filter((item) => typeof item.exportId === 'number') as unknown as ExportJob[]
+    const rejected = result.items.filter((item) => typeof item.exportId !== 'number')
+    if (created.length) {
+      jobs.value = [...created, ...jobs.value.filter((job) => !created.some((it) => it.exportId === job.exportId))]
+      message.value = `已提交 ${created.length} 个导出任务`
+      const submitted = new Set(created.map((item) => item.planVersionId))
+      selected.value = selected.value.filter((id) => !submitted.has(id))
+      startPolling()
+    }
     if (rejected.length) {
+      const rejectedIds = new Set(rejected.map((item) => item.planVersionId))
+      selected.value = selected.value.filter((id) => rejectedIds.has(id))
       const codes = [...new Set(rejected.map((item) => item.code ?? 'UNKNOWN'))].join('、')
       error.value = `有 ${rejected.length} 份未通过导出门禁（${codes}），仍保留勾选可重试`
-    } else {
-      selected.value = []
     }
-    startPolling()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : '创建导出任务失败'
   } finally {
@@ -183,8 +185,9 @@ async function loadCandidates(): Promise<void> {
     const page = await listReviews({ pageSize: 100 })
     candidates.value = page.items
     candidatesTotal.value = page.total
-    // 刷新后把已失效（不再可导出/已不在候选里）的勾选裁掉，避免静默提交过期 ID
-    const available = new Set(candidateRows.value.map((item) => item.planVersionId))
+    // 刷新后把已失效（不再可导出/已不在候选里）的勾选裁掉，避免静默提交过期 ID；
+    // 用未截断的 exportableRows，避免合法勾选被前 50 条之外挤掉。
+    const available = new Set(exportableRows.value.map((item) => item.planVersionId))
     selected.value = selected.value.filter((id) => available.has(id))
   } catch (caught) {
     candidatesError.value = caught instanceof Error ? caught.message : '加载候选版本失败'
