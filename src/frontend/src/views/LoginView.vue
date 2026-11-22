@@ -11,12 +11,16 @@ const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
+// 开发账号由 Vite 环境变量提供（VITE_DEV_USERNAME / VITE_DEV_PASSWORD），源码里不写死：
+// 写死会与种子账号漂移（UI-04 缺口），而 /api/v1/meta 需要登录，登录页读不到。
+const devUsername = isDev ? String(import.meta.env.VITE_DEV_USERNAME ?? '') : ''
+const devPassword = isDev ? String(import.meta.env.VITE_DEV_PASSWORD ?? '') : ''
 
 const formRef = ref<FormInstance>()
 const usernameRef = ref<{ focus: () => void } | null>(null)
 const form = reactive({
-  username: isDev ? 'teacher01' : '',
-  password: isDev ? 'Lesson2026' : '',
+  username: devUsername,
+  password: devPassword,
 })
 const loading = ref(false)
 const errorMessage = ref('')
@@ -178,9 +182,6 @@ onMounted(() => {
           show-icon
           :title="route.query.changed ? '口令已更新，请用新口令登录。' : '注册成功，请用新账号登录并设置新口令。'"
         />
-        <p v-if="isDev" class="demo-hint">
-          本地开发：<code>teacher01</code> / <code>Lesson2026</code>
-        </p>
         <p v-if="isDev" class="demo-link">
           <router-link to="/styleguide">查看设计验收</router-link>
         </p>
@@ -418,17 +419,6 @@ onMounted(() => {
 
 .form-notice {
   margin-top: 12px;
-}
-
-.demo-hint {
-  margin-top: 18px;
-  color: var(--lpp-text-muted);
-  font-size: 12px;
-  text-align: center;
-}
-
-.demo-hint code {
-  color: var(--lpp-text);
 }
 
 .demo-link {
