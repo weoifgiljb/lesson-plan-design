@@ -4,6 +4,21 @@
 
 ## 未发布
 
+（下一版待填）
+
+## v2.1.0 — 2026-11-28
+
+### 平台端（v2.1 收口，PR #58 / #59）
+
+- BS-10：重复建课改为 409 语义（`TASK_TAKEN_BY_OTHER` / `TASK_ALREADY_EXISTS`），冲突不再跳 403、不再误写 `authz.denied`；前端在对话框内确认覆盖，保留已填内容。
+- BS-10：新增 `POST /api/v1/tasks/{task_id}/draft`，无 Agent 时可从任务生成「未审查」草稿教案（复用校标骨架、幂等、不推进任务状态）；导出仍需审查通过。
+- BS-07：导出中心新增候选版本勾选（复用 `/reviews` 的 `planVersionId/exportable`，按最新轮次去重、勾选与手填合并、单批 50），手填 ID 保留为高级入口。
+- UI-04：登录页开发账号改由 `VITE_DEV_USERNAME` 提供，不再硬编码 `teacher01/Lesson2026`，且不预填口令。
+- UI-12：路由切换清理残留 toast；错误 toast 不再遮挡筛选栏点击。
+- BS-05：侧栏与命令面板按 `meta.roles` 收敛，admin 不再看到任务/审查/导出入口（直链仍 403，契约本就只给 teacher/lead）。
+- 测试：教师端 E2E 13→16 步（冲突不跳 403 / 生成草稿 / 候选勾选导出）、新增 `npm run e2e:roles`（10 步）；后端 294 项、前端 205 项、插件端 165 项、双端夹具 22/22；gate 0 block。
+- 契约：58 端点 / 25 错误码（新增 draft 接口与两个 409 码，`contract.v1.json`、OpenAPI、`types.gen.ts` 同批）。
+
 ### 文档
 
 - 三份需求文档补三态状态标签（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）、证据与缺口；FR 升 v1.7、BS v1.15、OPS v1.4；同步更新 `docs/README.md` 状态汇总。
