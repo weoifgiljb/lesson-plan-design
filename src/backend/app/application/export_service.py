@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import suppress
 from typing import Any
 
 from app.adapters import engine, storage
@@ -149,8 +150,11 @@ def _perform_export(
         return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
     finally:
         if not finished:
-            repo.update_export_job(job_id, "failed")
-            storage.export_path(job_id).unlink(missing_ok=True)
+            # 清理是尽力而为：清理动作自身失败不能覆盖 try 里的原始异常（否则根因 traceback 丢失）
+            with suppress(Exception):
+                repo.update_export_job(job_id, "failed")
+            with suppress(OSError):
+                storage.export_path(job_id).unlink(missing_ok=True)
 
 
 def _commit_success(

@@ -17,6 +17,8 @@ _LOCK = threading.Lock()
 _HITS: dict[str, Deque[float]] = {}
 #: key 表硬上限；超过先回收过期/空 key，仍满则淘汰最旧的一条
 MAX_KEYS = 4096
+#: 上次全表过期清理的时间：表满时每个新 key 都触发一次全表扫描会把锁占满
+_last_prune = 0.0
 
 
 def allow(key: str, limit: int, window_seconds: float = 3600.0, *, now: float | None = None) -> bool:
@@ -42,17 +44,24 @@ def _register(key: str, limit: int, window_seconds: float, current: float) -> bo
 
 
 def _prune(current: float, window_seconds: float) -> None:
-    """在持锁状态下调用：先清过期 key，仍达上限时按插入序淘汰最旧 key（O(1)）。
+    """在持锁状态下调用：过期清理最多每个窗口一次，其余情况只做 O(1) 淘汰。
 
     取舍：不做"最久未命中"的精确淘汰——那需要在锁内全表扫描，而触发场景恰好是
-    匿名来源刷 key 的攻击流量；这里只要内存有界即可。
+    匿名来源刷 key 的攻击流量；这里只要内存有界且锁不被长期占住即可。
     """
-    for key in [k for k, hits in _HITS.items() if not hits or current - hits[-1] > window_seconds]:
-        _HITS.pop(key, None)
+    global _last_prune
+    if current - _last_prune >= window_seconds:
+        _last_prune = current
+        for key in [
+            k for k, hits in _HITS.items() if not hits or current - hits[-1] > window_seconds
+        ]:
+            _HITS.pop(key, None)
     while len(_HITS) >= MAX_KEYS and _HITS:
         _HITS.pop(next(iter(_HITS)))
 
 
 def reset() -> None:
+    global _last_prune
     with _LOCK:
         _HITS.clear()
+        _last_prune = 0.0
