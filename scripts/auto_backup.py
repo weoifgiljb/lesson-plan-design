@@ -82,9 +82,10 @@ def apply_retention(backup_dir: Path, keep: int = 7, weekly_keep: int = 4) -> li
 
 def run(data_dir: Path, backup_dir: Path, *, keep: int, weekly_keep: int, make_zip: bool) -> dict[str, Any]:
     label = AUTO_PREFIX + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    snapshot = create_snapshot(data_dir, backup_dir, label=label, make_zip=make_zip)
-    # 独占标记：只有定时任务创建的快照才允许被保留策略删除
-    (Path(snapshot["path"]) / AUTO_MARKER).write_text("auto\n", encoding="utf-8")
+    # 标记由 create_snapshot 在临时目录内写入再打包，保证目录/manifest/zip 一致
+    snapshot = create_snapshot(
+        data_dir, backup_dir, label=label, make_zip=make_zip, marker=AUTO_MARKER
+    )
     removed = apply_retention(backup_dir, keep=keep, weekly_keep=weekly_keep)
     return {"ok": True, "snapshot": snapshot["path"], "label": label, "removed": removed}
 

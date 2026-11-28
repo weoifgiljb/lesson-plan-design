@@ -1249,6 +1249,16 @@ class Repo:
         )
         return bool(cursor.rowcount)
 
+    def try_revert_deletion_request(self, request_id: int, resolver_id: int) -> bool:
+        """兜底回滚：数据库忙时只记日志，不覆盖调用方正在上抛的原始异常。"""
+        try:
+            return self.revert_deletion_request(request_id, resolver_id)
+        except sqlite3.Error as exc:
+            logger.warning(
+                "revert deletion request %s failed: %s", request_id, type(exc).__name__
+            )
+            return False
+
     def reclaim_stale_deletion_request(
         self, request_id: int, resolver_id: int, status: str, stale_before: str
     ) -> bool:

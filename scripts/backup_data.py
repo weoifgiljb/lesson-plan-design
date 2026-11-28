@@ -97,6 +97,7 @@ def create_snapshot(
     label: str = "",
     include_exports: bool = True,
     make_zip: bool = False,
+    marker: str = "",
 ) -> dict[str, object]:
     data_dir = Path(data_dir).resolve()
     backup_dir = Path(backup_dir).resolve()
@@ -112,6 +113,9 @@ def create_snapshot(
     temporary = backup_dir / f".tmp-{uuid.uuid4().hex}"
     temporary.mkdir()
     try:
+        if marker:
+            # 标记在临时目录内写入：目录、manifest、zip 三者一致，解包/恢复后标记不丢
+            (temporary / marker).write_text("auto\n", encoding="utf-8")
         source = sqlite3.connect(str(database))
         destination = sqlite3.connect(str(temporary / "app.db"))
         try:
