@@ -113,6 +113,8 @@ const METRICS: Metric[] = [
 
 const SUMMARY: StatsSummary = {
   metrics: METRICS,
+  reviewStatusCounts: { passed: 1 },
+  reviewModeCounts: { native_subagent: 1, role_simulation: 0, human: 0 },
   filters: {},
   scope: 'own',
 }
@@ -161,6 +163,7 @@ describe('StatsView', () => {
     expect(wrapper.text()).toContain('样本不足')
     expect(wrapper.text()).toContain('不可用')
     expect(wrapper.text()).toContain('统计范围：本人')
+    expect(wrapper.text()).toContain('审校方式：独立子代理 1 份 / 角色模拟 0 份 / 人工 0 份')
     expect(wrapper.text()).toContain('一级考证辅导2')
     expect(wrapper.findAll('.chart-stub')).toHaveLength(2)
     expect(wrapper.find('.chart-legend').text()).toContain('通过')

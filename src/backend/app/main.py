@@ -9,18 +9,24 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from app.adapters.db.connection import open_database
+from app.adapters.db.connection import SCHEMA_VERSION, open_database
+from app.adapters.db import instance
 from app.adapters.db.repo import Repo
 from app.api.errors import register_error_handlers
-from app.config import security_config_problems, strict_config
+from app.config import data_dir, db_path, security_config_problems, strict_config
+from app.logging_setup import configure as configure_logging
 from app.domain.errors import AppError
 from app.api.routers import (
     audit,
     auth,
+    backups,
+    deletion,
     exports,
     health,
     me,
     meta,
+    metrics,
+    notifications,
     plans,
     reviews,
     samples,
@@ -38,6 +44,7 @@ logger = logging.getLogger("lpp")
 async def lifespan(app: FastAPI):
     app.state.db_lock = threading.Lock()
     app.state.db_error = ""
+    app.state.data_status = instance.status(data_dir(), db_path(), schema_version=SCHEMA_VERSION)
     problems = security_config_problems()
     app.state.config_problems = problems
     if problems and strict_config():
@@ -45,6 +52,8 @@ async def lifespan(app: FastAPI):
     try:
         bootstrap = open_database()
         bootstrap.close()
+        app.state.data_status = instance.status(data_dir(), db_path(), schema_version=SCHEMA_VERSION)
+        configure_logging(data_dir() / "logs")
     except Exception as exc:  # noqa: BLE001 - 启动失败要让健康检查报告 down 而不是进程消失
         # 把原因留给 /health：早期分支建的库会因为跳号迁移缺列，需要先跑 repair_schema
         app.state.db_error = f"{type(exc).__name__}: {exc}"
@@ -94,6 +103,10 @@ def create_app() -> FastAPI:
     register_error_handlers(application)
     application.include_router(health.router, prefix="/api/v1")
     application.include_router(meta.router, prefix="/api/v1")
+    application.include_router(metrics.router, prefix="/api/v1")
+    application.include_router(deletion.router, prefix="/api/v1")
+    application.include_router(notifications.router, prefix="/api/v1")
+    application.include_router(backups.router, prefix="/api/v1")
     application.include_router(auth.router, prefix="/api/v1")
     application.include_router(me.router, prefix="/api/v1")
     application.include_router(plans.router, prefix="/api/v1")

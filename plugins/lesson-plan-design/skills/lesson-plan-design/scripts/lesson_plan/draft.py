@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from .model import (
@@ -12,6 +13,21 @@ from .model import (
     SCHOOL_DEFAULTS,
     empty_plan,
 )
+
+
+def practice_sets(week: int, session: int) -> tuple[str | None, str | None]:
+    """从同周次/课次的样例元信息推导练习套别，避免硬编码 21/22。"""
+    from .examples import load_examples
+
+    for _path, plan in load_examples():
+        if plan.get("week") != week or plan.get("session") != session:
+            continue
+        numbers = re.findall(r"\d+", str(plan.get("contentDetail") or ""))
+        if len(numbers) >= 2:
+            return f"第{numbers[0]}套", f"第{numbers[1]}套"
+        if len(numbers) == 1:
+            return f"第{numbers[0]}套", None
+    return None, None
 
 
 def draft_plan(
@@ -32,8 +48,9 @@ def draft_plan(
     optional: str | None = None,
 ) -> dict[str, Any]:
     knowledge = KNOWLEDGE_A if session % 2 == 1 else KNOWLEDGE_B
-    must = must_do or ("第21套" if session % 2 == 1 else "第22套")
-    opt = optional or ("第1套" if session % 2 == 1 else "第2套")
+    sample_must, sample_optional = practice_sets(week, session)
+    must = must_do or sample_must or "第1套"
+    opt = optional or sample_optional or "第2套"
     if student_context.strip():
         intro = student_context.strip()
     elif week == 1:
@@ -95,15 +112,23 @@ def _load_c_language_templates() -> list[dict[str, Any]]:
     return raw if isinstance(raw, list) else []
 
 
-def _match_c_language_template(title: str) -> dict[str, Any] | None:
-    """Select the most specific C-language topic by number of matched phrases."""
+def match_c_language_template(title: str) -> tuple[dict[str, Any] | None, list[str]]:
+    """返回最具体模板与同分候选；候选多于 1 时调用方应提示教师确认。"""
     title = str(title or "")
     best: dict[str, Any] | None = None
     best_score = 0
+    candidates: list[tuple[int, str]] = []
     for template in _load_c_language_templates():
         terms = template.get("match") or []
         score = sum(1 for term in terms if str(term) and str(term) in title)
+        if score > 0:
+            candidates.append((score, str(template.get("title") or template.get("contentDetail") or "")))
         if score > best_score:
             best, best_score = template, score
-    return best
+    tied = sorted({label for score, label in candidates if score == best_score and best_score > 0})
+    return best, tied if len(tied) > 1 else []
+
+
+def _match_c_language_template(title: str) -> dict[str, Any] | None:
+    return match_c_language_template(title)[0]
 

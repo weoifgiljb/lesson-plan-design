@@ -71,8 +71,9 @@ export interface PlanListItem {
   teacher: string
   versionNo: number
   planHash: string
-  reviewStatus: string
-  reviewRound: number
+  /** 草稿版本没有审查记录：后端返回 null，前端统一展示为「未审查」 */
+  reviewStatus: string | null
+  reviewRound: number | null
   versionCreatedAt: string
 }
 
@@ -82,8 +83,9 @@ export interface PlanVersion {
   engineVersion?: string
   createdAt: string
   content?: Record<string, unknown>
-  round?: number
-  status?: string
+  round?: number | null
+  /** 草稿版本没有审查记录：后端返回 null */
+  status?: string | null
   reportSha256?: string
 }
 
@@ -211,6 +213,10 @@ export interface Metric {
 
 export interface StatsSummary {
   metrics: Metric[]
+  /** 审查状态分布：后端按当前筛选/范围全量聚合 */
+  reviewStatusCounts: Record<string, number>
+  /** 审校方式分列（FR-06） */
+  reviewModeCounts: Record<string, number>
   filters: Record<string, unknown>
   scope: 'own' | 'group' | 'all'
 }

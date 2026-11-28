@@ -2,11 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import { getPlan, importPlan } from '@/api/plans'
 import MarkdownView from '@/components/MarkdownView.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import PlanMargin from '@/components/PlanMargin.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
@@ -22,11 +24,14 @@ const canImport = computed(() => session.role === 'teacher' || session.role === 
 const detail = useApiRequest(() => getPlan(planId))
 const booting = ref(true)
 const sourceMode = ref(false)
+const marginOpen = ref(false)
 const importing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const plan = computed(() => detail.data.value?.plan ?? null)
 const markdown = computed(() => (detail.data.value ? buildPlanMarkdown(detail.data.value) : ''))
+const latestReview = computed(() => detail.data.value?.latestReview ?? null)
+const reportHash = computed(() => latestReview.value?.reportSha256 ?? '')
 
 function handleError(caught: unknown, fallback: string): RequestError {
   const requestError = caught instanceof RequestError ? caught : toApiError(caught)
@@ -59,7 +64,7 @@ function downloadMarkdown(): void {
     new Blob([markdown.value], { type: 'text/markdown;charset=utf-8' }),
     `plan-${plan.value.planId}-v${plan.value.versionNo}.md`,
   )
-  ElMessage.success('Markdown 已下载')
+  sealSuccess('Markdown 已下载')
 }
 
 function openVersionPicker(): void {
@@ -78,13 +83,14 @@ async function onVersionFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
-    ElMessage.success(
+    if (result.planId === planId) await load()
+    else await router.push(`/plans/${result.planId}/content`)
+    // 先导航后提示：路由切换会清掉上一页的 toast
+    sealSuccess(
       result.duplicate
         ? `契约包已存在，当前为第 ${result.versionNo} 版`
         : `新版本 v${result.versionNo} 已入库`,
     )
-    if (result.planId === planId) await load()
-    else await router.push(`/plans/${result.planId}/content`)
   } catch (caught) {
     handleError(caught, '上传新版本失败')
   } finally {
@@ -156,14 +162,41 @@ onMounted(() => {
     </StatePanel>
 
     <template v-else-if="plan">
-      <p class="notice">
-        平台 v1.0 只读；修订在插件端完成后上传新版本，不会覆盖旧版本。
-      </p>
+      <div class="proof-layout">
+        <article class="proof-sheet" aria-label="教案正文">
+          <span class="proof-binding" aria-hidden="true" />
+          <p class="proof-kicker">第 {{ plan.versionNo }} 稿 · 只读校样</p>
+          <p class="notice">
+            平台只读；修订在插件端完成后上传新版本，不会覆盖旧版本。
+          </p>
+          <MarkdownView v-if="!sourceMode" :markdown="markdown" />
+          <pre v-else class="source-card" aria-label="Markdown 源码"><code>{{ markdown }}</code></pre>
+        </article>
 
-      <article v-if="!sourceMode" class="markdown-card" aria-label="教案正文">
-        <MarkdownView :markdown="markdown" />
-      </article>
-      <pre v-else class="source-card" aria-label="Markdown 源码"><code>{{ markdown }}</code></pre>
+        <aside class="proof-margin" aria-label="版本、审查与证据">
+          <PlanMargin
+            :plan="plan"
+            :latest-review="latestReview"
+            :report-hash="reportHash"
+            @detail="openDetail"
+          />
+        </aside>
+      </div>
+
+      <el-button class="margin-toggle" type="primary" plain @click="marginOpen = true">
+        审查与证据
+      </el-button>
+
+      <el-drawer v-model="marginOpen" title="审查与证据" size="min(420px, 92vw)">
+        <div class="margin-drawer">
+          <PlanMargin
+            :plan="plan"
+            :latest-review="latestReview"
+            :report-hash="reportHash"
+            @detail="openDetail"
+          />
+        </div>
+      </el-drawer>
     </template>
   </div>
 </template>
@@ -177,7 +210,77 @@ onMounted(() => {
   display: none;
 }
 
+.proof-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 68ch) 280px;
+  gap: 28px;
+  align-items: start;
+}
+
+.proof-sheet {
+  position: relative;
+  min-width: 0;
+  padding: 26px 32px 34px 44px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+}
+
+.proof-binding {
+  position: absolute;
+  top: 26px;
+  bottom: 26px;
+  left: 13px;
+  width: 14px;
+  background-image: radial-gradient(circle, var(--lpp-border-strong) 2px, transparent 2.5px);
+  background-size: 14px 34px;
+  opacity: 0.7;
+}
+
+.proof-sheet::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 31px;
+  width: 1px;
+  background: var(--lpp-accent-soft);
+}
+
+.proof-kicker {
+  margin-bottom: 8px;
+  color: var(--lpp-accent-ink);
+  font-family: var(--lpp-font-hand);
+  font-size: var(--lpp-font-xs);
+  letter-spacing: 0.08em;
+}
+
+.proof-sheet :deep(.markdown-body) {
+  max-width: 68ch;
+  font-size: var(--lpp-font-base);
+  line-height: 1.75;
+}
+
+.proof-sheet :deep(.markdown-body h1) {
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.proof-sheet :deep(.markdown-body h2) {
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-md);
+}
+
+.proof-sheet :deep(.markdown-body table) {
+  font-size: var(--lpp-font-sm);
+  line-height: var(--lpp-line-table);
+}
+
 .notice {
+  margin-bottom: 18px;
   padding: 8px 10px;
   border-left: 2px solid var(--lpp-accent);
   background: var(--lpp-layer);
@@ -186,11 +289,57 @@ onMounted(() => {
   line-height: 1.6;
 }
 
-.markdown-card {
-  padding: 28px 32px;
+.proof-margin {
+  position: sticky;
+  top: 80px;
+  display: grid;
+  gap: 16px;
+}
+
+.margin-block {
+  padding: 14px 14px 12px;
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
-  background: var(--lpp-surface);
+  background: var(--lpp-surface-2);
+}
+
+.margin-block h2 {
+  margin-bottom: 8px;
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-family);
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.margin-block dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.margin-block dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--lpp-font-xs);
+}
+
+.margin-block dt {
+  color: var(--lpp-text-muted);
+}
+
+.margin-block dd {
+  margin: 0;
+  color: var(--lpp-text);
+  text-align: right;
+}
+
+.margin-note {
+  margin: 6px 0 8px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.55;
 }
 
 .source-card {
@@ -207,9 +356,78 @@ onMounted(() => {
   white-space: pre-wrap;
 }
 
+.margin-toggle {
+  display: none;
+  justify-self: start;
+}
+
+.margin-drawer {
+  display: grid;
+  gap: 16px;
+}
+
+@media (max-width: 980px) {
+  .proof-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .proof-margin {
+    display: none;
+  }
+
+  .margin-toggle {
+    display: inline-flex;
+    justify-self: start;
+  }
+}
+
 @media (max-width: 767px) {
-  .markdown-card {
-    padding: 18px 16px;
+  .proof-sheet {
+    padding: 20px 18px 24px 36px;
+  }
+
+  .proof-binding {
+    left: 10px;
+  }
+
+  .proof-sheet::before {
+    left: 26px;
+  }
+}
+
+@media print {
+  .proof-margin,
+  .margin-toggle,
+  .notice,
+  .hidden-file {
+    display: none !important;
+  }
+
+  .proof-layout {
+    display: block;
+  }
+
+  .proof-sheet {
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .proof-binding,
+  .proof-sheet::before {
+    display: none;
+  }
+
+  .proof-sheet :deep(.markdown-body h2) {
+    break-after: avoid;
+  }
+
+  .proof-sheet :deep(.markdown-body table) {
+    break-inside: auto;
+  }
+
+  .proof-sheet :deep(.markdown-body tr) {
+    break-inside: avoid;
   }
 }
 </style>

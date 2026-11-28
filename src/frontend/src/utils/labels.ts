@@ -25,6 +25,12 @@ export const EXPORT_STATUS_LABELS: Record<string, string> = {
   failed: '失败',
 }
 
+export const REVIEW_MODE_LABELS: Record<string, string> = {
+  native_subagent: '独立子代理',
+  role_simulation: '角色模拟',
+  human: '人工',
+}
+
 /** 统计范围：后端按角色收敛成这三档，页面只做展示。 */
 export const SCOPE_LABELS: Record<string, string> = {
   own: '本人',
@@ -34,12 +40,21 @@ export const SCOPE_LABELS: Record<string, string> = {
 
 export const UNAVAILABLE_TEXT = '不可用'
 export const UNREVIEWED_TEXT = '未审查'
+/** 视图层哨兵：有版本但没有审查记录（列表里是 null，统计口径里是 unknown） */
+export const UNREVIEWED_STATUS = 'unreviewed'
 
-export function reviewStatusLabel(status: string): string {
+export function reviewStatusLabel(status: string | null | undefined): string {
+  // 草稿版本没有审查记录：null/空串/统计页的 unknown 都按「未审查」展示
+  if (!status || status === 'unknown' || status === UNREVIEWED_STATUS) return UNREVIEWED_TEXT
   return REVIEW_STATUS_LABELS[status] ?? status
 }
 
 export function scopeLabel(scope: string | undefined): string {
   if (!scope) return ''
   return SCOPE_LABELS[scope] ?? scope
+}
+
+export function reviewModeLabel(mode: string | null | undefined): string {
+  if (!mode) return '审查方式未记录'
+  return REVIEW_MODE_LABELS[mode] ?? mode
 }

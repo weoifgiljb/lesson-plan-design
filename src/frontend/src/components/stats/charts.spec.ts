@@ -110,6 +110,12 @@ describe('statusSlices / buildStatusOption', () => {
     expect(slices[0].color).not.toBe(slices[1].color)
   })
 
+  it('按后端全量计数字典聚合，不受前 100 份限制', () => {
+    const slices = statusSlices({ passed: 150, needs_repair: 2, unknown: 1 })
+    expect(slices[0].count).toBe(150)
+    expect(statusTotal({ passed: 150, needs_repair: 2, unknown: 1 })).toBe(153)
+  })
+
   it('空数据给出占位文案而不是除零', () => {
     const option = buildStatusOption([])
     const graphic = option.graphic as Array<{ style: { text: string } }>

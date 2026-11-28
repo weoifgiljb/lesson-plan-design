@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import {
   downloadStatsCsv,
@@ -75,33 +76,30 @@ void loadRecords()
 
 const metrics = computed<Metric[]>(() => summaryData.value?.metrics ?? [])
 const scopeText = computed(() => scopeLabel(summaryData.value?.scope))
+const reviewModeText = computed(() => {
+  const counts = summaryData.value?.reviewModeCounts
+  if (!counts) return ''
+  const native = counts.native_subagent ?? 0
+  const role = counts.role_simulation ?? 0
+  const human = counts.human ?? 0
+  return `审校方式：独立子代理 ${native} 份 / 角色模拟 ${role} 份 / 人工 ${human} 份`
+})
 const showTeacherFilter = computed(() => session.role !== 'teacher')
 
-// 状态分布要覆盖当前筛选的全部记录：summary 没有 statusCounts，最多取 100 份（后端分页上限）。
-const {
-  data: distributionData,
-  loading: distributionLoading,
-  error: distributionError,
-  load: loadDistribution,
-} = useApiRequest(
-  () => listStatRecords({ ...applied.value, page: 1, pageSize: 100 }),
-  { immediate: true },
+// 状态分布由后端按当前筛选/范围全量聚合，前端不再取前 100 份自算。
+const statusCounts = computed<Record<string, number>>(
+  () => summaryData.value?.reviewStatusCounts ?? {},
 )
-const distributionRows = computed<StatRecord[]>(() => distributionData.value?.items ?? [])
-const distributionTotal = computed(() => distributionData.value?.total ?? 0)
-const slices = computed(() => statusSlices(distributionRows.value))
-const statusOption = computed(() => buildStatusOption(distributionRows.value))
-const statusText = computed(() => statusSummary(distributionRows.value))
+const slices = computed(() => statusSlices(statusCounts.value))
+const statusOption = computed(() => buildStatusOption(statusCounts.value))
+const statusText = computed(() => statusSummary(statusCounts.value))
 const achievementOption = computed(() => buildAchievementOption(metrics.value))
 const achievementText = computed(() => achievementSummary(metrics.value))
+const distributionTotal = computed(() => slices.value.reduce((sum, slice) => sum + slice.count, 0))
 
 const distributionCaption = computed(() => {
-  if (distributionError.value) return `状态分布读取失败（${distributionError.value.code}）`
-  if (distributionLoading.value && !distributionTotal.value) return '正在读取审查状态…'
+  if (summaryLoading.value && !summaryData.value) return '正在读取审查状态…'
   if (!distributionTotal.value) return '当前筛选没有教案记录'
-  if (distributionTotal.value > 100) {
-    return `共 ${distributionTotal.value} 份，图中统计前 100 份的最新状态`
-  }
   return `共 ${distributionTotal.value} 份教案的最新审查状态`
 })
 
@@ -135,10 +133,24 @@ const selectedMetricView = computed(() => {
 const selectedSlice = computed(
   () => slices.value.find((slice) => slice.status === selectedStatus.value) ?? null,
 )
-const statusPlans = computed(() =>
-  distributionRows.value.filter(
-    (row) => (row.reviewStatus || 'unknown') === selectedStatus.value,
-  ),
+const {
+  items: statusPlans,
+  total: statusTotalCount,
+  page: statusPage,
+  pageSize: statusPageSize,
+  loading: statusLoading,
+  error: statusError,
+  load: loadStatusPlans,
+  setPage: setStatusPage,
+} = usePagedQuery<StatRecord>(
+  (nextPage, nextSize) =>
+    listStatRecords({
+      ...applied.value,
+      status: selectedStatus.value ?? undefined,
+      page: nextPage,
+      pageSize: nextSize,
+    }),
+  20,
 )
 const metricDrawerSize = 'min(420px, 92vw)'
 const statusDrawerSize = 'min(460px, 92vw)'
@@ -193,6 +205,8 @@ function openMetric(key: string): void {
 function openStatus(status: string): void {
   selectedStatus.value = status
   statusDrawer.value = true
+  statusPage.value = 1
+  void loadStatusPlans()
 }
 
 function onAchievementSelect(params: unknown): void {
@@ -243,7 +257,7 @@ function describeApplied(query: StatsQuery): string {
 }
 
 async function reload(): Promise<void> {
-  await Promise.allSettled([loadSummary(), loadRecords(), loadDistribution()])
+  await Promise.allSettled([loadSummary(), loadRecords()])
 }
 
 async function applyFilters(): Promise<void> {
@@ -281,7 +295,7 @@ async function download(): Promise<void> {
   try {
     const blob = await downloadStatsCsv(applied.value)
     saveBlob(blob, 'stats-summary.csv')
-    ElMessage.success('已导出当前筛选的 9 项指标')
+    sealSuccess('已导出当前筛选的 9 项指标')
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '导出失败，请稍后重试')
   } finally {
@@ -317,6 +331,7 @@ const columns: TableColumn[] = [
       <template #meta>
         <p class="stats-meta">
           <span v-if="scopeText">统计范围：{{ scopeText }}</span>
+          <span v-if="reviewModeText">{{ reviewModeText }}</span>
           <span v-if="loadedTime">统计截至 {{ loadedTime }}</span>
         </p>
       </template>
@@ -385,7 +400,7 @@ const columns: TableColumn[] = [
           <el-button
             type="primary"
             native-type="submit"
-            :loading="summaryLoading || recordsLoading || distributionLoading"
+            :loading="summaryLoading || recordsLoading"
           >
             查询
           </el-button>
@@ -448,17 +463,10 @@ const columns: TableColumn[] = [
               <h3 id="chart-status-title">审查状态分布</h3>
               <p>{{ distributionCaption }}</p>
             </header>
-            <p v-if="distributionError" class="chart-panel__hint">
-              状态分布读取失败（{{ distributionError.code }}）。
-              <el-button link type="primary" @click="loadDistribution">重试</el-button>
-            </p>
-            <p
-              v-else-if="distributionLoading && !distributionRows.length"
-              class="chart-panel__hint"
-            >
+            <p v-if="summaryLoading && !distributionTotal" class="chart-panel__hint">
               正在读取审查状态…
             </p>
-            <p v-else-if="!distributionRows.length" class="chart-panel__hint">
+            <p v-else-if="!slices.length" class="chart-panel__hint">
               当前筛选没有教案记录，暂无可分布的审查状态。
             </p>
             <template v-else>
@@ -644,8 +652,14 @@ const columns: TableColumn[] = [
       append-to-body
       @closed="selectedStatus = null"
     >
-      <p class="drawer-caption">共 {{ statusPlans.length }} 份教案，点标题进入详情。</p>
-      <ul class="drawer-plans">
+      <p class="drawer-caption">
+        共 {{ statusTotalCount }} 份教案，点标题进入详情。
+        <span v-if="statusLoading">正在加载…</span>
+      </p>
+      <p v-if="statusError" class="drawer-caption">
+        读取失败（{{ statusError.code }}），请关闭后重试。
+      </p>
+      <ul v-else class="drawer-plans">
         <li v-for="plan in statusPlans" :key="plan.planId">
           <router-link :to="`/plans/${plan.planId}`" @click="statusDrawer = false">
             {{ plan.contentTitle || `教案 #${plan.planId}` }}
@@ -657,7 +671,18 @@ const columns: TableColumn[] = [
           </span>
         </li>
       </ul>
-      <p v-if="!statusPlans.length" class="drawer-caption">没有该状态的记录。</p>
+      <p v-if="!statusLoading && !statusError && !statusPlans.length" class="drawer-caption">
+        没有该状态的记录。
+      </p>
+      <el-pagination
+        v-if="statusTotalCount > statusPageSize"
+        class="drawer-pagination"
+        layout="prev, pager, next"
+        :current-page="statusPage"
+        :page-size="statusPageSize"
+        :total="statusTotalCount"
+        @current-change="setStatusPage"
+      />
     </el-drawer>
   </div>
 </template>
@@ -799,6 +824,7 @@ const columns: TableColumn[] = [
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
 }
 
 .chart-panel--sample {
@@ -806,8 +832,10 @@ const columns: TableColumn[] = [
 }
 
 .chart-panel__head h3 {
-  font-size: var(--lpp-font-md);
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-lg);
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .chart-panel__head p {
@@ -1045,6 +1073,11 @@ const columns: TableColumn[] = [
   color: var(--lpp-text-muted);
   font-size: var(--lpp-font-xs);
   line-height: 1.5;
+}
+
+.drawer-pagination {
+  justify-content: center;
+  margin-top: 16px;
 }
 
 @media (max-width: 1180px) {

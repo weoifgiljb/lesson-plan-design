@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
+import { createBackup, backupDownloadUrl, listBackups, restoreBackup } from '@/api/backups'
 import { createUser, listUsers, type UserQuery } from '@/api/users'
 import { exportAuditCsv, listAudit, type AuditQuery } from '@/api/audit'
+import { listDeletionRequests, resolveDeletionRequest, type DeletionRequest } from '@/api/deletions'
+import { getOpsMetrics } from '@/api/metrics'
 import type { AuditItem, Role, UserItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useMeta } from '@/composables/useMeta'
 import { saveBlob } from '@/utils/download'
 
-const tab = ref<'users' | 'audit'>('users')
+const tab = ref<'users' | 'audit' | 'ops' | 'deletion' | 'backup'>('users')
 
 const userFilters = reactive<UserQuery>({ page: 1, pageSize: 20, q: '', role: undefined })
 const users = useApiRequest(() => listUsers({ ...userFilters }), { immediate: true })
@@ -17,6 +22,9 @@ const userTotal = computed(() => users.data.value?.total ?? 0)
 
 const auditFilters = reactive<AuditQuery>({ page: 1, pageSize: 20, action: '' })
 const audit = useApiRequest(() => listAudit({ ...auditFilters }), { immediate: false })
+const ops = useApiRequest(() => getOpsMetrics(), { immediate: false })
+const deletions = useApiRequest(() => listDeletionRequests('pending'), { immediate: false })
+const backups = useApiRequest(() => listBackups(), { immediate: false })
 const auditRows = computed<AuditItem[]>(() => audit.data.value?.items ?? [])
 const auditTotal = computed(() => audit.data.value?.total ?? 0)
 
@@ -27,9 +35,70 @@ const form = reactive({ username: '', displayName: '', role: 'teacher' as Role, 
 
 const auditError = ref('')
 
-function switchTab(next: 'users' | 'audit'): void {
+function switchTab(next: 'users' | 'audit' | 'ops' | 'deletion' | 'backup'): void {
   tab.value = next
   if (next === 'audit' && !audit.data.value) void audit.load()
+  if (next === 'ops' && !ops.data.value) void ops.load()
+  if (next === 'deletion' && !deletions.data.value) void deletions.load()
+  if (next === 'backup' && !backups.data.value) void backups.load()
+}
+
+async function makeBackup(): Promise<void> {
+  let label = ''
+  try {
+    const result = await ElMessageBox.prompt('快照标签（可留空）', '创建备份', { confirmButtonText: '创建', cancelButtonText: '取消' })
+    label = result.value || ''
+  } catch {
+    return
+  }
+  try {
+    await createBackup(label)
+    sealSuccess('备份已创建')
+    await backups.load()
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '创建备份失败')
+  }
+}
+
+function downloadBackup(name: string): void {
+  window.open(backupDownloadUrl(name), '_blank', 'noopener')
+}
+
+async function restoreFromBackup(name: string): Promise<void> {
+  try {
+    await ElMessageBox.confirm(`从 ${name} 恢复到 staging 目录？当前数据不会被直接覆盖。`, '恢复备份', {
+      type: 'warning',
+      confirmButtonText: '恢复',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+  try {
+    const result = await restoreBackup(name)
+    sealSuccess(`已恢复到 ${result.target}`)
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '恢复失败')
+  }
+}
+
+async function resolveDeletion(row: DeletionRequest, approve: boolean): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      approve ? `批准删除《${row.contentTitle}》？批准后教案软删除但保留审计。` : `驳回《${row.contentTitle}》的删除申请？`,
+      approve ? '批准删除' : '驳回申请',
+      { type: 'warning', confirmButtonText: approve ? '批准' : '驳回', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  try {
+    await resolveDeletionRequest(row.requestId, approve)
+    sealSuccess(approve ? '已批准并软删除' : '已驳回')
+    await deletions.load()
+  } catch (caught) {
+    ElMessage.error(caught instanceof Error ? caught.message : '处理失败')
+  }
 }
 
 async function submitCreate(): Promise<void> {
@@ -119,7 +188,7 @@ const roleLabel = computed(
             </el-table-column>
             <el-table-column prop="createdAt" label="创建时间" min-width="190" />
           </el-table>
-          <div v-else-if="!users.loading.value" class="empty">暂无账号</div>
+          <div v-else-if="!users.loading.value && !users.error.value" class="empty">还没有账号。先创建第一位教师，或从注册页开通。</div>
         </div>
 
         <footer v-if="userTotal > userFilters.pageSize!" class="pager">
@@ -155,7 +224,7 @@ const roleLabel = computed(
             <el-table-column prop="ip" label="IP" width="140" />
             <el-table-column prop="traceId" label="traceId" min-width="220" />
           </el-table>
-          <div v-else-if="!audit.loading.value" class="empty">暂无审计记录</div>
+          <div v-else-if="!audit.loading.value && !audit.error.value" class="empty">还没有审计记录。关键操作发生后会记录在这里。</div>
         </div>
 
         <footer v-if="auditTotal > auditFilters.pageSize!" class="pager">
@@ -168,6 +237,98 @@ const roleLabel = computed(
             @current-change="audit.load()"
           />
         </footer>
+      </el-tab-pane>
+      <el-tab-pane label="运维" name="ops">
+        <div v-loading="ops.loading.value" class="ops-panel">
+          <el-alert
+            v-if="ops.error.value"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="ops.error.value.message"
+          />
+          <div v-if="ops.data.value" class="ops-grid">
+            <article class="ops-card">
+              <p class="ops-card__label">导出失败率</p>
+              <p class="ops-card__value">{{ (ops.data.value.export.failureRate * 100).toFixed(1) }}%</p>
+              <p class="ops-card__hint">失败 {{ ops.data.value.export.failed }} / 共 {{ ops.data.value.export.total }}</p>
+            </article>
+            <article class="ops-card">
+              <p class="ops-card__label">同步冲突率</p>
+              <p class="ops-card__value">{{ (ops.data.value.sync.conflictRate * 100).toFixed(1) }}%</p>
+              <p class="ops-card__hint">冲突 {{ ops.data.value.sync.conflicts }} / 共 {{ ops.data.value.sync.total }}</p>
+            </article>
+            <article class="ops-card">
+              <p class="ops-card__label">日志保留</p>
+              <p class="ops-card__value">{{ ops.data.value.logRetentionDays }} 天</p>
+            </article>
+            <article class="ops-card">
+              <p class="ops-card__label">统计时间</p>
+              <p class="ops-card__value ops-card__value--small">{{ ops.data.value.generatedAt }}</p>
+            </article>
+          </div>
+          <div v-if="ops.data.value?.alerts.length" class="ops-alerts">
+            <el-alert
+              v-for="alert in ops.data.value.alerts"
+              :key="alert.code"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="alert.message"
+            />
+          </div>
+          <div v-else-if="!ops.loading.value && !ops.data.value && !ops.error.value" class="empty">运维指标还没有数据。产生导出或审查后刷新。</div>
+        </div>
+      </el-tab-pane>
+      <el-tab-pane label="删除申请" name="deletion">
+        <div v-loading="deletions.loading.value" class="deletion-panel">
+          <el-alert
+            v-if="deletions.error.value"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="deletions.error.value.message"
+          />
+          <el-table v-if="deletions.data.value?.items.length" :data="deletions.data.value.items" row-key="requestId" stripe>
+            <el-table-column prop="contentTitle" label="教案" min-width="180" />
+            <el-table-column prop="requester" label="申请人" width="110" />
+            <el-table-column prop="reason" label="原因" min-width="180" />
+            <el-table-column prop="dueAt" label="应处理时间" width="190" />
+            <el-table-column label="操作" width="160">
+              <template #default="{ row }">
+                <el-button type="danger" link @click="resolveDeletion(row, true)">批准</el-button>
+                <el-button link @click="resolveDeletion(row, false)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-else-if="!deletions.loading.value && !deletions.error.value" class="empty">没有待处理的删除申请。</div>
+        </div>
+      </el-tab-pane>
+      <el-tab-pane label="备份" name="backup">
+        <div v-loading="backups.loading.value" class="backup-panel">
+          <div class="backup-actions">
+            <el-button type="primary" @click="makeBackup">创建备份</el-button>
+          </div>
+          <el-alert
+            v-if="backups.error.value"
+            type="error"
+            :closable="false"
+            show-icon
+            :title="backups.error.value.message"
+          />
+          <el-table v-if="backups.data.value?.items.length" :data="backups.data.value.items" row-key="name" stripe>
+            <el-table-column prop="name" label="快照" min-width="220" />
+            <el-table-column prop="createdAt" label="创建时间" width="200" />
+            <el-table-column prop="schemaVersion" label="结构版本" width="90" />
+            <el-table-column label="操作" width="220">
+              <template #default="{ row }">
+                <el-button link type="primary" @click="downloadBackup(row.name)">下载</el-button>
+                <el-button link type="warning" @click="restoreFromBackup(row.name)">恢复</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div v-else-if="!backups.loading.value && !backups.error.value" class="empty">还没有备份。点“创建备份”生成第一份。</div>
+        </div>
       </el-tab-pane>
     </el-tabs>
 
@@ -213,7 +374,9 @@ const roleLabel = computed(
 
 .head h1 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  letter-spacing: 0.01em;
 }
 
 .lead {
@@ -224,8 +387,18 @@ const roleLabel = computed(
 
 .filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface-2);
+}
+
+.filters :deep(.el-input__wrapper) {
+  min-height: 32px;
+  background: var(--lpp-surface);
 }
 
 .filter {
@@ -237,6 +410,92 @@ const roleLabel = computed(
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+  overflow: hidden;
+}
+
+.table-wrap :deep(.el-table th.el-table__cell) {
+  height: 38px;
+  border-bottom: 2px double var(--lpp-border-strong);
+  background: var(--lpp-surface-2);
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+}
+
+.table-wrap :deep(.el-table td.el-table__cell) {
+  height: 44px;
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.table-wrap :deep(.el-table__row:hover > td.el-table__cell) {
+  background: var(--lpp-row-hover);
+}
+
+.table-wrap :deep(.el-table__row--striped td.el-table__cell) {
+  background: transparent;
+}
+
+.backup-panel {
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.backup-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.deletion-panel {
+  padding-top: 12px;
+}
+
+.ops-panel {
+  padding-top: 12px;
+}
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.ops-card {
+  padding: 16px;
+  border: 1px solid var(--lpp-border);
+  border-radius: 10px;
+  background: var(--lpp-surface);
+}
+
+.ops-card__label {
+  margin: 0;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
+.ops-card__value {
+  margin: 8px 0 4px;
+  color: var(--lpp-text);
+  font-size: 26px;
+  font-weight: 650;
+}
+
+.ops-card__value--small {
+  font-size: var(--lpp-font-sm);
+  font-weight: 500;
+}
+
+.ops-card__hint {
+  margin: 0;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.ops-alerts {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .empty {

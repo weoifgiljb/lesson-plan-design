@@ -1,0 +1,97 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "C语言程序设计",
+  "planNumber": "C0102",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 1,
+  "session": 2,
+  "contentTitle": "我的第一个C程序：输出与程序结构",
+  "contentDetail": "项目一：我的第一个C程序",
+  "plannedHours": 2,
+  "teachingPurpose": "通过可见的文字输出认识C程序基本骨架和printf函数，建立准确书写英文符号的意识。",
+  "knowledgeGoals": "1. 认识#include、main、大括号、分号和printf的作用。\n2. 知道字符串使用英文双引号，\\n实现换行。",
+  "abilityGoals": "1. 能运行Hello World。\n2. 能修改printf完成三行个人名片。\n3. 能根据报错检查分号、双引号和大括号。",
+  "qualityGoals": "1. 养成逐字符核对代码的习惯。\n2. 敢于展示作品并倾听建议。",
+  "keyPoints": "重点：程序结构和printf输出。难点：英文标点、分号、大括号。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "复习上节课流程，预测Hello World输出",
+        "teacherActivity": "抽查.c文件并展示示例",
+        "studentActivity": "预测输出并指出程序从哪里开始执行",
+        "minutes": 10,
+        "evidence": "说出main函数作用"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "独立运行Hello World并完成个人名片",
+        "teacherActivity": "明确五个关键结构和提交标准",
+        "studentActivity": "在任务单标记个人目标",
+        "minutes": 5,
+        "evidence": "目标单"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "头文件、main、函数体、printf和\\n",
+        "teacherActivity": "标注代码骨架，演示漏分号、中文引号、漏大括号错误",
+        "studentActivity": "跟做并根据编译提示定位错误",
+        "minutes": 25,
+        "evidence": "修复3类语法错误"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "必须完成：编写三行个人名片输出程序",
+        "teacherActivity": "巡回检查符号并指导调试",
+        "studentActivity": "创建C02_学号.c，使用printf输出姓名、专业、欢迎语",
+        "minutes": 30,
+        "evidence": "提交源文件和运行截图"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "检查结构完整性和输出结果",
+        "teacherActivity": "按结构、输出、排错说明评分",
+        "studentActivity": "展示程序并指出一个错误修复方法",
+        "minutes": 10,
+        "evidence": "程序、截图、口头说明"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "用五个关键词回顾程序骨架",
+        "teacherActivity": "组织快速问答",
+        "studentActivity": "复述头文件、main、花括号、printf、分号",
+        "minutes": 5,
+        "evidence": "出口问答"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "改写校园文明提示语",
+        "teacherActivity": "布置一条printf和三条printf两种写法",
+        "studentActivity": "完成并标注关键结构",
+        "minutes": 5,
+        "evidence": "作业代码"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "统计英文标点和报错定位困难",
+        "teacherActivity": "整理错例",
+        "studentActivity": "反馈最易错符号",
+        "minutes": 0,
+        "evidence": "错题记录"
+      }
+    ]
+  }
+}

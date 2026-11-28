@@ -2,10 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import type { DiffResult, PlanVersion } from '@/api/models'
-import { deletePlan, diffPlan, getPlan, importPlan, listPlanVersions } from '@/api/plans'
+import { deletePlan, diffPlan, downloadPlanDiff, getPlan, importPlan, listPlanVersions } from '@/api/plans'
+import { requestDeletion } from '@/api/deletions'
 import { getReview, listReviews } from '@/api/reviews'
 import DataTable from '@/components/DataTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -17,7 +19,9 @@ import type { TableColumn } from '@/components/table-types'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTime } from '@/utils/datetime'
+import { saveBlob } from '@/utils/download'
 import { toLessonStructure } from '@/utils/plan-structure'
+import { UNREVIEWED_STATUS } from '@/utils/labels'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,6 +53,7 @@ const toVersion = ref<number | null>(null)
 const diff = ref<DiffResult | null>(null)
 const diffError = ref<RequestError | null>(null)
 const diffLoading = ref(false)
+const diffExporting = ref(false)
 const deleting = ref(false)
 const importing = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -96,6 +101,19 @@ watch([fromVersion, toVersion], () => {
   diffError.value = null
 })
 
+async function exportDiff(): Promise<void> {
+  if (!fromVersion.value || !toVersion.value || fromVersion.value === toVersion.value) return
+  diffExporting.value = true
+  try {
+    const blob = await downloadPlanDiff(planId, fromVersion.value, toVersion.value)
+    saveBlob(blob, `plan-${planId}-v${fromVersion.value}-v${toVersion.value}-diff.csv`)
+  } catch (caught) {
+    handleError(caught, '导出差异失败')
+  } finally {
+    diffExporting.value = false
+  }
+}
+
 async function runDiff(): Promise<void> {
   if (!fromVersion.value || !toVersion.value || fromVersion.value === toVersion.value) return
   diffLoading.value = true
@@ -107,6 +125,27 @@ async function runDiff(): Promise<void> {
     diffError.value = handleError(caught, '版本对比失败')
   } finally {
     diffLoading.value = false
+  }
+}
+
+async function requestRemovePlan(): Promise<void> {
+  if (!plan.value) return
+  let reason = ''
+  try {
+    const result = await ElMessageBox.prompt(
+      '填写删除原因，管理员将在 7 个工作日内处理。',
+      '申请删除教案',
+      { confirmButtonText: '提交申请', cancelButtonText: '取消', inputPlaceholder: '例如：重复导入' },
+    )
+    reason = result.value || ''
+  } catch {
+    return
+  }
+  try {
+    await requestDeletion(planId, reason)
+    sealSuccess('删除申请已提交，管理员将在 7 个工作日内处理')
+  } catch (caught) {
+    handleError(caught, '提交删除申请失败')
   }
 }
 
@@ -124,8 +163,9 @@ async function removePlan(): Promise<void> {
   deleting.value = true
   try {
     await deletePlan(planId)
-    ElMessage.success('教案已删除')
+    // 先导航后提示：路由切换会清掉上一页的 toast，提示必须落在导航之后
     await router.push('/plans')
+    sealSuccess('教案已删除')
   } catch (caught) {
     handleError(caught, '删除教案失败')
   } finally {
@@ -145,7 +185,8 @@ function formatValue(value: unknown): string {
 }
 
 function versionStatus(version: PlanVersion): string {
-  return version.status ? String(version.status) : ''
+  // 草稿版本没有审查记录：与标题栏一致显示「未审查」，不要退化成 —（看起来像数据缺失）
+  return version.status ? String(version.status) : UNREVIEWED_STATUS
 }
 
 function openVersionPicker(): void {
@@ -164,13 +205,14 @@ async function onVersionFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
-    ElMessage.success(
+    if (result.planId === planId) await loadAll()
+    else await router.push(`/plans/${result.planId}`)
+    // 先导航后提示：路由切换会清掉上一页的 toast
+    sealSuccess(
       result.duplicate
         ? `契约包已存在，当前为第 ${result.versionNo} 版`
         : `新版本 v${result.versionNo} 已入库`,
     )
-    if (result.planId === planId) await loadAll()
-    else await router.push(`/plans/${result.planId}`)
   } catch (caught) {
     handleError(caught, '上传新版本失败')
   } finally {
@@ -245,6 +287,7 @@ onMounted(() => {
         <el-button v-if="plan && canImport" :loading="importing" @click="openVersionPicker">
           上传新版本
         </el-button>
+        <el-button v-if="plan" plain @click="requestRemovePlan">申请删除</el-button>
         <el-button v-if="plan" type="danger" plain :loading="deleting" @click="removePlan">
           删除
         </el-button>
@@ -291,7 +334,12 @@ onMounted(() => {
           <dl class="meta-list">
             <div>
               <dt>状态</dt>
-              <dd><StatusTag :code="String(plan.reviewStatus)" :status="String(plan.reviewStatus)" /></dd>
+              <dd>
+                <StatusTag
+                  :code="plan.reviewStatus || UNREVIEWED_STATUS"
+                  :status="plan.reviewStatus || UNREVIEWED_STATUS"
+                />
+              </dd>
             </div>
             <div>
               <dt>课程</dt>
@@ -307,7 +355,10 @@ onMounted(() => {
             </div>
             <div>
               <dt>当前版本</dt>
-              <dd>v{{ plan.versionNo }} · 第 {{ plan.reviewRound }} 轮</dd>
+              <dd>
+                v{{ plan.versionNo }}
+                <template v-if="plan.reviewRound"> · 第 {{ plan.reviewRound }} 轮</template>
+              </dd>
             </div>
             <div>
               <dt>最新审查</dt>
@@ -345,7 +396,8 @@ onMounted(() => {
           :error="versionsRequest.error.value"
           row-key="versionNo"
           aria-label="版本历史"
-          empty-text="还没有版本记录"
+          empty-title="还没有版本记录"
+          empty-text="导入新版本后，这里会显示版本链与哈希。"
           @retry="versionsRequest.load()"
         >
           <template #cell-versionNo="{ row }">v{{ row.versionNo }}</template>
@@ -353,8 +405,7 @@ onMounted(() => {
             <span class="mono" :title="row.planHash">{{ shortHash(row.planHash) }}</span>
           </template>
           <template #cell-status="{ row }">
-            <StatusTag v-if="versionStatus(row)" :code="versionStatus(row)" :status="versionStatus(row)" />
-            <span v-else class="muted">—</span>
+            <StatusTag :code="versionStatus(row)" :status="versionStatus(row)" />
           </template>
           <template #cell-round="{ row }">{{ row.round ?? '—' }}</template>
           <template #cell-createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>
@@ -383,6 +434,13 @@ onMounted(() => {
             >
               对比
             </el-button>
+            <el-button
+              :loading="diffExporting"
+              :disabled="versions.length < 2 || fromVersion === toVersion"
+              @click="exportDiff"
+            >
+              导出差异
+            </el-button>
           </div>
         </div>
 
@@ -396,6 +454,7 @@ onMounted(() => {
           :columns="diffColumns"
           row-key="path"
           aria-label="版本差异"
+          empty-title="没有字段差异"
           empty-text="两个版本内容相同，没有字段变化。"
         >
           <template #cell-path="{ row }"><span class="mono">{{ row.path }}</span></template>

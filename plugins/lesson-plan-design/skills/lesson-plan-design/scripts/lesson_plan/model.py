@@ -16,9 +16,15 @@ C_LANGUAGE_TEMPLATES_PATH = TEMPLATES_DIR / "c-language-topics.json"
 REVIEW_SCHEMA_VERSION = 1
 RUBRIC_VERSION = "1.0"
 RULES_VERSION = "1.1.0"
+TEMPLATE_VERSION = "1.0"
 TOOL_VERSION = "1.0.0"
 MIN_OVERRIDE_REASON = 6
 BLOCKING_SEVERITIES = {"blocker", "major"}
+METADATA_REQUIRED = (
+    ("teacher", "任课教师"),
+    ("teachingObject", "教学对象"),
+    ("teachDate", "授课日期"),
+)
 
 ACTIVITY_FLOW_LABELS = {
     "introduction": "一、复习与导入新课",
@@ -185,3 +191,39 @@ def plan_hash(plan: dict[str, Any]) -> str:
     """Return a stable content hash used to invalidate stale review evidence."""
     encoded = json.dumps(plan, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def missing_metadata(plan: dict[str, Any]) -> list[str]:
+    """返回导出/审查都需要提示的缺失校标元信息（中文标签）。"""
+    return [
+        label
+        for key, label in METADATA_REQUIRED
+        if not str(plan.get(key) or "").strip()
+    ]
+
+
+def migrate_review_report(report: Any) -> dict[str, Any]:
+    """把旧 schemaVersion 报告补齐到当前读取口径；不改写文件。
+
+    只补版本演进中新增的字段，不伪造 status/findings/planHash 等结论字段：
+    缺这些字段的旧报告仍会被导出门禁拒绝，避免“迁移”变成绕过证据检查。
+    """
+    if not isinstance(report, dict):
+        raise ValueError("审查报告格式无效")
+    migrated = dict(report)
+    version = migrated.get("schemaVersion")
+    if isinstance(version, bool) or not isinstance(version, int) or version < 0:
+        raise ValueError("审查报告版本无效")
+    if version > REVIEW_SCHEMA_VERSION:
+        raise ValueError("审查报告版本高于当前工具，请升级工具")
+    reviewer = migrated.get("reviewer")
+    if "independence" not in migrated and reviewer in {"native_subagent", "role_simulation", "human"}:
+        migrated["independence"] = reviewer
+    migrated.setdefault("toolVersion", "")
+    migrated.setdefault("planSnapshot", None)
+    migrated.setdefault("duplicateReview", False)
+    migrated.setdefault("warnings", [])
+    if version < REVIEW_SCHEMA_VERSION:
+        migrated["schemaVersion"] = REVIEW_SCHEMA_VERSION
+        migrated["migratedFrom"] = version
+    return migrated

@@ -53,6 +53,14 @@ class TestArchitectureGate(unittest.TestCase):
         with stack:
             self.assertEqual(blocks(arch.scan(backend, frontend)), [])
 
+    def test_node_modules_absolute_paths_are_ignored(self) -> None:
+        stack, backend, frontend = project_with(frontend=True)
+        with stack:
+            dependency = frontend / "node_modules" / "pkg"
+            dependency.mkdir(parents=True)
+            (dependency / "README.md").write_text("C:\\Users\\example\\private\n", encoding="utf-8")
+            self.assertEqual(blocks(arch.scan(backend, frontend)), [])
+
     def test_domain_import_is_blocked(self) -> None:
         stack, backend, frontend = project_with({"app/domain/bad.py": "import fastapi\n"})
         with stack:

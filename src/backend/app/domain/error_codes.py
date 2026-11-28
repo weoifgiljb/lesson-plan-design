@@ -50,6 +50,16 @@ CATALOG: dict[str, dict[str, object]] = {
         "zh": "数据已变化，请刷新后重试",
         "scene": "乐观锁/唯一键冲突（重复导入、重复建课、用户名已存在）",
     },
+    "TASK_TAKEN_BY_OTHER": {
+        "http": 409,
+        "zh": "该教学任务已被占用",
+        "scene": "同身份（课程+周次+课次+班级+课题）任务已由他人或他组创建，需改名或联系占用人",
+    },
+    "TASK_ALREADY_EXISTS": {
+        "http": 409,
+        "zh": "任务已存在",
+        "scene": "本人重复建同一身份任务，确认覆盖后更新已有任务",
+    },
     "CONFLICT_DELETED": {
         "http": 409,
         "zh": "对象已删除",
@@ -105,6 +115,26 @@ CATALOG: dict[str, dict[str, object]] = {
         "zh": "服务暂不可用",
         "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）或磁盘不可写",
     },
+    "SERVICE_UNAVAILABLE": {
+        "http": 503,
+        "zh": "依赖不可用（数据库或磁盘）",
+        "scene": "数据库损坏、数据目录缺失或实例标记异常",
+    },
+    "BACKUP_INVALID": {
+        "http": 422,
+        "zh": "备份快照无效",
+        "scene": "manifest 缺失、哈希或行数校验失败",
+    },
+    "RESTORE_CONFLICT": {
+        "http": 409,
+        "zh": "恢复冲突",
+        "scene": "恢复目标非空或已有恢复任务在执行",
+    },
+    "DATA_MISSING": {
+        "http": 503,
+        "zh": "数据目录缺失",
+        "scene": "恢复或备份时找不到 data/app.db",
+    },
     "INTERNAL": {
         "http": 500,
         "zh": "服务器内部错误",
@@ -124,6 +154,8 @@ ERROR_CODES = {
     "METHOD_NOT_ALLOWED": 405,
     "CONFLICT_STALE": 409,
     "CONFLICT_DELETED": 409,
+    "TASK_TAKEN_BY_OTHER": 409,
+    "TASK_ALREADY_EXISTS": 409,
     "HASH_MISMATCH": 422,
     "SCHEMA_UNSUPPORTED": 422,
     "STRUCTURE_INVALID": 422,
@@ -134,6 +166,9 @@ ERROR_CODES = {
     "PAYLOAD_TOO_LARGE": 413,
     "RATE_LIMITED": 429,
     "SERVICE_UNAVAILABLE": 503,
+    "BACKUP_INVALID": 422,
+    "RESTORE_CONFLICT": 409,
+    "DATA_MISSING": 503,
     "INTERNAL": 500,
 }
 

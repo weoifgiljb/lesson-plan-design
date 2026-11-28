@@ -120,6 +120,101 @@ class TaskBoard(BaseModel):
     generatedAt: str
 
 
+class BackupCreateIn(BaseModel):
+    label: str = ""
+
+
+class BackupRestoreIn(BaseModel):
+    confirm: bool = False
+
+
+class BackupOut(BaseModel):
+    name: str
+    label: str = ""
+    createdAt: str | None = None
+    schemaVersion: int | None = None
+    rows: dict[str, int] = {}
+    files: int = 0
+    bytes: int = 0
+    hasZip: bool = False
+
+
+class BackupPage(BaseModel):
+    items: list[BackupOut]
+    total: int
+
+
+class NotificationOut(BaseModel):
+    id: int
+    kind: str
+    title: str
+    body: str = ""
+    targetType: str = ""
+    targetId: str = ""
+    createdAt: str | None = None
+    readAt: str | None = None
+    read: bool = False
+
+
+class NotificationPage(BaseModel):
+    items: list[NotificationOut]
+    total: int = 0
+    unread: int = 0
+
+
+class DeletionRequestIn(BaseModel):
+    reason: str = ""
+
+
+class DeletionResolveIn(BaseModel):
+    approve: bool
+
+
+class DeletionRequestOut(BaseModel):
+    requestId: int
+    planId: int
+    contentTitle: str = ""
+    requester: str = ""
+    reason: str = ""
+    status: str
+    createdAt: str | None = None
+    dueAt: str | None = None
+    resolvedAt: str | None = None
+    planDeleted: bool = False
+
+
+class DeletionPage(BaseModel):
+    items: list[DeletionRequestOut]
+    total: int
+
+
+class OpsRateOut(BaseModel):
+    total: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    failureRate: float = 0.0
+
+
+class OpsSyncOut(BaseModel):
+    total: int = 0
+    conflicts: int = 0
+    conflictRate: float = 0.0
+
+
+class OpsAlertOut(BaseModel):
+    code: str
+    level: str
+    message: str
+
+
+class OpsMetricsOut(BaseModel):
+    export: OpsRateOut
+    sync: OpsSyncOut
+    alerts: list[OpsAlertOut] = []
+    logRetentionDays: int = 30
+    generatedAt: str
+
+
 class PlanListItem(BaseModel):
     planId: int
     contentTitle: str
@@ -277,6 +372,10 @@ class StatsSummaryOut(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     metrics: list[MetricOut]
+    # 审查状态分布：按当前筛选与范围全量聚合，前端不再取前 100 份自算
+    reviewStatusCounts: dict[str, int] = {}
+    # 审校方式分列（FR-06）：独立子代理 / 角色模拟 / 人工
+    reviewModeCounts: dict[str, int] = {}
     filters: dict[str, Any] = {}
     scope: str = "own"
 

@@ -1,9 +1,33 @@
-// openapi-sha256: dc5f562834d7d73431b2b32c1e8f6fa8ca53ae09c9ea29daee175a99a2b4f181
+// openapi-sha256: 11fa70a3993fde4e9186a99601028fbfeeb63f7980af9207b00d26202f2caf19
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
   user: UserOut
   auth: string
+}
+
+export interface BackupCreateIn {
+  label?: string
+}
+
+export interface BackupOut {
+  name: string
+  label?: string
+  createdAt?: string | null
+  schemaVersion?: number | null
+  rows?: Record<string, number>
+  files?: number
+  bytes?: number
+  hasZip?: boolean
+}
+
+export interface BackupPage {
+  items: BackupOut[]
+  total: number
+}
+
+export interface BackupRestoreIn {
+  confirm?: boolean
 }
 
 export interface BodyCreateSampleApiV1SamplesPost {
@@ -18,6 +42,32 @@ export interface BodySyncPushApiV1SyncPushPost {
   file: string
   baseHash?: string
   planId?: number | null
+}
+
+export interface DeletionPage {
+  items: DeletionRequestOut[]
+  total: number
+}
+
+export interface DeletionRequestIn {
+  reason?: string
+}
+
+export interface DeletionRequestOut {
+  requestId: number
+  planId: number
+  contentTitle?: string
+  requester?: string
+  reason?: string
+  status: string
+  createdAt?: string | null
+  dueAt?: string | null
+  resolvedAt?: string | null
+  planDeleted?: boolean
+}
+
+export interface DeletionResolveIn {
+  approve: boolean
 }
 
 export interface ExportRequest {
@@ -53,6 +103,51 @@ export interface MetricOut {
   sampleInsufficient?: boolean
   basis?: Record<string, number> | null
   filters?: Record<string, unknown>
+}
+
+export interface NotificationOut {
+  id: number
+  kind: string
+  title: string
+  body?: string
+  targetType?: string
+  targetId?: string
+  createdAt?: string | null
+  readAt?: string | null
+  read?: boolean
+}
+
+export interface NotificationPage {
+  items: NotificationOut[]
+  total?: number
+  unread?: number
+}
+
+export interface OpsAlertOut {
+  code: string
+  level: string
+  message: string
+}
+
+export interface OpsMetricsOut {
+  export: OpsRateOut
+  sync: OpsSyncOut
+  alerts?: OpsAlertOut[]
+  logRetentionDays?: number
+  generatedAt: string
+}
+
+export interface OpsRateOut {
+  total?: number
+  succeeded?: number
+  failed?: number
+  failureRate?: number
+}
+
+export interface OpsSyncOut {
+  total?: number
+  conflicts?: number
+  conflictRate?: number
 }
 
 export interface PasswordChange {
@@ -199,6 +294,8 @@ export interface StatRecordPage {
 
 export interface StatsSummaryOut {
   metrics: MetricOut[]
+  reviewStatusCounts?: Record<string, number>
+  reviewModeCounts?: Record<string, number>
   filters?: Record<string, unknown>
   scope?: string
 }
@@ -294,6 +391,10 @@ export interface ValidationError {
   ctx?: Record<string, unknown>
 }
 
+export type ListBackupsApiV1AdminBackupsGetResponse = Record<string, unknown>
+export type CreateBackupApiV1AdminBackupsPostResponse = Record<string, unknown>
+export type DownloadBackupApiV1AdminBackupsNameDownloadGetResponse = Record<string, unknown>
+export type RestoreBackupApiV1AdminBackupsNameRestorePostResponse = Record<string, unknown>
 export type ListAuditApiV1AuditGetResponse = Record<string, unknown>
 export type ExportAuditApiV1AuditExportGetResponse = Record<string, unknown>
 export type LoginApiV1AuthLoginPostResponse = Record<string, unknown>
@@ -301,6 +402,8 @@ export type LogoutApiV1AuthLogoutPostResponse = Record<string, unknown>
 export type WhoamiApiV1AuthMeGetResponse = Record<string, unknown>
 export type RegisterApiV1AuthRegisterPostResponse = Record<string, unknown>
 export type TokenApiV1AuthTokenPostResponse = Record<string, unknown>
+export type ListDeletionRequestsApiV1DeletionRequestsGetResponse = Record<string, unknown>
+export type ResolveDeletionRequestApiV1DeletionRequestsRequestIdResolvePostResponse = Record<string, unknown>
 export type CreateExportsApiV1ExportsPostResponse = Record<string, unknown>
 export type ExportDetailApiV1ExportsExportIdGetResponse = Record<string, unknown>
 export type DownloadExportApiV1ExportsExportIdDownloadGetResponse = Record<string, unknown>
@@ -308,12 +411,19 @@ export type HealthApiV1HealthGetResponse = Record<string, unknown>
 export type MeApiV1MeGetResponse = Record<string, unknown>
 export type ChangePasswordApiV1MePasswordPostResponse = Record<string, unknown>
 export type MetaApiV1MetaGetResponse = Record<string, unknown>
+export type OpsMetricsApiV1MetricsOpsGetResponse = Record<string, unknown>
+export type ListNotificationsApiV1NotificationsGetResponse = Record<string, unknown>
+export type MarkAllReadApiV1NotificationsReadAllPostResponse = Record<string, unknown>
+export type MarkReadApiV1NotificationsNotificationIdReadPostResponse = Record<string, unknown>
 export type ListPlansApiV1PlansGetResponse = Record<string, unknown>
 export type ImportPlanApiV1PlansImportPostResponse = Record<string, unknown>
 export type DeletePlanApiV1PlansPlanIdDeleteResponse = Record<string, unknown>
 export type PlanDetailApiV1PlansPlanIdGetResponse = Record<string, unknown>
+export type RequestDeletionApiV1PlansPlanIdDeletionRequestPostResponse = Record<string, unknown>
 export type PlanDiffApiV1PlansPlanIdDiffGetResponse = Record<string, unknown>
+export type PlanDiffExportApiV1PlansPlanIdDiffExportGetResponse = Record<string, unknown>
 export type PlanVersionsApiV1PlansPlanIdVersionsGetResponse = Record<string, unknown>
+export type RevalidateVersionApiV1PlansPlanIdVersionsVersionNoRevalidateGetResponse = Record<string, unknown>
 export type ListReviewsApiV1ReviewsGetResponse = Record<string, unknown>
 export type ReviewDetailApiV1ReviewsReviewIdGetResponse = Record<string, unknown>
 export type ListSamplesApiV1SamplesGetResponse = Record<string, unknown>
@@ -332,6 +442,7 @@ export type CreateTaskApiV1TasksPostResponse = Record<string, unknown>
 export type TaskBoardApiV1TasksBoardGetResponse = Record<string, unknown>
 export type MoveTaskApiV1TasksTaskIdBoardPatchResponse = Record<string, unknown>
 export type DiscardTaskApiV1TasksTaskIdDiscardPostResponse = Record<string, unknown>
+export type DraftTaskApiV1TasksTaskIdDraftPostResponse = Record<string, unknown>
 export type TaskPackageApiV1TasksTaskIdPackageGetResponse = Record<string, unknown>
 export type RestoreTaskApiV1TasksTaskIdRestorePostResponse = Record<string, unknown>
 export type RollbackTaskApiV1TasksTaskIdRollbackPostResponse = Record<string, unknown>

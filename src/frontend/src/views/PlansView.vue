@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import { RequestError, toApiError } from '@/api/client-error'
 import type { PlanListItem } from '@/api/models'
@@ -13,6 +14,7 @@ import type { TableColumn } from '@/components/table-types'
 import { usePagedQuery } from '@/composables/usePagedQuery'
 import { useSessionStore } from '@/stores/session'
 import { formatShortDateTime } from '@/utils/datetime'
+import { UNREVIEWED_STATUS } from '@/utils/labels'
 
 const router = useRouter()
 const route = useRoute()
@@ -20,6 +22,7 @@ const session = useSessionStore()
 const canImport = computed(() => session.role === 'teacher' || session.role === 'lead')
 
 const filters = reactive({
+  q: '',
   course: '',
   week: null as number | null,
   session: null as number | null,
@@ -31,6 +34,7 @@ const query = usePagedQuery((page, pageSize) =>
   listPlans({
     page,
     pageSize,
+    q: filters.q.trim() || undefined,
     course: filters.course.trim() || undefined,
     week: filters.week ?? undefined,
     session: filters.session ?? undefined,
@@ -44,11 +48,11 @@ const state = computed<'ready' | 'loading' | 'error'>(() =>
 )
 
 const columns: TableColumn[] = [
-  { key: 'title', label: '课题', minWidth: 210 },
+  { key: 'title', label: '课题', minWidth: 210, tooltip: true },
   { key: 'course', label: '课程', width: 104 },
   { key: 'week', label: '周 / 次', width: 82 },
   { key: 'teacher', label: '教师', width: 92 },
-  { key: 'versionNo', label: '版本', width: 64, align: 'right' },
+  { key: 'versionNo', label: '稿次', width: 76, align: 'right' },
   { key: 'reviewStatus', label: '状态', width: 108 },
   { key: 'versionCreatedAt', label: '更新', width: 112 },
   { key: 'actions', label: '操作', width: 76, align: 'right' },
@@ -91,6 +95,7 @@ async function resetFilters(): Promise<void> {
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
+const importButtonRef = ref<{ $el?: HTMLElement } | null>(null)
 const importing = ref(false)
 
 function pickFile(): void {
@@ -109,10 +114,11 @@ async function onFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
-    ElMessage.success(
+    await router.push(`/plans/${result.planId}`)
+    // 先导航后提示：路由切换会清掉上一页的 toast
+    sealSuccess(
       result.duplicate ? `契约包已存在，打开第 ${result.versionNo} 版` : '契约包已导入',
     )
-    await router.push(`/plans/${result.planId}`)
   } catch (caught) {
     handleError(caught, '导入契约包失败')
   } finally {
@@ -125,8 +131,17 @@ function openPlan(plan: PlanListItem): void {
   void router.push(`/plans/${plan.planId}`)
 }
 
-onMounted(() => {
-  void load()
+onMounted(async () => {
+  await load()
+  if (route.query.upload !== '1' || error.value) return
+  await nextTick()
+  if (canImport.value) {
+    importButtonRef.value?.$el?.focus?.()
+    ElMessage.info('点“导入契约包”选择文件；浏览器不允许自动打开文件框。')
+  } else {
+    ElMessage.info('当前角色没有导入权限。')
+  }
+  await router.replace({ path: '/plans' })
 })
 </script>
 
@@ -145,7 +160,7 @@ onMounted(() => {
           aria-label="导入契约包"
           @change="onFile"
         />
-        <el-button v-if="canImport" type="primary" :loading="importing" @click="pickFile">
+        <el-button v-if="canImport" ref="importButtonRef" type="primary" :loading="importing" @click="pickFile">
           导入契约包
         </el-button>
       </template>
@@ -162,6 +177,7 @@ onMounted(() => {
       row-key="planId"
       show-pagination
       aria-label="教案列表"
+      empty-title="还没有教案"
       empty-text="当前范围还没有教案。导入契约包后会出现在这里。"
       @update:page="setPage"
       @update:page-size="setPageSize"
@@ -169,6 +185,14 @@ onMounted(() => {
     >
       <template #toolbar>
         <div class="filters">
+          <el-input
+            v-model="filters.q"
+            class="filters__query"
+            placeholder="课题 / 教师 / 班级"
+            clearable
+            aria-label="按关键词检索"
+            @keyup.enter="applyFilters"
+          />
           <el-input
             v-model="filters.course"
             class="filters__course"
@@ -219,8 +243,14 @@ onMounted(() => {
         </span>
       </template>
       <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
+      <template #cell-versionNo="{ row }">
+        <span class="version-tag" :class="{ 'is-new': row.versionNo > 1 }">第 {{ row.versionNo }} 稿</span>
+      </template>
       <template #cell-reviewStatus="{ row }">
-        <StatusTag :code="String(row.reviewStatus)" :status="String(row.reviewStatus)" />
+        <StatusTag
+          :code="row.reviewStatus || UNREVIEWED_STATUS"
+          :status="row.reviewStatus || UNREVIEWED_STATUS"
+        />
       </template>
       <template #cell-versionCreatedAt="{ row }">
         <span class="muted">{{ formatShortDateTime(row.versionCreatedAt) }}</span>
@@ -255,6 +285,10 @@ onMounted(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.filters__query {
+  width: 200px;
 }
 
 .filters__course {
@@ -295,6 +329,20 @@ onMounted(() => {
   font-size: 12px;
 }
 
+.version-tag {
+  position: relative;
+  display: inline-block;
+}
+
+.version-tag.is-new::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  border-top: 5px solid var(--lpp-brass);
+  border-left: 5px solid transparent;
+}
+
 .footnote {
   color: var(--lpp-text-muted);
   font-size: 12px;
@@ -302,6 +350,7 @@ onMounted(() => {
 }
 
 @media (max-width: 767px) {
+  .filters__query,
   .filters__course,
   .filters__number,
   .filters__status,

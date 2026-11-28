@@ -6,7 +6,7 @@ withDefaults(
     caption?: string
     inverse?: boolean
   }>(),
-  { size: 30, compact: false, caption: '平台端 v1.1', inverse: false },
+  { size: 30, compact: false, caption: '平台端 v2.0', inverse: false },
 )
 </script>
 
@@ -30,7 +30,7 @@ withDefaults(
         stroke-linecap="round"
         fill="none"
       />
-      <rect x="20.5" y="20.5" width="6" height="6" rx="1" fill="var(--lpp-accent)" />
+      <rect x="20.5" y="20.5" width="6" height="6" rx="1" fill="var(--lpp-brass)" />
     </svg>
     <span v-if="!compact" class="brand-text">
       <strong>校本教案</strong>

@@ -11,7 +11,7 @@ from lib import draft_plan, load_examples, score_against_examples, validate_plan
 class TestValidate(unittest.TestCase):
     def test_examples_all_valid(self) -> None:
         items = load_examples()
-        self.assertEqual(len(items), 7)
+        self.assertEqual(len(items), 15)
         for path, plan in items:
             result = validate_plan(plan)
             self.assertTrue(result["ok"], f"{path.name}: {result['issues']}")

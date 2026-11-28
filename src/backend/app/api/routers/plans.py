@@ -70,10 +70,11 @@ def list_plans(
     # 这里过滤的是当前版本最新审查状态（rv.status），枚举从 domain 派生
     status: schemas.ReviewStatus | None = None,
     teacher: str | None = None,
+    q: str | None = None,
     page: int = 1,
     page_size: int = Query(20, alias="pageSize"),
 ) -> dict[str, Any]:
-    filters = {"course": course, "week": week, "session": session, "status": status, "teacher": teacher}
+    filters = {"course": course, "week": week, "session": session, "status": status, "teacher": teacher, "q": q}
     return plan_service.list_plans(context["repo"], context["user"], filters=filters, page=page, page_size=page_size)
 
 
@@ -109,6 +110,47 @@ def plan_diff(
         plan_id,
         from_version=from_version,
         to_version=to_version,
+        ip=_client_ip(request),
+        trace_id=_trace_id(request),
+    )
+
+
+@router.get("/plans/{plan_id}/diff/export")
+def plan_diff_export(
+    request: Request,
+    plan_id: int,
+    context: dict[str, Any] = Depends(current_context),
+    from_version: int | None = Query(None, alias="fromVersion"),
+    to_version: int | None = Query(None, alias="toVersion"),
+) -> Response:
+    content = plan_service.plan_diff_csv(
+        context["repo"],
+        context["user"],
+        plan_id,
+        from_version=from_version,
+        to_version=to_version,
+        ip=_client_ip(request),
+        trace_id=_trace_id(request),
+    )
+    return Response(
+        content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="plan-{plan_id}-diff.csv"'},
+    )
+
+
+@router.get("/plans/{plan_id}/versions/{version_no}/revalidate")
+def revalidate_version(
+    request: Request,
+    plan_id: int,
+    version_no: int,
+    context: dict[str, Any] = Depends(current_context),
+) -> dict[str, Any]:
+    return plan_service.revalidate_version(
+        context["repo"],
+        context["user"],
+        plan_id,
+        version_no,
         ip=_client_ip(request),
         trace_id=_trace_id(request),
     )

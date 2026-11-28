@@ -9,12 +9,11 @@ from typing import Any
 
 from app.adapters import archive, engine, storage
 from app.adapters.db.repo import Repo
-from app.application import audit_service, sync_log
+from app.application import audit_service, notification_service, sync_log
 from app.config import MANIFEST_NAME, PLAN_NAME, REPORT_NAME
 from app.domain import ingest, manifest as manifest_rules
 from app.domain.errors import AppError
 from app.domain.verdict import Verdict, fail
-
 
 @dataclass(frozen=True)
 class ImportResult:
@@ -226,7 +225,7 @@ def _persist(
         _ensure_round(repo, plan_id, previous_round, sync, plan_hash)
         return _write_version(
             repo,
-            plan_id=plan_id,
+            plan_id=plan_id, owner_id=owner_id,
             files=files,
             plan=plan,
             report=report,
@@ -243,7 +242,7 @@ def _persist(
 def _write_version(
     repo: Repo,
     *,
-    plan_id: int,
+    plan_id: int, owner_id: int,
     files: dict[str, bytes],
     plan: dict[str, Any],
     report: dict[str, Any],
@@ -265,7 +264,7 @@ def _write_version(
         report_sha256,
         int(report["schemaVersion"]),
         str(report["rubricVersion"]),
-        engine_version,
+        engine_version, str(engine.engine_versions().get("templateVersion") or ""),
     )
     if not created:
         stored = repo.find_version(plan_id, plan_hash, report_sha256) or {}
@@ -303,6 +302,7 @@ def _write_version(
         )
     storage.store_version_files(plan_id, version_no, files)
     _audit_import(repo, plan_id, version_no, review_id, plan_hash, engine_version, actor_id, ip, trace_id)
+    notification_service.notify_import(repo, owner_id, plan, plan_id, version_no, passed)
     if sync is not None:
         sync_log.record(repo, sync, plan_hash, "created")
     return ImportResult(True, plan_id, version_no, review_id, plan_hash)

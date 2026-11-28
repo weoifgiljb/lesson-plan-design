@@ -87,5 +87,7 @@ def meta(context: dict[str, Any] = Depends(current_context)) -> dict[str, Any]:
             "packageMaxBytes": MAX_PACKAGE_BYTES,
             "packageMaxFiles": MAX_PACKAGE_FILES,
             "sampleMaxBytes": MAX_SAMPLE_BYTES,
+            "dataRetentionDays": 30,
+            "deletionSlaBusinessDays": 7,
         },
     }

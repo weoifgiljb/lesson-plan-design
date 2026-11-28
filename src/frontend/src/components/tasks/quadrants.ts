@@ -45,3 +45,12 @@ export function groupTasks(tasks: TaskItem[]): Record<TaskQuadrant, TaskItem[]> 
   }
   return grouped
 }
+
+/**
+ * 能否为任务生成平台内草稿教案：只看「本人创建、可编辑、未废弃」。
+ * 后端 `draft_service._bind_task` 会校验教案归属人==任务归属人，管理员/组长替他人生成会 403，
+ * 所以入口和请求前的守卫都走这一个规则。
+ */
+export function canDraftPlan(task: TaskItem, userId: number | undefined): boolean {
+  return Boolean(userId) && task.canEdit && !task.discarded && task.ownerId === userId
+}

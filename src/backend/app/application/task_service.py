@@ -7,7 +7,7 @@ from typing import Any
 
 from app.adapters import engine, task_package
 from app.adapters.db.repo import Repo
-from app.application import audit_service
+from app.application import audit_service, task_conflict
 from app.domain import library, task_rules
 from app.domain.errors import AppError
 
@@ -36,42 +36,34 @@ def create(
     quadrant = task_rules.validate_quadrant(payload.get("quadrant"))
     due = payload.get("dueDate")
     due_text = due.isoformat() if due else None
-    # 归属校验放在事务外：越权审计必须真正落库（事务内 raise 会把审计一起回滚，R3-F2）
+    # 冲突不是越权：同身份任务已存在时给 409 业务冲突，且不写越权审计（BS-10/T2）
     probe = repo.find_task(
         data["course"], data["week"], data["session"], data["class_name"], data["title"]
     )
-    if probe is not None and not _can_touch(repo, user, probe):
-        audit_service.record(
-            repo, actor_id=int(user.get("id") or 0), action="authz.denied",
-            target_type="task", target_id=str(probe["id"]),
-            detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks"},
-            ip=ip, trace_id=trace_id,
-        )
-        raise AppError("FORBIDDEN", "该任务属于其他教师，不能覆盖")
-    with repo.transaction():
+    if probe is not None:
+        task_conflict.guard(repo, user, probe, confirm, ip=ip, trace_id=trace_id)
+
+    denied_task_id = ""
+
+    def audit_denied_on_rollback(exc: BaseException) -> None:
+        # 事务已回滚：并发窗口里补写的越权拒绝审计要在这里落库，否则会被回滚带走（R3-F2）
+        if isinstance(exc, AppError) and exc.code == "FORBIDDEN":
+            audit_service.record(
+                repo, actor_id=int(user.get("id") or 0), action="authz.denied",
+                target_type="task", target_id=denied_task_id,
+                detail={"reason": "task_owner_mismatch", "path": "/api/v1/tasks", "stage": "race"},
+                ip=ip, trace_id=trace_id,
+            )
+
+    with repo.transaction(audit_denied_on_rollback):
         existing = repo.find_task(
             data["course"], data["week"], data["session"], data["class_name"], data["title"]
         )
         if existing is not None:
-            if not _can_touch(repo, user, existing):
-                raise AppError("FORBIDDEN", "该任务属于其他教师，不能覆盖")
-            if not confirm:
-                raise AppError(
-                    "CONFLICT_STALE",
-                    "同一班级的同一课题（周次/课次相同）已存在；确认覆盖请带 confirm=true",
-                    {"taskId": int(existing["id"])},
-                )
-            if int(existing["owner_id"]) != int(user.get("id") or 0) and str(user.get("role")) != "admin":
-                # 组内共享只读+推进；覆盖（改标题/截止）限定本人或管理员（R3-F6）
-                raise AppError("FORBIDDEN", "只能覆盖自己创建的任务；他人任务请由本人或管理员处理")
-            # 需求 BS-10：重复建课时提示冲突，确认后才允许（这里按"更新已有任务"处理）
-            repo.update_task(int(existing["id"]), title=data["title"], due_date=due_text)
-            audit_service.record(
-                repo, actor_id=int(user.get("id") or 0), action="task.update", target_type="task",
-                target_id=str(existing["id"]), detail={**data, "dueDate": due_text, "confirmed": True},
-                ip=ip, trace_id=trace_id,
-            )
-            return _item(repo.get_task(int(existing["id"])), date.today()), False
+            denied_task_id = str(int(existing["id"]))
+            task_conflict.guard(repo, user, existing, confirm, ip=ip, trace_id=trace_id)
+            task_conflict.apply_confirmed(repo, user, existing, data, due_text, ip=ip, trace_id=trace_id)
+            return _item(repo.get_task(int(existing["id"])), date.today(), user), False
         owner_id = int(user.get("id") or 0)
         task_id = repo.insert_task(
             data["course"], data["week"], data["session"], data["title"], data["class_name"],
@@ -94,7 +86,7 @@ def rollback(
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
     # 归属校验：组长只能回退本组任务，不能跨组改别人状态（R2-4）
-    if not _can_touch(repo, user, task):
+    if not task_rules.can_touch(user, task):
         audit_service.record(
             repo, actor_id=int(user.get("id") or 0), action="authz.denied", target_type="task",
             target_id=str(task_id), detail={"reason": "task_scope", "path": "/api/v1/tasks/rollback"},
@@ -113,7 +105,7 @@ def rollback(
             target_id=str(task_id), detail={"from": current, "to": previous},
             ip=ip, trace_id=trace_id,
         )
-    return _item(repo.get_task(int(task_id)), date.today())
+    return _item(repo.get_task(int(task_id)), date.today(), user)
 
 
 def list_tasks(
@@ -224,7 +216,7 @@ def discard(
 ) -> dict[str, Any]:
     task = _owned_task(repo, user, task_id)
     if task.get("discarded_at") is not None:
-        return _item(task, date.today())
+        return _item(task, date.today(), user)
     if not task_rules.is_active(str(task["status"]), None):
         raise AppError("PAYLOAD_REJECTED", "已完成任务不能废弃")
     with repo.transaction():
@@ -247,7 +239,7 @@ def restore(
 ) -> dict[str, Any]:
     task = _owned_task(repo, user, task_id)
     if task.get("discarded_at") is None:
-        return _item(task, date.today())
+        return _item(task, date.today(), user)
     with repo.transaction():
         repo.set_task_discarded(task_id, None)
         audit_service.record(
@@ -267,7 +259,7 @@ def _owned_task(repo: Repo, user: dict[str, Any], task_id: int) -> dict[str, Any
     task = repo.get_task(int(task_id))
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    if not _can_touch(repo, user, task):
+    if not task_rules.can_touch(user, task):
         raise AppError("FORBIDDEN", "只能操作本人或本组任务")
     return task
 
@@ -278,7 +270,7 @@ def package(
     task = repo.get_task(task_id)
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    if not _can_touch(repo, user, task):
+    if not task_rules.can_touch(user, task):
         raise AppError("FORBIDDEN", "无权访问该任务")
     template = engine.draft_plan(int(task["week"]), int(task["session"]), str(task["title"]), str(task["course"]))
     if not template:
@@ -302,25 +294,12 @@ def _nearest_sample(repo: Repo, task: dict[str, Any]) -> int | None:
     return int(sample["id"]) if sample is not None else None
 
 
-def _can_touch(repo: Repo, user: dict[str, Any], task: dict[str, Any]) -> bool:
-    """本人的任务、或本组任务（组长建的任务组内教师可推进）；管理员全部。"""
-    if str(user.get("role") or "") == "admin":
-        return True
-    if int(user.get("id") or 0) == int(task["owner_id"]):
-        return True
-    group = str(user.get("group_name") or "").strip()
-    task_group = str(task.get("group_name") or task.get("owner_group") or "").strip()
-    return bool(group) and group == task_group
-
-
 def _item(
-    task: dict[str, Any] | None, today: date, user: dict[str, Any] | None = None
+    task: dict[str, Any] | None, today: date, user: dict[str, Any]
 ) -> dict[str, Any]:
     if task is None:
         raise AppError("NOT_FOUND", "任务不存在")
-    owner_id = int(task["owner_id"])
-    same_owner = user is None or int(user.get("id") or 0) == owner_id
-    can_edit = same_owner or str((user or {}).get("role") or "") == "admin"
+    # 覆盖权限只在 domain 维护一份：前端据此决定是否显示改名/改截止入口
     return {
         "taskId": int(task["id"]),
         "course": task["course"],
@@ -339,5 +318,5 @@ def _item(
         "boardVersion": int(task.get("board_version") or 0),
         "discardedAt": task.get("discarded_at"),
         "discarded": task.get("discarded_at") is not None,
-        "canEdit": can_edit,
+        "canEdit": task_rules.can_overwrite(user, task),
     }

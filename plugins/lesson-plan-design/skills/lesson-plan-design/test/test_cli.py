@@ -2,15 +2,25 @@
 """校验 / 审查 / 导出 CLI 与插件根转发脚本。"""
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
 import unittest
+import zipfile
 from pathlib import Path
 
 from support import PLUGIN_ROOT, tempdir
-from export_docx import ENGINE_VERSION, export_docx
-from lib import default_review_path, load_review_report, plan_hash
+from export_docx import ENGINE_VERSION, export_docx, history_path
+from lib import (
+    adversarial_review,
+    default_review_path,
+    load_review_report,
+    match_c_language_template,
+    plan_hash,
+    record_teacher_override,
+    save_review_report,
+)
 from factories import make_plan, read_docx_xml, run_cli, write_plan, write_report
 
 
@@ -22,6 +32,88 @@ class TestCli(unittest.TestCase):
 
     def _plan_file(self, plan: dict, name: str = "教案.json") -> Path:
         return write_plan(self.root, plan, name)
+
+    def test_draft_warns_when_template_match_ties(self) -> None:
+        _, tied = match_c_language_template("认识C语言 输出")
+        self.assertGreaterEqual(len(tied), 2)
+        drafted = run_cli(
+            "draft.py", "--week", "1", "--session", "1", "--title", "认识C语言 输出",
+        )
+        self.assertEqual(drafted.returncode, 0, drafted.stderr)
+        self.assertIn("模板匹配同分", drafted.stderr)
+
+    def test_draft_uses_sample_practice_sets(self) -> None:
+        out = self.root / "第2周.json"
+        proc = run_cli("draft.py", "--week", "2", "--session", "1", "--title", "一级考证辅导2", "--out", out)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        plan = json.loads(out.read_text(encoding="utf-8"))
+        self.assertIn("第3套", plan["activityFlow"]["taskImplementation"])
+        self.assertIn("第4套", plan["activityFlow"]["taskImplementation"])
+
+    def test_draft_cli_writes_all_optional_fields(self) -> None:
+        out = self.root / "fields.json"
+        proc = run_cli(
+            "draft.py", "--week", "2", "--session", "1", "--title", "一级考证辅导2",
+            "--must-do", "第5套", "--optional", "第6套",
+            "--student-context", "学生已掌握基本操作", "--plan-number", "P-001",
+            "--teach-date", "2026-11-20", "--teacher", "张老师", "--class", "25计算机1班",
+            "--out", out,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        plan = json.loads(out.read_text(encoding="utf-8"))
+        self.assertEqual(plan["planNumber"], "P-001")
+        self.assertEqual(plan["teachDate"], "2026-11-20")
+        self.assertEqual(plan["teacher"], "张老师")
+        self.assertEqual(plan["teachingObject"], "25计算机1班")
+        self.assertIn("学生已掌握基本操作", plan["activityFlow"]["introduction"])
+        self.assertIn("第5套", plan["activityFlow"]["taskImplementation"])
+        self.assertIn("第6套", plan["activityFlow"]["taskImplementation"])
+
+    def test_draft_warns_when_no_sample_matches(self) -> None:
+        out = self.root / "no-sample.json"
+        proc = run_cli("draft.py", "--week", "18", "--session", "1", "--title", "无样例课题", "--out", out)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("未匹配到同周次/课次样例", proc.stderr)
+
+    def test_cli_export_refuses_overwrite_and_records_history(self) -> None:
+        plan = make_plan(1, 2, "一级考证辅导1")
+        plan_path = self._plan_file(plan)
+        write_report(plan_path, plan)
+        out = self.root / "same.docx"
+        first = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertTrue(out.is_file())
+        second = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertNotEqual(second.returncode, 0)
+        self.assertIn("--force", second.stdout + second.stderr)
+        forced = run_cli("export_docx.py", plan_path, "-o", out, "--force")
+        self.assertEqual(forced.returncode, 0, forced.stderr)
+        self.assertTrue((self.root / "same.docx.bak").is_file())
+        payload = json.loads(forced.stdout)
+        self.assertEqual(payload["version"], 2)
+        entries = json.loads(history_path(plan_path).read_text(encoding="utf-8"))
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(entries[-1]["sha256"], hashlib.sha256(out.read_bytes()).hexdigest())
+        listed = run_cli("export_docx.py", plan_path, "--history")
+        self.assertEqual(listed.returncode, 0, listed.stderr)
+        self.assertEqual(len(json.loads(listed.stdout)["history"]), 2)
+        opened = run_cli("export_docx.py", plan_path, "--open-version", "1")
+        self.assertEqual(opened.returncode, 0, opened.stderr)
+        self.assertTrue(Path(json.loads(opened.stdout)["path"]).is_file())
+
+    def test_chinese_and_space_path_round_trip(self) -> None:
+        plan = make_plan(1, 2, "一级考证辅导1")
+        nested = self.root / "中文 目录"
+        plan_path = write_plan(nested, plan, "教案 文件.json")
+        validated = run_cli("validate.py", plan_path)
+        self.assertEqual(validated.returncode, 0, validated.stderr)
+        reviewed = run_cli("adversarial_review.py", plan_path, "--no-counterexample")
+        self.assertEqual(reviewed.returncode, 0, reviewed.stderr)
+        exported = run_cli("export_docx.py", plan_path)
+        self.assertEqual(exported.returncode, 0, exported.stderr)
+        payload = json.loads(exported.stdout)
+        self.assertTrue(Path(payload["path"]).is_file())
+        self.assertIn("第1周第2次", Path(payload["path"]).name)
 
     def test_export_docx(self) -> None:
         plan = make_plan(1, 2, "一级考证辅导1")
@@ -38,8 +130,9 @@ class TestCli(unittest.TestCase):
         write_report(plan_path, plan)
         exported = run_cli("export_docx.py", plan_path)
         self.assertEqual(exported.returncode, 0, exported.stderr)
-        self.assertTrue((self.root / "教案_第1周第1次.docx").is_file())
         payload = json.loads(exported.stdout)
+        self.assertTrue(Path(payload["path"]).is_file())
+        self.assertEqual(payload["version"], 1)
         self.assertEqual(payload["engineVersion"], ENGINE_VERSION)
         self.assertTrue(payload["selfCheck"]["ok"], payload["selfCheck"])
 
@@ -194,6 +287,27 @@ class TestCli(unittest.TestCase):
             export_docx(plan, out, strict_metadata=True)
         self.assertFalse(out.exists())
 
+    def test_export_writes_core_properties_footer_time_and_stats(self) -> None:
+        plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套", teacher="张老师")
+        plan_path = self._plan_file(plan)
+        out = self.root / "props.docx"
+        write_report(plan_path, plan)
+        exported = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertEqual(exported.returncode, 0, exported.stderr + exported.stdout)
+        payload = json.loads(exported.stdout)
+        self.assertGreater(payload["stats"]["bytes"], 0)
+        self.assertIn("media", payload["stats"])
+        self.assertIn("warnings", payload["stats"])
+        with zipfile.ZipFile(out) as archive:
+            core = archive.read("docProps/core.xml").decode("utf-8")
+            footer = archive.read("word/footer1.xml").decode("utf-8")
+            content_types = archive.read("[Content_Types].xml").decode("utf-8")
+        self.assertIn("一级考证辅导2", core)
+        self.assertIn("张老师", core)
+        self.assertIn("lesson-plan-design", core)
+        self.assertIn("导出于", footer)
+        self.assertIn("docProps/core.xml", content_types)
+
     def test_cli_export_strict_metadata(self) -> None:
         plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
         plan["teacher"] = ""
@@ -212,3 +326,49 @@ class TestCli(unittest.TestCase):
         allowed = run_cli("export_docx.py", plan_path, "--strict-metadata", "-o", out)
         self.assertEqual(allowed.returncode, 0, allowed.stderr + allowed.stdout)
         self.assertTrue(out.exists())
+
+    def test_export_loose_mode_warns_missing_metadata(self) -> None:
+        plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套")
+        plan["teacher"] = ""
+        plan["teachingObject"] = ""
+        plan["teachDate"] = ""
+        plan_path = self._plan_file(plan)
+        out = self.root / "loose.docx"
+        write_report(plan_path, plan)
+        exported = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertEqual(exported.returncode, 0, exported.stderr + exported.stdout)
+        payload = json.loads(exported.stdout)
+        warnings = payload["warnings"]
+        self.assertTrue(any("元信息缺失" in item for item in warnings), warnings)
+        joined = "；".join(warnings)
+        for label in ("任课教师", "教学对象", "授课日期"):
+            self.assertIn(label, joined)
+        self.assertIn("____", read_docx_xml(out))
+
+    def test_export_includes_teacher_acceptance_record(self) -> None:
+        plan = make_plan(2, 1, "一级考证辅导2", content_detail="第3、4套", teacher="张老师")
+        finding = {
+            "severity": "minor",
+            "hypothesis": "课堂小结可再具体",
+            "evidence": ["activityFlow.summary 只写评讲难题"],
+            "affectedPaths": ["activityFlow.summary"],
+            "whyItBreaksTheLoop": "学生无法据此自查",
+            "minimalRepair": "补一条可观察的自查项",
+        }
+        report = adversarial_review(plan, reviewer="native_subagent", finding=finding)
+        finding_id = report["findings"][0]["id"]
+        record_teacher_override(
+            report,
+            finding_id,
+            teacher="张老师",
+            reason="本课先保留现有小结",
+            plan=plan,
+        )
+        plan_path = self._plan_file(plan)
+        save_review_report(default_review_path(plan_path), report)
+        out = self.root / "override.docx"
+        exported = run_cli("export_docx.py", plan_path, "-o", out)
+        self.assertEqual(exported.returncode, 0, exported.stderr + exported.stdout)
+        xml = read_docx_xml(out)
+        for value in (finding_id, "张老师", "本课先保留现有小结"):
+            self.assertIn(value, xml)

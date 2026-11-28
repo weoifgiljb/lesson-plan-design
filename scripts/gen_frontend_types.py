@@ -108,7 +108,7 @@ def main() -> int:
         print("types.gen.ts 已是最新")
         return 0
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(content, encoding="utf-8")
+    args.out.write_text(content, encoding="utf-8", newline="\n")
     print(f"saved {args.out}")
     return 0
 

@@ -34,6 +34,8 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
         _filters_payload(raw_filters),
         export_basis=basis,
     )
+    payload["reviewStatusCounts"] = _review_status_counts(rows)
+    payload["reviewModeCounts"] = _review_mode_counts(rows)
     payload["scope"] = _scope_name(str(user.get("role") or ""))
     return payload
 
@@ -43,6 +45,7 @@ def records(
     user: dict[str, Any],
     *,
     filters: dict[str, Any] | None = None,
+    status: str | None = None,
     page: int | None = None,
     page_size: int | None = None,
 ) -> dict[str, Any]:
@@ -59,6 +62,8 @@ def records(
     actual_page, actual_size, offset = library.page_params(page, page_size)
     scope = library.scope_for(user)
     rows = repo.stats_plans(scope, window)
+    if status:
+        rows = [row for row in rows if (row.get("review_status") or "unknown") == status]
     total = len(rows)
     window_rows = rows[offset : offset + actual_size]
     rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in window_rows}))
@@ -119,6 +124,25 @@ def _record(row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
 
 def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return {str(row["key"]): int(row["total"]) for row in rows}
+
+
+def _review_status_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """审查状态分布：对当前筛选/范围内全部教案的最新一轮审查做聚合。"""
+    counts: dict[str, int] = {}
+    for row in rows:
+        status = str(row.get("review_status") or "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _review_mode_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    """审校方式分列：独立子代理 / 角色模拟 / 人工（FR-06）。"""
+    counts = {"native_subagent": 0, "role_simulation": 0, "human": 0}
+    for row in rows:
+        mode = str(row.get("reviewer_mode") or "")
+        if mode in counts:
+            counts[mode] += 1
+    return counts
 
 
 def _export_seconds(rows: list[dict[str, Any]]) -> tuple[list[float], dict[str, int]]:

@@ -14,10 +14,16 @@ from .content import (
     _student_with_evidence,
 )
 from .layout import COL_WIDTHS, HEADER_SHADE, LABEL_SHADE, _cell_xml, _row, _table_xml
-from .metadata import _format_hours, _meta_line
+from .metadata import _format_hours, _meta_line, _override_line
 
 
-def build_document_xml(plan: dict, pkg: DocxPackage, *, independence: str | None = None) -> str:
+def build_document_xml(
+    plan: dict,
+    pkg: DocxPackage,
+    *,
+    independence: str | None = None,
+    overrides: list[dict] | None = None,
+) -> str:
     """Build the reference-style single table used by the supplied teaching design."""
     content = "\n".join(x for x in [plan.get("contentTitle") or "", plan.get("contentDetail") or ""] if x)
     widths = COL_WIDTHS
@@ -118,7 +124,11 @@ def build_document_xml(plan: dict, pkg: DocxPackage, *, independence: str | None
 
     table = _table_xml(rows, widths)
     title = pkg.title_paragraph(f"《{plan.get('contentTitle') or '未命名课题'}》")
-    body = title + pkg.render_markdown(_meta_line(plan, independence)) + table
+    body = title + pkg.render_markdown(_meta_line(plan, independence))
+    override_text = _override_line(overrides)
+    if override_text:
+        body += pkg.render_markdown(override_text)
+    body += table
     footer_ref = (
         '<w:footerReference w:type="default" r:id="rIdFooter"/>'
         if pkg.footer_xml is not None

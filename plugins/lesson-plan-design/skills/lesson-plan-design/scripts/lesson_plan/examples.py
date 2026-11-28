@@ -51,7 +51,7 @@ def check_examples(directory: Path | None = None) -> dict[str, Any]:
     errors: list[str] = []
     stale: list[str] = []
     missing: list[str] = []
-    fields = ("course", "week", "session", "contentTitle")
+    fields = ("course", "week", "session", "contentTitle", "contentDetail")
     for entry in entries:
         name = entry["file"]
         if entry["index"] is None:

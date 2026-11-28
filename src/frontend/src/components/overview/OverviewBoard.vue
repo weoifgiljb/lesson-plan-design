@@ -41,6 +41,8 @@ const props = withDefaults(
     forceFallback?: boolean
     metricsLink?: string
     footerNote?: string
+    canExport?: boolean
+    canUpload?: boolean
   }>(),
   {
     scopeLabel: '',
@@ -56,12 +58,16 @@ const props = withDefaults(
     forceFallback: false,
     metricsLink: '',
     footerNote: '',
+    canExport: true,
+    canUpload: true,
   },
 )
 
 const emit = defineEmits<{
   (event: 'primary'): void
+  (event: 'upload'): void
   (event: 'retry'): void
+  (event: 'open-todo', todo: OverviewTodo): void
   (event: 'board-move', payload: { taskId: number; quadrant: TaskQuadrant; position: number; boardVersion: number }): void
   (event: 'board-discard', task: TaskItem): void
   (event: 'board-download', task: TaskItem): void
@@ -74,6 +80,34 @@ const ledgerMetrics = computed(() =>
     (metric): metric is Metric => Boolean(metric),
   ),
 )
+
+const structureMetric = computed(() =>
+  props.metrics.find((metric) => metric.key === 'structure_rate'),
+)
+const progress = computed(() => {
+  const value = structureMetric.value?.value
+  return value === null || value === undefined ? null : Math.round(value * 100)
+})
+
+const todayItems = computed<OverviewTodo[]>(() => {
+  const items = [...props.todos]
+  for (const task of props.boardTasks) {
+    if (!task.overdue) continue
+    if (items.some((item) => item.id === `task-${task.taskId}`)) continue
+    items.push({
+      id: `task-${task.taskId}`,
+      kind: '逾期',
+      title: task.title,
+      detail: `${task.course} / 第 ${task.week} 周第 ${task.session} 次`,
+      due: '已逾期',
+      overdue: true,
+      taskId: task.taskId,
+    })
+  }
+  return items
+    .sort((left, right) => Number(Boolean(right.overdue)) - Number(Boolean(left.overdue)))
+    .slice(0, 4)
+})
 
 type TabKey = 'all' | 'review' | 'repair' | 'passed'
 const tabs: { key: TabKey; label: string }[] = [
@@ -129,10 +163,10 @@ watch(
 )
 
 const columns: TableColumn[] = [
-  { key: 'title', label: '课题', minWidth: 210 },
+  { key: 'title', label: '课题', minWidth: 210, tooltip: true },
   { key: 'week', label: '周 / 次', width: 86 },
   { key: 'teacher', label: '教师', width: 96 },
-  { key: 'versionNo', label: '版本', width: 64, align: 'right' },
+  { key: 'versionNo', label: '稿次', width: 76, align: 'right' },
   { key: 'evidence', label: '证据', width: 76 },
   { key: 'status', label: '状态', width: 108 },
   { key: 'updatedAt', label: '更新', width: 112 },
@@ -182,6 +216,57 @@ function clearFilters(): void {
     </StatePanel>
 
     <template v-else>
+      <section class="today-block" aria-label="今天要处理">
+        <div class="today-main">
+          <div class="today-head">
+            <div>
+              <h2>今天要处理</h2>
+              <p>先看最紧的四项，处理完再回到结构与指标。</p>
+            </div>
+            <span class="today-count">{{ todayItems.length }} 项</span>
+          </div>
+          <div v-if="todayItems.length" class="today-grid">
+            <article
+              v-for="item in todayItems"
+              :key="item.id"
+              class="today-card"
+              :class="{ 'is-overdue': item.overdue }"
+              role="button"
+              tabindex="0"
+              :aria-label="`${item.kind}：${item.title}`"
+              @click="emit('open-todo', item)"
+              @keyup.enter="emit('open-todo', item)"
+            >
+              <span class="today-kind">{{ item.kind }}</span>
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.detail }}</p>
+              <span class="today-due">{{ item.due }}</span>
+            </article>
+          </div>
+          <div v-else class="today-empty">
+            <p>{{ canUpload ? '今天没有紧急待办。可以先导入一份契约包，或从样例库挑一份改。' : '今天没有紧急待办。当前角色可查看样例库，或等待教师提交。' }}</p>
+            <el-button v-if="canUpload" type="primary" @click="emit('upload')">上传契约包</el-button>
+            <p v-else class="today-empty__note">当前角色没有导入权限，可去样例库查看。</p>
+          </div>
+        </div>
+
+        <aside class="today-side">
+          <div class="progress-card">
+            <p class="progress-kicker">学期进度</p>
+            <strong class="progress-value">{{ progress === null ? '—' : `${progress}%` }}</strong>
+            <p class="progress-note">
+              {{ structureMetric?.numerator ?? 0 }} / {{ structureMetric?.denominator ?? 0 }} 份结构通过
+            </p>
+            <router-link v-if="metricsLink" class="text-link" :to="metricsLink">查看统计口径</router-link>
+          </div>
+          <nav class="quick-actions" aria-label="快捷动作">
+            <button v-if="canUpload" type="button" class="quick-action" @click="emit('upload')">上传契约包</button>
+            <router-link class="quick-action" to="/plans">继续最近草稿</router-link>
+            <router-link v-if="canExport" class="quick-action" to="/exports">批量导出</router-link>
+          </nav>
+        </aside>
+      </section>
+
       <section class="hero" aria-label="结构剖面与待办">
         <StructurePanel
           v-if="structure"
@@ -225,25 +310,6 @@ function clearFilters(): void {
             >
               <template #action><el-button type="primary" @click="emit('retry')">重试</el-button></template>
             </StatePanel>
-          </section>
-
-          <section v-if="todos.length" class="side-block" aria-label="审查与修复">
-            <SectionHeader title="审查 / 修复" :meta="`${todos.length} 项`" />
-            <ol class="todo-list">
-              <li
-                v-for="todo in todos"
-                :key="todo.id"
-                class="todo-item"
-                :class="{ 'is-overdue': todo.overdue }"
-              >
-                <span class="todo-kind">{{ todo.kind }}</span>
-                <div class="todo-body">
-                  <strong>{{ todo.title }}</strong>
-                  <p>{{ todo.detail }}</p>
-                </div>
-                <span class="todo-due">{{ todo.due }}</span>
-              </li>
-            </ol>
           </section>
 
           <section class="side-block" aria-label="最近动态">
@@ -333,6 +399,7 @@ function clearFilters(): void {
             </span>
           </template>
           <template #cell-week="{ row }">{{ row.week }} / {{ row.session }}</template>
+          <template #cell-versionNo="{ row }">第 {{ row.versionNo }} 稿</template>
           <template #cell-evidence="{ row }">
             <span
               v-if="row.evidencePassed !== undefined && row.evidenceTotal !== undefined"
@@ -364,6 +431,182 @@ function clearFilters(): void {
 <style scoped>
 .overview {
   gap: 28px;
+}
+
+.today-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 22px;
+  align-items: start;
+}
+
+.today-main {
+  min-width: 0;
+}
+
+.today-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.today-head h2 {
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-lg);
+}
+
+.today-head p {
+  margin-top: 3px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.today-count {
+  color: var(--lpp-accent-ink);
+  font-family: var(--lpp-font-numeric);
+  font-size: var(--lpp-font-xs);
+  white-space: nowrap;
+}
+
+.today-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.today-card {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid var(--lpp-border);
+  border-left: 3px solid var(--lpp-accent);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+  cursor: pointer;
+}
+
+.today-card:hover,
+.today-card:focus-visible {
+  border-color: var(--lpp-primary);
+  outline: none;
+}
+
+.today-card.is-overdue {
+  border-left-color: var(--lpp-danger);
+}
+
+.today-kind {
+  color: var(--lpp-accent-ink);
+  font-family: var(--lpp-font-hand);
+  font-size: var(--lpp-font-xs);
+}
+
+.today-card.is-overdue .today-kind {
+  color: var(--lpp-danger);
+}
+
+.today-card strong {
+  overflow: hidden;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-card p {
+  overflow: hidden;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-due {
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-numeric);
+  font-size: 11px;
+}
+
+.today-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border: 1px dashed var(--lpp-border-strong);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
+}
+
+.today-empty p {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
+.today-empty__note {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
+.today-side {
+  display: grid;
+  gap: 10px;
+}
+
+.progress-card {
+  padding: 14px 16px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface-2);
+}
+
+.progress-kicker {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.progress-value {
+  display: block;
+  margin: 2px 0;
+  color: var(--lpp-primary);
+  font-family: var(--lpp-font-numeric);
+  font-size: var(--lpp-font-2xl);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.progress-note {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.quick-action {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface);
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-action:hover {
+  border-color: var(--lpp-primary);
+  color: var(--lpp-primary);
+  text-decoration: none;
 }
 
 .overview-date {
@@ -674,6 +917,14 @@ function clearFilters(): void {
 }
 
 @media (max-width: 1180px) {
+  .today-block {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .today-side {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
   .hero {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -692,6 +943,16 @@ function clearFilters(): void {
 @media (max-width: 767px) {
   .overview {
     gap: 22px;
+  }
+
+  .today-grid,
+  .today-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .today-empty {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .hero-side {

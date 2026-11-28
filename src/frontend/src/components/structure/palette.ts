@@ -2,22 +2,22 @@ import type { StructureGroup } from './model'
 
 /** 3D 材质色：与页面令牌同源，但不读 CSS 变量。 */
 export const STRUCTURE_COLORS = {
-  paper: '#F7F8F3',
-  paperEdge: '#B7C3B7',
+  paper: '#FFFCF5',
+  paperEdge: '#C9BFA9',
   goal: '#A47F45',
   goalEdge: '#725526',
-  post: '#AEBBAF',
-  evidenceOk: '#A47F45',
-  evidenceMissing: '#A03E2E',
-  hover: '#E5EFE9',
+  post: '#C9BFA9',
+  evidenceOk: '#2E6A4E',
+  evidenceMissing: '#8C2F2A',
+  hover: '#F7EFDD',
 } as const
 
 export const GROUP_COLORS: Record<StructureGroup, string> = {
-  opening: '#8FAE9F',
+  opening: '#7F9A8A',
   learning: '#2E6B5A',
   practice: '#245A4C',
   assessment: '#A47F45',
-  closing: '#7C8B82',
+  closing: '#8C7B62',
 }
 
 export const GROUP_LABELS: Record<StructureGroup, string> = {

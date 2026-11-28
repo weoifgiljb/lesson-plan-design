@@ -19,6 +19,7 @@ const props = withDefaults(
     clickable?: boolean
     ariaLabel?: string
     emptyText?: string
+    emptyTitle?: string
   }>(),
   {
     rowKey: 'id',
@@ -31,7 +32,8 @@ const props = withDefaults(
     selectable: false,
     clickable: false,
     ariaLabel: '数据表格',
-    emptyText: '暂无数据，调整筛选条件或先创建一条记录',
+    emptyText: '调整筛选条件，或先创建一条记录。',
+    emptyTitle: '没有符合条件的记录',
   },
 )
 
@@ -120,7 +122,7 @@ function onRowClick(row: any): void {
         </template>
       </StatePanel>
 
-      <StatePanel v-else state="empty" :description="emptyText">
+      <StatePanel v-else state="empty" :title="emptyTitle" :description="emptyText">
         <template #action><slot name="empty" /></template>
       </StatePanel>
     </div>
@@ -145,6 +147,7 @@ function onRowClick(row: any): void {
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
   overflow: hidden;
 }
 
@@ -153,10 +156,27 @@ function onRowClick(row: any): void {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--lpp-border);
-  background: var(--lpp-layer);
+  background: var(--lpp-surface-2);
   flex-wrap: wrap;
+}
+
+.data-table__toolbar :deep(.el-form-item) {
+  margin-bottom: 0;
+}
+
+.data-table__toolbar :deep(.el-form-item__label) {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.data-table__toolbar :deep(.el-input__wrapper),
+.data-table__toolbar :deep(.el-select__wrapper),
+.data-table__toolbar :deep(.el-input-number) {
+  min-height: 32px;
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface);
 }
 
 .data-table__body {
@@ -171,6 +191,9 @@ function onRowClick(row: any): void {
 
 .data-table__body :deep(.el-table) {
   border-radius: 0;
+  background: var(--lpp-surface);
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
 }
 
 .data-table__body :deep(.el-table::before),
@@ -179,16 +202,37 @@ function onRowClick(row: any): void {
 }
 
 .data-table__body :deep(.el-table th.el-table__cell) {
-  background: transparent;
-  border-bottom: 1px solid var(--lpp-border-strong);
+  height: 38px;
+  padding: 0;
+  border-bottom: 2px double var(--lpp-border-strong);
+  background: var(--lpp-surface-2);
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .data-table__body :deep(.el-table td.el-table__cell) {
+  height: 44px;
+  padding: 6px 0;
   border-bottom: 1px solid var(--lpp-border);
+  background: transparent;
+}
+
+.data-table__body :deep(.el-table__row:hover > td.el-table__cell) {
+  background: var(--lpp-row-hover);
+}
+
+.data-table__body :deep(.el-table__row--striped td.el-table__cell) {
+  background: transparent;
 }
 
 .data-table__body :deep(.el-table .cell) {
   line-height: var(--lpp-line-table);
+}
+
+.data-table__body :deep(.el-table__empty-block) {
+  background: var(--lpp-surface);
 }
 
 .data-table__body :deep(.el-empty) {
@@ -211,6 +255,16 @@ function onRowClick(row: any): void {
   justify-content: flex-end;
   padding: 8px 12px;
   border-top: 1px solid var(--lpp-border);
+  background: var(--lpp-surface);
+}
+
+.data-table__footer :deep(.el-pagination) {
+  font-size: var(--lpp-font-xs);
+}
+
+.data-table__footer :deep(.el-pagination.is-background .el-pager li.is-active) {
+  background: var(--lpp-primary);
+  color: var(--lpp-surface);
 }
 
 @media (max-width: 767px) {

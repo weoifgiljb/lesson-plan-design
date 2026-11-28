@@ -24,6 +24,9 @@ export interface OverviewTodo {
   detail: string
   due: string
   overdue?: boolean
+  planId?: number
+  reviewId?: number
+  taskId?: number
 }
 
 export interface OverviewActivity {

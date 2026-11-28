@@ -2,7 +2,7 @@ import type { EChartsOption } from 'echarts'
 
 import type { Metric, StatRecord } from '@/api/models'
 import { PALETTE, CHART_TOKENS } from '@/styles/palette'
-import { UNREVIEWED_TEXT, UNAVAILABLE_TEXT, reviewStatusLabel } from '@/utils/labels'
+import { UNAVAILABLE_TEXT, reviewStatusLabel } from '@/utils/labels'
 
 /**
  * 统计页图表：只做两件事——四项比率指标的达成度、当前记录的最新审查状态。
@@ -67,7 +67,7 @@ export function buildAchievementOption(metrics: Metric[]): EChartsOption {
       },
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: CHART_TOKENS.grid } },
+      splitLine: { lineStyle: { color: CHART_TOKENS.grid, type: 'dashed' } },
     },
     yAxis: {
       type: 'category',
@@ -101,7 +101,7 @@ export function buildAchievementOption(metrics: Metric[]): EChartsOption {
           value: row.value,
           itemStyle: {
             color: row.sampleInsufficient ? PALETTE.warning : PALETTE.primary,
-            borderRadius: [0, 4, 4, 0],
+            borderRadius: [0, 3, 3, 0],
           },
         })),
         label: {
@@ -160,33 +160,45 @@ export interface StatusSlice {
   color: string
 }
 
+export type StatusCounts = Record<string, number>
+
 function statusRank(status: string): number {
   const index = STATUS_ORDER.indexOf(status)
   return index === -1 ? STATUS_ORDER.length : index
 }
 
-export function statusSlices(records: Pick<StatRecord, 'reviewStatus'>[]): StatusSlice[] {
+function statusCountMap(source: StatusCounts | Pick<StatRecord, 'reviewStatus'>[]): Map<string, number> {
   const counts = new Map<string, number>()
-  for (const record of records) {
-    const status = record.reviewStatus || 'unknown'
-    counts.set(status, (counts.get(status) ?? 0) + 1)
+  if (Array.isArray(source)) {
+    for (const record of source) {
+      const status = record.reviewStatus || 'unknown'
+      counts.set(status, (counts.get(status) ?? 0) + 1)
+    }
+    return counts
   }
-  return [...counts.entries()]
+  for (const [status, count] of Object.entries(source)) {
+    if (count > 0) counts.set(status || 'unknown', count)
+  }
+  return counts
+}
+
+export function statusSlices(source: StatusCounts | Pick<StatRecord, 'reviewStatus'>[]): StatusSlice[] {
+  return [...statusCountMap(source).entries()]
     .map(([status, count]) => ({
       status,
-      label: status === 'unknown' ? UNREVIEWED_TEXT : reviewStatusLabel(status),
+      label: reviewStatusLabel(status),
       count,
       color: STATUS_COLORS[status] ?? PALETTE.textMuted,
     }))
     .sort((left, right) => statusRank(left.status) - statusRank(right.status) || right.count - left.count)
 }
 
-export function statusTotal(records: Pick<StatRecord, 'reviewStatus'>[]): number {
-  return statusSlices(records).reduce((sum, slice) => sum + slice.count, 0)
+export function statusTotal(source: StatusCounts | Pick<StatRecord, 'reviewStatus'>[]): number {
+  return statusSlices(source).reduce((sum, slice) => sum + slice.count, 0)
 }
 
-export function buildStatusOption(records: Pick<StatRecord, 'reviewStatus'>[]): EChartsOption {
-  const slices = statusSlices(records)
+export function buildStatusOption(source: StatusCounts | Pick<StatRecord, 'reviewStatus'>[]): EChartsOption {
+  const slices = statusSlices(source)
   const total = slices.reduce((sum, slice) => sum + slice.count, 0)
   return {
     textStyle: { fontFamily: CHART_TOKENS.fontFamily },
@@ -258,8 +270,8 @@ export function buildStatusOption(records: Pick<StatRecord, 'reviewStatus'>[]): 
   }
 }
 
-export function statusSummary(records: Pick<StatRecord, 'reviewStatus'>[]): string {
-  const slices = statusSlices(records)
+export function statusSummary(source: StatusCounts | Pick<StatRecord, 'reviewStatus'>[]): string {
+  const slices = statusSlices(source)
   if (!slices.length) return '当前筛选没有教案记录，暂无审查状态分布。'
   return (
     '审查状态分布：' +

@@ -655,12 +655,14 @@ class Repo:
                 "SELECT p.id AS plan_id, p.created_at AS plan_created_at, p.content_title, p.course, p.week,"
                 " p.session, u.display_name AS teacher, pv.content_json, pv.plan_hash,"
                 " pv.version_no, rv.id AS review_id, rv.status AS review_status, rv.round AS review_round,"
-                " rv.report_json, rv.report_sha256",
+                " rv.reviewer_mode, rv.report_json, rv.report_sha256",
                 "FROM plan p JOIN user u ON u.id = p.owner_id",
                 "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
                 self.LATEST_REVIEW_JOIN,
                 "WHERE",
                 where,
+                # 下钻分页必须稳定：同一计划按 id、版本号排序，避免翻页重复/遗漏
+                "ORDER BY p.id, pv.version_no",
             )
         )
         return self._group(sql, (*params, *more))
@@ -681,6 +683,30 @@ class Repo:
         for row in rows:
             grouped.setdefault(int(row["plan_id"]), []).append(int(row["round"]))
         return grouped
+
+    def ops_metrics(self) -> dict[str, int]:
+        exports = {
+            str(row["status"]): int(row["total"])
+            for row in self.conn.execute(
+                "SELECT status, COUNT(*) AS total FROM export_job GROUP BY status"
+            ).fetchall()
+        }
+        syncs = {
+            str(row["result"]): int(row["total"])
+            for row in self.conn.execute(
+                "SELECT result, COUNT(*) AS total FROM sync_log GROUP BY result"
+            ).fetchall()
+        }
+        conflicts = self.conn.execute(
+            "SELECT COUNT(*) FROM sync_log WHERE conflict_code <> ''"
+        ).fetchone()
+        return {
+            "exportTotal": sum(exports.values()),
+            "exportSucceeded": exports.get("succeeded", 0),
+            "exportFailed": exports.get("failed", 0),
+            "syncTotal": sum(syncs.values()),
+            "syncConflicts": int(conflicts[0] if conflicts is not None else 0),
+        }
 
     def stats_sync(
         self, scope: dict[str, Any], filters: dict[str, Any] | None = None
@@ -806,6 +832,7 @@ class Repo:
         " pv.created_at AS version_created_at, rv.id AS review_id, rv.status AS review_status,"
         " rv.round AS review_round, rv.reviewer_mode AS reviewer_mode, rv.report_sha256 AS report_sha256"
         " FROM plan p JOIN user u ON u.id = p.owner_id"
+        " LEFT JOIN task t ON t.id = p.task_id"
         " LEFT JOIN plan_version pv ON pv.id = p.current_version_id"
         " " + LATEST_REVIEW_JOIN
     )
@@ -817,6 +844,7 @@ class Repo:
         count_sql = " ".join(
             (
                 "SELECT COUNT(DISTINCT p.id) AS total FROM plan p JOIN user u ON u.id = p.owner_id",
+                "LEFT JOIN task t ON t.id = p.task_id",
                 "LEFT JOIN plan_version pv ON pv.id = p.current_version_id",
                 self.LATEST_REVIEW_JOIN,
                 "WHERE",
@@ -835,7 +863,7 @@ class Repo:
 
     def list_versions(self, plan_id: int) -> list[dict[str, Any]]:
         rows = self.conn.execute(
-            "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.engine_version, pv.created_at,"
+            "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.engine_version, pv.template_version, pv.created_at,"
             " pv.content_json, rv.round, rv.status, rv.report_sha256, rv.reviewer_mode"
             " FROM plan_version pv LEFT JOIN review rv ON rv.id = ("
             "SELECT rv2.id FROM review rv2 WHERE rv2.plan_version_id = pv.id"
@@ -849,6 +877,7 @@ class Repo:
         return _row(
             self.conn.execute(
                 "SELECT pv.id AS version_id, pv.version_no, pv.plan_hash, pv.content_json, pv.created_at,"
+                " pv.engine_version, pv.template_version, pv.rubric_version,"
                 " rv.round, rv.status, rv.report_sha256"
                 " FROM plan_version pv LEFT JOIN review rv ON rv.id = ("
                 "SELECT rv2.id FROM review rv2 WHERE rv2.plan_version_id = pv.id"
@@ -926,7 +955,8 @@ class Repo:
         return grouped
 
     def _review_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
-        where = ["1 = 1"]
+        # 软删教案的审查记录不应再出现在审查中心/导出候选里（导出服务对 deleted_at 非空直接 NOT_FOUND）
+        where = ["p.deleted_at IS NULL"]
         params: list[Any] = []
         owner_id = scope.get("owner_id")
         group_name = scope.get("group_name")
@@ -1060,6 +1090,120 @@ class Repo:
         )
         return bool(cursor.rowcount)
 
+    def list_overdue_tasks(self, owner_id: int, now: str) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            "SELECT id, title, due_date FROM task"
+            " WHERE owner_id = ? AND due_date IS NOT NULL AND due_date <> ''"
+            " AND due_date < ? AND status <> 'exported' ORDER BY due_date",
+            (owner_id, now),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def insert_notification(
+        self, user_id: int, kind: str, title: str, body: str, target_type: str = "", target_id: str = ""
+    ) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO notification (user_id, kind, title, body, target_type, target_id, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, kind, title, body, target_type, target_id, clock.now_iso()),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def insert_notification_once(
+        self, user_id: int, kind: str, title: str, body: str, target_type: str = "", target_id: str = ""
+    ) -> int:
+        existing = self.conn.execute(
+            "SELECT id FROM notification WHERE user_id = ? AND kind = ? AND target_type = ?"
+            " AND target_id = ? LIMIT 1",
+            (user_id, kind, target_type, target_id),
+        ).fetchone()
+        if existing is not None:
+            return int(existing["id"])
+        return self.insert_notification(user_id, kind, title, body, target_type, target_id)
+
+    def list_notifications(
+        self, user_id: int, unread_only: bool, limit: int, offset: int
+    ) -> tuple[list[dict[str, Any]], int, int]:
+        if unread_only:
+            rows = self.conn.execute(
+                "SELECT * FROM notification WHERE user_id = ? AND read_at IS NULL"
+                " ORDER BY id DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset),
+            ).fetchall()
+            total = self.conn.execute(
+                "SELECT COUNT(*) FROM notification WHERE user_id = ? AND read_at IS NULL", (user_id,)
+            ).fetchone()
+        else:
+            rows = self.conn.execute(
+                "SELECT * FROM notification WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset),
+            ).fetchall()
+            total = self.conn.execute(
+                "SELECT COUNT(*) FROM notification WHERE user_id = ?", (user_id,)
+            ).fetchone()
+        unread = self.conn.execute(
+            "SELECT COUNT(*) FROM notification WHERE user_id = ? AND read_at IS NULL", (user_id,)
+        ).fetchone()
+        return [dict(row) for row in rows], int(total[0] if total else 0), int(unread[0] if unread else 0)
+
+    def mark_notification_read(self, user_id: int, notification_id: int) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE notification SET read_at = ? WHERE id = ? AND user_id = ? AND read_at IS NULL",
+            (clock.now_iso(), notification_id, user_id),
+        )
+        return bool(cursor.rowcount)
+
+    def mark_all_notifications_read(self, user_id: int) -> int:
+        cursor = self.conn.execute(
+            "UPDATE notification SET read_at = ? WHERE user_id = ? AND read_at IS NULL",
+            (clock.now_iso(), user_id),
+        )
+        return int(cursor.rowcount)
+
+    def create_deletion_request(self, plan_id: int, requester_id: int, reason: str, due_at: str) -> int:
+        cursor = self.conn.execute(
+            "INSERT INTO deletion_request (plan_id, requester_id, reason, status, created_at, due_at)"
+            " VALUES (?, ?, ?, 'pending', ?, ?)",
+            (plan_id, requester_id, reason, clock.now_iso(), due_at),
+        )
+        return int(cursor.lastrowid or 0)
+
+    def list_deletion_requests(self, status: str | None = None) -> list[dict[str, Any]]:
+        base = (
+            "SELECT d.*, p.content_title, u.display_name AS requester, p.deleted_at"
+            " FROM deletion_request d"
+            " JOIN plan p ON p.id = d.plan_id"
+            " JOIN user u ON u.id = d.requester_id"
+        )
+        if status:
+            sql = base + " WHERE d.status = ? ORDER BY d.id DESC"
+            params: tuple[Any, ...] = (status,)
+        else:
+            sql = base + " ORDER BY d.id DESC"
+            params = ()
+        rows = self.conn.execute(sql, params).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_deletion_request(self, request_id: int) -> dict[str, Any] | None:
+        return _row(
+            self.conn.execute(
+                "SELECT d.*, p.content_title, u.display_name AS requester, p.deleted_at"
+                " FROM deletion_request d"
+                " JOIN plan p ON p.id = d.plan_id"
+                " JOIN user u ON u.id = d.requester_id"
+                " WHERE d.id = ?",
+                (request_id,),
+            ).fetchone()
+        )
+
+    def resolve_deletion_request(self, request_id: int, resolver_id: int, status: str) -> bool:
+        cursor = self.conn.execute(
+            "UPDATE deletion_request SET status = ?, resolved_at = ?, resolver_id = ?"
+            " WHERE id = ? AND status = 'pending'",
+            (status, clock.now_iso(), resolver_id, request_id),
+        )
+        return bool(cursor.rowcount)
+
     def _library_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["p.deleted_at IS NULL"]
         params: list[Any] = []
@@ -1082,6 +1226,11 @@ class Repo:
             if value not in (None, ""):
                 where.append(f"{column} = ?")
                 params.append(value)
+        query = str(filters.get("q") or "").strip()
+        if query:
+            like = f"%{query}%"
+            where.append("(p.content_title LIKE ? OR u.display_name LIKE ? OR t.class_name LIKE ?)")
+            params.extend([like, like, like])
         return " AND ".join(where), params
 
     def last_round(self, plan_id: int) -> int:
@@ -1114,15 +1263,17 @@ class Repo:
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
         report_sha256: str, schema_version: int, rubric_version: str, engine_version: str,
+        template_version: str = "", source: str = "import",
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
                 "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
-                " schema_version, rubric_version, engine_version, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " schema_version, rubric_version, engine_version, template_version, source, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     plan_id, version_no, content_json, plan_hash, report_sha256,
-                    schema_version, rubric_version, engine_version, clock.now_iso(),
+                    schema_version, rubric_version, engine_version, template_version, source,
+                    clock.now_iso(),
                 ),
             )
             return int(cursor.lastrowid or 0), True

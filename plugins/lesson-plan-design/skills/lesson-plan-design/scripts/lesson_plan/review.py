@@ -13,6 +13,7 @@ from .model import (
     TOOL_VERSION,
     _nonempty,
     _structured_activities,
+    missing_metadata,
     plan_hash,
 )
 from .validation import validate_plan
@@ -163,6 +164,7 @@ def adversarial_review(
         previous_report is not None and previous_report.get("planHash") == plan_hash(plan)
     )
     structural = validate_plan(plan)
+    metadata_missing = missing_metadata(plan)
     report: dict[str, Any] = {
         "schemaVersion": REVIEW_SCHEMA_VERSION,
         "rubricVersion": RUBRIC_VERSION,
@@ -178,6 +180,9 @@ def adversarial_review(
         "findings": [],
         "overrides": [],
         "repairHistory": [],
+        "warnings": (
+            ["元信息缺失：" + "、".join(metadata_missing)] if metadata_missing else []
+        ),
         "attestation": None,
     }
     if previous_report is not None:

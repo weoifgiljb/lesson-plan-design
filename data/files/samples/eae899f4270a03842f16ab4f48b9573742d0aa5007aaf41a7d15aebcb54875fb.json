@@ -1,0 +1,97 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "C语言程序设计",
+  "planNumber": "C0301",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 3,
+  "session": 1,
+  "contentTitle": "if单分支与双分支",
+  "contentDetail": "项目三：if单分支与双分支",
+  "plannedHours": 2,
+  "teachingPurpose": "用成绩判定和温度提醒任务理解条件表达式，能够使用if完成单分支和双分支判断。",
+  "knowledgeGoals": "1. 理解条件为真/假。\n2. 掌握if、else语法和关系运算符。\n3. 识别=与==的区别。",
+  "abilityGoals": "能编写及格判定、奇偶判断程序并用边界数据测试。",
+  "qualityGoals": "形成先列条件、再编码、覆盖边界的严谨习惯。",
+  "keyPoints": "重点：if/else结构。难点：条件边界和==。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "用及格与否的规则导入条件判断",
+        "teacherActivity": "展示成绩规则并让学生列出两种结果",
+        "studentActivity": "写出条件和输出",
+        "minutes": 10,
+        "evidence": "条件草稿"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "完成成绩判定和奇偶判断",
+        "teacherActivity": "明确边界测试要求",
+        "studentActivity": "记录测试值60、59和0",
+        "minutes": 5,
+        "evidence": "测试清单"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "if、else和关系运算符",
+        "teacherActivity": "演示单/双分支及=误写为==的错误",
+        "studentActivity": "跟做并修改条件",
+        "minutes": 25,
+        "evidence": "通过编译"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "必须完成：实现成绩等级前的及格判定和奇偶判断",
+        "teacherActivity": "巡回检查条件完整性",
+        "studentActivity": "创建C05_学号.c，输入分数输出及格/不及格，再判断奇偶",
+        "minutes": 30,
+        "evidence": "提交源文件和边界运行截图"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "评价条件准确性和边界覆盖",
+        "teacherActivity": "检查==、边界和输出",
+        "studentActivity": "解释一个边界值结果",
+        "minutes": 10,
+        "evidence": "代码及测试记录"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "回顾条件—分支—结果",
+        "teacherActivity": "组织错例判断",
+        "studentActivity": "指出=和==区别",
+        "minutes": 5,
+        "evidence": "快问快答"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "编写温度提醒程序",
+        "teacherActivity": "给出两种温度规则",
+        "studentActivity": "完成并测试边界",
+        "minutes": 5,
+        "evidence": "作业代码"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "统计边界和比较符号错误",
+        "teacherActivity": "准备下节多分支案例",
+        "studentActivity": "反馈困难",
+        "minutes": 0,
+        "evidence": "反思记录"
+      }
+    ]
+  }
+}

@@ -2,6 +2,12 @@ import axios from 'axios'
 
 import { RequestError, toApiError } from './client-error'
 
+/** POST 的可选 axios config 子集：这里是 HTTP 客户端的唯一适配层，不把 axios 类型泄漏到 api/*.ts */
+export interface RequestOptions {
+  params?: Record<string, unknown>
+  timeout?: number
+}
+
 const CSRF_COOKIE = 'lpp_csrf'
 const CSRF_HEADER = 'X-CSRF-Token'
 
@@ -19,6 +25,11 @@ function readCsrf(): string {
     .map((item) => item.trim())
     .find((item) => item.startsWith(`${CSRF_COOKIE}=`))
   return entry ? decodeURIComponent(entry.slice(CSRF_COOKIE.length + 1)) : ''
+}
+
+/** 是否存在登录线索（CSRF cookie）：用于决定要不要主动探测会话，避免匿名访问公开页触发 401。 */
+export function hasCsrfCookie(): boolean {
+  return readCsrf() !== ''
 }
 
 http.interceptors.request.use((config) => {
@@ -39,8 +50,8 @@ export const client = {
     const response = await http.get<T>(path, { params })
     return response.data
   },
-  async post<T>(path: string, body?: unknown): Promise<T> {
-    const response = await http.post<T>(path, body)
+  async post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    const response = await http.post<T>(path, body, options)
     return response.data
   },
   async patch<T>(path: string, body?: unknown): Promise<T> {

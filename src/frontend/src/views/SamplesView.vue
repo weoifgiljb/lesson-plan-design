@@ -100,30 +100,36 @@ async function download(row: SampleItem): Promise<void> {
       :description="error.traceId ? `traceId: ${error.traceId}` : ''"
     />
 
-    <div class="table-wrap" v-loading="loading">
-      <el-table v-if="rows.length" :data="rows" row-key="sampleId" stripe>
-        <el-table-column prop="title" label="课题" min-width="220" />
-        <el-table-column prop="course" label="课程" width="130" />
-        <el-table-column label="位置" width="150">
-          <template #default="{ row }">第 {{ row.week }} 周 · 第 {{ row.session }} 次</template>
-        </el-table-column>
-        <el-table-column label="状态" width="130">
-          <template #default="{ row }">
+    <div class="shelf" v-loading="loading">
+      <article
+        v-for="row in rows"
+        :key="row.sampleId"
+        class="sample-card"
+        tabindex="0"
+        @click="openDetail(row)"
+        @keyup.enter.self="openDetail(row)"
+      >
+        <div class="sample-cover" :class="{ 'is-incomplete': !row.complete || !row.valid }">
+          <span class="cover-initial">{{ row.course?.slice(0, 1) || '课' }}</span>
+          <span class="cover-week">第 {{ row.week }} 周</span>
+        </div>
+        <div class="sample-body">
+          <h2>{{ row.title }}</h2>
+          <p>{{ row.course }} · 第 {{ row.week }} 周第 {{ row.session }} 次</p>
+          <div class="sample-meta">
             <el-tag :type="row.complete && row.valid ? 'success' : 'warning'" disable-transitions>
               {{ row.complete && row.valid ? '可用' : '不完整' }}
             </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="ruleVersion" label="规则版本" width="120" />
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openDetail(row)">预览</el-button>
-            <el-button link type="primary" @click="download(row)">下载</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+            <span>规则 {{ row.ruleVersion }}</span>
+          </div>
+        </div>
+        <div class="sample-actions">
+          <el-button link type="primary" @click.stop="openDetail(row)">预览</el-button>
+          <el-button link type="primary" @click.stop="download(row)">下载</el-button>
+        </div>
+      </article>
 
-      <div v-else-if="!loading" class="empty">
+      <div v-if="!rows.length && !loading" class="empty">
         <p class="empty-title">样例库还是空的</p>
         <p class="empty-desc">上传一份通过结构校验的教案 JSON，或运行 scripts/seed_samples.py 导入插件样例。</p>
       </div>
@@ -178,7 +184,9 @@ async function download(row: SampleItem): Promise<void> {
 
 .head h1 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  letter-spacing: 0.01em;
 }
 
 .lead {
@@ -191,6 +199,15 @@ async function download(row: SampleItem): Promise<void> {
   display: flex;
   gap: 8px;
   align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface-2);
+}
+
+.actions :deep(.el-input__wrapper) {
+  min-height: 32px;
+  background: var(--lpp-surface);
 }
 
 .filter {
@@ -205,18 +222,112 @@ async function download(row: SampleItem): Promise<void> {
   display: none;
 }
 
-.table-wrap {
+.shelf {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
   min-height: 240px;
+}
+
+.sample-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.sample-card:hover,
+.sample-card:focus-visible {
+  border-color: var(--lpp-primary);
+}
+
+.sample-cover {
+  position: relative;
+  display: flex;
+  aspect-ratio: 3 / 2;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(135deg, transparent 49.5%, var(--lpp-paper-line) 50%, transparent 50.5%),
+    var(--lpp-surface-2);
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.sample-cover.is-incomplete {
+  background: var(--lpp-warning-soft);
+}
+
+.cover-initial {
+  color: var(--lpp-brass-ink);
+  font-family: var(--lpp-font-display);
+  font-size: 44px;
+  opacity: 0.55;
+}
+
+.cover-week {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-numeric);
+  font-size: 11px;
+}
+
+.sample-body {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px 8px;
+}
+
+.sample-body h2 {
+  overflow: hidden;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-md);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sample-body p {
+  overflow: hidden;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sample-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--lpp-text-muted);
+  font-size: 11px;
+}
+
+.sample-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: auto;
+  padding: 4px 10px 10px;
 }
 
 .empty {
+  grid-column: 1 / -1;
   display: grid;
   place-content: center;
   gap: 6px;
   min-height: 220px;
+  padding: 24px;
+  border: 1px dashed var(--lpp-border-strong);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface);
   text-align: center;
 }
 
@@ -273,5 +384,26 @@ async function download(row: SampleItem): Promise<void> {
 
 .loading {
   color: var(--lpp-text-muted);
+}
+
+@media (max-width: 1100px) {
+  .shelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .head,
+  .actions {
+    align-items: stretch;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .shelf {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

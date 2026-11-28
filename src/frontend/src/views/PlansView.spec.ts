@@ -61,6 +61,53 @@ describe('PlansView', () => {
     wrapper.unmount()
   })
 
+  it('shows a draft plan without a review as 未审查', async () => {
+    setActivePinia(createPinia())
+    const draft = { ...plan, reviewStatus: null, reviewRound: null }
+    listPlans.mockResolvedValue({ items: [draft], page: 1, pageSize: 20, total: 1 })
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/plans', component: { template: '<div />' } },
+        { path: '/plans/:id', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/plans')
+    await router.isReady()
+    const wrapper = mount(PlansView, {
+      global: { plugins: [ElementPlus, router] },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('未审查')
+    expect(wrapper.text()).not.toContain('null')
+    wrapper.unmount()
+  })
+
+  it('does not auto-click the file input without user activation', async () => {
+    setActivePinia(createPinia())
+    listPlans.mockResolvedValue({ items: [plan], page: 1, pageSize: 20, total: 1 })
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click')
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/plans', component: { template: '<div />' } },
+        { path: '/plans/:id', component: { template: '<div />' } },
+      ],
+    })
+    await router.push('/plans?upload=1')
+    await router.isReady()
+    const wrapper = mount(PlansView, {
+      global: { plugins: [ElementPlus, router] },
+    })
+    await flushPromises()
+
+    expect(click).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.fullPath).toBe('/plans')
+    wrapper.unmount()
+    click.mockRestore()
+  })
+
   it('imports a zip and opens the new plan', async () => {
     setActivePinia(createPinia())
     listPlans.mockResolvedValue({ items: [plan], page: 1, pageSize: 20, total: 1 })

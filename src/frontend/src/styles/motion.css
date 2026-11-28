@@ -1,0 +1,64 @@
+/* UI-12：三种高光动效，只动 transform/opacity。 */
+@keyframes ink-underline {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes seal-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06) rotate(-3deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(-1.5deg);
+  }
+}
+
+@keyframes page-turn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.motion-page {
+  animation: page-turn 160ms ease-out both;
+}
+
+.motion-stamp {
+  animation: seal-in 220ms ease-out both;
+}
+
+/* 印章式 toast：覆盖 Element Plus 默认成功提示 */
+.el-message.seal-toast {
+  border: 1px double var(--lpp-seal);
+  border-radius: var(--lpp-radius-tag);
+  background: var(--lpp-surface);
+  color: var(--lpp-seal);
+  box-shadow: var(--lpp-shadow-paper);
+  font-family: var(--lpp-font-display);
+  rotate: -1deg;
+}
+
+.el-message.seal-toast .el-message__content {
+  color: var(--lpp-seal);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-page,
+  .motion-stamp,
+  .el-message.seal-toast {
+    animation: none;
+  }
+}

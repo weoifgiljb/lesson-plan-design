@@ -1,0 +1,97 @@
+{
+  "school": "东莞经贸学校",
+  "academicYear": "2024-2025",
+  "semester": 2,
+  "course": "C语言程序设计",
+  "planNumber": "C0401",
+  "teachingGroup": "计算机",
+  "teacher": "",
+  "teachingObject": "",
+  "teachDate": "",
+  "week": 4,
+  "session": 1,
+  "contentTitle": "while与do-while循环",
+  "contentDetail": "项目四：while与do-while循环",
+  "plannedHours": 2,
+  "teachingPurpose": "通过重复输入和累加任务理解循环三要素，掌握while与do-while的执行特点。",
+  "knowledgeGoals": "1. 认识初始化、条件、更新三要素。\n2. 掌握while和do-while语法。\n3. 理解死循环和至少执行一次的差异。",
+  "abilityGoals": "能编写累加、计数和菜单重复程序，主动设置终止条件。",
+  "qualityGoals": "养成先画流程、设置终止条件和用小数据验证的习惯。",
+  "keyPoints": "重点：循环三要素。难点：更新遗漏、while/do-while差异。",
+  "teachingMethods": "教法：讲授法、演示法、学法：实操法 自主探究法",
+  "teachingResources": "机房、课堂练习一份",
+  "activityFlow": {
+    "introduction": [
+      {
+        "mainContent": "从重复输入直到输入0导入循环",
+        "teacherActivity": "手工演示重复步骤并提问规律",
+        "studentActivity": "找出重复部分和停止条件",
+        "minutes": 10,
+        "evidence": "循环要素表"
+      }
+    ],
+    "learningGoals": [
+      {
+        "mainContent": "完成累加和重复菜单程序",
+        "teacherActivity": "明确终止条件及测试数据",
+        "studentActivity": "填写流程图",
+        "minutes": 5,
+        "evidence": "流程图"
+      }
+    ],
+    "knowledgeLearning": [
+      {
+        "mainContent": "while/do-while结构和循环三要素",
+        "teacherActivity": "演示更新遗漏造成死循环、输入0时两结构差异",
+        "studentActivity": "跟做并修复循环",
+        "minutes": 25,
+        "evidence": "程序正常终止"
+      }
+    ],
+    "taskImplementation": [
+      {
+        "mainContent": "必须完成：编写输入累加和重复菜单程序",
+        "teacherActivity": "巡回检查初始化、条件、更新",
+        "studentActivity": "创建C07_学号.c，输入若干正数直到0并输出总和",
+        "minutes": 30,
+        "evidence": "提交源文件和含0/空输入测试记录"
+      }
+    ],
+    "assessment": [
+      {
+        "mainContent": "评价循环结构和终止条件",
+        "teacherActivity": "检查三要素、结果和边界",
+        "studentActivity": "演示输入0时的结果并解释原因",
+        "minutes": 10,
+        "evidence": "代码及测试记录"
+      }
+    ],
+    "summary": [
+      {
+        "mainContent": "回顾三要素和两种循环差异",
+        "teacherActivity": "用流程图提问",
+        "studentActivity": "指出do-while至少执行一次",
+        "minutes": 5,
+        "evidence": "口答"
+      }
+    ],
+    "homework": [
+      {
+        "mainContent": "完成1到100累加",
+        "teacherActivity": "要求分别用while和do-while实现",
+        "studentActivity": "提交两份代码并比较",
+        "minutes": 5,
+        "evidence": "作业代码"
+      }
+    ],
+    "reflection": [
+      {
+        "mainContent": "统计死循环和边界错误",
+        "teacherActivity": "准备for循环迁移示例",
+        "studentActivity": "反馈最难理解的要素",
+        "minutes": 0,
+        "evidence": "反思记录"
+      }
+    ]
+  }
+}

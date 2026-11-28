@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
 import type { RequestError } from '@/api/client-error'
 import { getPlan, listPlans } from '@/api/plans'
@@ -15,6 +16,7 @@ import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTime, formatFullDate, formatShortDateTime, formatTime } from '@/utils/datetime'
 import { saveBlob } from '@/utils/download'
+import { reviewModeLabel, UNREVIEWED_STATUS } from '@/utils/labels'
 import { toLessonStructure } from '@/utils/plan-structure'
 
 const router = useRouter()
@@ -124,7 +126,7 @@ const queue = computed<OverviewQueueRow[]>(() => {
       session: plan.session,
       teacher: plan.teacher,
       versionNo: plan.versionNo,
-      status: plan.reviewStatus,
+      status: plan.reviewStatus || UNREVIEWED_STATUS,
       updatedAt: formatShortDateTime(plan.versionCreatedAt),
     })) ?? []
   )
@@ -147,6 +149,8 @@ const todos = computed<OverviewTodo[]>(() => {
       title: `${review.contentTitle} / 第 ${review.round} 轮`,
       detail: `证据 ${review.evidence.passed}/${review.evidence.total}`,
       due: '待审',
+      planId: review.planId,
+      reviewId: review.reviewId,
     })
   }
   for (const plan of plans.data.value?.items ?? []) {
@@ -157,6 +161,7 @@ const todos = computed<OverviewTodo[]>(() => {
       title: plan.contentTitle,
       detail: `第 ${plan.versionNo} 版 / 第 ${plan.reviewRound} 轮`,
       due: '待处理',
+      planId: plan.planId,
     })
   }
   return items.slice(0, 3)
@@ -183,7 +188,7 @@ const activities = computed<OverviewActivity[]>(() => {
         id: `review-${review.reviewId}`,
         time: formatDateTime(review.reviewedAt),
         text: `审查《${review.contentTitle}》第 ${review.round} 轮`,
-        meta: `${statusText(review.status)} / ${review.reviewerMode}`,
+        meta: `${statusText(review.status)} / ${reviewModeLabel(review.reviewerMode)}`,
         tone:
           review.status === 'needs_repair' || review.status === 'structure_invalid'
             ? 'warning'
@@ -246,7 +251,7 @@ async function onBoardDiscard(task: TaskItem): Promise<void> {
   }
   try {
     await discardTask(task.taskId)
-    ElMessage.success('任务已废弃')
+    sealSuccess('任务已废弃')
     await board.load({ keepData: true })
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '废弃任务失败')
@@ -257,7 +262,7 @@ async function onBoardDownload(task: TaskItem): Promise<void> {
   try {
     const blob = await downloadTaskPackage(task.taskId)
     saveBlob(blob, `task-${task.taskId}-${task.week}-${task.session}.zip`)
-    ElMessage.success('任务包已下载')
+    sealSuccess('任务包已下载')
   } catch (caught) {
     ElMessage.error(caught instanceof Error ? caught.message : '下载任务包失败')
   }
@@ -265,6 +270,22 @@ async function onBoardDownload(task: TaskItem): Promise<void> {
 
 function openBoard(): void {
   void router.push('/tasks')
+}
+
+function openTodo(todo: OverviewTodo): void {
+  if (todo.planId) {
+    void router.push(`/plans/${todo.planId}`)
+    return
+  }
+  if (todo.taskId) {
+    void router.push('/tasks')
+    return
+  }
+  if (todo.reviewId) void router.push('/reviews')
+}
+
+function openUpload(): void {
+  void router.push({ path: '/plans', query: { upload: '1' } })
 }
 
 async function loadAll(options: { silent?: boolean } = {}): Promise<void> {
@@ -377,9 +398,13 @@ onBeforeUnmount(() => {
     :freshness="freshness"
     :error="coreError"
     :partial-notice="partialNotice"
+    :can-export="isReviewer"
+    :can-upload="isReviewer"
     footer-note="数据来自当前账号可见范围；指标以分子/分母为准，完整口径与下钻见统计看板任务。"
     @primary="loadAll()"
+    @upload="openUpload"
     @retry="loadAll()"
+    @open-todo="openTodo"
     @board-move="onBoardMove"
     @board-discard="onBoardDiscard"
     @board-download="onBoardDownload"

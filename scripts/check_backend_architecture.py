@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import sys
 from pathlib import Path
 
@@ -29,10 +30,30 @@ FORBIDDEN_DOMAIN = {
 FORBIDDEN_APPLICATION = {"fastapi", "starlette", "uvicorn", "app.api"}
 FORBIDDEN_ADAPTERS = {"app.api", "app.application"}
 FORBIDDEN_API = {"sqlite3", "zipfile", "subprocess", "app.adapters.db"}
-EXCEPT_WHITELIST = {"api/errors.py", "main.py", "adapters/archive.py", "adapters/db/repo.py", "adapters/engine.py"}
+EXCEPT_WHITELIST = {
+    "api/errors.py",
+    "main.py",
+    "adapters/archive.py",
+    "adapters/backup_store.py",
+    "adapters/db/repo.py",
+    "adapters/db/instance.py",
+    "adapters/engine.py",
+}
 MODULE_LIMITS = {"domain": 300, "application": 300, "api_routers": 200, "main": 150}
 BLOCK_RATIO = 1.2
 TEXT_SUFFIXES = {".py", ".ts", ".vue", ".json", ".sql", ".md", ".ps1"}
+SKIP_DIRS = {"node_modules", ".venv", "venv", ".git", "__pycache__", "dist", "build", "coverage", ".cache"}
+
+
+def _text_files(base: Path):
+    """遍历源码文本文件，跳过依赖/构建/缓存目录，避免第三方 README 误报。"""
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = [name for name in dirnames if name not in SKIP_DIRS]
+        root = Path(dirpath)
+        for name in filenames:
+            path = root / name
+            if path.suffix.lower() in TEXT_SUFFIXES:
+                yield path
 
 
 def _layer_of(path, app):
@@ -236,7 +257,7 @@ def scan(backend=None, frontend=None) -> list[dict]:
     text_paths = []
     for base in (root, frontend or common.FRONTEND):
         if base.is_dir():
-            text_paths += [path for path in base.rglob("*") if path.is_file() and path.suffix.lower() in TEXT_SUFFIXES]
+            text_paths.extend(_text_files(base))
     problems += _check_absolute_paths(text_paths)
     return problems
 

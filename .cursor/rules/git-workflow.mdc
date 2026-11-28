@@ -15,3 +15,4 @@ alwaysApply: true
 6. 契约变更（schema/报告/manifest/planHash/错误码）必须同批更新黄金样例、契约测试与需求文档。
 7. 解决冲突逐个文件确认，禁止整体 `--ours`/`--theirs`。
 8. 不提交 `node_modules/`、`output/`、`.dsh/`、`.codex_audio_tmp/` 与含学生信息的材料。
+9. 需求状态三态（`✅ 已完成` / `🟡 部分完成` / `⬜ 未开始`）与证据同批更新：实现合入 `develop` 时更新需求文档与 `docs/README.md` 汇总；部分完成写缺口；改需求 md 重建同名 docx。

@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 import type { FormInstance, FormRules } from 'element-plus'
 
 import { RequestError, toApiError } from '@/api/client-error'
+import { conflictText, isTaskCreateConflict } from '@/api/errors'
 import type { TaskItem, TaskQuadrant } from '@/api/models'
 import {
   createTask,
   discardTask,
   downloadTaskPackage,
+  draftTask,
   getTaskBoard,
   listTasks,
   moveTask,
@@ -21,10 +24,11 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatePanel from '@/components/StatePanel.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TaskQuadrantBoard from '@/components/tasks/TaskQuadrantBoard.vue'
-import { QUADRANTS, taskStatusLabel } from '@/components/tasks/quadrants'
+import { QUADRANTS, canDraftPlan, taskStatusLabel } from '@/components/tasks/quadrants'
 import type { TableColumn } from '@/components/table-types'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { usePagedQuery } from '@/composables/usePagedQuery'
+import { useSessionStore } from '@/stores/session'
 import { formatDate, formatOverdue } from '@/utils/datetime'
 import { saveBlob } from '@/utils/download'
 
@@ -72,7 +76,7 @@ const columns: TableColumn[] = [
   { key: 'teacher', label: '教师', width: 90 },
   { key: 'status', label: '状态', width: 96 },
   { key: 'dueDate', label: '截止', width: 150 },
-  { key: 'actions', label: '操作', width: 150, align: 'right' },
+  { key: 'actions', label: '操作', width: 230, align: 'right' },
 ]
 
 const statusOptions = [
@@ -87,17 +91,74 @@ function dueText(task: TaskItem): string {
   return task.overdue ? formatOverdue(task.dueDate) : formatDate(task.dueDate)
 }
 
-function handleError(caught: unknown, fallback: string): RequestError {
+const session = useSessionStore()
+
+function handleError(caught: unknown, fallback: string, silent = false): RequestError {
   const requestError = caught instanceof RequestError ? caught : toApiError(caught)
   if (requestError.status === 401) {
     void router.replace({ path: '/login', query: { redirect: route.fullPath } })
   } else if (requestError.status === 403) {
     void router.replace('/403')
-  } else {
+  } else if (!silent) {
     ElMessage.error(`${requestError.message || fallback}（${requestError.code}）`)
   }
   return requestError
 }
+
+/** 同身份任务已存在：本人可确认覆盖，他人/他组只能换课题或找管理员。 */
+interface TaskConflict {
+  message: string
+  ownerName: string
+  canOverwrite: boolean
+  /** 产生这次冲突的任务身份，用来判断用户点「确认覆盖」前有没有改过表单 */
+  identity: string
+  /** 产生冲突时提交的原始内容：确认覆盖时按它重放，避免拿改过的表单去覆盖别的任务 */
+  payload: TaskCreatePayload
+}
+
+const conflict = ref<TaskConflict | null>(null)
+
+// 身份字段必须与后端 repo.find_task / task_rules.validate 一致：课程+周次+课次+班级+课题
+function taskIdentity(payload: TaskCreatePayload): string {
+  return JSON.stringify([
+    payload.course,
+    payload.week,
+    payload.session,
+    payload.className,
+    payload.title,
+  ])
+}
+
+function readConflict(requestError: RequestError, payload: TaskCreatePayload): TaskConflict | null {
+  if (!isTaskCreateConflict(requestError.code)) return null
+  const details = requestError.details as {
+    ownerName?: unknown
+    ownerId?: unknown
+    canOverwrite?: unknown
+  }
+  const ownerName = typeof details.ownerName === 'string' ? details.ownerName : ''
+  const canOverwrite = details.canOverwrite === true
+  const isSelf = Number(details.ownerId) === Number(session.user?.id)
+  return {
+    // 不用后端 message：那里带 "confirm=true" 这类接口层措辞，教师看不懂
+    message: conflictText(canOverwrite, ownerName, isSelf),
+    ownerName,
+    canOverwrite,
+    identity: taskIdentity(payload),
+    payload,
+  }
+}
+
+// 卡片下方那句说明：能否覆盖决定是"确认"还是"换课题"
+const conflictHint = computed(() => {
+  if (!conflict.value) return ''
+  if (conflict.value.canOverwrite) {
+    return '确认后只更新该任务的截止日期（留空会清空原截止日期）；若该任务已废弃，确认后会一并恢复。'
+  }
+  return conflict.value.ownerName
+    ? `该任务由${conflict.value.ownerName}创建，请换一个课题，或联系管理员处理。`
+    : '请换一个课题，或联系管理员处理。'
+})
 
 async function loadAll(): Promise<void> {
   await Promise.allSettled([load(), boardQuery.load()])
@@ -121,17 +182,70 @@ function switchView(mode: 'board' | 'list'): void {
 }
 
 const downloadingId = ref<number | null>(null)
+const draftingId = ref<number | null>(null)
+/** 确认框阶段单独占位：避免双击叠出两个确认框，又不让列表提前显示"生成中" */
+const confirmingDraftId = ref<number | null>(null)
 
 async function download(task: TaskItem): Promise<void> {
   downloadingId.value = task.taskId
   try {
     const blob = await downloadTaskPackage(task.taskId)
     saveBlob(blob, `task-${task.taskId}-${task.week}-${task.session}.zip`)
-    ElMessage.success('任务包已下载')
+    sealSuccess('任务包已下载')
   } catch (caught) {
     handleError(caught, '下载任务包失败')
   } finally {
     downloadingId.value = null
+  }
+}
+
+/** 无 Agent 环境下的降级路径：把任务落成平台内 v1 草稿（未审查），直接进教案详情。 */
+async function onDraft(task: TaskItem): Promise<void> {
+  if (confirmingDraftId.value !== null || draftingId.value !== null) {
+    ElMessage.info('正在生成草稿教案，请稍候')
+    return
+  }
+  if (!canDraftPlan(task, session.user?.id)) {
+    // 后端只允许任务归属人代建草稿（管理员/组长点他人任务会 403），入口先挡
+    ElMessage.warning('只能为自己创建的任务生成草稿教案')
+    return
+  }
+  confirmingDraftId.value = task.taskId
+  let planId: number | null = null
+  let duplicate = false
+  try {
+    try {
+      await ElMessageBox.confirm(
+        `将为「${task.title}」生成一版校标草稿教案（未审查，可在教案库查看和删除）。继续？`,
+        '生成草稿教案',
+        { type: 'info', confirmButtonText: '生成草稿', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+    draftingId.value = task.taskId
+    const result = await draftTask(task.taskId)
+    planId = result.planId
+    duplicate = result.duplicate
+  } catch (caught) {
+    handleError(caught, '生成草稿教案失败')
+  } finally {
+    confirmingDraftId.value = null
+    draftingId.value = null
+  }
+  if (planId === null) return
+  const openedElsewhere = duplicate ? '教案已存在，请到教案库手动打开' : '草稿已生成，请到教案库手动打开'
+  try {
+    // push 被取消/重定向时只 resolve NavigationFailure 不 reject：不能提示"已打开"
+    const navFailure = await router.push(`/plans/${planId}`)
+    if (navFailure) {
+      ElMessage.warning(openedElsewhere)
+      return
+    }
+    sealSuccess(duplicate ? '该任务已有教案，已打开' : '已生成草稿教案（未审查）')
+  } catch {
+    // 草稿已经落库：跳转失败只能提示去教案库打开，不能报成"生成失败"
+    ElMessage.warning(openedElsewhere)
   }
 }
 
@@ -166,7 +280,7 @@ async function onDiscard(task: TaskItem): Promise<void> {
   }
   try {
     await discardTask(task.taskId)
-    ElMessage.success('任务已废弃')
+    sealSuccess('任务已废弃')
     await loadAll()
   } catch (caught) {
     handleError(caught, '废弃任务失败')
@@ -176,7 +290,7 @@ async function onDiscard(task: TaskItem): Promise<void> {
 async function onRestore(task: TaskItem): Promise<void> {
   try {
     await restoreTask(task.taskId)
-    ElMessage.success('任务已恢复')
+    sealSuccess('任务已恢复')
     await loadAll()
   } catch (caught) {
     handleError(caught, '恢复任务失败')
@@ -205,16 +319,12 @@ const rules: FormRules = {
 
 function openCreate(): void {
   formError.value = ''
+  conflict.value = null
   dialogVisible.value = true
 }
 
-async function submitCreate(): Promise<void> {
-  if (!formRef.value) return
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-  saving.value = true
-  formError.value = ''
-  const payload: TaskCreatePayload = {
+function buildPayload(): TaskCreatePayload {
+  return {
     course: form.course.trim(),
     week: form.week,
     session: form.session,
@@ -223,22 +333,67 @@ async function submitCreate(): Promise<void> {
     dueDate: form.dueDate,
     quadrant: form.quadrant,
   }
+}
+
+/** confirm=true 只在用户点了「确认覆盖已有任务」时传，避免手滑覆盖别人的课。 */
+async function submitCreate(confirm = false): Promise<void> {
+  // saving 守卫：validate 是 await 的，必须先置位再校验，否则双击会漏出第二个请求
+  if (!formRef.value || saving.value) return
+  saving.value = true
+  formError.value = ''
+  // 确认覆盖重放冲突时的原始内容（只把教师后改的截止日期带上）；
+  // 身份一致才重放，飞行中被改过的表单按普通创建重新提交
+  const snapshot =
+    confirm && conflict.value && conflict.value.identity === taskIdentity(buildPayload())
+      ? { ...conflict.value.payload, dueDate: form.dueDate }
+      : null
+  const payload = snapshot ?? buildPayload()
+  const pendingConflict = snapshot !== null ? conflict.value : null
   try {
-    const created = await createTask(payload)
-    ElMessage.success(`已创建「${created.title}」`)
+    if (snapshot === null) {
+      const valid = await formRef.value.validate().catch(() => false)
+      if (!valid) return
+    }
+    const created = await createTask(payload, { confirm: snapshot !== null })
+    sealSuccess(snapshot !== null ? `已保存「${created.title}」` : `已创建「${created.title}」`)
+    conflict.value = null
     dialogVisible.value = false
-    formRef.value.resetFields()
+    formRef.value?.resetFields()
     page.value = 1
     await loadAll()
   } catch (caught) {
-    const requestError = handleError(caught, '创建任务失败')
-    formError.value = `${requestError.message}（${requestError.code}${
-      requestError.traceId ? ` / ${requestError.traceId}` : ''
-    }）`
+    const requestError = caught instanceof RequestError ? caught : toApiError(caught)
+    const found = readConflict(requestError, payload)
+    if (found && found.identity === taskIdentity(buildPayload())) {
+      // 冲突不关窗、不清表单、不弹全局提示，只在对话框内给覆盖入口（BS-10/T1）
+      conflict.value = found
+    } else if (found) {
+      // 请求飞行期间表单被改过：卡片描述的身份已过期，不能拿它当覆盖入口
+      conflict.value = null
+      formError.value = `提交过程中表单被修改，本次冲突未处理：${found.message}。请确认表单内容后再次提交`
+    } else {
+      // 覆盖请求失败也要保留覆盖入口；但表单在飞行期间被改过时不能恢复过期卡片
+      conflict.value =
+        pendingConflict && pendingConflict.identity === taskIdentity(buildPayload())
+          ? pendingConflict
+          : null
+      const handled = handleError(requestError, '创建任务失败', true)
+      formError.value = `${handled.message}（${handled.code}${
+        handled.traceId ? ` / ${handled.traceId}` : ''
+      }）`
+    }
   } finally {
     saving.value = false
   }
 }
+
+// 冲突提示对应的是当时的任务身份：用户改了课程/周次/课次/班级/课题，覆盖入口立即失效
+watch(
+  () => taskIdentity(buildPayload()),
+  (identity) => {
+    if (conflict.value && conflict.value.identity !== identity) conflict.value = null
+  },
+)
 
 onMounted(() => {
   void loadAll()
@@ -326,9 +481,12 @@ onMounted(() => {
         v-else
         :tasks="boardTasks"
         :show-header="false"
+        :current-user-id="session.user?.id"
+        draftable
         @move="onMove"
         @discard="onDiscard"
         @download="download"
+        @draft="onDraft"
       />
     </template>
 
@@ -400,9 +558,20 @@ onMounted(() => {
       </template>
       <template #cell-actions="{ row }">
         <el-button
+          v-if="canDraftPlan(row, session.user?.id)"
+          link
+          type="primary"
+          :loading="draftingId === row.taskId"
+          :disabled="confirmingDraftId !== null || draftingId !== null || downloadingId === row.taskId"
+          @click="onDraft(row)"
+        >
+          生成草稿教案
+        </el-button>
+        <el-button
           link
           type="primary"
           :loading="downloadingId === row.taskId"
+          :disabled="draftingId === row.taskId"
           @click="download(row)"
         >
           下载任务包
@@ -417,10 +586,35 @@ onMounted(() => {
       </template>
     </DataTable>
 
-    <p class="footnote">任务包由插件端读取后生成教案；看板不显示已完成或已废弃任务，列表可恢复。</p>
+    <p class="footnote">
+      任务包由插件端读取后生成教案；没有 Agent 时点「生成草稿教案」可在平台内先落一版校标草稿（未审查，导出前仍需导入审查报告）。
+    </p>
 
     <el-dialog v-model="dialogVisible" title="新建任务" width="min(520px, 92vw)" destroy-on-close>
       <el-alert v-if="formError" :title="formError" type="error" :closable="false" show-icon />
+      <el-alert
+        v-if="conflict"
+        class="create-form__conflict"
+        type="warning"
+        :closable="false"
+        show-icon
+      >
+        <template #title>{{ conflict.message }}</template>
+        <p class="create-form__hint">{{ conflictHint }}</p>
+        <div class="create-form__actions">
+          <el-button
+            v-if="conflict.canOverwrite"
+            type="primary"
+            size="small"
+            :loading="saving"
+            :disabled="saving"
+            @click="submitCreate(true)"
+          >
+            确认覆盖已有任务
+          </el-button>
+          <el-button size="small" text :disabled="saving" @click="conflict = null">关闭提示</el-button>
+        </div>
+      </el-alert>
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top" class="create-form">
         <el-form-item label="课题" prop="title">
           <el-input v-model="form.title" maxlength="80" show-word-limit placeholder="例：一级考证辅导2" />
@@ -445,7 +639,7 @@ onMounted(() => {
           </el-form-item>
         </div>
         <el-form-item label="初始象限">
-          <el-select v-model="form.quadrant" aria-label="初始象限">
+          <el-select v-model="form.quadrant" aria-label="初始象限" :disabled="Boolean(conflict)">
             <el-option v-for="option in QUADRANTS" :key="option.key" :label="option.label" :value="option.key" />
           </el-select>
         </el-form-item>
@@ -457,7 +651,9 @@ onMounted(() => {
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submitCreate">创建</el-button>
+        <el-button type="primary" :loading="saving" :disabled="Boolean(conflict) || saving" @click="submitCreate()">
+          创建
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -587,6 +783,26 @@ onMounted(() => {
 
 .create-form {
   margin-top: 14px;
+}
+
+.create-form__conflict {
+  margin-bottom: 12px;
+}
+
+.create-form__conflict .el-button {
+  margin-top: 6px;
+}
+
+.create-form__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.create-form__hint {
+  margin: 4px 0 0;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
 }
 
 .create-form__row {

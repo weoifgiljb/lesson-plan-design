@@ -77,7 +77,11 @@ class TestTasksApi(unittest.TestCase):
         first = self._create()
         self.assertEqual(first.status_code, 201, first.text)
         self.assertFalse(first.json()["overdue"])
-        self.assertEqual(self._create().status_code, 409)
+        duplicate = self._create()
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(duplicate.json()["code"], "TASK_ALREADY_EXISTS")
+        self.assertEqual(duplicate.json()["details"]["taskId"], first.json()["taskId"])
+        self.assertTrue(duplicate.json()["details"]["canOverwrite"])
         past = self._create(title="逾期课", session=2, dueDate=(date.today() - timedelta(days=1)).isoformat())
         self.assertEqual(past.status_code, 201, past.text)
         self.assertTrue(past.json()["overdue"])
@@ -142,6 +146,21 @@ class TestTasksApi(unittest.TestCase):
         )
         self.assertEqual(created.status_code, 201, created.text)
         teacher_csrf = self._login("teacher1")
+        # 同组非本人：409 占用（不是"已存在"，因为无权覆盖），且不写越权审计
+        conflict = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班", "dueDate": (date.today() + timedelta(days=9)).isoformat()},
+            headers={"X-CSRF-Token": teacher_csrf},
+        )
+        self.assertEqual(conflict.status_code, 409, conflict.text)
+        self.assertEqual(conflict.json()["code"], "TASK_TAKEN_BY_OTHER")
+        # 同组可见占用者（预演清单 T1 要的 taskId/占用者只对同组开放）
+        details = conflict.json()["details"]
+        self.assertEqual(details["taskId"], created.json()["taskId"])
+        self.assertEqual(details["ownerName"], "lead1")
+        self.assertFalse(details["canOverwrite"])
+        # 组内共享只读+推进：显式 confirm 覆盖他人任务 → 403 且留痕
         denied = self.client.post(
             "/api/v1/tasks",
             json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
@@ -150,6 +169,14 @@ class TestTasksApi(unittest.TestCase):
             headers={"X-CSRF-Token": teacher_csrf},
         )
         self.assertEqual(denied.status_code, 403, denied.text)
+        connection = open_database(self.db_file)
+        try:
+            audits = Repo(connection).list_audit(200)
+            targets = [row["target_id"] for row in audits if row["action"] == "authz.denied"]
+        finally:
+            connection.close()
+        self.assertIn(str(created.json()["taskId"]), targets)
+        self._login("teacher1")
 
     def test_task_package_declares_engine_version(self) -> None:
         # R3-F12：任务包要带引擎版本与学期，便于插件端判断兼容性
@@ -163,8 +190,34 @@ class TestTasksApi(unittest.TestCase):
         self.assertIn("term", meta)
         self.assertEqual(meta["expectedSchemaVersion"], 1)
 
+    def test_cross_teacher_conflict_is_409_without_authz_audit(self) -> None:
+        # T1/T2：同身份任务被他人占用是业务冲突而不是越权，不能写 authz.denied
+        mine = self._create().json()
+        other_csrf = self._login("teacher2")
+        conflict = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 2, "session": 1, "title": "一级考证辅导2",
+                  "className": "计算机1班"},
+            headers={"X-CSRF-Token": other_csrf},
+        )
+        self.assertEqual(conflict.status_code, 409, conflict.text)
+        body = conflict.json()
+        self.assertEqual(body["code"], "TASK_TAKEN_BY_OTHER")
+        # 跨组不得泄露占用者信息，只回 canOverwrite
+        self.assertEqual(body["details"], {"canOverwrite": False})
+        self.assertNotIn("taskId", body["details"])
+        self.assertNotIn("ownerName", body["details"])
+        self.assertNotIn(str(mine["taskId"]), body["message"])
+        connection = open_database(self.db_file)
+        try:
+            actions = [row["action"] for row in Repo(connection).list_audit(200)]
+        finally:
+            connection.close()
+        self.assertNotIn("authz.denied", actions)
+        self._login("teacher1")
+
     def test_cross_teacher_confirm_is_denied_and_audited(self) -> None:
-        # R3-F2：越权审计不能被事务回滚掉
+        # R3-F2：显式覆盖他人任务是真实越权，审计不能被事务回滚掉
         mine = self._create().json()
         other_csrf = self._login("teacher2")
         denied = self.client.post(
@@ -175,6 +228,9 @@ class TestTasksApi(unittest.TestCase):
             headers={"X-CSRF-Token": other_csrf},
         )
         self.assertEqual(denied.status_code, 403, denied.text)
+        self.assertEqual(denied.json()["code"], "FORBIDDEN")
+        # 跨组越权同样不回传任务 id（T2 隐私约束）
+        self.assertNotIn("taskId", denied.json().get("details") or {})
         connection = open_database(self.db_file)
         try:
             rows = Repo(connection).list_audit(200)
@@ -258,7 +314,7 @@ class TestTasksApi(unittest.TestCase):
             thread.start()
         for thread in threads:
             thread.join(timeout=15)
-        self.assertCountEqual(outcomes, ["created", "CONFLICT_STALE"])
+        self.assertCountEqual(outcomes, ["created", "TASK_ALREADY_EXISTS"])
         connection = open_database(self.db_file)
         try:
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM task").fetchone()[0], 1)
@@ -322,11 +378,37 @@ class TestTasksApi(unittest.TestCase):
         first = self._create()
         self.assertEqual(first.status_code, 201, first.text)
         # 完全相同的身份（课程/周次/课次/班级/课题）才算重复
-        self.assertEqual(self._create().status_code, 409)
+        duplicate = self._create()
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertEqual(duplicate.json()["code"], "TASK_ALREADY_EXISTS")
         confirmed = self._create(confirm=True)
         self.assertEqual(confirmed.status_code, 200, confirmed.text)
         self.assertEqual(confirmed.json()["taskId"], first.json()["taskId"])
         self.assertEqual(confirmed.json()["title"], "一级考证辅导2")
+
+    def test_confirm_recreates_discarded_task(self) -> None:
+        # 废弃后同身份再建：confirm 必须先恢复任务再更新，否则"建课成功但仍废弃"
+        task_id = self._create().json()["taskId"]
+        discarded = self.client.post(
+            f"/api/v1/tasks/{task_id}/discard", headers={"X-CSRF-Token": self.csrf}
+        )
+        self.assertEqual(discarded.status_code, 200, discarded.text)
+        duplicate = self._create()
+        self.assertEqual(duplicate.status_code, 409, duplicate.text)
+        self.assertEqual(duplicate.json()["code"], "TASK_ALREADY_EXISTS")
+        self.assertTrue(duplicate.json()["details"]["canOverwrite"])
+        confirmed = self._create(confirm=True)
+        self.assertEqual(confirmed.status_code, 200, confirmed.text)
+        self.assertFalse(confirmed.json()["discarded"])
+        self.assertIsNone(confirmed.json()["discardedAt"])
+        listed = self.client.get("/api/v1/tasks").json()
+        self.assertIn(task_id, [item["taskId"] for item in listed["items"]])
+        connection = open_database(self.db_file)
+        try:
+            actions = [row["action"] for row in Repo(connection).list_audit(200)]
+        finally:
+            connection.close()
+        self.assertIn("task.restore", actions)
 
     def test_rollback_moves_status_back_and_audits(self) -> None:
         created = self._create().json()
@@ -345,6 +427,8 @@ class TestTasksApi(unittest.TestCase):
         )
         self.assertEqual(lead.status_code, 200, lead.text)
         self.assertEqual(lead.json()["status"], "reviewing")
+        # _item 不再 fail-open：组长回退组内他人任务，返回体里 canEdit 为 false
+        self.assertFalse(lead.json()["canEdit"])
         self._login("teacher1")
 
 
@@ -419,6 +503,31 @@ class TestTasksApi(unittest.TestCase):
         )
         self.assertEqual(restored.status_code, 200, restored.text)
         self.assertIsNone(restored.json()["discardedAt"])
+
+    def test_can_edit_false_on_group_task(self) -> None:
+        # 组内可推进≠可编辑：废弃/恢复返回的 canEdit 必须是 false，前端不显示改名入口
+        lead_csrf = self._login("lead1")
+        created = self.client.post(
+            "/api/v1/tasks",
+            json={"course": "信息技术", "week": 5, "session": 1, "title": "组内只读课",
+                  "className": "计算机1班"},
+            headers={"X-CSRF-Token": lead_csrf},
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        teacher_csrf = self._login("teacher1")
+        discarded = self.client.post(
+            f"/api/v1/tasks/{created.json()['taskId']}/discard",
+            headers={"X-CSRF-Token": teacher_csrf},
+        )
+        self.assertEqual(discarded.status_code, 200, discarded.text)
+        self.assertFalse(discarded.json()["canEdit"])
+        restored = self.client.post(
+            f"/api/v1/tasks/{created.json()['taskId']}/restore",
+            headers={"X-CSRF-Token": teacher_csrf},
+        )
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertFalse(restored.json()["canEdit"])
+        self._login("teacher1")
 
     def test_quadrant_filter_and_unknown_quadrant(self) -> None:
         self._create(title="A", session=1, quadrant="urgent_important")

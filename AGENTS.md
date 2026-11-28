@@ -25,6 +25,12 @@
 16. **后端分层**：`src/backend/app/domain` 不 import FastAPI/SQLite/文件系统，只放可单测的复校规则；`application` 只做编排；`api` 只做协议适配；插件脚本只允许在 `adapters/engine.py` 通过一次 `sys.path` 接入并记录 `engineVersion`。
 17. **后端闸门**：任何改动 `src/backend`、`src/frontend/src/api` 或 `docs/api/` 的 PR，必须 `py -3 scripts/run_backend_gate.py` 无 block、`py -3 scripts/run_all_tests.py` 全绿，并按 `skills/backend-review-gate/SKILL.md` 产出独立评审报告；契约文件变更同批更新 `docs/api/contract.v1.json`、OpenAPI 快照与前端类型。
 
+## 需求状态标注（常驻）
+
+18. **三态标签**：三份需求文档（FR/BS/OPS）的每条需求必须有状态：`✅ 已完成`、`🟡 部分完成`、`⬜ 未开始`；总览表必须有状态列，正文标题下写「状态 + 证据」，部分完成必须写缺口。
+19. **证据判定**：`✅` 只给实现与对应自动化测试均已落地、且在当前 `develop` 复跑通过的条目；受已知基线缺陷影响无法一键复跑时，必须在文档第 0 节列明限制。`🟡` 用于主链路可用但仍有验收缺口；`⬜` 表示无实现或无测试。禁止按分支名、提交标题或印象标注。
+20. **同批维护**：实现合入 `develop` 的同一 PR 更新对应需求状态与证据；`docs/*` 修状态必须列证据（测试名、接口、提交）。改需求 md 同批重建同名 docx；`docs/README.md` 状态汇总与 `docs/dev/优化路线图.md` 同步更新。
+
 ## 当前分支基线（2026-10-26）
 
 - `main`：`d6cd45b`，`v1.0.0` 发布点；本轮由 `develop` 合入后打 `v1.1.0`

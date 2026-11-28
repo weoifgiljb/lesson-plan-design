@@ -26,10 +26,10 @@
 ## 命令行
 
 ```bash
-python scripts/validate.py 教案.json
-python scripts/validate.py 教案.json --strict
-python scripts/validate.py 教案.json --minutes-tolerance 5
-python scripts/validate.py --examples
+py -3 scripts/validate.py 教案.json
+py -3 scripts/validate.py 教案.json --strict
+py -3 scripts/validate.py 教案.json --minutes-tolerance 5
+py -3 scripts/validate.py --examples
 ```
 
 `--strict` 用于教研组抽检或入库前复校；日常写作使用默认模式即可。`scripts/score.py` 另给出 0–100 结构分，并指出 `examples/` 中最接近的一份；examples 自身必须全部通过 validate。

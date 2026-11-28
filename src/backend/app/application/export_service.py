@@ -7,7 +7,7 @@ from typing import Any
 
 from app.adapters import engine, storage
 from app.adapters.db.repo import Repo
-from app.application import audit_service
+from app.application import audit_service, notification_service
 from app.domain import export_rules, library
 from app.domain.errors import AppError
 
@@ -128,6 +128,11 @@ def _perform_export(
         updated = repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
         if updated:
             _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
+            notification_service.notify(
+                repo, int(user.get("id") or 0), "export_done",
+                f"教案《{row.get('content_title') or row.get('plan_id')}》已导出，可在导出中心下载。",
+                target_type="export", target_id=str(job_id),
+            )
             # 任务状态随导出推进到 exported（BS-10 状态机）
             task_id = repo.mark_task_exported(int(row["plan_id"]))
             if task_id is not None:

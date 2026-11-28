@@ -493,7 +493,7 @@ onBeforeUnmount(() => {
 }
 
 .goals .shape {
-  fill: var(--lpp-accent);
+  fill: var(--lpp-brass);
 }
 
 .flow .shape {
@@ -502,7 +502,7 @@ onBeforeUnmount(() => {
 }
 
 .evidence--ok {
-  fill: var(--lpp-accent);
+  fill: var(--lpp-success);
 }
 
 .evidence--bad {

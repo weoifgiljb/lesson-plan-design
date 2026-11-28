@@ -2,6 +2,7 @@
 """教案库 API：范围过滤、详情、版本链、差异与软删除。"""
 from __future__ import annotations
 
+import time
 import unittest
 
 from fastapi.testclient import TestClient
@@ -88,6 +89,16 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(self._get("/api/v1/plans?status=bogus").status_code, 422)
         paged = self._get("/api/v1/plans?page=2&pageSize=1").json()
         self.assertEqual((paged["page"], paged["pageSize"], paged["total"], len(paged["items"])), (2, 1, 2, 1))
+        self.assertEqual(self._get("/api/v1/plans?q=张老师").json()["total"], 1)
+        self.assertEqual(self._get("/api/v1/plans?q=不存在的关键词").json()["total"], 0)
+        started = time.perf_counter()
+        timings = []
+        for _ in range(20):
+            request_started = time.perf_counter()
+            self.assertEqual(self._get("/api/v1/plans?q=张老师").status_code, 200)
+            timings.append(time.perf_counter() - request_started)
+        p95 = sorted(timings)[max(0, int(len(timings) * 0.95) - 1)]
+        self.assertLess(p95, 0.5, f"检索 p95 {p95:.3f}s，总耗时 {time.perf_counter() - started:.3f}s")
 
     def test_detail_returns_content_and_permissions(self) -> None:
         self._login("teacher1")
@@ -102,9 +113,48 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}").status_code, 403)
         self.assertEqual(self._get("/api/v1/plans/9999").status_code, 404)
 
+    def test_deletion_request_requires_admin_approval(self) -> None:
+        csrf = self._login("teacher1")
+        created = self.client.post(
+            f"/api/v1/plans/{self.plan1}/deletion-request",
+            json={"reason": "教师申请删除"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        request_id = created.json()["requestId"]
+        self.assertEqual(created.json()["status"], "pending")
+        self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}").status_code, 200)
+        self.assertEqual(self._get("/api/v1/deletion-requests").status_code, 403)
+        admin_csrf = self._login("admin1")
+        listed = self._get("/api/v1/deletion-requests?status=pending").json()
+        self.assertEqual(listed["total"], 1)
+        approved = self.client.post(
+            f"/api/v1/deletion-requests/{request_id}/resolve",
+            json={"approve": True},
+            headers={"X-CSRF-Token": admin_csrf},
+        )
+        self.assertEqual(approved.status_code, 200, approved.text)
+        self.assertEqual(approved.json()["status"], "approved")
+        self.assertEqual(self._get(f"/api/v1/plans/{self.plan1}").status_code, 404)
+
+    def test_audit_log_does_not_store_plan_body_credentials_or_tokens(self) -> None:
+        rows = self.connection.execute("SELECT detail_json, ip, trace_id FROM audit_log").fetchall()
+        text = " ".join(" ".join(str(value or "") for value in row) for row in rows)
+        self.assertNotIn("activityFlow", text)
+        self.assertNotIn(PASSWORD, text)
+        self.assertNotIn("csrf", text.lower())
+        self.assertNotIn("token", text.lower())
+
     def test_versions_and_diff(self) -> None:
         self._login("teacher1")
-        versions = self._get(f"/api/v1/plans/{self.plan1}/versions").json()
+        version_response = self._get(f"/api/v1/plans/{self.plan1}/versions")
+        self.assertEqual(version_response.status_code, 200, version_response.text)
+        versions = version_response.json()
+        self.assertEqual(versions["items"][0]["templateVersion"], "1.0")
+        revalidated = self._get(f"/api/v1/plans/{self.plan1}/versions/1/revalidate")
+        self.assertEqual(revalidated.status_code, 200, revalidated.text)
+        self.assertTrue(revalidated.json()["ok"])
+        self.assertEqual(revalidated.json()["templateVersion"], "1.0")
         self.assertEqual([item["versionNo"] for item in versions["items"]], [1, 2])
         self.assertEqual(versions["items"][1]["status"], "passed")
         # R4-15：版本链的 total 与逐项 reportSha256/round 也要进模型（断言真值，不靠模型默认值）
@@ -112,6 +162,13 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(versions["items"][1]["round"], 2)
         self.assertEqual(len(versions["items"][1]["reportSha256"]), 64)
         diff = self._get(f"/api/v1/plans/{self.plan1}/diff").json()
+        self.assertGreater(diff["count"], 0)
+        exported = self._get(f"/api/v1/plans/{self.plan1}/diff/export")
+        self.assertEqual(exported.status_code, 200, exported.text)
+        self.assertIn("text/csv", exported.headers["content-type"])
+        self.assertIn("attachment", exported.headers["content-disposition"])
+        self.assertTrue(exported.text.startswith("path,before,after"))
+        self.assertIn("activityFlow.summary", exported.text)
         self.assertEqual((diff["fromVersion"], diff["toVersion"]), (1, 2))
         paths = {item["path"] for item in diff["changes"]}
         self.assertIn("activityFlow.summary", paths)

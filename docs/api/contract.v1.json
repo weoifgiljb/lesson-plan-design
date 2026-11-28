@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.5 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-11-03",
+  "updatedAt": "2026-11-22",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -68,6 +68,18 @@
       "scene": "乐观锁/唯一键冲突（重复导入、重复建课、用户名已存在）"
     },
     {
+      "code": "TASK_TAKEN_BY_OTHER",
+      "http": 409,
+      "zh": "该教学任务已被占用",
+      "scene": "同身份（课程+周次+课次+班级+课题）任务已由他人或他组创建，需改名或联系占用人"
+    },
+    {
+      "code": "TASK_ALREADY_EXISTS",
+      "http": 409,
+      "zh": "任务已存在",
+      "scene": "本人重复建同一身份任务，确认覆盖后更新已有任务"
+    },
+    {
       "code": "CONFLICT_DELETED",
       "http": 409,
       "zh": "对象已删除",
@@ -130,8 +142,26 @@
     {
       "code": "SERVICE_UNAVAILABLE",
       "http": 503,
-      "zh": "服务暂不可用",
-      "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）或磁盘不可写"
+      "zh": "依赖不可用（数据库或磁盘）",
+      "scene": "数据库损坏、数据目录缺失或实例标记异常"
+    },
+    {
+      "code": "BACKUP_INVALID",
+      "http": 422,
+      "zh": "备份快照无效",
+      "scene": "manifest 缺失、哈希或行数校验失败"
+    },
+    {
+      "code": "RESTORE_CONFLICT",
+      "http": 409,
+      "zh": "恢复冲突",
+      "scene": "恢复目标非空或已有恢复任务在执行"
+    },
+    {
+      "code": "DATA_MISSING",
+      "http": 503,
+      "zh": "数据目录缺失",
+      "scene": "恢复或备份时找不到 data/app.db"
     },
     {
       "code": "INTERNAL",
@@ -1006,6 +1036,89 @@
       "implemented": true
     },
     {
+      "method": "POST",
+      "path": "/api/v1/tasks/{task_id}/draft",
+      "summary": "由任务生成校标草稿教案",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        201,
+        401,
+        403,
+        404,
+        409,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{id}/diff/export",
+      "summary": "导出两版差异 CSV",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/metrics/ops",
+      "summary": "运维指标（导出失败率/同步冲突率）",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/plans/{id}/versions/{version_no}/revalidate",
+      "summary": "按当前引擎重跑指定版本校验",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404
+      ],
+      "client": "api",
+      "implemented": true
+    },
+    {
       "method": "GET",
       "path": "/api/v1/meta",
       "summary": "平台元数据（状态/象限/角色/限制）",
@@ -1022,6 +1135,203 @@
         401
       ],
       "client": "api",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/plans/{id}/deletion-request",
+      "summary": "提交教案删除申请",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/deletion-requests",
+      "summary": "删除申请列表",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/deletion-requests/{request_id}/resolve",
+      "summary": "批准/驳回删除申请",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        409
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "summary": "站内通知列表",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notifications/{notification_id}/read",
+      "summary": "标记通知已读",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        404
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "summary": "全部通知已读",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead",
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        401
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/backups",
+      "summary": "备份列表",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/backups",
+      "summary": "创建备份",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        422,
+        503
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/backups/{name}/download",
+      "summary": "下载备份 zip",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": false,
+      "idempotent": true,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        422
+      ],
+      "client": "api",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/backups/{name}/restore",
+      "summary": "恢复备份到 staging",
+      "auth": true,
+      "roles": [
+        "admin"
+      ],
+      "csrf": true,
+      "idempotent": false,
+      "status": [
+        200,
+        401,
+        403,
+        404,
+        409,
+        422,
+        503
+      ],
+      "client": "ui",
       "implemented": true
     }
   ]

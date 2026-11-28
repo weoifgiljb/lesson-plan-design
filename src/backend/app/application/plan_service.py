@@ -2,10 +2,13 @@
 """教案库编排：可见范围、详情、版本链、差异与软删除。"""
 from __future__ import annotations
 
+import csv
+import io
 import json
 from typing import Any
 
 from app.adapters.db.repo import Repo
+from app.adapters import engine
 from app.application import audit_service
 from app.domain import diff, library
 from app.domain.errors import AppError
@@ -61,6 +64,8 @@ def plan_versions(
             "versionNo": row["version_no"],
             "planHash": row["plan_hash"],
             "engineVersion": row["engine_version"],
+            "templateVersion": row.get("template_version") or "",
+            "rubricVersion": row.get("rubric_version") or "",
             "createdAt": row["created_at"],
             **_review_fields(row),
         }
@@ -101,6 +106,69 @@ def plan_diff(
         "toVersion": target_no,
         "changes": changes,
         "count": len(changes),
+    }
+
+
+def plan_diff_csv(
+    repo: Repo,
+    user: dict[str, Any],
+    plan_id: int,
+    *,
+    from_version: int | None = None,
+    to_version: int | None = None,
+    ip: str = "",
+    trace_id: str = "",
+) -> str:
+    payload = plan_diff(
+        repo,
+        user,
+        plan_id,
+        from_version=from_version,
+        to_version=to_version,
+        ip=ip,
+        trace_id=trace_id,
+    )
+    stream = io.StringIO()
+    writer = csv.writer(stream, lineterminator="\n")
+    writer.writerow(["path", "before", "after"])
+    for change in payload["changes"]:
+        writer.writerow(
+            [
+                change.get("path", ""),
+                json.dumps(change.get("before"), ensure_ascii=False),
+                json.dumps(change.get("after"), ensure_ascii=False),
+            ]
+        )
+    return stream.getvalue()
+
+
+def revalidate_version(
+    repo: Repo,
+    user: dict[str, Any],
+    plan_id: int,
+    version_no: int,
+    *,
+    ip: str = "",
+    trace_id: str = "",
+) -> dict[str, Any]:
+    _visible(repo, user, plan_id, ip=ip, trace_id=trace_id)
+    row = repo.version_by_no(plan_id, version_no)
+    if row is None:
+        raise AppError("NOT_FOUND", "版本不存在")
+    result = engine.validate_plan(json.loads(row["content_json"]))
+    current = engine.engine_versions()
+    return {
+        "planId": plan_id,
+        "versionNo": version_no,
+        "planHash": row["plan_hash"],
+        "engineVersion": row.get("engine_version") or "",
+        "templateVersion": row.get("template_version") or "",
+        "currentEngineVersion": current.get("engineVersion") or "",
+        "currentTemplateVersion": current.get("templateVersion") or "",
+        "reviewStatus": row.get("status"),
+        "ok": bool(result.get("ok")),
+        "issues": result.get("issues", []),
+        "warnings": result.get("warnings", []),
     }
 
 

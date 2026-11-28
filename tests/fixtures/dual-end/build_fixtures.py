@@ -11,7 +11,6 @@ import json
 import shutil
 import sys
 import zipfile
-from datetime import datetime, timezone
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
@@ -32,10 +31,30 @@ PNG_BYTES = bytes.fromhex(
     "0000000049454e44ae426082"
 )
 
+# 固定时间戳：夹具是可提交的基线，重建后不应产生无意义的二进制 diff。
+FIXED_TIME = "2026-10-26T05:06:54.874092+00:00"
+ZIP_DATE_TIME = (2026, 10, 26, 5, 6, 54)
+
+
+def _fix_report_time(report: dict) -> dict:
+    report["reviewedAt"] = FIXED_TIME
+    return report
+
+
+def write_zip_entries(entries: dict[str, bytes], zip_path: Path) -> None:
+    """按固定条目时间写 zip，保证重复生成字节一致。"""
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name in sorted(entries):
+            info = zipfile.ZipInfo(name, date_time=ZIP_DATE_TIME)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, entries[name])
+
 
 def write_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dump(data) + "\n", encoding="utf-8")
+    path.write_text(dump(data) + "\n", encoding="utf-8", newline="\n")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -84,7 +103,9 @@ def build_plugin() -> None:
     write_json(PLUGIN_DIR / "missing-week.json", missing_week)
 
     stale_plan = json.loads(json.dumps(base))
-    report = adversarial_review(stale_plan, reviewer="native_subagent", no_counterexample=True)
+    report = _fix_report_time(
+        adversarial_review(stale_plan, reviewer="native_subagent", no_counterexample=True)
+    )
     write_json(PLUGIN_DIR / "stale-plan.review.json", report)
     stale_plan["activityFlow"]["summary"] = "已修改课堂小结，使旧报告失效"
     write_json(PLUGIN_DIR / "stale-plan.json", stale_plan)
@@ -130,7 +151,9 @@ def build_package(name: str, *, plan_mutator=None, manifest_mutator=None, report
         plan_mutator(plan)
     write_json(target / "plan.json", plan)
 
-    report = adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+    report = _fix_report_time(
+        adversarial_review(plan, reviewer="native_subagent", no_counterexample=True)
+    )
     if report_mutator:
         report_mutator(report)
     write_json(target / "plan.review.json", report)
@@ -150,7 +173,7 @@ def build_package(name: str, *, plan_mutator=None, manifest_mutator=None, report
         "reportHash": sha256_file(target / "plan.review.json"),
         "schemaVersion": report["schemaVersion"],
         "rubricVersion": report["rubricVersion"],
-        "createdAt": datetime.now(timezone.utc).isoformat(),
+        "createdAt": FIXED_TIME,
         "files": files,
     }
     if manifest_mutator:
@@ -160,11 +183,12 @@ def build_package(name: str, *, plan_mutator=None, manifest_mutator=None, report
 
 
 def zip_package(source: Path, zip_path: Path) -> None:
-    zip_path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for path in sorted(source.rglob("*")):
-            if path.is_file():
-                archive.write(path, path.relative_to(source).as_posix())
+    entries = {
+        path.relative_to(source).as_posix(): path.read_bytes()
+        for path in sorted(source.rglob("*"))
+        if path.is_file()
+    }
+    write_zip_entries(entries, zip_path)
 
 
 def build_platform() -> None:
@@ -222,9 +246,13 @@ def build_platform() -> None:
         shutil.rmtree(slip_source)
     slip_source.mkdir()
     write_json(slip_source / "plan.json", metadata_plan())
-    with zipfile.ZipFile(PACKAGE_DIR / "zip-slip.zip", "w") as archive:
-        archive.write(slip_source / "plan.json", "plan.json")
-        archive.writestr("../evil.txt", "should-not-be-written")
+    write_zip_entries(
+        {
+            "plan.json": (slip_source / "plan.json").read_bytes(),
+            "../evil.txt": b"should-not-be-written",
+        },
+        PACKAGE_DIR / "zip-slip.zip",
+    )
     shutil.rmtree(slip_source)
 
 

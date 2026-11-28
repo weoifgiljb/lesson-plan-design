@@ -35,11 +35,33 @@ py -3 scripts/adversarial_review.py <教案.json> --no-counterexample --reviewer
 py -3 scripts/export_docx.py <教案.json> -o <输出.docx>
 ```
 
+默认文件名含课题、周次课次与版本；目标已存在时必须加 `--force`，覆盖前保留 `.bak`。`--history` 列出每次导出的时间、哈希与路径，`--open-version N` 输出对应版本路径：
+
+```bash
+py -3 scripts/export_docx.py <教案.json> --history
+py -3 scripts/export_docx.py <教案.json> --open-version 1
+```
+
 加 `--strict-metadata` 时，任课教师、教学对象或授课日期为空会拒绝导出；不加则用 `____` 占位。CLI 失败只写 stderr，统一为 `{"ok": false, "error": {"code": "...", "message": "...", "hint": "..."}}`；退出码 0 成功、1 输入或业务失败、2 参数用法错误。
 
 长文本可用 Markdown 子集（`**粗体**`、`1. ` 列表、围栏代码、`![说明](相对路径)`），由 `formatting-lesson-docx` 渲成 Word 原生样式。可选 `mediaAssets` 嵌教材截图；截图先走 `capturing-ebook-pages`。金标准里的 `1、` 仍按普通段落导出。页脚含页码、引擎版本与 `planHash` 前 12 位；缺图写「图片缺失」占位并给 `warnings`；导出后返回 `selfCheck` 校验文档、页脚、页码、媒体哈希。
 
-修订某一节时改 JSON 对应字段，再跑步骤 4 和 5；旧报告因内容哈希不匹配自动失效。
+修订某一节用字段级命令，不要手工整文件重写；命令会拒绝未知路径、原子替换原文件，并在旧报告失效时明确提示：
+
+```bash
+py -3 scripts/revise_plan.py <教案.json> --set "contentTitle=新课题"
+py -3 scripts/revise_plan.py <教案.json> --set "activityFlow.assessment=1、过程考核：..." --dry-run
+py -3 scripts/diff_plans.py <旧版.json> <新版.json>
+```
+
+一键流程串起草稿、校验、审校与导出，`--until` 可在任一步停下，`--plan` 可从已有教案续跑：
+
+```bash
+py -3 scripts/lesson_flow.py --week 2 --session 1 --title 一级考证辅导2 --out-dir . --until validate
+py -3 scripts/lesson_flow.py --plan ./教案_一级考证辅导2_第2周第1次.json
+```
+
+`--force` 允许覆盖 docx 并保留 `.bak`；校验失败退出码 1，审校未通过退出码 2。
 
 对照样例打分（可选）：`py -3 scripts/score.py <教案.json>`。评分维度为目标 25、任务 25、考核 20、流程 20、证据 10，输出维度得分、扣分原因与改进建议；≥85 优秀、≥70 合格。样例库索引由 `sync_examples.py --write` 生成，`--check` 校验哈希与元信息。
 

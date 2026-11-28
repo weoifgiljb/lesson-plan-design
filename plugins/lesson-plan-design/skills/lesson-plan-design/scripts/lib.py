@@ -2,7 +2,7 @@
 """兼容门面：域实现见 lesson_plan，旧调用保持 from lib import ... 不变。"""
 from __future__ import annotations
 
-from lesson_plan.draft import draft_plan
+from lesson_plan.draft import draft_plan, match_c_language_template, practice_sets
 from lesson_plan.examples import check_examples, example_entries, load_examples
 from lesson_plan.gate import (
     _refresh_report_status,
@@ -25,6 +25,7 @@ from lesson_plan.model import (
     REVIEW_SCHEMA_VERSION,
     RUBRIC_VERSION,
     RULES_VERSION,
+    TEMPLATE_VERSION,
     SCHOOL_DEFAULTS,
     SKILL_DIR,
     TEMPLATES_DIR,
@@ -37,6 +38,7 @@ from lesson_plan.model import (
     _structured_task_text,
     empty_flow,
     empty_plan,
+    migrate_review_report,
     plan_hash,
 )
 from lesson_plan.review import adversarial_review
@@ -52,11 +54,11 @@ __all__ = [
     "ACTIVITY_FLOW_LABELS", "BLOCKING_SEVERITIES", "C_LANGUAGE_TEMPLATES_PATH",
     "EXAMPLES_DIR", "EXAMPLES_INDEX", "KNOWLEDGE_A", "KNOWLEDGE_B",
     "MIN_OVERRIDE_REASON", "REQUIRED_FLOW", "REQUIRED_TOP", "REVIEW_SCHEMA_VERSION",
-    "RUBRIC_VERSION", "RULES_VERSION", "SCHOOL_DEFAULTS", "SKILL_DIR",
+    "RUBRIC_VERSION", "RULES_VERSION", "SCHOOL_DEFAULTS", "SKILL_DIR", "TEMPLATE_VERSION",
     "TEMPLATES_DIR", "TOOL_VERSION", "adversarial_review", "check_examples",
     "default_review_path", "derive_review_status", "draft_plan", "dump",
     "empty_flow", "empty_plan", "example_entries", "export_gate", "load_examples",
-    "load_json", "load_review_report", "overlap_ratio", "plan_hash",
+    "load_json", "load_review_report", "migrate_review_report", "match_c_language_template", "overlap_ratio", "plan_hash", "practice_sets",
     "record_teacher_override", "save_review_report", "score_against_examples",
     "tokenize", "validate_plan",
 ]

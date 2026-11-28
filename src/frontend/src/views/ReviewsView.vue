@@ -2,13 +2,16 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { sealSuccess } from '@/utils/seal-toast'
 
-import { listReviews, type ReviewQuery } from '@/api/reviews'
-import type { ReviewListItem } from '@/api/models'
+import { listReviews, getReview, type ReviewQuery } from '@/api/reviews'
+import type { Finding, ReviewDetail, ReviewListItem } from '@/api/models'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { useMeta } from '@/composables/useMeta'
+import StatusTag from '@/components/StatusTag.vue'
 import { copyText } from '@/utils/clipboard'
 import { formatDateTime } from '@/utils/datetime'
+import { reviewModeLabel } from '@/utils/labels'
 
 const router = useRouter()
 
@@ -69,12 +72,10 @@ function openPlan(row: ReviewListItem): void {
   void router.push(`/plans/${row.planId}`)
 }
 
-const statusLabel = computed(
-  () => new Map(REVIEW_STATUS_OPTIONS.value.map((item) => [item.value, item.label])),
-)
-
-function labelOf(status: string): string {
-  return statusLabel.value.get(status) ?? status
+function reviewRowClass({ row }: { row: ReviewListItem }): string {
+  if (row.status === 'needs_repair' || row.status === 'structure_invalid') return 'review-row--attention'
+  if (row.status === 'passed') return 'review-row--passed'
+  return ''
 }
 
 // 按钮态只是乐观提示；真正的导出许可仍由 export_service 门禁判定。
@@ -87,7 +88,7 @@ function canExport(row: ReviewListItem): boolean {
 async function copyId(value: number | undefined, label: string): Promise<void> {
   if (!value) return
   const copied = await copyText(value)
-  if (copied) ElMessage.success(`${label} 已复制：${value}`)
+  if (copied) sealSuccess(`${label} 已复制：${value}`)
   else ElMessage.error('复制失败，请手动选择文本复制')
 }
 
@@ -105,6 +106,39 @@ function goExport(row: ReviewListItem): void {
 }
 
 const scrollRef = ref<HTMLElement | null>(null)
+
+const drawerOpen = ref(false)
+const reviewLoading = ref(false)
+const reviewError = ref('')
+const reviewDetail = ref<ReviewDetail | null>(null)
+
+const SEVERITY_LABELS: Record<string, string> = {
+  blocker: '阻断',
+  major: '主要',
+  minor: '次要',
+}
+
+function severityLabel(severity: string): string {
+  return SEVERITY_LABELS[severity] ?? severity
+}
+
+function findingTone(finding: Finding): string {
+  return finding.status === 'open' ? 'open' : 'closed'
+}
+
+async function openReview(row: ReviewListItem): Promise<void> {
+  drawerOpen.value = true
+  reviewLoading.value = true
+  reviewError.value = ''
+  reviewDetail.value = null
+  try {
+    reviewDetail.value = await getReview(row.reviewId)
+  } catch (caught) {
+    reviewError.value = caught instanceof Error ? caught.message : '批注加载失败'
+  } finally {
+    reviewLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -148,30 +182,46 @@ const scrollRef = ref<HTMLElement | null>(null)
         v-if="rows.length"
         :data="rows"
         row-key="reviewId"
-        stripe
+        :row-class-name="reviewRowClass"
         @row-click="openPlan"
       >
-        <el-table-column prop="contentTitle" label="课题" min-width="220" />
-        <el-table-column prop="teacher" label="教师" width="120" />
-        <el-table-column label="位置" width="150">
+        <el-table-column label="课题" min-width="220">
+          <template #default="{ row }">
+            <span class="review-title">
+              <strong>{{ row.contentTitle }}</strong>
+              <span>{{ row.course }} · 第 {{ row.versionNo }} 稿</span>
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="teacher" label="教师" width="110" />
+        <el-table-column label="位置" width="140">
           <template #default="{ row }">
             第 {{ row.week }} 周 · 第 {{ row.session }} 次
           </template>
         </el-table-column>
-        <el-table-column label="轮次" width="90">
-          <template #default="{ row }">第 {{ row.round }} 轮</template>
-        </el-table-column>
-        <el-table-column label="状态" width="120">
+        <el-table-column label="轮次" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'passed' ? 'success' : 'warning'" disable-transitions>
-              {{ labelOf(row.status) }}
-            </el-tag>
+            <span class="round-node"><i aria-hidden="true" />第 {{ row.round }} 轮</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="结论" width="130">
+          <template #default="{ row }">
+            <StatusTag :code="row.status" :status="row.status" />
           </template>
         </el-table-column>
         <el-table-column label="证据链" width="140">
           <template #default="{ row }">
-            {{ row.evidence.passed }} / {{ row.evidence.total }}
-            <span v-if="!row.evidence.complete" class="gap">不完整</span>
+            <span
+              class="evidence-cell"
+              :class="{ 'is-gap': !row.evidence.complete }"
+              role="img"
+              :aria-label="`证据 ${row.evidence.passed}/${row.evidence.total}${row.evidence.complete ? '' : '，不完整'}`"
+            >
+              <span class="evidence-dots" aria-hidden="true">
+                <i v-for="index in row.evidence.total" :key="index" :class="{ 'is-passed': index <= row.evidence.passed }" />
+              </span>
+              {{ row.evidence.passed }} / {{ row.evidence.total }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="审查时间" width="190">
@@ -179,9 +229,12 @@ const scrollRef = ref<HTMLElement | null>(null)
             <span :title="row.reviewedAt">{{ formatDateTime(row.reviewedAt) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <div class="actions">
+              <el-button link type="primary" size="small" @click.stop="openReview(row)">
+                批注
+              </el-button>
               <el-button link type="primary" size="small" @click.stop="copyPlanId(row)">
                 复制教案 ID
               </el-button>
@@ -222,6 +275,73 @@ const scrollRef = ref<HTMLElement | null>(null)
       </div>
     </div>
 
+    <el-drawer v-model="drawerOpen" title="审查批注" size="min(540px, 94vw)" class="review-drawer">
+      <div v-if="reviewLoading" class="drawer-state">正在展开这一轮的批注…</div>
+      <div v-else-if="reviewError" class="drawer-state drawer-state--error">
+        <p>{{ reviewError }}</p>
+        <el-button type="primary" @click="drawerOpen = false">关闭</el-button>
+      </div>
+      <template v-else-if="reviewDetail">
+        <header class="drawer-head">
+          <div>
+            <p class="drawer-kicker">第 {{ reviewDetail.review.round }} 轮 · {{ reviewDetail.review.teacher }}</p>
+            <h2>{{ reviewDetail.review.contentTitle }}</h2>
+            <p class="drawer-meta">
+              {{ reviewDetail.review.course }} · 第 {{ reviewDetail.review.week }} 周第
+              {{ reviewDetail.review.session }} 次
+            </p>
+          </div>
+          <div class="drawer-stamp">
+            <StatusTag :code="reviewDetail.review.status" :status="reviewDetail.review.status" />
+          </div>
+        </header>
+
+        <section class="drawer-section" aria-label="轮次">
+          <h3>轮次</h3>
+          <ol class="round-timeline">
+            <li class="is-current">
+              <span class="round-dot" aria-hidden="true" />
+              <div>
+                <strong>第 {{ reviewDetail.review.round }} 轮</strong>
+                <p>
+                  {{ formatDateTime(reviewDetail.review.reviewedAt) }} ·
+                  {{ reviewModeLabel(reviewDetail.review.reviewerMode) }}
+                </p>
+              </div>
+            </li>
+          </ol>
+        </section>
+
+        <section class="drawer-section" aria-label="问题">
+          <h3>问题 {{ reviewDetail.findings.length }}</h3>
+          <article
+            v-for="finding in reviewDetail.findings"
+            :key="finding.id"
+            class="finding-card"
+            :class="[`finding-card--${finding.severity}`, `is-${findingTone(finding)}`]"
+          >
+            <header>
+              <span class="finding-severity">{{ severityLabel(finding.severity) }}</span>
+              <StatusTag :code="finding.status" :status="finding.status" />
+            </header>
+            <p class="finding-title">{{ finding.hypothesis || '未命名问题' }}</p>
+            <p v-if="finding.repair" class="finding-repair">修复：{{ finding.repair }}</p>
+            <p v-if="finding.evidence?.length" class="finding-meta">
+              证据：{{ finding.evidence.join('；') }}
+            </p>
+            <p v-if="finding.affectedPaths?.length" class="finding-meta">
+              位置：{{ finding.affectedPaths.join('、') }}
+            </p>
+          </article>
+          <p v-if="!reviewDetail.findings.length" class="drawer-empty">
+            这一轮没有未关闭问题。可以回到教案详情查看证据链并决定是否导出。
+          </p>
+        </section>
+
+        <p class="drawer-note">本页只读；放行/退回需在教案详情完成。</p>
+      </template>
+    </el-drawer>
+
     <footer v-if="total > filters.pageSize" class="pager">
       <el-pagination
         v-model:current-page="filters.page"
@@ -252,7 +372,9 @@ const scrollRef = ref<HTMLElement | null>(null)
 
 .reviews-head h1 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  letter-spacing: 0.01em;
 }
 
 .lead {
@@ -264,10 +386,19 @@ const scrollRef = ref<HTMLElement | null>(null)
 .filters {
   display: flex;
   gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--lpp-border);
+  border-radius: var(--lpp-radius-card);
+  background: var(--lpp-surface-2);
 }
 
 .filter {
   width: 140px;
+}
+
+.filters :deep(.el-select__wrapper) {
+  min-height: 32px;
+  background: var(--lpp-surface);
 }
 
 .table-wrap {
@@ -275,6 +406,99 @@ const scrollRef = ref<HTMLElement | null>(null)
   border: 1px solid var(--lpp-border);
   border-radius: var(--lpp-radius-card);
   background: var(--lpp-surface);
+  box-shadow: var(--lpp-shadow-paper);
+  overflow: hidden;
+}
+
+.table-wrap :deep(.el-table th.el-table__cell) {
+  height: 38px;
+  border-bottom: 2px double var(--lpp-border-strong);
+  background: var(--lpp-surface-2);
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+}
+
+.table-wrap :deep(.el-table td.el-table__cell) {
+  height: 48px;
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.table-wrap :deep(.el-table__row:hover > td.el-table__cell) {
+  background: var(--lpp-row-hover);
+}
+
+.table-wrap :deep(.review-row--attention td.el-table__cell:first-child) {
+  box-shadow: inset 3px 0 var(--lpp-accent);
+}
+
+.table-wrap :deep(.review-row--passed td.el-table__cell:first-child) {
+  box-shadow: inset 3px 0 var(--lpp-success);
+}
+
+.review-title {
+  display: grid;
+  gap: 2px;
+}
+
+.review-title strong {
+  overflow: hidden;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-title span {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.round-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-numeric);
+  font-size: var(--lpp-font-xs);
+}
+
+.round-node i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--lpp-accent);
+  border-radius: 50%;
+  background: var(--lpp-accent-soft);
+}
+
+.evidence-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-numeric);
+  font-size: var(--lpp-font-xs);
+}
+
+.evidence-cell.is-gap {
+  color: var(--lpp-accent-ink);
+}
+
+.evidence-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.evidence-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--lpp-border-strong);
+}
+
+.evidence-dots i.is-passed {
+  background: var(--lpp-success);
 }
 
 .empty {
@@ -321,4 +545,167 @@ const scrollRef = ref<HTMLElement | null>(null)
   display: flex;
   justify-content: flex-end;
 }
+
+.drawer-state {
+  padding: 28px 8px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-sm);
+}
+
+.drawer-state--error {
+  color: var(--lpp-danger);
+}
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--lpp-border);
+}
+
+.drawer-kicker {
+  color: var(--lpp-accent-ink);
+  font-family: var(--lpp-font-hand);
+  font-size: var(--lpp-font-xs);
+  letter-spacing: 0.08em;
+}
+
+.drawer-head h2 {
+  margin-top: 4px;
+  font-family: var(--lpp-font-display);
+  font-size: var(--lpp-font-xl);
+  font-weight: 600;
+}
+
+.drawer-meta {
+  margin-top: 4px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.drawer-stamp {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border: 3px double var(--lpp-seal);
+  border-radius: 50%;
+  transform: rotate(-4deg);
+}
+
+.drawer-section {
+  margin-top: 20px;
+}
+
+.drawer-section h3 {
+  margin-bottom: 10px;
+  color: var(--lpp-text-muted);
+  font-family: var(--lpp-font-family);
+  font-size: var(--lpp-font-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.round-timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.round-timeline li {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.round-dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border: 1px solid var(--lpp-accent);
+  border-radius: 50%;
+  background: var(--lpp-accent-soft);
+}
+
+.round-timeline strong {
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+}
+
+.round-timeline p {
+  margin-top: 2px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+}
+
+.finding-card {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--lpp-border);
+  border-left: 3px solid var(--lpp-accent);
+  border-radius: var(--lpp-radius-control);
+  background: var(--lpp-surface);
+}
+
+.finding-card--blocker {
+  border-left-color: var(--lpp-danger);
+}
+
+.finding-card--minor {
+  border-left-color: var(--lpp-brass);
+}
+
+.finding-card.is-closed {
+  opacity: 0.65;
+}
+
+.finding-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.finding-severity {
+  color: var(--lpp-accent-ink);
+  font-size: var(--lpp-font-xs);
+}
+
+.finding-title {
+  margin-top: 6px;
+  color: var(--lpp-text);
+  font-size: var(--lpp-font-sm);
+  line-height: 1.5;
+}
+
+.finding-repair {
+  margin-top: 5px;
+  color: var(--lpp-primary);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
+}
+
+.finding-meta {
+  margin-top: 4px;
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.drawer-empty,
+.drawer-note {
+  color: var(--lpp-text-muted);
+  font-size: var(--lpp-font-xs);
+  line-height: 1.6;
+}
+
+.drawer-note {
+  margin-top: 18px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lpp-border);
+}
+
 </style>

@@ -1,7 +1,7 @@
 import type { PlanDetail } from '@/api/models'
 
 import { formatDateTime } from './datetime'
-import { REVIEW_STATUS_LABELS as STATUS_LABELS } from './labels'
+import { reviewStatusLabel } from './labels'
 import { toPlanContentView } from './plan-content'
 
 function cell(value: string): string {
@@ -24,8 +24,9 @@ export function buildPlanMarkdown(detail: PlanDetail): string {
     '',
     `> ${plan.course} · 第 ${plan.week} 周第 ${plan.session} 次课 · ${plan.teacher}`,
     '',
-    `- 状态：${STATUS_LABELS[plan.reviewStatus] ?? plan.reviewStatus}`,
-    `- 版本：v${plan.versionNo}（第 ${plan.reviewRound} 轮）`,
+    `- 状态：${reviewStatusLabel(plan.reviewStatus)}`,
+    // 轮次只在真有审查记录时展示，避免与上一行「未审查」重复表达
+    `- 版本：v${plan.versionNo}${plan.reviewRound === null ? '' : `（第 ${plan.reviewRound} 轮）`}`,
     `- planHash：\`${plan.planHash}\``,
     `- 入库时间：${formatDateTime(plan.versionCreatedAt)}`,
     '',
