@@ -266,5 +266,47 @@ class TestStatsApi(unittest.TestCase):
         self.assertIn("structure_rate", response.text)
 
 
+    def test_dirty_json_rows_never_return_500(self) -> None:
+        # 库里可能残留手工改坏/迁移失败的行：统计接口必须降级而不是整页 500
+        plan_id, version_id = self._plan(self.teacher1, "脏数据课", content="not-json", plan_hash="hash-脏")
+        self._review(version_id, "passed", plan_hash="hash-脏")
+        self.repo.conn.execute(
+            "UPDATE review SET report_json = 'bad-json' WHERE plan_version_id = ?", (version_id,)
+        )
+        self._login("admin1")
+        summary = self.client.get("/api/v1/stats/summary")
+        self.assertEqual(summary.status_code, 200, summary.text)
+        self.assertEqual(summary.json()["unreadableRows"], 1)
+        records = self.client.get("/api/v1/stats/records")
+        self.assertEqual(records.status_code, 200, records.text)
+        dirty = [item for item in records.json()["items"] if item["planId"] == plan_id]
+        self.assertEqual(len(dirty), 1)
+        self.assertTrue(dirty[0]["unreadable"])
+        self.assertFalse(dirty[0]["structureOk"])
+
+        # 另一种脏形态：report_json 合法但 findings[].severity 被改坏成 list：
+        # open_blocking 的 `in {"blocker","major"}` 不能因此抛 TypeError
+        plan_bad, version_bad = self._plan(self.teacher1, "坏字段课", content="{}", plan_hash="hash-坏字段")
+        self._review(version_bad, "passed", plan_hash="hash-坏字段")
+        broken_report = make_report("hash-坏字段", status="passed")
+        broken_report["findings"] = [{"id": "X-1", "severity": [], "status": "open"}]
+        self.repo.conn.execute(
+            "UPDATE review SET report_json = ? WHERE plan_version_id = ?",
+            (json.dumps(broken_report, ensure_ascii=False), version_bad),
+        )
+        again = self.client.get("/api/v1/stats/summary")
+        self.assertEqual(again.status_code, 200, again.text)
+        self.assertEqual(self.client.get("/api/v1/stats/records").status_code, 200)
+
+        # findings 被改成非 list 的真值（5）时同样不能 500
+        broken_report["findings"] = 5
+        self.repo.conn.execute(
+            "UPDATE review SET report_json = ? WHERE plan_version_id = ?",
+            (json.dumps(broken_report, ensure_ascii=False), version_bad),
+        )
+        self.assertEqual(self.client.get("/api/v1/stats/summary").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/stats/records").status_code, 200)
+
+
 if __name__ == "__main__":
     unittest.main()

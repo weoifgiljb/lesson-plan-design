@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -12,9 +13,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from backup_data import create_snapshot, default_backup_dir  # noqa: E402
+from backup_data import create_snapshot, default_backup_dir, zip_path_for  # noqa: E402
 
 AUTO_PREFIX = "auto-"
+#: 定时任务在快照目录里留的独占标记；管理员手填 `auto-` 标签的快照没有它，不参与清理
+AUTO_MARKER = ".auto-snapshot"
+#: 升级前遗留的自动快照没有标记，按"<UTC时间戳>-auto-<时间>"名称兜底识别（只用于回收旧残留）
+LEGACY_AUTO_RE = re.compile(r"-auto-\d{8}-\d{6}(?:-\d+)?$")
 
 
 def _manifest(path: Path) -> dict[str, Any] | None:
@@ -25,15 +30,30 @@ def _manifest(path: Path) -> dict[str, Any] | None:
 
 
 def auto_snapshots(backup_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
-    items = []
+    marked: list[tuple[Path, dict[str, Any]]] = []
+    legacy: list[tuple[Path, dict[str, Any]]] = []
     if not backup_dir.is_dir():
-        return items
+        return []
     for path in backup_dir.iterdir():
-        if not path.is_dir() or not path.name.startswith(AUTO_PREFIX):
+        if not path.is_dir():
             continue
         manifest = _manifest(path)
-        if manifest is not None:
-            items.append((path, manifest))
+        if manifest is None:
+            continue
+        if (path / AUTO_MARKER).is_file():
+            marked.append((path, manifest))
+        elif LEGACY_AUTO_RE.search(path.name):
+            legacy.append((path, manifest))
+    # 名称兜底只回收"升级前"的残留：createdAt 必须早于最早的带标记快照，
+    # 否则管理员用 `auto-<时间>` 当标签的手动快照也会被误删。
+    if marked:
+        boundary = min(str(manifest.get("createdAt") or "") for _path, manifest in marked)
+        legacy = [
+            item for item in legacy if str(item[1].get("createdAt") or "") < boundary
+        ]
+    else:
+        legacy = []
+    items = marked + legacy
     return sorted(items, key=lambda item: str(item[1].get("createdAt") or ""), reverse=True)
 
 
@@ -55,14 +75,17 @@ def apply_retention(backup_dir: Path, keep: int = 7, weekly_keep: int = 4) -> li
         if path in protected:
             continue
         shutil.rmtree(path, ignore_errors=True)
-        path.with_suffix(".zip").unlink(missing_ok=True)
+        zip_path_for(path).unlink(missing_ok=True)
         removed.append(path.name)
     return removed
 
 
 def run(data_dir: Path, backup_dir: Path, *, keep: int, weekly_keep: int, make_zip: bool) -> dict[str, Any]:
     label = AUTO_PREFIX + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    snapshot = create_snapshot(data_dir, backup_dir, label=label, make_zip=make_zip)
+    # 标记由 create_snapshot 在临时目录内写入再打包，保证目录/manifest/zip 一致
+    snapshot = create_snapshot(
+        data_dir, backup_dir, label=label, make_zip=make_zip, marker=AUTO_MARKER
+    )
     removed = apply_retention(backup_dir, keep=keep, weekly_keep=weekly_keep)
     return {"ok": True, "snapshot": snapshot["path"], "label": label, "removed": removed}
 

@@ -2,7 +2,6 @@
 """统计编排：按当前版本 + 最新一轮审查聚合 9 项指标。"""
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Any
 
@@ -24,7 +23,7 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
     scope = library.scope_for(user)
     rows = repo.stats_plans(scope, window)
     rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in rows}))
-    records = [_record(row, rounds.get(int(row["plan_id"]), [])) for row in rows]
+    records = [_record(repo, row, rounds.get(int(row["plan_id"]), [])) for row in rows]
     minutes, basis = _export_seconds(repo.stats_exports(scope, window))
     payload = stats.build(
         records,
@@ -36,6 +35,9 @@ def summary(repo: Repo, user: dict[str, Any], *, filters: dict[str, Any] | None 
     )
     payload["reviewStatusCounts"] = _review_status_counts(rows)
     payload["reviewModeCounts"] = _review_mode_counts(rows)
+    # 脏数据（content_json/report_json 解析失败）不参与结构/证据判定，但要可见，
+    # 否则"指标突然变差"会像 bug 一样无从解释。
+    payload["unreadableRows"] = sum(1 for record in records if record["unreadable"])
     payload["scope"] = _scope_name(str(user.get("role") or ""))
     return payload
 
@@ -67,27 +69,10 @@ def records(
     total = len(rows)
     window_rows = rows[offset : offset + actual_size]
     rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in window_rows}))
-    items = []
-    for row in window_rows:
-        detail = _record(row, rounds.get(int(row["plan_id"]), []))
-        items.append(
-            {
-                "planId": int(row["plan_id"]),
-                "reviewId": int(row["review_id"]) if row.get("review_id") is not None else None,
-                # 前端"课题"列绑定 contentTitle：service 必须产出，否则模型默认 null 让整列空白
-                "contentTitle": row.get("content_title") or "",
-                "course": row.get("course") or "",
-                "week": int(row.get("week") or 0),
-                "session": int(row.get("session") or 0),
-                "teacher": row.get("teacher") or "",
-                "versionNo": int(row.get("version_no") or 0),
-                "reviewStatus": row.get("review_status") or "",
-                "structureOk": bool(detail["structure_ok"]),
-                "evidenceOk": bool(detail["evidence_ok"]),
-                "openBlocking": int(detail["open_blocking"]),
-                "createdAt": row.get("plan_created_at"),
-            }
-        )
+    items = [
+        _record_item(row, _record(repo, row, rounds.get(int(row["plan_id"]), [])))
+        for row in window_rows
+    ]
     return {
         "items": items,
         "page": actual_page,
@@ -98,10 +83,33 @@ def records(
     }
 
 
-def _record(row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
-    content = json.loads(row["content_json"]) if row.get("content_json") else {}
+def _record_item(row: dict[str, Any], detail: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "planId": int(row["plan_id"]),
+        "reviewId": int(row["review_id"]) if row.get("review_id") is not None else None,
+        # 前端"课题"列绑定 contentTitle：service 必须产出，否则模型默认 null 让整列空白
+        "contentTitle": row.get("content_title") or "",
+        "course": row.get("course") or "",
+        "week": int(row.get("week") or 0),
+        "session": int(row.get("session") or 0),
+        "teacher": row.get("teacher") or "",
+        "versionNo": int(row.get("version_no") or 0),
+        "reviewStatus": row.get("review_status") or "",
+        "structureOk": bool(detail["structure_ok"]),
+        "evidenceOk": bool(detail["evidence_ok"]),
+        "openBlocking": int(detail["open_blocking"]),
+        "unreadable": bool(detail["unreadable"]),
+        "createdAt": row.get("plan_created_at"),
+    }
+
+
+def _record(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
+    content = repo.parse_plan_content(row.get("content_json"))
     structure_ok = bool(content) and engine.validate_plan(content).get("ok") is True
-    report = json.loads(row["report_json"]) if row.get("report_json") else None
+    report = repo.parse_report(row.get("report_json"))
+    unreadable = (row.get("content_json") not in (None, "") and content is None) or (
+        row.get("report_json") not in (None, "") and report is None
+    )
     complete = False
     open_blocking = 0
     if isinstance(report, dict):
@@ -112,14 +120,23 @@ def _record(row: dict[str, Any], rounds: list[int]) -> dict[str, Any]:
             rounds=rounds,
             snapshot_hash=engine.plan_hash(snapshot) if isinstance(snapshot, dict) else None,
         )["complete"]
+        findings = report.get("findings")
+        # findings 被改坏成非 list 的真值（如 5/true）时不能直接遍历，否则 TypeError -> 500
         open_blocking = sum(
             1
-            for item in report.get("findings") or []
+            for item in (findings if isinstance(findings, list) else [])
             if isinstance(item, dict)
             and item.get("status") == "open"
+            # severity 可能被手工改坏成 list/dict：先判字符串，避免 `in set` 抛 TypeError
+            and isinstance(item.get("severity"), str)
             and item.get("severity") in {"blocker", "major"}
         )
-    return {"structure_ok": structure_ok, "evidence_ok": complete, "open_blocking": open_blocking}
+    return {
+        "structure_ok": structure_ok,
+        "evidence_ok": complete,
+        "open_blocking": open_blocking,
+        "unreadable": unreadable,
+    }
 
 
 def _counts(rows: list[dict[str, Any]]) -> dict[str, int]:

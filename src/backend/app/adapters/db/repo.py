@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import sqlite3
 import threading
 import time
@@ -12,6 +13,8 @@ from typing import Any, Callable, Iterator
 from app.adapters import clock
 from app.domain import task_rules
 from app.domain.errors import AppError
+
+logger = logging.getLogger("lpp")
 
 
 def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -294,6 +297,13 @@ class Repo:
         except sqlite3.IntegrityError:
             return False
         return True
+
+    def fail_export_job(self, job_id: int) -> None:
+        """兜底清理用：数据库忙/被锁时只记日志，不覆盖调用方正在上抛的原始异常。"""
+        try:
+            self.update_export_job(job_id, "failed")
+        except sqlite3.Error as exc:
+            logger.warning("mark export job %s failed: %s", job_id, type(exc).__name__)
 
     def get_export_job(self, job_id: int) -> dict[str, Any] | None:
         sql = " ".join(
@@ -591,11 +601,29 @@ class Repo:
             if len(rows) != 1:
                 return None
             task = dict(rows[0])
-        self.conn.execute("UPDATE plan SET task_id = ? WHERE id = ? AND task_id IS NULL", (task["id"], plan_id))
+        cursor = self.conn.execute("UPDATE plan SET task_id = ? WHERE id = ? AND task_id IS NULL", (task["id"], plan_id))
+        if cursor.rowcount == 0 and self._plan_bound_elsewhere(plan_id, int(task["id"])):
+            return None
+        return self._advance_task_status(task, status)
+
+    def _advance_task_status(self, task: dict[str, Any], status: str) -> int | None:
         if task_rules.TASK_RANK.get(status, 0) > task_rules.TASK_RANK.get(str(task["status"]), 0):
             self.conn.execute("UPDATE task SET status = ? WHERE id = ?", (status, task["id"]))
             return int(task["id"])
         return None
+
+    def _plan_bound_elsewhere(self, plan_id: int, task_id: int) -> bool:
+        """plan 已绑定过任务时，是否不能再用 task_id 推进状态。
+
+        True 的三种情况：plan 行不存在（并发删除）、task_id 为空（防御性）、
+        或已绑定的是另一个任务（改传别人的 taskId 想"顶"状态）。
+        """
+        bound = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        if bound is None:
+            return True
+        if bound["task_id"] is None:
+            return True
+        return int(bound["task_id"]) != int(task_id)
 
     def task_for_plan(self, plan_id: int) -> dict[str, Any] | None:
         row = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
@@ -919,8 +947,8 @@ class Repo:
         sql = " ".join((self.REVIEW_SELECT, "WHERE rv.id = ?"))
         return _row(self.conn.execute(sql, (review_id,)).fetchone())
 
-    def parse_report(self, text: Any) -> dict[str, Any] | None:
-        """解析 report_json：坏数据返回 None，让调用方标红而不是整页 500。"""
+    @staticmethod
+    def _parse_json_object(text: Any) -> dict[str, Any] | None:
         if not isinstance(text, str) or not text:
             return None
         try:
@@ -928,6 +956,14 @@ class Repo:
         except (TypeError, ValueError):
             return None
         return data if isinstance(data, dict) else None
+
+    def parse_report(self, text: Any) -> dict[str, Any] | None:
+        """解析 report_json：坏数据返回 None，让调用方标红而不是整页 500。"""
+        return self._parse_json_object(text)
+
+    def parse_plan_content(self, text: Any) -> dict[str, Any] | None:
+        """解析 plan_version.content_json：坏数据返回 None，统计/展示不因脏行 500。"""
+        return self._parse_json_object(text)
 
     def plan_rounds(self, plan_id: int) -> list[int]:
         rows = self.conn.execute(
@@ -1201,6 +1237,36 @@ class Repo:
             "UPDATE deletion_request SET status = ?, resolved_at = ?, resolver_id = ?"
             " WHERE id = ? AND status = 'pending'",
             (status, clock.now_iso(), resolver_id, request_id),
+        )
+        return bool(cursor.rowcount)
+
+    def revert_deletion_request(self, request_id: int, resolver_id: int) -> bool:
+        """删除失败时把“本次抢占”的申请放回 pending：只回滚自己的 approved 抢占。"""
+        cursor = self.conn.execute(
+            "UPDATE deletion_request SET status = 'pending', resolved_at = NULL, resolver_id = NULL"
+            " WHERE id = ? AND status = 'approved' AND resolver_id = ?",
+            (int(request_id), int(resolver_id)),
+        )
+        return bool(cursor.rowcount)
+
+    def try_revert_deletion_request(self, request_id: int, resolver_id: int) -> bool:
+        """兜底回滚：数据库忙时只记日志，不覆盖调用方正在上抛的原始异常。"""
+        try:
+            return self.revert_deletion_request(request_id, resolver_id)
+        except sqlite3.Error as exc:
+            logger.warning(
+                "revert deletion request %s failed: %s", request_id, type(exc).__name__
+            )
+            return False
+
+    def reclaim_stale_deletion_request(
+        self, request_id: int, resolver_id: int, status: str, stale_before: str
+    ) -> bool:
+        """崩溃遗留的 approved 申请：用 CAS 把抢占时间刷新到本次操作，只有一个重试赢家。"""
+        cursor = self.conn.execute(
+            "UPDATE deletion_request SET status = ?, resolved_at = ?, resolver_id = ?"
+            " WHERE id = ? AND status = 'approved' AND resolved_at < ?",
+            (status, clock.now_iso(), resolver_id, int(request_id), stale_before),
         )
         return bool(cursor.rowcount)
 

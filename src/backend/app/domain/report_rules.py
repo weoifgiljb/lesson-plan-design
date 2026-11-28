@@ -18,6 +18,7 @@ ALLOWED_STATUS = {
 ALLOWED_SEVERITY = {"blocker", "major", "minor"}
 ALLOWED_FINDING_STATUS = {"open", "waived", "accepted"}
 ALLOWED_INDEPENDENCE = {"native_subagent", "role_simulation", "human"}
+ALLOWED_OVERRIDE_KIND = {"teacher_override", "minor_acceptance"}
 BLOCKING = {"blocker", "major"}
 MIN_OVERRIDE_REASON = 6
 REQUIRED_REPORT = (
@@ -36,11 +37,20 @@ REQUIRED_REPORT = (
 )
 
 
+def _member(value: Any, allowed: set[str]) -> bool:
+    """封闭集合判定：非字符串（list/dict/None）一律不匹配。
+
+    契约包里的字段来自不可信输入，`value in set` 遇到 list/dict 会抛
+    TypeError 打穿成 500；这里统一收口为"不匹配 → 422"。
+    """
+    return isinstance(value, str) and value in allowed
+
+
 def derive_status(findings: list[dict[str, Any]]) -> str:
     items = [item for item in findings if isinstance(item, dict)]
     if any(item.get("status") == "open" for item in items):
         return "needs_repair"
-    if any(item.get("severity") in BLOCKING and item.get("status") == "waived" for item in items):
+    if any(_member(item.get("severity"), BLOCKING) and item.get("status") == "waived" for item in items):
         return "passed_with_override"
     if any(item.get("severity") == "minor" and item.get("status") == "accepted" for item in items):
         return "passed_with_accepted_minor"
@@ -59,9 +69,9 @@ def _check_findings(report: dict[str, Any], plan_hash: str) -> Verdict | None:
     for item in findings:
         if not isinstance(item, dict):
             return fail("REPORT_INCONSISTENT", "审查问题格式无效")
-        if not item.get("id") or item.get("severity") not in ALLOWED_SEVERITY:
+        if not item.get("id") or not _member(item.get("severity"), ALLOWED_SEVERITY):
             return fail("REPORT_INCONSISTENT", "审查问题缺少 id 或严重级别")
-        if item.get("status") not in ALLOWED_FINDING_STATUS:
+        if not _member(item.get("status"), ALLOWED_FINDING_STATUS):
             return fail("REPORT_INCONSISTENT", "审查问题状态无效")
     for item in overrides:
         problem = _check_override(item, plan_hash, finding_ids, seen)
@@ -82,7 +92,7 @@ def _check_override(item: Any, plan_hash: str, finding_ids: set[str], seen: set[
         return fail("REPORT_INCONSISTENT", "审查放行理由过短")
     if item.get("planHash") != plan_hash:
         return fail("REPORT_INCONSISTENT", "放行记录与当前教案哈希不一致")
-    if item.get("kind") not in {"teacher_override", "minor_acceptance"}:
+    if not _member(item.get("kind"), ALLOWED_OVERRIDE_KIND):
         return fail("REPORT_INCONSISTENT", "审查放行记录类型无效")
     finding_id = str(item["findingId"])
     if finding_id in seen:
@@ -113,7 +123,7 @@ def _check_finding_override_pairs(findings: list[dict[str, Any]], overrides: lis
 
 def _check_status(report: dict[str, Any], structural_ok: bool) -> Verdict | None:
     status = report.get("status")
-    if status not in ALLOWED_STATUS:
+    if not _member(status, ALLOWED_STATUS):
         return fail("REPORT_INCONSISTENT", "审查报告状态无效")
     findings = report.get("findings") or []
     if not structural_ok or status == "structure_invalid":
@@ -156,7 +166,7 @@ def check(
     if report.get("planHash") != plan_hash:
         return fail("REPORT_INCONSISTENT", "审查报告与当前教案内容不匹配")
     independence = report.get("independence") or report.get("reviewer")
-    if independence not in ALLOWED_INDEPENDENCE:
+    if not _member(independence, ALLOWED_INDEPENDENCE):
         return fail("REPORT_INCONSISTENT", "审查报告审校方式无效", {"independence": independence})
     if snapshot_hash is not None and snapshot_hash != plan_hash:
         return fail("REPORT_INCONSISTENT", "审查报告快照与教案哈希不匹配")

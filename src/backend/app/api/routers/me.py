@@ -48,8 +48,9 @@ def change_password(
         context["user"],
         old_password=payload.oldPassword,
         new_password=payload.newPassword,
-        # JWT 通道没有会话可撤销；改密靠 token_version 自增让旧令牌失效
+        # JWT 通道没有当前会话：撤销该账号全部 Cookie 会话；旧令牌靠 token_version 失效
         session_id=None if is_jwt else int(context["session"]["id"]),
+        revoke_all=is_jwt,
         ip=client_ip(request),
         trace_id=trace_id(request),
     )

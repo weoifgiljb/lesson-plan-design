@@ -19,13 +19,15 @@ import auto_backup  # noqa: E402
 import export_contracts  # noqa: E402
 
 
-def _snapshot(root: Path, label: str, created: datetime) -> Path:
+def _snapshot(root: Path, label: str, created: datetime, *, auto: bool = True) -> Path:
     path = root / f"{label}"
     path.mkdir()
     (path / "manifest.json").write_text(
         json.dumps({"label": label, "createdAt": created.isoformat()}, ensure_ascii=False),
         encoding="utf-8",
     )
+    if auto:
+        (path / auto_backup.AUTO_MARKER).write_text("auto\n", encoding="utf-8")
     return path
 
 
@@ -41,9 +43,22 @@ class TestAutoBackup(unittest.TestCase):
         now = datetime.now(timezone.utc)
         for day in range(10):
             _snapshot(self.root, f"auto-{day:02d}", now - timedelta(days=day))
-        manual = _snapshot(self.root, "before-upgrade", now - timedelta(days=30))
+        manual = _snapshot(self.root, "before-upgrade", now - timedelta(days=30), auto=False)
+        # 管理员手填 auto- 标签的手动快照没有独占标记，不能被保留策略删除
+        manual_auto = _snapshot(self.root, "auto-manual", now - timedelta(days=31), auto=False)
+        # 升级前遗留的自动快照没有标记，按名称模式兜底回收
+        legacy = _snapshot(
+            self.root, "20260101T000000Z-auto-20260101-000000", now - timedelta(days=32), auto=False
+        )
+        # 升级后手工创建、标签恰好是 auto-<时间> 的快照：createdAt 晚于最早带标记快照，不按 legacy 处理
+        recent_manual = _snapshot(
+            self.root, "20261128T000000Z-auto-20261128-000000", now - timedelta(minutes=5), auto=False
+        )
         removed = auto_backup.apply_retention(self.root, keep=3, weekly_keep=2)
         self.assertTrue(manual.is_dir())
+        self.assertTrue(manual_auto.is_dir())
+        self.assertTrue(recent_manual.is_dir())
+        self.assertFalse(legacy.exists())
         self.assertTrue((self.root / "auto-00").is_dir())
         self.assertTrue((self.root / "auto-01").is_dir())
         self.assertTrue((self.root / "auto-02").is_dir())
@@ -66,6 +81,31 @@ class TestAutoBackup(unittest.TestCase):
         payload = auto_backup.run(data, backups, keep=7, weekly_keep=4, make_zip=False)
         self.assertTrue(payload["ok"])
         self.assertTrue(Path(payload["snapshot"]).is_dir())
+
+
+    def test_run_snapshot_is_eligible_for_retention(self) -> None:
+        # 回归：快照目录名是 `<UTC时间戳>-auto-...`，旧的 startswith("auto-") 过滤永远匹配不到自己
+        data = self.root / "data"
+        data.mkdir()
+        sqlite3.connect(data / "app.db").close()
+        backups = self.root / "backups"
+        first = auto_backup.run(data, backups, keep=1, weekly_keep=1, make_zip=True)
+        first_path = Path(first["snapshot"])
+        self.assertIn(first_path.name, [path.name for path, _ in auto_backup.auto_snapshots(backups)])
+        self.assertTrue(auto_backup.zip_path_for(first_path).exists())
+
+        # 把第一份改成两天前，再跑一次 keep=1：旧快照与 zip 必须被删
+        manifest_path = first_path / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["createdAt"] = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+
+        second = auto_backup.run(data, backups, keep=1, weekly_keep=0, make_zip=True)
+        remaining = {path.name for path, _ in auto_backup.auto_snapshots(backups)}
+        self.assertIn(Path(second["snapshot"]).name, remaining)
+        self.assertNotIn(first_path.name, remaining)
+        self.assertFalse(first_path.exists())
+        self.assertFalse(auto_backup.zip_path_for(first_path).exists())
 
 
 if __name__ == "__main__":

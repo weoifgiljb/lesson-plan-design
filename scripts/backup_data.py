@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -26,6 +27,39 @@ DEFAULT_BACKUP = ROOT / "backups"
 FORMAT_VERSION = 1
 APP_VERSION = "dev"
 EXPORT_SUBDIRS = ("files", "exports")
+LABEL_PROBLEM = "备份标签只能包含字母、数字、中文、空格和 ._-（不超过 40 位，不能以点结尾）"
+#: 真正会破坏文件名/路径的字符：路径分隔符、Windows 保留字符、通配符
+LABEL_BAD_CHARS = frozenset('/\\:*?"<>|')
+MAX_LABEL = 40
+
+
+class LabelError(ValueError):
+    """备份标签不合法：适配层据此翻译为 422 PAYLOAD_REJECTED，其它 ValueError 仍是服务端失败。"""
+
+
+def normalize_label(label: str) -> str:
+    """返回可安全拼进快照目录名的标签；空串表示不带标签。
+
+    允许中文/空格/点/下划线/连字符（教师和管理员会用中文起名）；
+    只拒绝会破坏路径或文件系统的字符，以及 `..`、以点结尾、超过 40 位。
+    """
+    text = str(label or "").strip()
+    if not text:
+        return ""
+    if len(text) > MAX_LABEL:
+        raise LabelError(LABEL_PROBLEM)
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        raise LabelError(LABEL_PROBLEM)
+    if any(ch in LABEL_BAD_CHARS for ch in text):
+        raise LabelError(LABEL_PROBLEM)
+    if ".." in text or text.endswith("."):
+        raise LabelError(LABEL_PROBLEM)
+    return text
+
+
+def zip_path_for(path: Path) -> Path:
+    """快照 zip 路径 = `<目录名>.zip`；不能用 with_suffix（label 里的点会被当后缀吃掉）。"""
+    return Path(path).parent / (Path(path).name + ".zip")
 
 
 def sha256_file(path: Path) -> str:
@@ -85,9 +119,11 @@ def create_snapshot(
     label: str = "",
     include_exports: bool = True,
     make_zip: bool = False,
+    marker: str = "",
 ) -> dict[str, object]:
     data_dir = Path(data_dir).resolve()
     backup_dir = Path(backup_dir).resolve()
+    label = normalize_label(label)
     database = data_dir / "app.db"
     if not database.is_file():
         raise FileNotFoundError(f"数据库不存在：{database}")
@@ -96,6 +132,9 @@ def create_snapshot(
     temporary = backup_dir / f".tmp-{uuid.uuid4().hex}"
     temporary.mkdir()
     try:
+        if marker:
+            # 标记在临时目录内写入：目录、manifest、zip 三者一致，解包/恢复后标记不丢
+            (temporary / marker).write_text("auto\n", encoding="utf-8")
         source = sqlite3.connect(str(database))
         destination = sqlite3.connect(str(temporary / "app.db"))
         try:
@@ -148,7 +187,7 @@ def create_snapshot(
         temporary.replace(target)
         payload: dict[str, object] = {"ok": True, "path": str(target), "manifest": manifest}
         if make_zip:
-            zip_path = target.with_suffix(".zip")
+            zip_path = zip_path_for(target)
             with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                 for path in sorted(target.rglob("*")):
                     if path.is_file():
@@ -181,7 +220,7 @@ def main() -> int:
             include_exports=not args.no_exports,
             make_zip=args.zip,
         )
-    except (FileNotFoundError, RuntimeError, OSError) as exc:
+    except (OSError, RuntimeError, LabelError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 3
     if args.json:

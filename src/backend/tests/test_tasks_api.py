@@ -537,5 +537,29 @@ class TestTasksApi(unittest.TestCase):
         bad = self._create(title="C", session=3, quadrant="not_a_quadrant")
         self.assertEqual(bad.status_code, 422, bad.text)
 
+    def test_attach_task_does_not_advance_foreign_task(self) -> None:
+        # R?：plan 已绑定任务 A 后，再用任务 B 调 attach 会跳过 UPDATE 但仍推进 B 的状态（越权推进）
+        task_a = self._create(title="绑定任务A").json()["taskId"]
+        task_b = self._create(title="绑定任务B", session=2).json()["taskId"]
+        connection = open_database(self.db_file)
+        repo = Repo(connection)
+        try:
+            plan = {"course": "信息技术", "week": 2, "session": 1, "contentTitle": "绑定任务A"}
+            plan_id = repo.create_plan(1, plan)
+            self.assertEqual(repo.attach_task_for_plan(plan_id, plan, "passed", task_id=task_a), task_a)
+            self.assertEqual(repo.get_task(task_a)["status"], "passed")
+
+            self.assertIsNone(repo.attach_task_for_plan(plan_id, plan, "exported", task_id=task_b))
+            self.assertEqual(repo.get_task(task_b)["status"], "draft")
+
+            # 同一任务的后续推进（第二轮审查/导出）不能被上面的守卫挡掉
+            self.assertEqual(repo.attach_task_for_plan(plan_id, plan, "exported", task_id=task_a), task_a)
+            self.assertEqual(repo.get_task(task_a)["status"], "exported")
+            bound = repo.task_for_plan(plan_id)
+            self.assertEqual(int(bound["id"]), task_a)
+        finally:
+            connection.close()
+
+
 if __name__ == "__main__":
     unittest.main()

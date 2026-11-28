@@ -141,6 +141,34 @@ class TestJwtAuth(unittest.TestCase):
             self.client.get("/api/v1/auth/me", headers=self._bearer(fresh)).status_code, 200
         )
 
+    def test_bearer_password_change_revokes_cookie_sessions(self) -> None:
+        # 同一账号：浏览器 Cookie 会话保持登录时，用 Bearer 令牌改密必须让旧 Cookie 立即失效
+        browser = TestClient(self.client.app)
+        browser.__enter__()
+        try:
+            login = browser.post("/api/v1/auth/login", json={"username": "admin1", "password": PASSWORD})
+            self.assertEqual(login.status_code, 200, login.text)
+            self.assertEqual(browser.get("/api/v1/me").status_code, 200)
+
+            token = self._token("admin1")
+            changed = self.client.post(
+                "/api/v1/me/password",
+                json={"oldPassword": PASSWORD, "newPassword": "Lesson2027"},
+                headers=self._bearer(token),
+            )
+            self.assertEqual(changed.status_code, 200, changed.text)
+            self.assertEqual(browser.get("/api/v1/me").status_code, 401)
+            # 旧令牌同样失效（token_version 自增），新口令可换新令牌
+            self.assertEqual(
+                self.client.get("/api/v1/auth/me", headers=self._bearer(token)).status_code, 401
+            )
+            fresh = self._token("admin1", "Lesson2027")
+            self.assertEqual(
+                self.client.get("/api/v1/auth/me", headers=self._bearer(fresh)).status_code, 200
+            )
+        finally:
+            browser.__exit__(None, None, None)
+
     def test_bearer_write_skips_csrf_but_checks_role(self) -> None:
         self._register()
         token = self._token()

@@ -27,7 +27,9 @@ def supported_versions() -> dict[str, list]:
 def is_supported(schema_version: Any, rubric_version: Any) -> bool:
     return (
         isinstance(schema_version, int)
+        and not isinstance(schema_version, bool)
         and schema_version in SUPPORTED_SCHEMA_VERSIONS
+        and isinstance(rubric_version, str)
         and rubric_version in SUPPORTED_RUBRIC_VERSIONS
     )
 
