@@ -30,20 +30,30 @@ def _manifest(path: Path) -> dict[str, Any] | None:
 
 
 def auto_snapshots(backup_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
-    items = []
+    marked: list[tuple[Path, dict[str, Any]]] = []
+    legacy: list[tuple[Path, dict[str, Any]]] = []
     if not backup_dir.is_dir():
-        return items
+        return []
     for path in backup_dir.iterdir():
         if not path.is_dir():
-            continue
-        marked = (path / AUTO_MARKER).is_file()
-        legacy = not marked and bool(LEGACY_AUTO_RE.search(path.name))
-        if not marked and not legacy:
             continue
         manifest = _manifest(path)
         if manifest is None:
             continue
-        items.append((path, manifest))
+        if (path / AUTO_MARKER).is_file():
+            marked.append((path, manifest))
+        elif LEGACY_AUTO_RE.search(path.name):
+            legacy.append((path, manifest))
+    # 名称兜底只回收"升级前"的残留：createdAt 必须早于最早的带标记快照，
+    # 否则管理员用 `auto-<时间>` 当标签的手动快照也会被误删。
+    if marked:
+        boundary = min(str(manifest.get("createdAt") or "") for _path, manifest in marked)
+        legacy = [
+            item for item in legacy if str(item[1].get("createdAt") or "") < boundary
+        ]
+    else:
+        legacy = []
+    items = marked + legacy
     return sorted(items, key=lambda item: str(item[1].get("createdAt") or ""), reverse=True)
 
 

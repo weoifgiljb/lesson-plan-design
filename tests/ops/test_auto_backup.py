@@ -50,9 +50,14 @@ class TestAutoBackup(unittest.TestCase):
         legacy = _snapshot(
             self.root, "20260101T000000Z-auto-20260101-000000", now - timedelta(days=32), auto=False
         )
+        # 升级后手工创建、标签恰好是 auto-<时间> 的快照：createdAt 晚于最早带标记快照，不按 legacy 处理
+        recent_manual = _snapshot(
+            self.root, "20261128T000000Z-auto-20261128-000000", now - timedelta(minutes=5), auto=False
+        )
         removed = auto_backup.apply_retention(self.root, keep=3, weekly_keep=2)
         self.assertTrue(manual.is_dir())
         self.assertTrue(manual_auto.is_dir())
+        self.assertTrue(recent_manual.is_dir())
         self.assertFalse(legacy.exists())
         self.assertTrue((self.root / "auto-00").is_dir())
         self.assertTrue((self.root / "auto-01").is_dir())

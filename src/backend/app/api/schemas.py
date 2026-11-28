@@ -121,7 +121,8 @@ class TaskBoard(BaseModel):
 
 
 class BackupCreateIn(BaseModel):
-    label: str = ""
+    # 与 scripts/backup_data.py 的 LABEL_RE 对齐：白名单只放行 ASCII，超长/中文/斜杠在校验层就 422
+    label: str = Field("", max_length=40, pattern=r"^[A-Za-z0-9._-]*$")
 
 
 class BackupRestoreIn(BaseModel):
