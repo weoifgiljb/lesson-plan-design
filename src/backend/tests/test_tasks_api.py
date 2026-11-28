@@ -8,6 +8,7 @@ import threading
 import unittest
 import zipfile
 from datetime import date, timedelta
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
@@ -430,6 +431,52 @@ class TestTasksApi(unittest.TestCase):
         # _item 不再 fail-open：组长回退组内他人任务，返回体里 canEdit 为 false
         self.assertFalse(lead.json()["canEdit"])
         self._login("teacher1")
+
+    def test_rollback_rejects_stale_snapshot(self) -> None:
+        # 预检读到 reviewing、事务前状态已被推进到 exported：条件更新必须失败并报 409
+        task_id = self._create().json()["taskId"]
+        connection = open_database(self.db_file)
+        try:
+            repo = Repo(connection)
+            repo.set_task_status(task_id, "reviewing")
+            stale = dict(repo.get_task(task_id))
+            repo.set_task_status(task_id, "exported")
+        finally:
+            connection.close()
+        csrf = self._login("lead1")
+        with mock.patch.object(Repo, "get_task", return_value=stale):
+            response = self.client.post(
+                f"/api/v1/tasks/{task_id}/rollback", headers={"X-CSRF-Token": csrf}
+            )
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertEqual(response.json()["code"], "CONFLICT_STALE")
+        connection = open_database(self.db_file)
+        try:
+            self.assertEqual(Repo(connection).get_task(task_id)["status"], "exported")
+        finally:
+            connection.close()
+        self._login("teacher1")
+
+    def test_discard_rejects_stale_snapshot(self) -> None:
+        # 预检读到 draft、事务前状态已推进到 exported：不允许把已完成任务置为废弃
+        task_id = self._create().json()["taskId"]
+        connection = open_database(self.db_file)
+        try:
+            repo = Repo(connection)
+            stale = dict(repo.get_task(task_id))
+            repo.set_task_status(task_id, "exported")
+        finally:
+            connection.close()
+        with mock.patch.object(Repo, "get_task", return_value=stale):
+            response = self.client.post(
+                f"/api/v1/tasks/{task_id}/discard", headers={"X-CSRF-Token": self.csrf}
+            )
+        self.assertEqual(response.status_code, 409, response.text)
+        connection = open_database(self.db_file)
+        try:
+            self.assertIsNone(Repo(connection).get_task(task_id)["discarded_at"])
+        finally:
+            connection.close()
 
 
     def test_password_change_revokes_other_sessions(self) -> None:

@@ -99,7 +99,9 @@ def rollback(
         raise AppError("CONFLICT_STALE", "任务已是初始状态，无法回退")
     previous = order[order.index(current) - 1]
     with repo.transaction():
-        repo.set_task_status(int(task_id), previous)
+        # 事务内按期望旧状态条件更新：预检后状态被并发推进时不覆盖，报 409
+        if not repo.update_task_status_if(int(task_id), previous, current):
+            raise AppError("CONFLICT_STALE", "任务状态已变化，请刷新后重试")
         audit_service.record(
             repo, actor_id=int(user.get("id") or 0), action="task.rollback", target_type="task",
             target_id=str(task_id), detail={"from": current, "to": previous},
@@ -220,7 +222,10 @@ def discard(
     if not task_rules.is_active(str(task["status"]), None):
         raise AppError("PAYLOAD_REJECTED", "已完成任务不能废弃")
     with repo.transaction():
-        repo.set_task_discarded(task_id, datetime.now(timezone.utc).isoformat())
+        if not repo.update_task_discarded_if(
+            task_id, datetime.now(timezone.utc).isoformat(), str(task["status"])
+        ):
+            raise AppError("CONFLICT_STALE", "任务状态已变化，请刷新后重试")
         audit_service.record(
             repo,
             actor_id=int(user.get("id") or 0),
@@ -241,7 +246,8 @@ def restore(
     if task.get("discarded_at") is None:
         return _item(task, date.today(), user)
     with repo.transaction():
-        repo.set_task_discarded(task_id, None)
+        if not repo.update_task_discarded_if(task_id, None, str(task["status"])):
+            raise AppError("CONFLICT_STALE", "任务状态已变化，请刷新后重试")
         audit_service.record(
             repo,
             actor_id=int(user.get("id") or 0),

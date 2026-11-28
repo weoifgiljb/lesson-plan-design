@@ -56,6 +56,23 @@ class TestNotificationsApi(unittest.TestCase):
         self.client.post("/api/v1/notifications/read-all", headers={"X-CSRF-Token": csrf})
         self.assertEqual(self.client.get("/api/v1/notifications?unreadOnly=true").json()["total"], 0)
 
+    def test_overdue_notification_uses_date_only_semantics(self) -> None:
+        # due_date 是纯日期串；"今天到期"不是逾期，与 task_rules.is_overdue 保持一致
+        from datetime import date, timedelta
+
+        today = date.today().isoformat()
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        self.repo.insert_task("信息技术", 2, 1, "今天到期", "25计算机1班", self.teacher, today)
+        self.repo.insert_task("信息技术", 3, 1, "昨天到期", "25计算机1班", self.teacher, yesterday)
+        done = self.repo.insert_task("信息技术", 4, 1, "已导出", "25计算机1班", self.teacher, yesterday)
+        self.repo.set_task_status(done, "exported")
+        self._login("teacher1")
+        items = self.client.get("/api/v1/notifications").json()["items"]
+        bodies = " ".join(item["body"] for item in items if item["kind"] == "task_overdue")
+        self.assertIn("昨天到期", bodies)
+        self.assertNotIn("今天到期", bodies)
+        self.assertNotIn("已导出", bodies)
+
     def test_notifications_are_private(self) -> None:
         self._login("teacher2")
         self.assertEqual(self.client.get("/api/v1/notifications").json()["total"], 0)

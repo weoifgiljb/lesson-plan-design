@@ -2,7 +2,7 @@
 """BS-13 站内通知：审查修复、任务逾期、导出完成、报告过期。"""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date
 from typing import Any
 
 from app.adapters.db.repo import Repo
@@ -61,8 +61,10 @@ def notify_import(
 
 
 def notify_overdue(repo: Repo, user: dict[str, Any]) -> None:
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    for task in repo.list_overdue_tasks(int(user["id"]), now):
+    # due_date 存的是纯日期串；用带时刻的 ISO 串比较会把"今天到期"误判为逾期，
+    # 与 task_rules.is_overdue（严格早于今天才算逾期）保持一致。
+    today = date.today().isoformat()
+    for task in repo.list_overdue_tasks(int(user["id"]), today):
         notify(
             repo,
             int(user["id"]),

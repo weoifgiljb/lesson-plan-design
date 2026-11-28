@@ -424,6 +424,14 @@ class Repo:
     def set_task_status(self, task_id: int, status: str) -> None:
         self.conn.execute("UPDATE task SET status = ? WHERE id = ?", (status, int(task_id)))
 
+    def update_task_status_if(self, task_id: int, status: str, expected: str) -> bool:
+        """按期望旧状态条件更新：并发下状态已被推进时不覆盖（返回 False 由调用方报 409）。"""
+        cursor = self.conn.execute(
+            "UPDATE task SET status = ? WHERE id = ? AND status = ?",
+            (status, int(task_id), expected),
+        )
+        return bool(cursor.rowcount)
+
     def find_task(
         self, course: str, week: int, session: int, class_name: str, title: str = ""
     ) -> dict[str, Any] | None:
@@ -554,6 +562,23 @@ class Repo:
             "UPDATE task SET discarded_at = ?, board_version = board_version + 1 WHERE id = ?",
             (discarded_at, int(task_id)),
         )
+        return bool(cursor.rowcount)
+
+    def update_task_discarded_if(
+        self, task_id: int, discarded_at: str | None, expected_status: str
+    ) -> bool:
+        """按期望状态条件写废弃/恢复：并发推进后不覆盖，返回 False 由调用方报 409。"""
+        if discarded_at is not None:
+            sql = (
+                "UPDATE task SET discarded_at = ?, board_version = board_version + 1"
+                " WHERE id = ? AND status = ? AND discarded_at IS NULL"
+            )
+        else:
+            sql = (
+                "UPDATE task SET discarded_at = ?, board_version = board_version + 1"
+                " WHERE id = ? AND status = ? AND discarded_at IS NOT NULL"
+            )
+        cursor = self.conn.execute(sql, (discarded_at, int(task_id), expected_status))
         return bool(cursor.rowcount)
 
     def attach_task_for_plan(
@@ -1126,12 +1151,14 @@ class Repo:
         )
         return bool(cursor.rowcount)
 
-    def list_overdue_tasks(self, owner_id: int, now: str) -> list[dict[str, Any]]:
+    def list_overdue_tasks(self, owner_id: int, today: str) -> list[dict[str, Any]]:
+        # due_date 是纯日期串（YYYY-MM-DD）；按前 10 位比较，避免"今天到期"被判逾期
         rows = self.conn.execute(
             "SELECT id, title, due_date FROM task"
             " WHERE owner_id = ? AND due_date IS NOT NULL AND due_date <> ''"
-            " AND due_date < ? AND status <> 'exported' ORDER BY due_date",
-            (owner_id, now),
+            " AND substr(due_date, 1, 10) < substr(?, 1, 10) AND status <> 'exported'"
+            " ORDER BY due_date",
+            (owner_id, today),
         ).fetchall()
         return [dict(row) for row in rows]
 
@@ -1237,36 +1264,6 @@ class Repo:
             "UPDATE deletion_request SET status = ?, resolved_at = ?, resolver_id = ?"
             " WHERE id = ? AND status = 'pending'",
             (status, clock.now_iso(), resolver_id, request_id),
-        )
-        return bool(cursor.rowcount)
-
-    def revert_deletion_request(self, request_id: int, resolver_id: int) -> bool:
-        """删除失败时把“本次抢占”的申请放回 pending：只回滚自己的 approved 抢占。"""
-        cursor = self.conn.execute(
-            "UPDATE deletion_request SET status = 'pending', resolved_at = NULL, resolver_id = NULL"
-            " WHERE id = ? AND status = 'approved' AND resolver_id = ?",
-            (int(request_id), int(resolver_id)),
-        )
-        return bool(cursor.rowcount)
-
-    def try_revert_deletion_request(self, request_id: int, resolver_id: int) -> bool:
-        """兜底回滚：数据库忙时只记日志，不覆盖调用方正在上抛的原始异常。"""
-        try:
-            return self.revert_deletion_request(request_id, resolver_id)
-        except sqlite3.Error as exc:
-            logger.warning(
-                "revert deletion request %s failed: %s", request_id, type(exc).__name__
-            )
-            return False
-
-    def reclaim_stale_deletion_request(
-        self, request_id: int, resolver_id: int, status: str, stale_before: str
-    ) -> bool:
-        """崩溃遗留的 approved 申请：用 CAS 把抢占时间刷新到本次操作，只有一个重试赢家。"""
-        cursor = self.conn.execute(
-            "UPDATE deletion_request SET status = ?, resolved_at = ?, resolver_id = ?"
-            " WHERE id = ? AND status = 'approved' AND resolved_at < ?",
-            (status, clock.now_iso(), resolver_id, int(request_id), stale_before),
         )
         return bool(cursor.rowcount)
 
