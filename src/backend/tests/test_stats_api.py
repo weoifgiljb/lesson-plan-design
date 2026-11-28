@@ -284,6 +284,20 @@ class TestStatsApi(unittest.TestCase):
         self.assertTrue(dirty[0]["unreadable"])
         self.assertFalse(dirty[0]["structureOk"])
 
+        # 另一种脏形态：report_json 合法但 findings[].severity 被改坏成 list：
+        # open_blocking 的 `in {"blocker","major"}` 不能因此抛 TypeError
+        plan_bad, version_bad = self._plan(self.teacher1, "坏字段课", content="{}", plan_hash="hash-坏字段")
+        self._review(version_bad, "passed", plan_hash="hash-坏字段")
+        broken_report = make_report("hash-坏字段", status="passed")
+        broken_report["findings"] = [{"id": "X-1", "severity": [], "status": "open"}]
+        self.repo.conn.execute(
+            "UPDATE review SET report_json = ? WHERE plan_version_id = ?",
+            (json.dumps(broken_report, ensure_ascii=False), version_bad),
+        )
+        again = self.client.get("/api/v1/stats/summary")
+        self.assertEqual(again.status_code, 200, again.text)
+        self.assertEqual(self.client.get("/api/v1/stats/records").status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

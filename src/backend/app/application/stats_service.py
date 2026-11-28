@@ -125,6 +125,8 @@ def _record(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, Any
             for item in report.get("findings") or []
             if isinstance(item, dict)
             and item.get("status") == "open"
+            # severity 可能被手工改坏成 list/dict：先判字符串，避免 `in set` 抛 TypeError
+            and isinstance(item.get("severity"), str)
             and item.get("severity") in {"blocker", "major"}
         )
     return {

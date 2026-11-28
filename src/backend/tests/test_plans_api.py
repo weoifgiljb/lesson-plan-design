@@ -288,6 +288,43 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(actions.count("plan.delete"), 1)
         self.assertEqual(actions.count("plan.delete.approved"), 1)
 
+    def test_stale_approved_request_can_retry_delete(self) -> None:
+        # 进程在"抢占成功、删教案前"被强杀会留下 approved+教案仍在；超过阈值后应可重试收敛
+        request_id = self.repo.create_deletion_request(
+            self.plan1, self.teacher1, "崩溃遗留", "2099-01-01T00:00:00+00:00"
+        )
+        self.connection.execute(
+            "UPDATE deletion_request SET status = 'approved', resolved_at = ?, resolver_id = ? WHERE id = ?",
+            ("2020-01-01T00:00:00+00:00", self.admin, request_id),
+        )
+        admin = {"id": self.admin, "role": "admin"}
+        payload = deletion_service.resolve_request(self.repo, admin, request_id, True)
+        self.assertEqual(payload["status"], "approved")
+        deleted_at = self.connection.execute(
+            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan1,)
+        ).fetchone()["deleted_at"]
+        self.assertIsNotNone(deleted_at)
+        actions = [row["action"] for row in self.repo.list_audit(200)]
+        self.assertEqual(actions.count("plan.delete"), 1)
+
+    def test_freshly_approved_request_is_not_retried(self) -> None:
+        # 并发场景：赢家刚抢占、教案未删时，输家必须 409，不能跟着再删/再审计
+        request_id = self.repo.create_deletion_request(
+            self.plan2, self.teacher2, "并发抢占", "2099-01-01T00:00:00+00:00"
+        )
+        self.connection.execute(
+            "UPDATE deletion_request SET status = 'approved', resolved_at = ?, resolver_id = ? WHERE id = ?",
+            ("2099-01-01T00:00:00+00:00", self.admin, request_id),
+        )
+        admin = {"id": self.admin, "role": "admin"}
+        with self.assertRaises(AppError) as caught:
+            deletion_service.resolve_request(self.repo, admin, request_id, True)
+        self.assertEqual(caught.exception.code, "CONFLICT_STALE")
+        deleted_at = self.connection.execute(
+            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan2,)
+        ).fetchone()["deleted_at"]
+        self.assertIsNone(deleted_at)
+
     def test_losing_claim_does_not_delete_plan(self) -> None:
         # 抢占失败（已被别人处理）时绝不能先删教案再报 409：否则会留下"教案已删、申请未决"的状态
         request_id = self.repo.create_deletion_request(
