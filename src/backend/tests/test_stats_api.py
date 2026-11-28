@@ -266,5 +266,24 @@ class TestStatsApi(unittest.TestCase):
         self.assertIn("structure_rate", response.text)
 
 
+    def test_dirty_json_rows_never_return_500(self) -> None:
+        # 库里可能残留手工改坏/迁移失败的行：统计接口必须降级而不是整页 500
+        plan_id, version_id = self._plan(self.teacher1, "脏数据课", content="not-json", plan_hash="hash-脏")
+        self._review(version_id, "passed", plan_hash="hash-脏")
+        self.repo.conn.execute(
+            "UPDATE review SET report_json = 'bad-json' WHERE plan_version_id = ?", (version_id,)
+        )
+        self._login("admin1")
+        summary = self.client.get("/api/v1/stats/summary")
+        self.assertEqual(summary.status_code, 200, summary.text)
+        self.assertEqual(summary.json()["unreadableRows"], 1)
+        records = self.client.get("/api/v1/stats/records")
+        self.assertEqual(records.status_code, 200, records.text)
+        dirty = [item for item in records.json()["items"] if item["planId"] == plan_id]
+        self.assertEqual(len(dirty), 1)
+        self.assertTrue(dirty[0]["unreadable"])
+        self.assertFalse(dirty[0]["structureOk"])
+
+
 if __name__ == "__main__":
     unittest.main()

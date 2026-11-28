@@ -935,6 +935,16 @@ class Repo:
             return None
         return data if isinstance(data, dict) else None
 
+    def parse_plan_content(self, text: Any) -> dict[str, Any] | None:
+        """解析 plan_version.content_json：坏数据返回 None，统计/展示不因脏行 500。"""
+        if not isinstance(text, str) or not text:
+            return None
+        try:
+            data = json.loads(text)
+        except (TypeError, ValueError):
+            return None
+        return data if isinstance(data, dict) else None
+
     def plan_rounds(self, plan_id: int) -> list[int]:
         rows = self.conn.execute(
             "SELECT rv.round FROM review rv JOIN plan_version pv ON pv.id = rv.plan_version_id"
