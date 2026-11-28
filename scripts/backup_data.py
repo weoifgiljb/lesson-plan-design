@@ -28,6 +28,7 @@ FORMAT_VERSION = 1
 APP_VERSION = "dev"
 EXPORT_SUBDIRS = ("files", "exports")
 LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{0,40}$")
+LABEL_PROBLEM = "备份标签只能包含字母数字和 ._-（1–40 位，且不能以点结尾）"
 
 
 def sha256_file(path: Path) -> str:
@@ -91,9 +92,9 @@ def create_snapshot(
     data_dir = Path(data_dir).resolve()
     backup_dir = Path(backup_dir).resolve()
     label = label.strip()
-    # label 会拼进快照目录名：直接拒绝斜杠/点段，避免 CLI 传 ../../ 写到备份根之外
-    if label and (label in {".", ".."} or not LABEL_RE.fullmatch(label)):
-        raise ValueError("备份标签只能包含字母数字和 ._-")
+    # label 会拼进快照目录名：拒绝斜杠/点段/末尾点（Win32 会剥掉末尾点，导致目录名与返回值不一致）
+    if label and (label.endswith(".") or not LABEL_RE.fullmatch(label)):
+        raise ValueError(LABEL_PROBLEM)
     database = data_dir / "app.db"
     if not database.is_file():
         raise FileNotFoundError(f"数据库不存在：{database}")
@@ -188,7 +189,7 @@ def main() -> int:
             include_exports=not args.no_exports,
             make_zip=args.zip,
         )
-    except (FileNotFoundError, RuntimeError, OSError) as exc:
+    except (FileNotFoundError, RuntimeError, OSError, ValueError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 3
     if args.json:

@@ -135,18 +135,18 @@ def _perform_export(
         data = storage.export_path(job_id).read_bytes()
         digest = storage.sha256_bytes(data)
         updated = _commit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
-        if not updated:
-            storage.export_path(job_id).unlink(missing_ok=True)
-            repo.update_export_job(job_id, "failed")
+        if updated:
             finished = True
-            existing = repo.find_export_job(version_id, engine_version, report_sha)
-            if existing is not None:
-                return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
-            return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
-        # 统一 DTO：新建成功项与复用项、详情返回同一形状
-        item = _job_payload(repo.get_export_job(job_id))
+            # 构造 DTO 放在提交成功之后；若它抛错，finally 不会再改 job 状态
+            return _job_payload(repo.get_export_job(job_id)), True, False
+        # 并发冲突：本次没抢到 job，清掉自己写的产物并复用已有成功记录
+        storage.export_path(job_id).unlink(missing_ok=True)
+        repo.update_export_job(job_id, "failed")
         finished = True
-        return item, True, False
+        existing = repo.find_export_job(version_id, engine_version, report_sha)
+        if existing is not None:
+            return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
+        return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
     finally:
         if not finished:
             repo.update_export_job(job_id, "failed")

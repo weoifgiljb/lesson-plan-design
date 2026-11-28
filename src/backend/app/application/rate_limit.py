@@ -42,12 +42,15 @@ def _register(key: str, limit: int, window_seconds: float, current: float) -> bo
 
 
 def _prune(current: float, window_seconds: float) -> None:
-    """在持锁状态下调用：先清过期/空 key，仍达上限时淘汰最久未命中的 key。"""
+    """在持锁状态下调用：先清过期 key，仍达上限时按插入序淘汰最旧 key（O(1)）。
+
+    取舍：不做"最久未命中"的精确淘汰——那需要在锁内全表扫描，而触发场景恰好是
+    匿名来源刷 key 的攻击流量；这里只要内存有界即可。
+    """
     for key in [k for k, hits in _HITS.items() if not hits or current - hits[-1] > window_seconds]:
         _HITS.pop(key, None)
-    while len(_HITS) >= MAX_KEYS:
-        oldest = min(_HITS, key=lambda k: _HITS[k][-1] if _HITS[k] else current)
-        _HITS.pop(oldest, None)
+    while len(_HITS) >= MAX_KEYS and _HITS:
+        _HITS.pop(next(iter(_HITS)))
 
 
 def reset() -> None:

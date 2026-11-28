@@ -5030,6 +5030,11 @@
             ],
             "title": "Openblocking"
           },
+          "unreadable": {
+            "type": "boolean",
+            "title": "Unreadable",
+            "default": false
+          },
           "createdAt": {
             "anyOf": [
               {
@@ -5115,6 +5120,11 @@
             "type": "object",
             "title": "Reviewmodecounts",
             "default": {}
+          },
+          "unreadableRows": {
+            "type": "integer",
+            "title": "Unreadablerows",
+            "default": 0
           },
           "filters": {
             "additionalProperties": true,

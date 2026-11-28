@@ -603,12 +603,17 @@ class Repo:
         return None
 
     def _plan_bound_elsewhere(self, plan_id: int, task_id: int) -> bool:
-        """plan 已绑定过任务：绑定的是同一个任务才允许继续推进状态。
+        """plan 已绑定过任务时，是否不能再用 task_id 推进状态。
 
-        否则改传另一个任务 ID 就能把别人的任务"顶"成 passed/exported（越权推进）。
+        True 的三种情况：plan 行不存在（并发删除）、task_id 为空（防御性）、
+        或已绑定的是另一个任务（改传别人的 taskId 想"顶"状态）。
         """
         bound = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
-        return bound is None or bound["task_id"] is None or int(bound["task_id"]) != int(task_id)
+        if bound is None:
+            return True
+        if bound["task_id"] is None:
+            return True
+        return int(bound["task_id"]) != int(task_id)
 
     def task_for_plan(self, plan_id: int) -> dict[str, Any] | None:
         row = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
@@ -932,8 +937,8 @@ class Repo:
         sql = " ".join((self.REVIEW_SELECT, "WHERE rv.id = ?"))
         return _row(self.conn.execute(sql, (review_id,)).fetchone())
 
-    def parse_report(self, text: Any) -> dict[str, Any] | None:
-        """解析 report_json：坏数据返回 None，让调用方标红而不是整页 500。"""
+    @staticmethod
+    def _parse_json_object(text: Any) -> dict[str, Any] | None:
         if not isinstance(text, str) or not text:
             return None
         try:
@@ -942,15 +947,13 @@ class Repo:
             return None
         return data if isinstance(data, dict) else None
 
+    def parse_report(self, text: Any) -> dict[str, Any] | None:
+        """解析 report_json：坏数据返回 None，让调用方标红而不是整页 500。"""
+        return self._parse_json_object(text)
+
     def parse_plan_content(self, text: Any) -> dict[str, Any] | None:
         """解析 plan_version.content_json：坏数据返回 None，统计/展示不因脏行 500。"""
-        if not isinstance(text, str) or not text:
-            return None
-        try:
-            data = json.loads(text)
-        except (TypeError, ValueError):
-            return None
-        return data if isinstance(data, dict) else None
+        return self._parse_json_object(text)
 
     def plan_rounds(self, plan_id: int) -> list[int]:
         rows = self.conn.execute(

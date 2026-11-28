@@ -89,14 +89,20 @@ class TestIngestNegative(unittest.TestCase):
     def test_non_string_enum_fields_are_rejected(self) -> None:
         # 契约包字段来自不可信输入：list/dict 不能因 `in set` 抛 TypeError 打穿成 500
         plan = self._base_plan()
-        for field, value in (("status", []), ("independence", {"x": 1})):
+        cases = (
+            ("status", [], "REPORT_INCONSISTENT"),
+            ("independence", {"x": 1}, "REPORT_INCONSISTENT"),
+            # 非字符串 rubricVersion 不能因 `in set` 抛 TypeError 打穿成 500
+            ("rubricVersion", [], "SCHEMA_UNSUPPORTED"),
+        )
+        for field, value, expected in cases:
             with self.subTest(field=field):
                 report = plugin_report(plan)
                 report[field] = value
                 files = build_package(plan, report=report)
                 with self.assertRaises(AppError) as caught:
                     self._import(files)
-                self.assertEqual(caught.exception.code, "REPORT_INCONSISTENT")
+                self.assertEqual(caught.exception.code, expected)
                 self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM plan_version").fetchone()[0], 0)
 
         severity = report_rules._check_findings(

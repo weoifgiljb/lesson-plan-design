@@ -15,8 +15,6 @@ from app.domain.errors import AppError
 
 ROOT = Path(__file__).resolve().parents[4]
 NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
-#: 备份标签会拼进目录名（`<时间戳>-<label>`），必须挡住斜杠/点段/中文与控制字符
-LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{0,40}$")
 _modules: dict[str, Any] = {}
 
 
@@ -90,14 +88,14 @@ def list_snapshots() -> dict[str, Any]:
 
 
 def create(label: str) -> dict[str, Any]:
-    text = label.strip()
-    if text and (text in {".", ".."} or not LABEL_RE.fullmatch(text)):
-        raise AppError("PAYLOAD_REJECTED", "备份标签只能包含字母数字和 ._-")
     module = _load("backup_data")
     try:
-        result = module.create_snapshot(data_dir(), backup_dir(), label=text or "manual", make_zip=True)
+        # 标签白名单只在 scripts/backup_data.py 维护一份；这里只做错误码翻译
+        result = module.create_snapshot(data_dir(), backup_dir(), label=label.strip() or "manual", make_zip=True)
     except FileNotFoundError as exc:
         raise AppError("DATA_MISSING", "数据目录缺少 app.db") from exc
+    except ValueError as exc:
+        raise AppError("PAYLOAD_REJECTED", str(exc) or "备份标签非法") from exc
     except Exception as exc:  # noqa: BLE001 - 适配层把脚本异常翻译为错误码
         raise AppError("BACKUP_INVALID", f"备份失败：{type(exc).__name__}") from exc
     return {"name": Path(str(result["path"])).name, "path": result["path"], "zip": result.get("zip")}

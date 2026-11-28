@@ -77,7 +77,7 @@ class TestBackupsApi(unittest.TestCase):
 
     def test_bad_label_is_rejected_and_writes_nothing(self) -> None:
         csrf = self._login("admin1")
-        for label in ("../../evil", "a/b", "中文标签", "a b", "x" * 41, ".."):
+        for label in ("../../evil", "a/b", "中文标签", "a b", "x" * 41, "..", "v1.", "..."):
             with self.subTest(label=label):
                 response = self.client.post(
                     "/api/v1/admin/backups", json={"label": label}, headers={"X-CSRF-Token": csrf}

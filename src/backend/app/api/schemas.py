@@ -376,6 +376,8 @@ class StatsSummaryOut(BaseModel):
     reviewStatusCounts: dict[str, int] = {}
     # 审校方式分列（FR-06）：独立子代理 / 角色模拟 / 人工
     reviewModeCounts: dict[str, int] = {}
+    # 脏数据行数（content_json/report_json 解析失败）：指标会跳过其内容，但计数要可见
+    unreadableRows: int = 0
     filters: dict[str, Any] = {}
     scope: str = "own"
 
@@ -395,6 +397,8 @@ class StatRecordOut(BaseModel):
     structureOk: bool | None = None
     evidenceOk: bool | None = None
     openBlocking: int | None = None
+    # content_json/report_json 解析失败的记录：结构/证据指标按"未通过"处理
+    unreadable: bool = False
     createdAt: str | None = None
 
 
