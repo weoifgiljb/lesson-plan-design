@@ -134,28 +134,7 @@ def _perform_export(
             return item
         data = storage.export_path(job_id).read_bytes()
         digest = storage.sha256_bytes(data)
-        with repo.transaction():
-            updated = repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
-            if updated:
-                _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
-                notification_service.notify(
-                    repo, int(user.get("id") or 0), "export_done",
-                    f"教案《{row.get('content_title') or row.get('plan_id')}》已导出，可在导出中心下载。",
-                    target_type="export", target_id=str(job_id),
-                )
-                # 任务状态随导出推进到 exported（BS-10 状态机）
-                task_id = repo.mark_task_exported(int(row["plan_id"]))
-                if task_id is not None:
-                    audit_service.record(
-                        repo,
-                        actor_id=int(user.get("id") or 0),
-                        action="task.status",
-                        target_type="task",
-                        target_id=str(task_id),
-                        detail={"status": "exported", "planId": int(row["plan_id"])},
-                        ip=ip,
-                        trace_id=trace_id,
-                    )
+        updated = _commit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
         if not updated:
             storage.export_path(job_id).unlink(missing_ok=True)
             repo.update_export_job(job_id, "failed")
@@ -172,6 +151,37 @@ def _perform_export(
         if not finished:
             repo.update_export_job(job_id, "failed")
             storage.export_path(job_id).unlink(missing_ok=True)
+
+
+def _commit_success(
+    repo: Repo, user: dict[str, Any], row: dict[str, Any], job_id: int,
+    digest: str, report_sha: str, engine_version: str, ip: str, trace_id: str,
+) -> bool:
+    """一个事务里落"导出成功 + 审计 + 通知 + 任务推进"；任一步抛错整体回滚。"""
+    with repo.transaction():
+        updated = repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
+        if not updated:
+            return False
+        _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
+        notification_service.notify(
+            repo, int(user.get("id") or 0), "export_done",
+            f"教案《{row.get('content_title') or row.get('plan_id')}》已导出，可在导出中心下载。",
+            target_type="export", target_id=str(job_id),
+        )
+        # 任务状态随导出推进到 exported（BS-10 状态机）
+        task_id = repo.mark_task_exported(int(row["plan_id"]))
+        if task_id is not None:
+            audit_service.record(
+                repo,
+                actor_id=int(user.get("id") or 0),
+                action="task.status",
+                target_type="task",
+                target_id=str(task_id),
+                detail={"status": "exported", "planId": int(row["plan_id"])},
+                ip=ip,
+                trace_id=trace_id,
+            )
+    return True
 
 
 def _fail_job(

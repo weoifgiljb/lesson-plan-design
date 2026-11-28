@@ -79,6 +79,30 @@ def list_requests(repo: Repo, user: dict[str, Any], status: str | None = None) -
     return {"items": items, "total": len(items)}
 
 
+def _claim_request(repo: Repo, request_id: int, resolver_id: int, status: str) -> None:
+    if not repo.resolve_deletion_request(request_id, resolver_id, status):
+        raise AppError("CONFLICT_STALE", "删除申请已被处理")
+
+
+def _delete_plan_with_rollback(
+    repo: Repo,
+    user: dict[str, Any],
+    request_id: int,
+    plan_id: int,
+    *,
+    ip: str = "",
+    trace_id: str = "",
+) -> None:
+    """删除失败时把已抢占的申请放回 pending，让管理员可重试；异常继续上抛（不吞错）。"""
+    deleted = False
+    try:
+        plan_service.delete_plan(repo, user, plan_id, ip=ip, trace_id=trace_id)
+        deleted = True
+    finally:
+        if not deleted:
+            repo.revert_deletion_request(request_id)
+
+
 def resolve_request(
     repo: Repo,
     user: dict[str, Any],
@@ -99,17 +123,9 @@ def resolve_request(
     status = "approved" if approve else "rejected"
     # 先原子抢占申请，再删教案：并发审批只允许一个赢家，避免双方都执行删除/重复审计。
     # （delete_plan 自带事务，不能和抢占合并进一个事务——repo.transaction 不支持嵌套。）
-    if not repo.resolve_deletion_request(request_id, int(user["id"]), status):
-        raise AppError("CONFLICT_STALE", "删除申请已被处理")
+    _claim_request(repo, request_id, int(user["id"]), status)
     if approve:
-        deleted = False
-        try:
-            plan_service.delete_plan(repo, user, plan_id, ip=ip, trace_id=trace_id)
-            deleted = True
-        finally:
-            if not deleted:
-                # 删除异常：申请放回 pending 让管理员重试，异常继续上抛（不吞错）
-                repo.revert_deletion_request(request_id)
+        _delete_plan_with_rollback(repo, user, request_id, plan_id, ip=ip, trace_id=trace_id)
     audit_service.record(
         repo,
         actor_id=int(user["id"]),

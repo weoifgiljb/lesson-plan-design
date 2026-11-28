@@ -24,16 +24,20 @@ def allow(key: str, limit: int, window_seconds: float = 3600.0, *, now: float | 
         return True
     current = time.time() if now is None else now
     with _LOCK:
-        hits = _HITS.get(key)
-        if hits is None:
-            if len(_HITS) >= MAX_KEYS:
-                _prune(current, window_seconds)
-            hits = _HITS.setdefault(key, deque())
-        while hits and current - hits[0] > window_seconds:
-            hits.popleft()
-        if len(hits) >= limit:
-            return False
-        hits.append(current)
+        return _register(key, limit, window_seconds, current)
+
+
+def _register(key: str, limit: int, window_seconds: float, current: float) -> bool:
+    hits = _HITS.get(key)
+    if hits is None:
+        if len(_HITS) >= MAX_KEYS:
+            _prune(current, window_seconds)
+        hits = _HITS.setdefault(key, deque())
+    while hits and current - hits[0] > window_seconds:
+        hits.popleft()
+    if len(hits) >= limit:
+        return False
+    hits.append(current)
     return True
 
 

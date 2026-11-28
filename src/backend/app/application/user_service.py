@@ -85,13 +85,8 @@ def change_password(
     with repo.transaction():
         repo.set_password(int(user["id"]), security.hash_password(new_password))
         repo.set_must_change_password(int(user["id"]), False)
-        if session_id is not None:
-            # 改密后其他设备的会话一律失效，避免口令泄露后旧 Cookie 继续可用（R3-F7）
-            repo.revoke_other_sessions(int(user["id"]), int(session_id))
-        elif revoke_all:
-            # JWT 通道没有"当前会话"：撤销该账号全部 Cookie 会话（keep=0 即不保留），
-            # 否则同一账号用令牌改密后，旧浏览器会话依然有效。
-            repo.revoke_other_sessions(int(user["id"]), 0)
+        if session_id is not None or revoke_all:
+            _revoke_sessions(repo, int(user["id"]), session_id, revoke_all)
         audit_service.record(
             repo,
             actor_id=int(user.get("id") or 0),
@@ -102,6 +97,18 @@ def change_password(
             ip=ip,
             trace_id=trace_id,
         )
+
+
+def _revoke_sessions(repo: Repo, user_id: int, session_id: int | None, revoke_all: bool) -> None:
+    """改密后让旧会话失效：Cookie 通道保留当前会话，JWT 通道（无会话）全部撤销。
+
+    口令泄露后旧 Cookie 不能继续可用（R3-F7）；JWT 通道传 keep=0 表示不保留任何会话，
+    否则同一账号用令牌改密后，旧浏览器会话依然有效。
+    """
+    if session_id is not None:
+        repo.revoke_other_sessions(user_id, int(session_id))
+    elif revoke_all:
+        repo.revoke_other_sessions(user_id, 0)
 
 
 def create_user(

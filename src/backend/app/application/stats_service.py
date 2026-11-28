@@ -69,28 +69,10 @@ def records(
     total = len(rows)
     window_rows = rows[offset : offset + actual_size]
     rounds = repo.stats_rounds(sorted({int(row["plan_id"]) for row in window_rows}))
-    items = []
-    for row in window_rows:
-        detail = _record(repo, row, rounds.get(int(row["plan_id"]), []))
-        items.append(
-            {
-                "planId": int(row["plan_id"]),
-                "reviewId": int(row["review_id"]) if row.get("review_id") is not None else None,
-                # 前端"课题"列绑定 contentTitle：service 必须产出，否则模型默认 null 让整列空白
-                "contentTitle": row.get("content_title") or "",
-                "course": row.get("course") or "",
-                "week": int(row.get("week") or 0),
-                "session": int(row.get("session") or 0),
-                "teacher": row.get("teacher") or "",
-                "versionNo": int(row.get("version_no") or 0),
-                "reviewStatus": row.get("review_status") or "",
-                "structureOk": bool(detail["structure_ok"]),
-                "evidenceOk": bool(detail["evidence_ok"]),
-                "openBlocking": int(detail["open_blocking"]),
-                "unreadable": bool(detail["unreadable"]),
-                "createdAt": row.get("plan_created_at"),
-            }
-        )
+    items = [
+        _record_item(row, _record(repo, row, rounds.get(int(row["plan_id"]), [])))
+        for row in window_rows
+    ]
     return {
         "items": items,
         "page": actual_page,
@@ -98,6 +80,26 @@ def records(
         "total": total,
         "filters": _filters_payload(raw_filters),
         "scope": _scope_name(str(user.get("role") or "")),
+    }
+
+
+def _record_item(row: dict[str, Any], detail: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "planId": int(row["plan_id"]),
+        "reviewId": int(row["review_id"]) if row.get("review_id") is not None else None,
+        # 前端"课题"列绑定 contentTitle：service 必须产出，否则模型默认 null 让整列空白
+        "contentTitle": row.get("content_title") or "",
+        "course": row.get("course") or "",
+        "week": int(row.get("week") or 0),
+        "session": int(row.get("session") or 0),
+        "teacher": row.get("teacher") or "",
+        "versionNo": int(row.get("version_no") or 0),
+        "reviewStatus": row.get("review_status") or "",
+        "structureOk": bool(detail["structure_ok"]),
+        "evidenceOk": bool(detail["evidence_ok"]),
+        "openBlocking": int(detail["open_blocking"]),
+        "unreadable": bool(detail["unreadable"]),
+        "createdAt": row.get("plan_created_at"),
     }
 
 

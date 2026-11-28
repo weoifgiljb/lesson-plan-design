@@ -592,16 +592,23 @@ class Repo:
                 return None
             task = dict(rows[0])
         cursor = self.conn.execute("UPDATE plan SET task_id = ? WHERE id = ? AND task_id IS NULL", (task["id"], plan_id))
-        if cursor.rowcount == 0:
-            # plan 已绑定过任务：只有绑定的是同一个任务才允许继续推进状态。
-            # 否则改传另一个任务 ID 就能把别人的任务"顶"成 passed/exported（越权推进）。
-            bound = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
-            if bound is None or bound["task_id"] is None or int(bound["task_id"]) != int(task["id"]):
-                return None
+        if cursor.rowcount == 0 and self._plan_bound_elsewhere(plan_id, int(task["id"])):
+            return None
+        return self._advance_task_status(task, status)
+
+    def _advance_task_status(self, task: dict[str, Any], status: str) -> int | None:
         if task_rules.TASK_RANK.get(status, 0) > task_rules.TASK_RANK.get(str(task["status"]), 0):
             self.conn.execute("UPDATE task SET status = ? WHERE id = ?", (status, task["id"]))
             return int(task["id"])
         return None
+
+    def _plan_bound_elsewhere(self, plan_id: int, task_id: int) -> bool:
+        """plan 已绑定过任务：绑定的是同一个任务才允许继续推进状态。
+
+        否则改传另一个任务 ID 就能把别人的任务"顶"成 passed/exported（越权推进）。
+        """
+        bound = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
+        return bound is None or bound["task_id"] is None or int(bound["task_id"]) != int(task_id)
 
     def task_for_plan(self, plan_id: int) -> dict[str, Any] | None:
         row = self.conn.execute("SELECT task_id FROM plan WHERE id = ?", (plan_id,)).fetchone()
