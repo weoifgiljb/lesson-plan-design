@@ -306,6 +306,10 @@ class TestPlansApi(unittest.TestCase):
         self.assertIsNotNone(deleted_at)
         actions = [row["action"] for row in self.repo.list_audit(200)]
         self.assertEqual(actions.count("plan.delete"), 1)
+        # 重试成功后 resolved_at 已刷新：再次重试必须 409（幂等，不重复删除/审计）
+        with self.assertRaises(AppError) as caught:
+            deletion_service.resolve_request(self.repo, admin, request_id, True)
+        self.assertEqual(caught.exception.code, "CONFLICT_STALE")
 
     def test_freshly_approved_request_is_not_retried(self) -> None:
         # 并发场景：赢家刚抢占、教案未删时，输家必须 409，不能跟着再删/再审计

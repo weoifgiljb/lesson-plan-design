@@ -107,7 +107,10 @@ def _claim_request(
         return
     row = repo.get_deletion_request(request_id) or {}
     if _retryable_crash(repo, row, approve, plan_id):
-        return
+        # 崩溃遗留重试也必须走 CAS：否则并发重试各删一次、各写一条审计
+        stale_before = (datetime.now(timezone.utc) - timedelta(seconds=STALE_CLAIM_SECONDS)).isoformat()
+        if repo.reclaim_stale_deletion_request(request_id, resolver_id, status, stale_before):
+            return
     raise AppError("CONFLICT_STALE", "删除申请已被处理")
 
 

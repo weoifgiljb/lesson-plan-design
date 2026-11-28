@@ -27,8 +27,17 @@ DEFAULT_BACKUP = ROOT / "backups"
 FORMAT_VERSION = 1
 APP_VERSION = "dev"
 EXPORT_SUBDIRS = ("files", "exports")
-LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{0,40}$")
+LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
 LABEL_PROBLEM = "备份标签只能包含字母数字和 ._-（1–40 位，且不能以点结尾）"
+
+
+class LabelError(ValueError):
+    """备份标签不合法：适配层据此翻译为 422 PAYLOAD_REJECTED，其它 ValueError 仍是服务端失败。"""
+
+
+def zip_path_for(path: Path) -> Path:
+    """快照 zip 路径 = `<目录名>.zip`；不能用 with_suffix（label 里的点会被当后缀吃掉）。"""
+    return Path(path).parent / (Path(path).name + ".zip")
 
 
 def sha256_file(path: Path) -> str:
@@ -94,7 +103,7 @@ def create_snapshot(
     label = label.strip()
     # label 会拼进快照目录名：拒绝斜杠/点段/末尾点（Win32 会剥掉末尾点，导致目录名与返回值不一致）
     if label and (label.endswith(".") or not LABEL_RE.fullmatch(label)):
-        raise ValueError(LABEL_PROBLEM)
+        raise LabelError(LABEL_PROBLEM)
     database = data_dir / "app.db"
     if not database.is_file():
         raise FileNotFoundError(f"数据库不存在：{database}")
@@ -155,8 +164,7 @@ def create_snapshot(
         temporary.replace(target)
         payload: dict[str, object] = {"ok": True, "path": str(target), "manifest": manifest}
         if make_zip:
-            # 与 shutil.make_archive 同口径：`<目录名>.zip`；with_suffix 会吃掉 label 里的点
-            zip_path = target.parent / (target.name + ".zip")
+            zip_path = zip_path_for(target)
             with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                 for path in sorted(target.rglob("*")):
                     if path.is_file():

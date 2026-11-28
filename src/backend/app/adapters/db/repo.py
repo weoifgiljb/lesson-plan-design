@@ -1238,6 +1238,17 @@ class Repo:
             (int(request_id),),
         )
 
+    def reclaim_stale_deletion_request(
+        self, request_id: int, resolver_id: int, status: str, stale_before: str
+    ) -> bool:
+        """崩溃遗留的 approved 申请：用 CAS 把抢占时间刷新到本次操作，只有一个重试赢家。"""
+        cursor = self.conn.execute(
+            "UPDATE deletion_request SET status = ?, resolved_at = ?, resolver_id = ?"
+            " WHERE id = ? AND status = 'approved' AND resolved_at < ?",
+            (status, clock.now_iso(), resolver_id, int(request_id), stale_before),
+        )
+        return bool(cursor.rowcount)
+
     def _library_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["p.deleted_at IS NULL"]
         params: list[Any] = []

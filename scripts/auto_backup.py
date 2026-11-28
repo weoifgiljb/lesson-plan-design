@@ -12,7 +12,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from backup_data import create_snapshot, default_backup_dir  # noqa: E402
+from backup_data import create_snapshot, default_backup_dir, zip_path_for  # noqa: E402
 
 AUTO_PREFIX = "auto-"
 
@@ -55,7 +55,7 @@ def apply_retention(backup_dir: Path, keep: int = 7, weekly_keep: int = 4) -> li
         if path in protected:
             continue
         shutil.rmtree(path, ignore_errors=True)
-        path.with_suffix(".zip").unlink(missing_ok=True)
+        zip_path_for(path).unlink(missing_ok=True)
         removed.append(path.name)
     return removed
 

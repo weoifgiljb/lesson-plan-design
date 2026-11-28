@@ -57,8 +57,8 @@ def _manifest(path: Path) -> dict[str, Any]:
 
 def _zip_path(path: Path) -> Path:
     """`shutil.make_archive(<path>, "zip")` 的产物是 `<path>.zip`，不能用 with_suffix
-    （名称里的点，如 `v1.0`，会被当后缀吃掉）。"""
-    return path.parent / (path.name + ".zip")
+    （名称里的点，如 `v1.0`，会被当后缀吃掉）。命名规则只在 scripts/backup_data.py 维护一份。"""
+    return _load("backup_data").zip_path_for(path)
 
 
 def list_snapshots() -> dict[str, Any]:
@@ -94,8 +94,8 @@ def create(label: str) -> dict[str, Any]:
         result = module.create_snapshot(data_dir(), backup_dir(), label=label.strip() or "manual", make_zip=True)
     except FileNotFoundError as exc:
         raise AppError("DATA_MISSING", "数据目录缺少 app.db") from exc
-    except ValueError as exc:
-        raise AppError("PAYLOAD_REJECTED", str(exc) or "备份标签非法") from exc
+    except module.LabelError as exc:
+        raise AppError("PAYLOAD_REJECTED", str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 - 适配层把脚本异常翻译为错误码
         raise AppError("BACKUP_INVALID", f"备份失败：{type(exc).__name__}") from exc
     return {"name": Path(str(result["path"])).name, "path": result["path"], "zip": result.get("zip")}
