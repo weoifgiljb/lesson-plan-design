@@ -140,9 +140,11 @@ def _perform_export(
             finished = True
             # 构造 DTO 放在提交成功之后；若它抛错，finally 不会再改 job 状态
             return _job_payload(repo.get_export_job(job_id)), True, False
-        # 并发冲突：本次没抢到 job，清掉自己写的产物并复用已有成功记录
-        storage.export_path(job_id).unlink(missing_ok=True)
-        repo.update_export_job(job_id, "failed")
+        # 并发冲突：本次没抢到 job，清掉自己写的产物并复用已有成功记录（清理尽力而为）
+        with suppress(OSError):
+            storage.export_path(job_id).unlink(missing_ok=True)
+        with suppress(Exception):
+            repo.update_export_job(job_id, "failed")
         finished = True
         existing = repo.find_export_job(version_id, engine_version, report_sha)
         if existing is not None:

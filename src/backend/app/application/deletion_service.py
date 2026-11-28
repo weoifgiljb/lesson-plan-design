@@ -2,6 +2,7 @@
 """BS-11 教案删除申请：7 个工作日处理，批准后软删除并留审计。"""
 from __future__ import annotations
 
+import contextlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -100,7 +101,9 @@ def _delete_plan_with_rollback(
         deleted = True
     finally:
         if not deleted:
-            repo.revert_deletion_request(request_id)
+            # 回滚失败不能覆盖 delete_plan 的原始异常（否则 409/404 会被改写成 500）
+            with contextlib.suppress(Exception):
+                repo.revert_deletion_request(request_id)
 
 
 def resolve_request(
