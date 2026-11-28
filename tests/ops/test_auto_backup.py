@@ -46,9 +46,14 @@ class TestAutoBackup(unittest.TestCase):
         manual = _snapshot(self.root, "before-upgrade", now - timedelta(days=30), auto=False)
         # 管理员手填 auto- 标签的手动快照没有独占标记，不能被保留策略删除
         manual_auto = _snapshot(self.root, "auto-manual", now - timedelta(days=31), auto=False)
+        # 升级前遗留的自动快照没有标记，按名称模式兜底回收
+        legacy = _snapshot(
+            self.root, "20260101T000000Z-auto-20260101-000000", now - timedelta(days=32), auto=False
+        )
         removed = auto_backup.apply_retention(self.root, keep=3, weekly_keep=2)
         self.assertTrue(manual.is_dir())
         self.assertTrue(manual_auto.is_dir())
+        self.assertFalse(legacy.exists())
         self.assertTrue((self.root / "auto-00").is_dir())
         self.assertTrue((self.root / "auto-01").is_dir())
         self.assertTrue((self.root / "auto-02").is_dir())

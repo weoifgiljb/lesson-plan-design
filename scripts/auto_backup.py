@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -17,6 +18,8 @@ from backup_data import create_snapshot, default_backup_dir, zip_path_for  # noq
 AUTO_PREFIX = "auto-"
 #: 定时任务在快照目录里留的独占标记；管理员手填 `auto-` 标签的快照没有它，不参与清理
 AUTO_MARKER = ".auto-snapshot"
+#: 升级前遗留的自动快照没有标记，按"<UTC时间戳>-auto-<时间>"名称兜底识别（只用于回收旧残留）
+LEGACY_AUTO_RE = re.compile(r"-auto-\d{8}-\d{6}(?:-\d+)?$")
 
 
 def _manifest(path: Path) -> dict[str, Any] | None:
@@ -31,7 +34,11 @@ def auto_snapshots(backup_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
     if not backup_dir.is_dir():
         return items
     for path in backup_dir.iterdir():
-        if not path.is_dir() or not (path / AUTO_MARKER).is_file():
+        if not path.is_dir():
+            continue
+        marked = (path / AUTO_MARKER).is_file()
+        legacy = not marked and bool(LEGACY_AUTO_RE.search(path.name))
+        if not marked and not legacy:
             continue
         manifest = _manifest(path)
         if manifest is None:

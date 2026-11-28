@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import logging
 import sqlite3
 import threading
 import time
@@ -12,6 +13,8 @@ from typing import Any, Callable, Iterator
 from app.adapters import clock
 from app.domain import task_rules
 from app.domain.errors import AppError
+
+logger = logging.getLogger("lpp")
 
 
 def _row(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -294,6 +297,13 @@ class Repo:
         except sqlite3.IntegrityError:
             return False
         return True
+
+    def fail_export_job(self, job_id: int) -> None:
+        """兜底清理用：数据库忙/被锁时只记日志，不覆盖调用方正在上抛的原始异常。"""
+        try:
+            self.update_export_job(job_id, "failed")
+        except sqlite3.Error as exc:
+            logger.warning("mark export job %s failed: %s", job_id, type(exc).__name__)
 
     def get_export_job(self, job_id: int) -> dict[str, Any] | None:
         sql = " ".join(

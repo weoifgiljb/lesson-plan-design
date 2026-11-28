@@ -152,9 +152,9 @@ def _perform_export(
         return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
     finally:
         if not finished:
-            # 清理是尽力而为：清理动作自身失败不能覆盖 try 里的原始异常（否则根因 traceback 丢失）
-            with suppress(Exception):
-                repo.update_export_job(job_id, "failed")
+            # 清理是尽力而为：清理动作自身失败不能覆盖 try 里的原始异常（否则根因 traceback 丢失）；
+            # job 标记失败由 adapters 侧记录日志，保持可观测。
+            repo.fail_export_job(job_id)
             with suppress(OSError):
                 storage.export_path(job_id).unlink(missing_ok=True)
 
