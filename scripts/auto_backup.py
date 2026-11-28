@@ -15,6 +15,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from backup_data import create_snapshot, default_backup_dir, zip_path_for  # noqa: E402
 
 AUTO_PREFIX = "auto-"
+#: 定时任务在快照目录里留的独占标记；管理员手填 `auto-` 标签的快照没有它，不参与清理
+AUTO_MARKER = ".auto-snapshot"
 
 
 def _manifest(path: Path) -> dict[str, Any] | None:
@@ -29,11 +31,10 @@ def auto_snapshots(backup_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
     if not backup_dir.is_dir():
         return items
     for path in backup_dir.iterdir():
-        if not path.is_dir():
+        if not path.is_dir() or not (path / AUTO_MARKER).is_file():
             continue
         manifest = _manifest(path)
-        # 目录名是 `<UTC时间戳>-<label>`，不能用 startswith("auto-") 过滤；以 manifest 的 label 为准
-        if manifest is None or not str(manifest.get("label") or "").startswith(AUTO_PREFIX):
+        if manifest is None:
             continue
         items.append((path, manifest))
     return sorted(items, key=lambda item: str(item[1].get("createdAt") or ""), reverse=True)
@@ -65,6 +66,8 @@ def apply_retention(backup_dir: Path, keep: int = 7, weekly_keep: int = 4) -> li
 def run(data_dir: Path, backup_dir: Path, *, keep: int, weekly_keep: int, make_zip: bool) -> dict[str, Any]:
     label = AUTO_PREFIX + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     snapshot = create_snapshot(data_dir, backup_dir, label=label, make_zip=make_zip)
+    # 独占标记：只有定时任务创建的快照才允许被保留策略删除
+    (Path(snapshot["path"]) / AUTO_MARKER).write_text("auto\n", encoding="utf-8")
     removed = apply_retention(backup_dir, keep=keep, weekly_keep=weekly_keep)
     return {"ok": True, "snapshot": snapshot["path"], "label": label, "removed": removed}
 

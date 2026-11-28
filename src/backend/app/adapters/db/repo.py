@@ -1230,13 +1230,14 @@ class Repo:
         )
         return bool(cursor.rowcount)
 
-    def revert_deletion_request(self, request_id: int) -> None:
-        """删除失败时把已抢占的申请放回 pending：审批顺序是"先抢占、再删教案"。"""
-        self.conn.execute(
+    def revert_deletion_request(self, request_id: int, resolver_id: int) -> bool:
+        """删除失败时把“本次抢占”的申请放回 pending：只回滚自己的 approved 抢占。"""
+        cursor = self.conn.execute(
             "UPDATE deletion_request SET status = 'pending', resolved_at = NULL, resolver_id = NULL"
-            " WHERE id = ? AND status IN ('approved', 'rejected')",
-            (int(request_id),),
+            " WHERE id = ? AND status = 'approved' AND resolver_id = ?",
+            (int(request_id), int(resolver_id)),
         )
+        return bool(cursor.rowcount)
 
     def reclaim_stale_deletion_request(
         self, request_id: int, resolver_id: int, status: str, stale_before: str

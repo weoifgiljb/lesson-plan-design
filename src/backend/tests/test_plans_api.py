@@ -329,6 +329,26 @@ class TestPlansApi(unittest.TestCase):
         ).fetchone()["deleted_at"]
         self.assertIsNone(deleted_at)
 
+    def test_revert_only_affects_own_claim(self) -> None:
+        # 回滚必须限定"本次抢占"：别人刚抢下的 approved 申请不能被后来者的失败回滚抹掉
+        request_id = self.repo.create_deletion_request(
+            self.plan2, self.teacher2, "归属守卫", "2099-01-01T00:00:00+00:00"
+        )
+        self.connection.execute(
+            "UPDATE deletion_request SET status = 'approved', resolved_at = ?, resolver_id = ? WHERE id = ?",
+            ("2020-01-01T00:00:00+00:00", self.admin, request_id),
+        )
+        self.assertFalse(self.repo.revert_deletion_request(request_id, self.admin + 999))
+        status = self.connection.execute(
+            "SELECT status FROM deletion_request WHERE id = ?", (request_id,)
+        ).fetchone()["status"]
+        self.assertEqual(status, "approved")
+        self.assertTrue(self.repo.revert_deletion_request(request_id, self.admin))
+        status = self.connection.execute(
+            "SELECT status FROM deletion_request WHERE id = ?", (request_id,)
+        ).fetchone()["status"]
+        self.assertEqual(status, "pending")
+
     def test_losing_claim_does_not_delete_plan(self) -> None:
         # 抢占失败（已被别人处理）时绝不能先删教案再报 409：否则会留下"教案已删、申请未决"的状态
         request_id = self.repo.create_deletion_request(

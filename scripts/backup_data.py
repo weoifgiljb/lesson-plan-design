@@ -197,7 +197,7 @@ def main() -> int:
             include_exports=not args.no_exports,
             make_zip=args.zip,
         )
-    except (FileNotFoundError, RuntimeError, OSError, ValueError) as exc:
+    except (OSError, RuntimeError, LabelError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 3
     if args.json:

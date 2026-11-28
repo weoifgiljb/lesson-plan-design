@@ -132,7 +132,7 @@ def _delete_plan_with_rollback(
         if not deleted:
             # 回滚失败不能覆盖 delete_plan 的原始异常（否则 409/404 会被改写成 500）
             with contextlib.suppress(Exception):
-                repo.revert_deletion_request(request_id)
+                repo.revert_deletion_request(request_id, int(user.get("id") or 0))
 
 
 def resolve_request(

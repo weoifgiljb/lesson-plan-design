@@ -19,13 +19,15 @@ import auto_backup  # noqa: E402
 import export_contracts  # noqa: E402
 
 
-def _snapshot(root: Path, label: str, created: datetime) -> Path:
+def _snapshot(root: Path, label: str, created: datetime, *, auto: bool = True) -> Path:
     path = root / f"{label}"
     path.mkdir()
     (path / "manifest.json").write_text(
         json.dumps({"label": label, "createdAt": created.isoformat()}, ensure_ascii=False),
         encoding="utf-8",
     )
+    if auto:
+        (path / auto_backup.AUTO_MARKER).write_text("auto\n", encoding="utf-8")
     return path
 
 
@@ -41,9 +43,12 @@ class TestAutoBackup(unittest.TestCase):
         now = datetime.now(timezone.utc)
         for day in range(10):
             _snapshot(self.root, f"auto-{day:02d}", now - timedelta(days=day))
-        manual = _snapshot(self.root, "before-upgrade", now - timedelta(days=30))
+        manual = _snapshot(self.root, "before-upgrade", now - timedelta(days=30), auto=False)
+        # 管理员手填 auto- 标签的手动快照没有独占标记，不能被保留策略删除
+        manual_auto = _snapshot(self.root, "auto-manual", now - timedelta(days=31), auto=False)
         removed = auto_backup.apply_retention(self.root, keep=3, weekly_keep=2)
         self.assertTrue(manual.is_dir())
+        self.assertTrue(manual_auto.is_dir())
         self.assertTrue((self.root / "auto-00").is_dir())
         self.assertTrue((self.root / "auto-01").is_dir())
         self.assertTrue((self.root / "auto-02").is_dir())
