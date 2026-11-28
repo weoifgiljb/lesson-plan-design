@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
-import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,7 +13,6 @@ from typing import Any
 from app.domain.errors import AppError
 
 ROOT = Path(__file__).resolve().parents[4]
-NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 _modules: dict[str, Any] = {}
 
 
@@ -40,10 +38,15 @@ def data_dir() -> Path:
 
 
 def _safe(name: str) -> Path:
-    if not NAME_RE.fullmatch(name):
+    """快照名 → 备份根下的路径：用"包含性检查"守住越界，而不是 ASCII 白名单（中文标签要可用）。"""
+    if not isinstance(name, str) or not name or name in {".", ".."}:
         raise AppError("BACKUP_INVALID", "快照名称非法")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in name):
+        raise AppError("BACKUP_INVALID", "快照名称非法")
+    if Path(name).name != name or "/" in name or "\\" in name:
+        raise AppError("BACKUP_INVALID", "快照名称越界")
     path = backup_dir() / name
-    if path.parent.resolve() != backup_dir().resolve():
+    if path.resolve().parent != backup_dir().resolve():
         raise AppError("BACKUP_INVALID", "快照名称越界")
     return path
 

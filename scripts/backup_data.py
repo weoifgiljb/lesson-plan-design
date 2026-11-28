@@ -27,12 +27,34 @@ DEFAULT_BACKUP = ROOT / "backups"
 FORMAT_VERSION = 1
 APP_VERSION = "dev"
 EXPORT_SUBDIRS = ("files", "exports")
-LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{1,40}$")
-LABEL_PROBLEM = "备份标签只能包含字母数字和 ._-（1–40 位，且不能以点结尾）"
+LABEL_PROBLEM = "备份标签只能包含字母、数字、中文、空格和 ._-（不超过 40 位，不能以点结尾）"
+#: 真正会破坏文件名/路径的字符：路径分隔符、Windows 保留字符、通配符
+LABEL_BAD_CHARS = frozenset('/\\:*?"<>|')
+MAX_LABEL = 40
 
 
 class LabelError(ValueError):
     """备份标签不合法：适配层据此翻译为 422 PAYLOAD_REJECTED，其它 ValueError 仍是服务端失败。"""
+
+
+def normalize_label(label: str) -> str:
+    """返回可安全拼进快照目录名的标签；空串表示不带标签。
+
+    允许中文/空格/点/下划线/连字符（教师和管理员会用中文起名）；
+    只拒绝会破坏路径或文件系统的字符，以及 `..`、以点结尾、超过 40 位。
+    """
+    text = str(label or "").strip()
+    if not text:
+        return ""
+    if len(text) > MAX_LABEL:
+        raise LabelError(LABEL_PROBLEM)
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
+        raise LabelError(LABEL_PROBLEM)
+    if any(ch in LABEL_BAD_CHARS for ch in text):
+        raise LabelError(LABEL_PROBLEM)
+    if ".." in text or text.endswith("."):
+        raise LabelError(LABEL_PROBLEM)
+    return text
 
 
 def zip_path_for(path: Path) -> Path:
@@ -101,10 +123,7 @@ def create_snapshot(
 ) -> dict[str, object]:
     data_dir = Path(data_dir).resolve()
     backup_dir = Path(backup_dir).resolve()
-    label = label.strip()
-    # label 会拼进快照目录名：拒绝斜杠/点段/末尾点（Win32 会剥掉末尾点，导致目录名与返回值不一致）
-    if label and (label.endswith(".") or not LABEL_RE.fullmatch(label)):
-        raise LabelError(LABEL_PROBLEM)
+    label = normalize_label(label)
     database = data_dir / "app.db"
     if not database.is_file():
         raise FileNotFoundError(f"数据库不存在：{database}")

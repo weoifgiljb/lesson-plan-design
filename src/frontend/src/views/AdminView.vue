@@ -46,7 +46,12 @@ function switchTab(next: 'users' | 'audit' | 'ops' | 'deletion' | 'backup'): voi
 async function makeBackup(): Promise<void> {
   let label = ''
   try {
-    const result = await ElMessageBox.prompt('快照标签（可留空）', '创建备份', { confirmButtonText: '创建', cancelButtonText: '取消' })
+    const result = await ElMessageBox.prompt('快照标签（可留空）', '创建备份', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPlaceholder: '可留空',
+      inputValidator: (value) => (value ?? '').length <= 40 || '最多 40 个字符',
+    })
     label = result.value || ''
   } catch {
     return

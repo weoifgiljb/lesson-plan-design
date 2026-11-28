@@ -77,7 +77,7 @@ class TestBackupsApi(unittest.TestCase):
 
     def test_bad_label_is_rejected_and_writes_nothing(self) -> None:
         csrf = self._login("admin1")
-        for label in ("../../evil", "a/b", "中文标签", "a b", "x" * 41, "..", "v1.", "..."):
+        for label in ("../evil", "a/b", "a\\b", "a:b", "a*b", "x" * 41, "..", "v1.", "..."):
             with self.subTest(label=label):
                 response = self.client.post(
                     "/api/v1/admin/backups", json={"label": label}, headers={"X-CSRF-Token": csrf}
@@ -87,6 +87,29 @@ class TestBackupsApi(unittest.TestCase):
         # 备份根之外不能出现任何东西；根内也不该留下半成品
         self.assertFalse((self.root.parent / "evil").exists())
         self.assertEqual(list(self._backup.glob("*")) or [], [])
+
+    def test_chinese_label_can_be_listed_archived_and_downloaded(self) -> None:
+        # 收紧标签不能把中文挡在外面：创建/列出/打包/下载/恢复整条链路都要能用
+        csrf = self._login("admin1")
+        created = self.client.post(
+            "/api/v1/admin/backups", json={"label": "答辩前"}, headers={"X-CSRF-Token": csrf}
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        name = created.json()["name"]
+        self.assertTrue(name.endswith("-答辩前"))
+        listed = self.client.get("/api/v1/admin/backups")
+        self.assertEqual(listed.status_code, 200, listed.text)
+        item = next(entry for entry in listed.json()["items"] if entry["name"] == name)
+        self.assertTrue(item["hasZip"])
+        downloaded = self.client.get(f"/api/v1/admin/backups/{name}/download")
+        self.assertEqual(downloaded.status_code, 200, downloaded.text)
+        self.assertEqual(downloaded.content[:2], b"PK")
+        restored = self.client.post(
+            f"/api/v1/admin/backups/{name}/restore",
+            json={"confirm": True},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(restored.status_code, 200, restored.text)
 
     def test_label_with_dot_keeps_archive_path_in_sync(self) -> None:
         csrf = self._login("admin1")
