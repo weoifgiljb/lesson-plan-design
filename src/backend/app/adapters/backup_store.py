@@ -15,6 +15,8 @@ from app.domain.errors import AppError
 
 ROOT = Path(__file__).resolve().parents[4]
 NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+#: 备份标签会拼进目录名（`<时间戳>-<label>`），必须挡住斜杠/点段/中文与控制字符
+LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{0,40}$")
 _modules: dict[str, Any] = {}
 
 
@@ -55,6 +57,12 @@ def _manifest(path: Path) -> dict[str, Any]:
         raise AppError("BACKUP_INVALID", "快照 manifest 无法解析") from exc
 
 
+def _zip_path(path: Path) -> Path:
+    """`shutil.make_archive(<path>, "zip")` 的产物是 `<path>.zip`，不能用 with_suffix
+    （名称里的点，如 `v1.0`，会被当后缀吃掉）。"""
+    return path.parent / (path.name + ".zip")
+
+
 def list_snapshots() -> dict[str, Any]:
     items = []
     root = backup_dir()
@@ -75,16 +83,19 @@ def list_snapshots() -> dict[str, Any]:
                     "rows": manifest.get("database", {}).get("rowCounts", {}),
                     "files": manifest.get("totals", {}).get("files", 0),
                     "bytes": manifest.get("totals", {}).get("bytes", 0),
-                    "hasZip": path.with_suffix(".zip").is_file(),
+                    "hasZip": _zip_path(path).is_file(),
                 }
             )
     return {"items": items, "total": len(items)}
 
 
 def create(label: str) -> dict[str, Any]:
+    text = label.strip()
+    if text and (text in {".", ".."} or not LABEL_RE.fullmatch(text)):
+        raise AppError("PAYLOAD_REJECTED", "备份标签只能包含字母数字和 ._-")
     module = _load("backup_data")
     try:
-        result = module.create_snapshot(data_dir(), backup_dir(), label=label.strip() or "manual", make_zip=True)
+        result = module.create_snapshot(data_dir(), backup_dir(), label=text or "manual", make_zip=True)
     except FileNotFoundError as exc:
         raise AppError("DATA_MISSING", "数据目录缺少 app.db") from exc
     except Exception as exc:  # noqa: BLE001 - 适配层把脚本异常翻译为错误码
@@ -96,7 +107,7 @@ def archive(name: str) -> tuple[Path, str]:
     path = _safe(name)
     if not (path / "manifest.json").is_file():
         raise AppError("BACKUP_INVALID", "快照不存在")
-    zip_path = path.with_suffix(".zip")
+    zip_path = _zip_path(path)
     if not zip_path.is_file():
         shutil.make_archive(str(path), "zip", root_dir=path)
     return zip_path, f"{name}.zip"

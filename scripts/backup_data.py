@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import sys
@@ -26,6 +27,7 @@ DEFAULT_BACKUP = ROOT / "backups"
 FORMAT_VERSION = 1
 APP_VERSION = "dev"
 EXPORT_SUBDIRS = ("files", "exports")
+LABEL_RE = re.compile(r"^[A-Za-z0-9._-]{0,40}$")
 
 
 def sha256_file(path: Path) -> str:
@@ -88,6 +90,10 @@ def create_snapshot(
 ) -> dict[str, object]:
     data_dir = Path(data_dir).resolve()
     backup_dir = Path(backup_dir).resolve()
+    label = label.strip()
+    # label 会拼进快照目录名：直接拒绝斜杠/点段，避免 CLI 传 ../../ 写到备份根之外
+    if label and (label in {".", ".."} or not LABEL_RE.fullmatch(label)):
+        raise ValueError("备份标签只能包含字母数字和 ._-")
     database = data_dir / "app.db"
     if not database.is_file():
         raise FileNotFoundError(f"数据库不存在：{database}")
@@ -148,7 +154,8 @@ def create_snapshot(
         temporary.replace(target)
         payload: dict[str, object] = {"ok": True, "path": str(target), "manifest": manifest}
         if make_zip:
-            zip_path = target.with_suffix(".zip")
+            # 与 shutil.make_archive 同口径：`<目录名>.zip`；with_suffix 会吃掉 label 里的点
+            zip_path = target.parent / (target.name + ".zip")
             with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                 for path in sorted(target.rglob("*")):
                     if path.is_file():

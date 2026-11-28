@@ -75,6 +75,34 @@ class TestBackupsApi(unittest.TestCase):
         self._login("teacher1")
         self.assertEqual(self.client.get("/api/v1/admin/backups").status_code, 403)
 
+    def test_bad_label_is_rejected_and_writes_nothing(self) -> None:
+        csrf = self._login("admin1")
+        for label in ("../../evil", "a/b", "中文标签", "a b", "x" * 41, ".."):
+            with self.subTest(label=label):
+                response = self.client.post(
+                    "/api/v1/admin/backups", json={"label": label}, headers={"X-CSRF-Token": csrf}
+                )
+                self.assertEqual(response.status_code, 422, response.text)
+                self.assertEqual(response.json()["code"], "PAYLOAD_REJECTED")
+        # 备份根之外不能出现任何东西；根内也不该留下半成品
+        self.assertFalse((self.root.parent / "evil").exists())
+        self.assertEqual(list(self._backup.glob("*")) or [], [])
+
+    def test_label_with_dot_keeps_archive_path_in_sync(self) -> None:
+        csrf = self._login("admin1")
+        created = self.client.post(
+            "/api/v1/admin/backups", json={"label": "v1.0"}, headers={"X-CSRF-Token": csrf}
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        name = created.json()["name"]
+        self.assertTrue(name.endswith("-v1.0"))
+        listed = self.client.get("/api/v1/admin/backups").json()
+        item = next(entry for entry in listed["items"] if entry["name"] == name)
+        self.assertTrue(item["hasZip"])
+        downloaded = self.client.get(f"/api/v1/admin/backups/{name}/download")
+        self.assertEqual(downloaded.status_code, 200, downloaded.text)
+        self.assertEqual(downloaded.content[:2], b"PK")
+
 
 if __name__ == "__main__":
     unittest.main()
