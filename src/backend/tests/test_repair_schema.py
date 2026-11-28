@@ -267,3 +267,94 @@ class TestRepairSchema(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM plan_version").fetchone()[0], 1)
         finally:
             conn.close()
+
+    def test_repair_covers_0014_to_0016_gaps(self) -> None:
+        # 谱系跳号库：user_version 已是 16，但 0014 列与 0015/0016 表根本不存在。
+        # SCHEMA_PATH（v1 结构）本就不含这两张表，正好模拟"迁移跳号"的库。
+        conn = sqlite3.connect(":memory:", isolation_level=None)
+        try:
+            conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            conn.executescript(LEGACY_PLAN_VERSION_SQL)
+            conn.executescript(SEED_SQL)
+            conn.execute("PRAGMA user_version=16")
+            state = repair.inspect(conn)
+            self.assertTrue(state["needs_repair"])
+            self.assertIn("plan_version.template_version", state["missing_columns"])
+            self.assertIn("notification", state["missing_tables"])
+            self.assertIn("deletion_request", state["missing_tables"])
+            repair.repair(conn)
+            state = repair.inspect(conn)
+            self.assertEqual(state["missing_columns"], [])
+            self.assertEqual(state["missing_tables"], [])
+            self.assertEqual(state["missing_indexes"], [])
+            self.assertFalse(state["needs_repair"])
+            self.assertEqual(conn.execute("PRAGMA foreign_key_check").fetchall(), [])
+            indexes = {
+                str(row[0]) for row in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")
+            }
+            for name in (
+                "idx_notification_user",
+                "idx_notification_target",
+                "idx_deletion_request_status",
+                "idx_deletion_request_plan",
+            ):
+                self.assertIn(name, indexes)
+        finally:
+            conn.close()
+
+    def test_inspect_flags_task_table_without_unique_key(self) -> None:
+        # _task_key() 读不到 UNIQUE 时返回 ()；检查与修复必须都判定"要修"
+        conn = sqlite3.connect(":memory:", isolation_level=None)
+        try:
+            conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            conn.executescript(LEGACY_TASK_SQL)
+            conn.executescript("DROP INDEX IF EXISTS idx_task_identity;")
+            conn.executescript(SEED_SQL)
+            conn.execute("PRAGMA user_version=16")
+            state = repair.inspect(conn)
+            self.assertFalse(state["task_key_ok"])
+            self.assertTrue(state["needs_repair"])
+            repair.repair(conn)
+            self.assertTrue(repair.inspect(conn)["task_key_ok"])
+            with self.assertRaises(sqlite3.IntegrityError):
+                conn.execute(
+                    "INSERT INTO task (course, week, session, title, class_name, owner_id, status, created_at)"
+                    " VALUES ('信息技术', 2, 1, '课题A', '计算机1班', 1, 'draft', '2026-10-26T00:00:00+00:00')"
+                )
+        finally:
+            conn.close()
+
+    def test_repair_dedupes_plan_version_report_before_unique_index(self) -> None:
+        # v1 里同包导入两次会留下同 (plan_id, plan_hash) 两个版本；回填后哈希完全相同，
+        # 直接建唯一索引会让整个修复回滚 —— 必须先清理重复。
+        conn = sqlite3.connect(":memory:", isolation_level=None)
+        try:
+            conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+            conn.executescript(SEED_SQL)
+            conn.execute(
+                "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash,"
+                " schema_version, rubric_version, created_at)"
+                " VALUES (1, 2, '{}', 'hash-1', 1, '1.0', '2026-10-26T00:00:01+00:00')"
+            )
+            conn.execute(
+                "INSERT INTO review (plan_version_id, round, report_json, report_sha256,"
+                " status, reviewer_mode, created_at)"
+                " VALUES (2, 1, '{}', 'report-1', 'passed', 'native', '2026-10-26T00:00:01+00:00')"
+            )
+            conn.execute("PRAGMA user_version=16")
+            self.assertTrue(repair.inspect(conn)["needs_repair"])
+            log = repair.repair(conn)
+            kept = conn.execute(
+                "SELECT COUNT(*) FROM plan_version WHERE report_sha256 = 'report-1'"
+            ).fetchone()[0]
+            self.assertEqual(kept, 1)
+            cleared = conn.execute(
+                "SELECT COUNT(*) FROM plan_version WHERE report_sha256 = ''"
+            ).fetchone()[0]
+            self.assertEqual(cleared, 1)
+            self.assertTrue(
+                any("duplicate report_sha256" in note for note in log["notes"]), log["notes"]
+            )
+            self.assertFalse(repair.inspect(conn)["needs_repair"])
+        finally:
+            conn.close()

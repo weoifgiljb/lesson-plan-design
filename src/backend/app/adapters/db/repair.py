@@ -25,7 +25,8 @@ from app.adapters.db.connection import SCHEMA_VERSION, current_version, set_vers
 TASK_KEY_COLUMNS = ("course", "week", "session", "class_name", "title")
 
 # 迁移 0003 才建的表：修复脚本自己补齐，未跑过 initialize() 也能对齐
-REQUIRED_TABLES = ("sync_event", "override")
+# 0015/0016 同理：谱系跳号的旧库 user_version 已是 16，但这两张表可能根本不存在
+REQUIRED_TABLES = ("sync_event", "override", "deletion_request", "notification")
 
 CREATE_TABLE_SQL: dict[str, str] = {
     "override": (
@@ -49,12 +50,42 @@ CREATE_TABLE_SQL: dict[str, str] = {
         " created_at TEXT NOT NULL"
         ")"
     ),
+    "deletion_request": (
+        "CREATE TABLE IF NOT EXISTS deletion_request ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " plan_id INTEGER NOT NULL REFERENCES plan (id),"
+        " requester_id INTEGER NOT NULL REFERENCES user (id),"
+        " reason TEXT NOT NULL DEFAULT '',"
+        " status TEXT NOT NULL DEFAULT 'pending'"
+        " CHECK (status IN ('pending', 'approved', 'rejected')),"
+        " created_at TEXT NOT NULL,"
+        " due_at TEXT NOT NULL,"
+        " resolved_at TEXT,"
+        " resolver_id INTEGER REFERENCES user (id)"
+        ")"
+    ),
+    "notification": (
+        "CREATE TABLE IF NOT EXISTS notification ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " user_id INTEGER NOT NULL REFERENCES user (id),"
+        " kind TEXT NOT NULL,"
+        " title TEXT NOT NULL,"
+        " body TEXT NOT NULL DEFAULT '',"
+        " target_type TEXT NOT NULL DEFAULT '',"
+        " target_id TEXT NOT NULL DEFAULT '',"
+        " created_at TEXT NOT NULL,"
+        " read_at TEXT"
+        ")"
+    ),
 }
 
 # 静态 DDL：列名与类型写死，避免运行时拼 SQL（BSEC-02）
 ADD_COLUMN_SQL: dict[tuple[str, str], str] = {
     ("plan_version", "report_sha256"): (
         "ALTER TABLE plan_version ADD COLUMN report_sha256 TEXT NOT NULL DEFAULT ''"
+    ),
+    ("plan_version", "template_version"): (
+        "ALTER TABLE plan_version ADD COLUMN template_version TEXT NOT NULL DEFAULT ''"
     ),
     ("user", "group_name"): "ALTER TABLE user ADD COLUMN group_name TEXT NOT NULL DEFAULT ''",
     ("user", "token_version"): "ALTER TABLE user ADD COLUMN token_version INTEGER NOT NULL DEFAULT 1",
@@ -113,6 +144,22 @@ CREATE_INDEX_SQL: dict[str, str] = {
         "CREATE INDEX IF NOT EXISTS idx_task_identity"
         " ON task (course, week, session, class_name, title)"
     ),
+    "idx_deletion_request_status": (
+        "CREATE INDEX IF NOT EXISTS idx_deletion_request_status"
+        " ON deletion_request (status, created_at)"
+    ),
+    "idx_deletion_request_plan": (
+        "CREATE INDEX IF NOT EXISTS idx_deletion_request_plan"
+        " ON deletion_request (plan_id, status)"
+    ),
+    "idx_notification_user": (
+        "CREATE INDEX IF NOT EXISTS idx_notification_user"
+        " ON notification (user_id, read_at, created_at)"
+    ),
+    "idx_notification_target": (
+        "CREATE INDEX IF NOT EXISTS idx_notification_target"
+        " ON notification (user_id, kind, target_type, target_id)"
+    ),
 }
 
 INDEX_SPECS: dict[str, tuple[tuple[str, ...], bool]] = {
@@ -167,6 +214,15 @@ DEDUPE_EXPORT_SUCCEEDED_SQL = (
     " WHERE status = 'succeeded' AND id NOT IN ("
     "   SELECT MAX(id) FROM export_job WHERE status = 'succeeded'"
     "   GROUP BY plan_version_id, engine_version, report_sha256)"
+)
+
+#: 回填 report_sha256 后，同 (plan_id, plan_hash, report_sha256) 可能是历史重复版本；
+#: 直接建唯一索引会整体回滚。保留最早一条带哈希，其余置空（空串不进唯一索引）。
+DEDUPE_PLAN_VERSION_REPORT_SQL = (
+    "UPDATE plan_version SET report_sha256 = ''"
+    " WHERE report_sha256 <> '' AND id NOT IN ("
+    "   SELECT MIN(id) FROM plan_version WHERE report_sha256 <> ''"
+    "   GROUP BY plan_id, plan_hash, report_sha256)"
 )
 
 TASK_TABLE_SQL = (
@@ -311,7 +367,11 @@ def inspect(conn: sqlite3.Connection) -> dict[str, Any]:
         for name, sql in CREATE_INDEX_SQL.items()
         if _table_exists(conn, _table_of(sql)) and not _index_ok(conn, name)
     ]
-    key = _task_key(conn) if _table_exists(conn, "task") else ()
+    task_exists = _table_exists(conn, "task")
+    key = _task_key(conn) if task_exists else ()
+    # 与 repair() 的判定保持一致：task 表存在时必须正好是当前唯一键口径；
+    # 表不存在时（全新空库）不算缺口，避免"检查说没事、修复却重建"的分叉。
+    task_key_ok = (not task_exists) or key == TASK_KEY_COLUMNS
     return {
         "version": current_version(conn),
         "target_version": SCHEMA_VERSION,
@@ -319,14 +379,14 @@ def inspect(conn: sqlite3.Connection) -> dict[str, Any]:
         "missing_tables": missing_tables,
         "missing_indexes": missing_indexes,
         "task_key": key,
-        "task_key_ok": key == TASK_KEY_COLUMNS,
+        "task_key_ok": task_key_ok,
         "task_quadrant_ok": _task_quadrant_ok(conn),
         "override_ok": _override_ok(conn),
         "needs_repair": bool(
             missing_columns
             or missing_tables
             or missing_indexes
-            or (key and not key == TASK_KEY_COLUMNS)
+            or not task_key_ok
             or not _task_quadrant_ok(conn)
             or not _override_ok(conn)
             or current_version(conn) != SCHEMA_VERSION
@@ -361,7 +421,7 @@ def repair(conn: sqlite3.Connection) -> dict[str, Any]:
         if not _override_ok(conn):
             _rebuild_override(conn)
             log["rebuilt_override"] = True
-        _backfill(conn)
+        _backfill(conn, log)
         _create_missing_indexes(conn)
         _assert_foreign_keys(conn)
         conn.execute("COMMIT")
@@ -443,13 +503,35 @@ def _rebuild_override(conn: sqlite3.Connection) -> None:
     conn.execute(OVERRIDE_INDEX_SQL)
 
 
-def _backfill(conn: sqlite3.Connection) -> None:
+def _backfill(conn: sqlite3.Connection, log: dict[str, Any]) -> None:
     _backfill_plan_version(conn)
+    _dedupe_plan_version_report(conn, log)
     if "group_name" in _columns(conn, "task"):
         conn.execute(BACKFILL_TASK_GROUP_SQL)
     if _table_exists(conn, "sync_event"):
         conn.execute(BACKFILL_SYNC_VERSION_SQL)
         conn.execute(BACKFILL_SYNC_DELETED_SQL)
+
+
+def _dedupe_plan_version_report(conn: sqlite3.Connection, log: dict[str, Any]) -> None:
+    """建唯一索引前清理历史重复：保留最早一条带 report_sha256，其余置空。"""
+    duplicated = conn.execute(
+        "SELECT COUNT(*) FROM plan_version WHERE report_sha256 <> '' AND id NOT IN ("
+        " SELECT MIN(id) FROM plan_version WHERE report_sha256 <> ''"
+        " GROUP BY plan_id, plan_hash, report_sha256)"
+    ).fetchone()
+    count = int(duplicated[0]) if duplicated is not None else 0
+    if count == 0:
+        return
+    has_trigger = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'trigger' AND name = 'plan_version_no_update'"
+    ).fetchone()
+    if has_trigger is not None:
+        conn.execute("DROP TRIGGER plan_version_no_update")
+    conn.execute(DEDUPE_PLAN_VERSION_REPORT_SQL)
+    if has_trigger is not None:
+        conn.execute(TASK_TRIGGER_PLAN_VERSION_SQL)
+    log["notes"].append(f"cleared duplicate report_sha256 on {count} plan_version rows")
 
 
 def _backfill_plan_version(conn: sqlite3.Connection) -> None:

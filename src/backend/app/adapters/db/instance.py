@@ -54,10 +54,32 @@ def read_instance(data_dir: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _marker_state(data_dir: Path) -> tuple[str, dict[str, Any] | None]:
+    """区分"没有标记/标记损坏/正常"，不能把损坏当首装：否则会静默覆盖 instanceId。"""
+    path = instance_path(data_dir)
+    if not path.is_file():
+        return "missing", None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "corrupt", None
+    if not isinstance(data, dict):
+        return "corrupt", None
+    return "ok", data
+
+
+def read_instance(data_dir: Path) -> dict[str, Any] | None:
+    return _marker_state(data_dir)[1]
+
+
 def write_instance(data_dir: Path, schema_version: int) -> dict[str, Any]:
     data_dir = Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
-    existing = read_instance(data_dir)
+    state, existing = _marker_state(data_dir)
+    if state == "corrupt" and os.environ.get(ALLOW_INIT_ENV, "0") != "1":
+        raise DataUnavailable(
+            "实例标记 .instance.json 损坏；请从快照恢复，或确认后用 LPP_ALLOW_INIT=1 重建"
+        )
     if existing is not None:
         return existing
     payload = {
@@ -114,7 +136,7 @@ def _latest_backup_at() -> str | None:
 def status(data_dir: Path, db_path: Path, *, schema_version: int | None = None) -> dict[str, Any]:
     data_dir = Path(data_dir)
     db_path = Path(db_path)
-    marker = read_instance(data_dir)
+    marker_state, marker = _marker_state(data_dir)
     db_exists = db_path.is_file()
     allow_init = os.environ.get(ALLOW_INIT_ENV, "0") == "1"
     payload: dict[str, Any] = {
@@ -129,6 +151,15 @@ def status(data_dir: Path, db_path: Path, *, schema_version: int | None = None) 
             "rowCounts": {},
         },
     }
+    if marker_state == "corrupt":
+        payload.update(
+            status="corrupt",
+            message="实例标记 .instance.json 损坏，疑似拷贝不完整或磁盘错误；请从快照恢复，"
+            "确认后可用 LPP_ALLOW_INIT=1 重建（会生成新的 instanceId）",
+        )
+        if allow_init:
+            payload["status"] = "init-override"
+        return payload
     if marker is not None and not db_exists:
         payload.update(
             status="missing",

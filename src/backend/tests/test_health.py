@@ -114,6 +114,22 @@ class TestInstanceStartup(unittest.TestCase):
             self.assertEqual(body["checks"]["data"], "ok")
             self.assertTrue((Path(root) / ".instance.json").is_file())
 
+    def test_corrupt_marker_is_not_silently_overwritten(self) -> None:
+        # 标记损坏 ≠ 首装：直接重写会换掉 instanceId，让"同一实例"判定失效
+        with tempdir() as root, isolated_data_dir(Path(root)):
+            instance.write_instance(Path(root), 16)
+            (Path(root) / ".instance.json").write_text("{not-json", encoding="utf-8")
+            with TestClient(create_app(), raise_server_exceptions=False) as client:
+                body = client.get("/api/v1/health").json()
+            self.assertEqual(body["checks"]["data"], "corrupt")
+            self.assertEqual(
+                (Path(root) / ".instance.json").read_text(encoding="utf-8"), "{not-json"
+            )
+            from app.adapters.db.instance import DataUnavailable
+
+            with self.assertRaises(DataUnavailable):
+                instance.write_instance(Path(root), 16)
+
 
 class TestOpenApiSnapshot(unittest.TestCase):
     def test_snapshot_matches_application(self) -> None:
