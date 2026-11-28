@@ -221,6 +221,38 @@ class TestExportApi(unittest.TestCase):
         self.assertEqual(int(same["id"]), int(item["exportId"]))
         self.assertIsNone(other)
 
+    def test_exception_after_job_creation_marks_failed_and_removes_artifact(self) -> None:
+        # 事务内步骤（推进任务状态）抛错时：不能留下永久 pending 的 job 和孤儿 docx
+        from unittest import mock
+
+        strict = TestClient(self.client.app, raise_server_exceptions=False)
+        strict.__enter__()
+        try:
+            login = strict.post(
+                "/api/v1/auth/login", json={"username": "teacher1", "password": PASSWORD}
+            )
+            self.assertEqual(login.status_code, 200, login.text)
+            csrf = login.json()["csrfToken"]
+            with mock.patch.object(Repo, "mark_task_exported", side_effect=RuntimeError("boom")):
+                response = strict.post(
+                    "/api/v1/exports",
+                    json={"planVersionIds": [self.version_id]},
+                    headers={"X-CSRF-Token": csrf},
+                )
+        finally:
+            strict.__exit__(None, None, None)
+        self.assertEqual(response.status_code, 500, response.text)
+        connection = open_database(self.db_file)
+        try:
+            row = connection.execute(
+                "SELECT id, status FROM export_job ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        finally:
+            connection.close()
+        self.assertIsNotNone(row)
+        self.assertEqual(row["status"], "failed")
+        self.assertFalse(storage.export_path(int(row["id"])).exists())
+
 
 if __name__ == "__main__":
     unittest.main()

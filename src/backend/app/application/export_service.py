@@ -107,54 +107,71 @@ def _perform_export(
     job_id = repo.create_export_job(
         version_id, engine_version, int(user.get("id") or 0), "pending", report_sha256=report_sha
     )
-    result = engine.export_docx(
-        plan,
-        storage.export_path(job_id),
-        base_dir=base_dir,
-        independence=str(report.get("independence") or report.get("reviewer") or "") or None,
-        strict_metadata=False,
-    )
-    if not result.get("ok"):
-        return _fail_job(repo, user, row, job_id, result.get("code", "INTERNAL"),
-                         result.get("message", "导出失败"), ip, trace_id)
-    if result["result"].get("engineVersion") != engine_version:
-        return _fail_job(repo, user, row, job_id, "INTERNAL", "产物引擎版本与记录不一致", ip, trace_id)
-    warnings = result["result"].get("warnings") or []
-    if warnings:
-        return _fail_job(repo, user, row, job_id, "MEDIA_MISSING", "；".join(warnings), ip, trace_id)
-    data = storage.export_path(job_id).read_bytes()
-    digest = storage.sha256_bytes(data)
-    with repo.transaction():
-        updated = repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
-        if updated:
-            _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
-            notification_service.notify(
-                repo, int(user.get("id") or 0), "export_done",
-                f"教案《{row.get('content_title') or row.get('plan_id')}》已导出，可在导出中心下载。",
-                target_type="export", target_id=str(job_id),
-            )
-            # 任务状态随导出推进到 exported（BS-10 状态机）
-            task_id = repo.mark_task_exported(int(row["plan_id"]))
-            if task_id is not None:
-                audit_service.record(
-                    repo,
-                    actor_id=int(user.get("id") or 0),
-                    action="task.status",
-                    target_type="task",
-                    target_id=str(task_id),
-                    detail={"status": "exported", "planId": int(row["plan_id"])},
-                    ip=ip,
-                    trace_id=trace_id,
+    # 中途任何异常（读文件/哈希/通知/推进任务）都不能留下永久 pending + 孤儿 docx。
+    # BA-09 禁止 application 层吞异常，所以用 try/finally + 成功标志做兜底清理。
+    finished = False
+    try:
+        result = engine.export_docx(
+            plan,
+            storage.export_path(job_id),
+            base_dir=base_dir,
+            independence=str(report.get("independence") or report.get("reviewer") or "") or None,
+            strict_metadata=False,
+        )
+        if not result.get("ok"):
+            item = _fail_job(repo, user, row, job_id, result.get("code", "INTERNAL"),
+                             result.get("message", "导出失败"), ip, trace_id)
+            finished = True
+            return item
+        if result["result"].get("engineVersion") != engine_version:
+            item = _fail_job(repo, user, row, job_id, "INTERNAL", "产物引擎版本与记录不一致", ip, trace_id)
+            finished = True
+            return item
+        warnings = result["result"].get("warnings") or []
+        if warnings:
+            item = _fail_job(repo, user, row, job_id, "MEDIA_MISSING", "；".join(warnings), ip, trace_id)
+            finished = True
+            return item
+        data = storage.export_path(job_id).read_bytes()
+        digest = storage.sha256_bytes(data)
+        with repo.transaction():
+            updated = repo.update_export_job(job_id, "succeeded", f"exports/{job_id}.docx", digest)
+            if updated:
+                _audit_success(repo, user, row, job_id, digest, report_sha, engine_version, ip, trace_id)
+                notification_service.notify(
+                    repo, int(user.get("id") or 0), "export_done",
+                    f"教案《{row.get('content_title') or row.get('plan_id')}》已导出，可在导出中心下载。",
+                    target_type="export", target_id=str(job_id),
                 )
-    if not updated:
-        storage.export_path(job_id).unlink(missing_ok=True)
-        repo.update_export_job(job_id, "failed")
-        existing = repo.find_export_job(version_id, engine_version, report_sha)
-        if existing is not None:
-            return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
-        return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
-    # 统一 DTO：新建成功项与复用项、详情返回同一形状
-    return _job_payload(repo.get_export_job(job_id)), True, False
+                # 任务状态随导出推进到 exported（BS-10 状态机）
+                task_id = repo.mark_task_exported(int(row["plan_id"]))
+                if task_id is not None:
+                    audit_service.record(
+                        repo,
+                        actor_id=int(user.get("id") or 0),
+                        action="task.status",
+                        target_type="task",
+                        target_id=str(task_id),
+                        detail={"status": "exported", "planId": int(row["plan_id"])},
+                        ip=ip,
+                        trace_id=trace_id,
+                    )
+        if not updated:
+            storage.export_path(job_id).unlink(missing_ok=True)
+            repo.update_export_job(job_id, "failed")
+            finished = True
+            existing = repo.find_export_job(version_id, engine_version, report_sha)
+            if existing is not None:
+                return _job_payload(repo.get_export_job(int(existing["id"]))), False, True
+            return _failed(version_id, "CONFLICT_STALE", "并发导出冲突，请重试"), False, False
+        # 统一 DTO：新建成功项与复用项、详情返回同一形状
+        item = _job_payload(repo.get_export_job(job_id))
+        finished = True
+        return item, True, False
+    finally:
+        if not finished:
+            repo.update_export_job(job_id, "failed")
+            storage.export_path(job_id).unlink(missing_ok=True)
 
 
 def _fail_job(
