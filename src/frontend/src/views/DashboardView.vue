@@ -16,7 +16,7 @@ import { useApiRequest } from '@/composables/useApiRequest'
 import { useSessionStore } from '@/stores/session'
 import { formatDateTime, formatFullDate, formatShortDateTime, formatTime } from '@/utils/datetime'
 import { saveBlob } from '@/utils/download'
-import { reviewModeLabel } from '@/utils/labels'
+import { reviewModeLabel, UNREVIEWED_STATUS } from '@/utils/labels'
 import { toLessonStructure } from '@/utils/plan-structure'
 
 const router = useRouter()
@@ -126,7 +126,7 @@ const queue = computed<OverviewQueueRow[]>(() => {
       session: plan.session,
       teacher: plan.teacher,
       versionNo: plan.versionNo,
-      status: plan.reviewStatus,
+      status: plan.reviewStatus || UNREVIEWED_STATUS,
       updatedAt: formatShortDateTime(plan.versionCreatedAt),
     })) ?? []
   )

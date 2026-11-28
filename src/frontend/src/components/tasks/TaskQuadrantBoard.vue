@@ -4,21 +4,26 @@ import draggable from 'vuedraggable'
 
 import type { TaskItem, TaskQuadrant } from '@/api/models'
 import { formatDate, formatOverdue } from '@/utils/datetime'
-import { QUADRANTS, groupTasks, taskStatusLabel } from './quadrants'
+import { canDraftPlan, QUADRANTS, groupTasks, taskStatusLabel } from './quadrants'
 
 const props = withDefaults(
   defineProps<{
     tasks: TaskItem[]
     compact?: boolean
     showHeader?: boolean
+    /** 只有父组件接了 @draft 才显示「生成草稿教案」，避免看板出现死入口 */
+    draftable?: boolean
+    /** 草稿只能由任务归属人生成：管理员/组长点他人任务后端会 403，入口先过滤 */
+    currentUserId?: number
   }>(),
-  { compact: false, showHeader: true },
+  { compact: false, showHeader: true, draftable: false, currentUserId: 0 },
 )
 
 const emit = defineEmits<{
   (event: 'move', payload: { taskId: number; quadrant: TaskQuadrant; position: number; boardVersion: number }): void
   (event: 'discard', task: TaskItem): void
   (event: 'download', task: TaskItem): void
+  (event: 'draft', task: TaskItem): void
   (event: 'open-board'): void
 }>()
 
@@ -68,6 +73,31 @@ function moveTo(task: TaskItem, quadrant: TaskQuadrant): void {
     position: 0,
     boardVersion: task.boardVersion,
   })
+}
+
+function canDraft(task: TaskItem): boolean {
+  // 草稿后端只允许任务归属人代建：管理员/组长对他人的任务会 403，入口先过滤
+  return props.draftable && canDraftPlan(task, props.currentUserId)
+}
+
+function onCommand(task: TaskItem, command: string): void {
+  if (command === 'discard') {
+    discard(task)
+    return
+  }
+  if (command === 'download') {
+    emit('download', task)
+    return
+  }
+  if (command === 'draft') {
+    // 纵深防御：命令可能由别处/键盘触发，规则仍走 canDraftPlan（归属+可编辑+未废弃）
+    if (canDraft(task)) emit('draft', task)
+    return
+  }
+  // 只有登记过的象限才移动任务，避免新菜单项漏登记时发出非法看板请求
+  const target = QUADRANTS.find((option) => option.key === command)
+  if (!target) return
+  moveTo(task, target.key)
 }
 
 function discard(task: TaskItem): void {
@@ -136,7 +166,7 @@ function discard(task: TaskItem): void {
                 <strong>{{ task.title }}</strong>
                 <el-dropdown
                   trigger="click"
-                  @command="(command: string) => command === 'discard' ? discard(task) : command === 'download' ? emit('download', task) : moveTo(task, command as TaskQuadrant)"
+                  @command="(command: string) => onCommand(task, command)"
                 >
                   <button type="button" class="task-card__more" aria-label="任务操作">⋯</button>
                   <template #dropdown>
@@ -150,6 +180,9 @@ function discard(task: TaskItem): void {
                         移到{{ option.label }}
                       </el-dropdown-item>
                       <el-dropdown-item command="download" divided>下载任务包</el-dropdown-item>
+                      <el-dropdown-item v-if="canDraft(task)" command="draft" divided>
+                        生成草稿教案
+                      </el-dropdown-item>
                       <el-dropdown-item v-if="task.canEdit" command="discard" divided>标记废弃</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>

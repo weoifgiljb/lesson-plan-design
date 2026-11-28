@@ -6,17 +6,22 @@ import type { FormInstance, FormRules } from 'element-plus'
 import BrandMark from '@/components/BrandMark.vue'
 import { RequestError } from '@/api/client-error'
 import { useSessionStore } from '@/stores/session'
+import { devPrefillUsername } from '@/utils/dev-prefill'
 
 const route = useRoute()
 const router = useRouter()
 const session = useSessionStore()
 const isDev = import.meta.env.DEV
+// 开发账号由 Vite 环境变量提供（VITE_DEV_USERNAME），源码里不写死：写死会与种子账号漂移（UI-04 缺口）。
+// 只预填用户名、绝不预填口令：VITE_ 变量会被构建期内联，口令放进去等于写进前端产物。
+const devUsername = devPrefillUsername(isDev, import.meta.env.VITE_DEV_USERNAME)
 
 const formRef = ref<FormInstance>()
 const usernameRef = ref<{ focus: () => void } | null>(null)
+const passwordRef = ref<{ focus: () => void } | null>(null)
 const form = reactive({
-  username: isDev ? 'teacher01' : '',
-  password: isDev ? 'Lesson2026' : '',
+  username: devUsername,
+  password: '',
 })
 const loading = ref(false)
 const errorMessage = ref('')
@@ -59,7 +64,9 @@ function goRegister(): void {
 }
 
 onMounted(() => {
-  usernameRef.value?.focus()
+  // 预填了用户名时把焦点直接放到密码框，开发者少按一次 Tab
+  if (form.username) passwordRef.value?.focus()
+  else usernameRef.value?.focus()
 })
 </script>
 
@@ -141,6 +148,7 @@ onMounted(() => {
           </el-form-item>
           <el-form-item label="密码" prop="password">
             <el-input
+              ref="passwordRef"
               v-model="form.password"
               type="password"
               show-password
@@ -178,9 +186,6 @@ onMounted(() => {
           show-icon
           :title="route.query.changed ? '口令已更新，请用新口令登录。' : '注册成功，请用新账号登录并设置新口令。'"
         />
-        <p v-if="isDev" class="demo-hint">
-          本地开发：<code>teacher01</code> / <code>Lesson2026</code>
-        </p>
         <p v-if="isDev" class="demo-link">
           <router-link to="/styleguide">查看设计验收</router-link>
         </p>
@@ -418,17 +423,6 @@ onMounted(() => {
 
 .form-notice {
   margin-top: 12px;
-}
-
-.demo-hint {
-  margin-top: 18px;
-  color: var(--lpp-text-muted);
-  font-size: 12px;
-  text-align: center;
-}
-
-.demo-hint code {
-  color: var(--lpp-text);
 }
 
 .demo-link {

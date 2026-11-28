@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from app.api.deps import require_csrf_role, require_role
 from app.api import schemas
 from app.api.responses import error_responses
-from app.application import task_service
+from app.application import draft_service, task_service
 
 router = APIRouter()
 
@@ -77,7 +77,17 @@ def task_board(
 @router.post(
     "/tasks",
     status_code=201,
-    responses={200: {"description": "confirm=true 且已存在同一任务时，更新并返回已有任务"}},
+    responses={
+        200: {"description": "confirm=true 且已存在同一任务时，更新并返回已有任务"},
+        **error_responses(
+            "AUTH_REQUIRED:未登录",
+            "FORBIDDEN:只能覆盖自己创建的任务（他人任务请由本人或管理员处理）",
+            "TASK_ALREADY_EXISTS:本人重复建同一身份任务，确认后可覆盖",
+            "TASK_TAKEN_BY_OTHER:任务已被他人或他组占用",
+            "CONFLICT_STALE:数据库繁忙或并发写入冲突，请重试",
+            "PAYLOAD_REJECTED:建课参数不合法",
+        ),
+    },
 )
 def create_task(
     request: Request,
@@ -91,6 +101,35 @@ def create_task(
         confirm=confirm, ip=_client_ip(request), trace_id=_trace_id(request),
     )
     if not created:
+        response.status_code = 200
+    return result
+
+
+@router.post(
+    "/tasks/{task_id}/draft",
+    status_code=201,
+    responses={
+        200: {"description": "该任务已有教案版本，返回已有版本（幂等，不新增版本）"},
+        **error_responses(
+            "AUTH_REQUIRED:未登录",
+            "FORBIDDEN:只能为自己创建的任务生成草稿",
+            "NOT_FOUND:任务不存在",
+            "PAYLOAD_REJECTED:已废弃任务或该课题已绑定其他班级任务，不能生成草稿",
+            "CONFLICT_STALE:数据库繁忙或并发写入冲突，请重试",
+        ),
+    },
+)
+def draft_task(
+    request: Request,
+    response: Response,
+    task_id: int,
+    context: dict[str, Any] = Depends(require_csrf_role("teacher", "lead")),
+) -> dict[str, Any]:
+    result = draft_service.draft_from_task(
+        context["repo"], context["user"], task_id,
+        ip=_client_ip(request), trace_id=_trace_id(request),
+    )
+    if result.get("duplicate"):
         response.status_code = 200
     return result
 

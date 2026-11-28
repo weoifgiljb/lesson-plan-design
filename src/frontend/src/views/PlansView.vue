@@ -14,6 +14,7 @@ import type { TableColumn } from '@/components/table-types'
 import { usePagedQuery } from '@/composables/usePagedQuery'
 import { useSessionStore } from '@/stores/session'
 import { formatShortDateTime } from '@/utils/datetime'
+import { UNREVIEWED_STATUS } from '@/utils/labels'
 
 const router = useRouter()
 const route = useRoute()
@@ -113,10 +114,11 @@ async function onFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
+    await router.push(`/plans/${result.planId}`)
+    // 先导航后提示：路由切换会清掉上一页的 toast
     sealSuccess(
       result.duplicate ? `契约包已存在，打开第 ${result.versionNo} 版` : '契约包已导入',
     )
-    await router.push(`/plans/${result.planId}`)
   } catch (caught) {
     handleError(caught, '导入契约包失败')
   } finally {
@@ -245,7 +247,10 @@ onMounted(async () => {
         <span class="version-tag" :class="{ 'is-new': row.versionNo > 1 }">第 {{ row.versionNo }} 稿</span>
       </template>
       <template #cell-reviewStatus="{ row }">
-        <StatusTag :code="String(row.reviewStatus)" :status="String(row.reviewStatus)" />
+        <StatusTag
+          :code="row.reviewStatus || UNREVIEWED_STATUS"
+          :status="row.reviewStatus || UNREVIEWED_STATUS"
+        />
       </template>
       <template #cell-versionCreatedAt="{ row }">
         <span class="muted">{{ formatShortDateTime(row.versionCreatedAt) }}</span>

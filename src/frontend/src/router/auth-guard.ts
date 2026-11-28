@@ -27,10 +27,17 @@ export function passwordChangeRedirect(
   return { path: PASSWORD_PATH, query: { redirect: target.fullPath } }
 }
 
+/** 角色是否满足路由要求；未声明 roles 时放行，未知角色一律拒绝（fail-closed）。 */
+export function roleAllowed(
+  role: string | null | undefined,
+  roles?: readonly string[],
+): boolean {
+  if (!roles || roles.length === 0) return true
+  // 未登录场景由 router.beforeEach 的会话检查统一拦截，这里不再对空 role 放行
+  return typeof role === 'string' && role.length > 0 && roles.includes(role)
+}
+
 /** 角色不满足时的跳转目标；通过返回 null。 */
 export function roleRedirect(user: Pick<User, 'role'> | null, roles?: string[]): string | null {
-  if (!roles || roles.length === 0) return null
-  const role = user?.role ?? ''
-  if (!role) return null
-  return roles.includes(role) ? null : '/403'
+  return roleAllowed(user?.role, roles) ? null : '/403'
 }

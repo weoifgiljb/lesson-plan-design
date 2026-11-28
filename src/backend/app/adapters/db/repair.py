@@ -61,6 +61,10 @@ ADD_COLUMN_SQL: dict[tuple[str, str], str] = {
     ("plan_version", "engine_version"): (
         "ALTER TABLE plan_version ADD COLUMN engine_version TEXT NOT NULL DEFAULT ''"
     ),
+    # 草稿版本用 source='draft' 标记；早期谱系库经 repair 重建后可能缺这一列
+    ("plan_version", "source"): (
+        "ALTER TABLE plan_version ADD COLUMN source TEXT NOT NULL DEFAULT 'import'"
+    ),
     ("task", "assignee_id"): "ALTER TABLE task ADD COLUMN assignee_id INTEGER REFERENCES user (id)",
     ("task", "group_name"): "ALTER TABLE task ADD COLUMN group_name TEXT NOT NULL DEFAULT ''",
     ("task", "quadrant"): "ALTER TABLE task ADD COLUMN quadrant TEXT NOT NULL DEFAULT 'important_not_urgent'",

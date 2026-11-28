@@ -168,6 +168,17 @@ class TestReviewsApi(unittest.TestCase):
         response = self.client.post("/api/v1/auth/login", json={"username": username, "password": PASSWORD})
         self.assertEqual(response.status_code, 200, response.text)
 
+    def test_deleted_plan_hidden_from_reviews(self) -> None:
+        # 软删教案的审查记录不再出现在审查中心（导出候选复用该接口，必须一致）
+        plan_id, version_id = self._plan(self.teacher1, "已删课")
+        self._review(plan_id, version_id, make_report("hash-已删课"))
+        self.repo.soft_delete_plan(plan_id)
+        self._login("teacher1")
+        listing = self.client.get("/api/v1/reviews", params={"status": "passed"}).json()
+        titles = [item["contentTitle"] for item in listing["items"]]
+        self.assertNotIn("已删课", titles)
+        self.assertIn("通过课", titles)
+
     def test_list_scope_and_filters(self) -> None:
         self._login("teacher1")
         listing = self.client.get("/api/v1/reviews").json()

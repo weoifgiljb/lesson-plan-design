@@ -1,7 +1,7 @@
 {
   "contractVersion": "1",
   "source": "功能优化需求-BS平台端.md v1.5 §5.2、§5.3、§5.5",
-  "updatedAt": "2026-11-15",
+  "updatedAt": "2026-11-22",
   "versions": {
     "schemaVersion": 1,
     "rubricVersion": "1.0",
@@ -66,6 +66,18 @@
       "http": 409,
       "zh": "数据已变化，请刷新后重试",
       "scene": "乐观锁/唯一键冲突（重复导入、重复建课、用户名已存在）"
+    },
+    {
+      "code": "TASK_TAKEN_BY_OTHER",
+      "http": 409,
+      "zh": "该教学任务已被占用",
+      "scene": "同身份（课程+周次+课次+班级+课题）任务已由他人或他组创建，需改名或联系占用人"
+    },
+    {
+      "code": "TASK_ALREADY_EXISTS",
+      "http": 409,
+      "zh": "任务已存在",
+      "scene": "本人重复建同一身份任务，确认覆盖后更新已有任务"
     },
     {
       "code": "CONFLICT_DELETED",
@@ -1019,6 +1031,29 @@
         401,
         403,
         404
+      ],
+      "client": "ui",
+      "implemented": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tasks/{task_id}/draft",
+      "summary": "由任务生成校标草稿教案",
+      "auth": true,
+      "roles": [
+        "teacher",
+        "lead"
+      ],
+      "csrf": true,
+      "idempotent": true,
+      "status": [
+        200,
+        201,
+        401,
+        403,
+        404,
+        409,
+        422
       ],
       "client": "ui",
       "implemented": true

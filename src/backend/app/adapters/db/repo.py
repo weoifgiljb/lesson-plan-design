@@ -955,7 +955,8 @@ class Repo:
         return grouped
 
     def _review_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
-        where = ["1 = 1"]
+        # 软删教案的审查记录不应再出现在审查中心/导出候选里（导出服务对 deleted_at 非空直接 NOT_FOUND）
+        where = ["p.deleted_at IS NULL"]
         params: list[Any] = []
         owner_id = scope.get("owner_id")
         group_name = scope.get("group_name")
@@ -1262,16 +1263,17 @@ class Repo:
     def insert_version_or_existing(
         self, plan_id: int, version_no: int, content_json: str, plan_hash: str,
         report_sha256: str, schema_version: int, rubric_version: str, engine_version: str,
-        template_version: str = "",
+        template_version: str = "", source: str = "import",
     ) -> tuple[int, bool]:
         try:
             cursor = self.conn.execute(
                 "INSERT INTO plan_version (plan_id, version_no, content_json, plan_hash, report_sha256,"
-                " schema_version, rubric_version, engine_version, template_version, created_at)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " schema_version, rubric_version, engine_version, template_version, source, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     plan_id, version_no, content_json, plan_hash, report_sha256,
-                    schema_version, rubric_version, engine_version, template_version, clock.now_iso(),
+                    schema_version, rubric_version, engine_version, template_version, source,
+                    clock.now_iso(),
                 ),
             )
             return int(cursor.lastrowid or 0), True

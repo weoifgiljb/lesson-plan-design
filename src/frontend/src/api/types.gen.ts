@@ -1,4 +1,4 @@
-// openapi-sha256: 9e7d11cd8208fcab88d1a43b07b20f7939dd39e6eadca832b64d98d18f31aad9
+// openapi-sha256: 11fa70a3993fde4e9186a99601028fbfeeb63f7980af9207b00d26202f2caf19
 // 由 scripts/gen_frontend_types.py 生成，请勿手改。
 
 export interface AuthMeOut {
@@ -442,6 +442,7 @@ export type CreateTaskApiV1TasksPostResponse = Record<string, unknown>
 export type TaskBoardApiV1TasksBoardGetResponse = Record<string, unknown>
 export type MoveTaskApiV1TasksTaskIdBoardPatchResponse = Record<string, unknown>
 export type DiscardTaskApiV1TasksTaskIdDiscardPostResponse = Record<string, unknown>
+export type DraftTaskApiV1TasksTaskIdDraftPostResponse = Record<string, unknown>
 export type TaskPackageApiV1TasksTaskIdPackageGetResponse = Record<string, unknown>
 export type RestoreTaskApiV1TasksTaskIdRestorePostResponse = Record<string, unknown>
 export type RollbackTaskApiV1TasksTaskIdRollbackPostResponse = Record<string, unknown>

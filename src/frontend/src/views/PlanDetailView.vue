@@ -21,6 +21,7 @@ import { useSessionStore } from '@/stores/session'
 import { formatDateTime } from '@/utils/datetime'
 import { saveBlob } from '@/utils/download'
 import { toLessonStructure } from '@/utils/plan-structure'
+import { UNREVIEWED_STATUS } from '@/utils/labels'
 
 const route = useRoute()
 const router = useRouter()
@@ -162,8 +163,9 @@ async function removePlan(): Promise<void> {
   deleting.value = true
   try {
     await deletePlan(planId)
-    sealSuccess('教案已删除')
+    // 先导航后提示：路由切换会清掉上一页的 toast，提示必须落在导航之后
     await router.push('/plans')
+    sealSuccess('教案已删除')
   } catch (caught) {
     handleError(caught, '删除教案失败')
   } finally {
@@ -183,7 +185,8 @@ function formatValue(value: unknown): string {
 }
 
 function versionStatus(version: PlanVersion): string {
-  return version.status ? String(version.status) : ''
+  // 草稿版本没有审查记录：与标题栏一致显示「未审查」，不要退化成 —（看起来像数据缺失）
+  return version.status ? String(version.status) : UNREVIEWED_STATUS
 }
 
 function openVersionPicker(): void {
@@ -202,13 +205,14 @@ async function onVersionFile(event: Event): Promise<void> {
   importing.value = true
   try {
     const result = await importPlan(file)
+    if (result.planId === planId) await loadAll()
+    else await router.push(`/plans/${result.planId}`)
+    // 先导航后提示：路由切换会清掉上一页的 toast
     sealSuccess(
       result.duplicate
         ? `契约包已存在，当前为第 ${result.versionNo} 版`
         : `新版本 v${result.versionNo} 已入库`,
     )
-    if (result.planId === planId) await loadAll()
-    else await router.push(`/plans/${result.planId}`)
   } catch (caught) {
     handleError(caught, '上传新版本失败')
   } finally {
@@ -330,7 +334,12 @@ onMounted(() => {
           <dl class="meta-list">
             <div>
               <dt>状态</dt>
-              <dd><StatusTag :code="String(plan.reviewStatus)" :status="String(plan.reviewStatus)" /></dd>
+              <dd>
+                <StatusTag
+                  :code="plan.reviewStatus || UNREVIEWED_STATUS"
+                  :status="plan.reviewStatus || UNREVIEWED_STATUS"
+                />
+              </dd>
             </div>
             <div>
               <dt>课程</dt>
@@ -346,7 +355,10 @@ onMounted(() => {
             </div>
             <div>
               <dt>当前版本</dt>
-              <dd>v{{ plan.versionNo }} · 第 {{ plan.reviewRound }} 轮</dd>
+              <dd>
+                v{{ plan.versionNo }}
+                <template v-if="plan.reviewRound"> · 第 {{ plan.reviewRound }} 轮</template>
+              </dd>
             </div>
             <div>
               <dt>最新审查</dt>
@@ -393,8 +405,7 @@ onMounted(() => {
             <span class="mono" :title="row.planHash">{{ shortHash(row.planHash) }}</span>
           </template>
           <template #cell-status="{ row }">
-            <StatusTag v-if="versionStatus(row)" :code="versionStatus(row)" :status="versionStatus(row)" />
-            <span v-else class="muted">—</span>
+            <StatusTag :code="versionStatus(row)" :status="versionStatus(row)" />
           </template>
           <template #cell-round="{ row }">{{ row.round ?? '—' }}</template>
           <template #cell-createdAt="{ row }">{{ formatDateTime(row.createdAt) }}</template>

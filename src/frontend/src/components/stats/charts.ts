@@ -2,7 +2,7 @@ import type { EChartsOption } from 'echarts'
 
 import type { Metric, StatRecord } from '@/api/models'
 import { PALETTE, CHART_TOKENS } from '@/styles/palette'
-import { UNREVIEWED_TEXT, UNAVAILABLE_TEXT, reviewStatusLabel } from '@/utils/labels'
+import { UNAVAILABLE_TEXT, reviewStatusLabel } from '@/utils/labels'
 
 /**
  * 统计页图表：只做两件事——四项比率指标的达成度、当前记录的最新审查状态。
@@ -186,7 +186,7 @@ export function statusSlices(source: StatusCounts | Pick<StatRecord, 'reviewStat
   return [...statusCountMap(source).entries()]
     .map(([status, count]) => ({
       status,
-      label: status === 'unknown' ? UNREVIEWED_TEXT : reviewStatusLabel(status),
+      label: reviewStatusLabel(status),
       count,
       color: STATUS_COLORS[status] ?? PALETTE.textMuted,
     }))

@@ -8,7 +8,7 @@ import StatePanel from '@/components/StatePanel.vue'
 import { useApiRequest } from '@/composables/useApiRequest'
 import { formatDateTime } from '@/utils/datetime'
 
-const inbox = useApiRequest(() => listNotifications(false))
+const inbox = useApiRequest(() => listNotifications(false), { immediate: true })
 const items = computed(() => inbox.data.value?.items ?? [])
 const unread = computed(() => inbox.data.value?.unread ?? 0)
 
