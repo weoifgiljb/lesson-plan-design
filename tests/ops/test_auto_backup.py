@@ -68,5 +68,30 @@ class TestAutoBackup(unittest.TestCase):
         self.assertTrue(Path(payload["snapshot"]).is_dir())
 
 
+    def test_run_snapshot_is_eligible_for_retention(self) -> None:
+        # 回归：快照目录名是 `<UTC时间戳>-auto-...`，旧的 startswith("auto-") 过滤永远匹配不到自己
+        data = self.root / "data"
+        data.mkdir()
+        sqlite3.connect(data / "app.db").close()
+        backups = self.root / "backups"
+        first = auto_backup.run(data, backups, keep=1, weekly_keep=1, make_zip=True)
+        first_path = Path(first["snapshot"])
+        self.assertIn(first_path.name, [path.name for path, _ in auto_backup.auto_snapshots(backups)])
+        self.assertTrue(auto_backup.zip_path_for(first_path).exists())
+
+        # 把第一份改成两天前，再跑一次 keep=1：旧快照与 zip 必须被删
+        manifest_path = first_path / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["createdAt"] = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False), encoding="utf-8")
+
+        second = auto_backup.run(data, backups, keep=1, weekly_keep=0, make_zip=True)
+        remaining = {path.name for path, _ in auto_backup.auto_snapshots(backups)}
+        self.assertIn(Path(second["snapshot"]).name, remaining)
+        self.assertNotIn(first_path.name, remaining)
+        self.assertFalse(first_path.exists())
+        self.assertFalse(auto_backup.zip_path_for(first_path).exists())
+
+
 if __name__ == "__main__":
     unittest.main()

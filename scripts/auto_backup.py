@@ -29,11 +29,13 @@ def auto_snapshots(backup_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
     if not backup_dir.is_dir():
         return items
     for path in backup_dir.iterdir():
-        if not path.is_dir() or not path.name.startswith(AUTO_PREFIX):
+        if not path.is_dir():
             continue
         manifest = _manifest(path)
-        if manifest is not None:
-            items.append((path, manifest))
+        # 目录名是 `<UTC时间戳>-<label>`，不能用 startswith("auto-") 过滤；以 manifest 的 label 为准
+        if manifest is None or not str(manifest.get("label") or "").startswith(AUTO_PREFIX):
+            continue
+        items.append((path, manifest))
     return sorted(items, key=lambda item: str(item[1].get("createdAt") or ""), reverse=True)
 
 

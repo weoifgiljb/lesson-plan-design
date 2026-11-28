@@ -120,9 +120,11 @@ def _record(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, Any
             rounds=rounds,
             snapshot_hash=engine.plan_hash(snapshot) if isinstance(snapshot, dict) else None,
         )["complete"]
+        findings = report.get("findings")
+        # findings 被改坏成非 list 的真值（如 5/true）时不能直接遍历，否则 TypeError -> 500
         open_blocking = sum(
             1
-            for item in report.get("findings") or []
+            for item in (findings if isinstance(findings, list) else [])
             if isinstance(item, dict)
             and item.get("status") == "open"
             # severity 可能被手工改坏成 list/dict：先判字符串，避免 `in set` 抛 TypeError

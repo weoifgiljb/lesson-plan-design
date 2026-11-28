@@ -298,6 +298,15 @@ class TestStatsApi(unittest.TestCase):
         self.assertEqual(again.status_code, 200, again.text)
         self.assertEqual(self.client.get("/api/v1/stats/records").status_code, 200)
 
+        # findings 被改成非 list 的真值（5）时同样不能 500
+        broken_report["findings"] = 5
+        self.repo.conn.execute(
+            "UPDATE review SET report_json = ? WHERE plan_version_id = ?",
+            (json.dumps(broken_report, ensure_ascii=False), version_bad),
+        )
+        self.assertEqual(self.client.get("/api/v1/stats/summary").status_code, 200)
+        self.assertEqual(self.client.get("/api/v1/stats/records").status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

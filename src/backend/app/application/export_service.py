@@ -143,8 +143,8 @@ def _perform_export(
         # 并发冲突：本次没抢到 job，清掉自己写的产物并复用已有成功记录（清理尽力而为）
         with suppress(OSError):
             storage.export_path(job_id).unlink(missing_ok=True)
-        with suppress(Exception):
-            repo.update_export_job(job_id, "failed")
+        # job 状态写失败不能静默吞掉（否则会永久 pending）；失败时由 finally 再兜底一次
+        repo.update_export_job(job_id, "failed")
         finished = True
         existing = repo.find_export_job(version_id, engine_version, report_sha)
         if existing is not None:
