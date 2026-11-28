@@ -96,10 +96,20 @@ def resolve_request(
     if row.get("status") != "pending":
         raise AppError("CONFLICT_STALE", "删除申请已处理")
     plan_id = int(row["plan_id"])
-    if approve:
-        plan_service.delete_plan(repo, user, plan_id, ip=ip, trace_id=trace_id)
-    if not repo.resolve_deletion_request(request_id, int(user["id"]), "approved" if approve else "rejected"):
+    status = "approved" if approve else "rejected"
+    # 先原子抢占申请，再删教案：并发审批只允许一个赢家，避免双方都执行删除/重复审计。
+    # （delete_plan 自带事务，不能和抢占合并进一个事务——repo.transaction 不支持嵌套。）
+    if not repo.resolve_deletion_request(request_id, int(user["id"]), status):
         raise AppError("CONFLICT_STALE", "删除申请已被处理")
+    if approve:
+        deleted = False
+        try:
+            plan_service.delete_plan(repo, user, plan_id, ip=ip, trace_id=trace_id)
+            deleted = True
+        finally:
+            if not deleted:
+                # 删除异常：申请放回 pending 让管理员重试，异常继续上抛（不吞错）
+                repo.revert_deletion_request(request_id)
     audit_service.record(
         repo,
         actor_id=int(user["id"]),

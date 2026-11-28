@@ -1220,6 +1220,14 @@ class Repo:
         )
         return bool(cursor.rowcount)
 
+    def revert_deletion_request(self, request_id: int) -> None:
+        """删除失败时把已抢占的申请放回 pending：审批顺序是"先抢占、再删教案"。"""
+        self.conn.execute(
+            "UPDATE deletion_request SET status = 'pending', resolved_at = NULL, resolver_id = NULL"
+            " WHERE id = ? AND status IN ('approved', 'rejected')",
+            (int(request_id),),
+        )
+
     def _library_where(self, scope: dict[str, Any], filters: dict[str, Any]) -> tuple[str, list[Any]]:
         where = ["p.deleted_at IS NULL"]
         params: list[Any] = []

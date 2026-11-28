@@ -2,8 +2,11 @@
 """教案库 API：范围过滤、详情、版本链、差异与软删除。"""
 from __future__ import annotations
 
+import threading
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
@@ -12,8 +15,9 @@ from support import isolated_data_dir, load_json_bytes, plugin_report, read_pack
 
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
-from app.application import ingest_service
+from app.application import deletion_service, ingest_service
 from app.domain import security
+from app.domain.errors import AppError
 from app.main import create_app
 
 PASSWORD = "Lesson2026"
@@ -246,6 +250,77 @@ class TestPlansApi(unittest.TestCase):
         csrf = self.client.cookies.get("lpp_csrf")
         response = self.client.delete(f"/api/v1/plans/{self.plan2}", headers={"X-CSRF-Token": csrf})
         self.assertEqual(response.status_code, 200, response.text)
+
+
+    def test_concurrent_approval_deletes_plan_and_audits_once(self) -> None:
+        # 先抢占申请再删教案：两个管理员同时批准，只能有一次生效
+        request_id = self.repo.create_deletion_request(
+            self.plan1, self.teacher1, "并发审批", "2099-01-01T00:00:00+00:00"
+        )
+        admin = {"id": self.admin, "role": "admin"}
+        lock = threading.Lock()
+        outcomes: list[str] = []
+
+        def approve() -> None:
+            connection = open_database(self.db_file)
+            repo = Repo(connection, lock)
+            try:
+                deletion_service.resolve_request(repo, admin, request_id, True)
+                outcomes.append("approved")
+            except AppError as exc:
+                outcomes.append(exc.code)
+            finally:
+                repo.close()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            list(pool.map(lambda _: approve(), range(2)))
+
+        self.assertCountEqual(outcomes, ["approved", "CONFLICT_STALE"])
+        status = self.connection.execute(
+            "SELECT status FROM deletion_request WHERE id = ?", (request_id,)
+        ).fetchone()["status"]
+        self.assertEqual(status, "approved")
+        deleted_at = self.connection.execute(
+            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan1,)
+        ).fetchone()["deleted_at"]
+        self.assertIsNotNone(deleted_at)
+        actions = [row["action"] for row in self.repo.list_audit(200)]
+        self.assertEqual(actions.count("plan.delete"), 1)
+        self.assertEqual(actions.count("plan.delete.approved"), 1)
+
+    def test_losing_claim_does_not_delete_plan(self) -> None:
+        # 抢占失败（已被别人处理）时绝不能先删教案再报 409：否则会留下"教案已删、申请未决"的状态
+        request_id = self.repo.create_deletion_request(
+            self.plan2, self.teacher2, "并发抢占", "2099-01-01T00:00:00+00:00"
+        )
+        admin = {"id": self.admin, "role": "admin"}
+        with mock.patch.object(Repo, "resolve_deletion_request", return_value=False):
+            with self.assertRaises(AppError) as caught:
+                deletion_service.resolve_request(self.repo, admin, request_id, True)
+        self.assertEqual(caught.exception.code, "CONFLICT_STALE")
+        still_there = self.connection.execute(
+            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan2,)
+        ).fetchone()["deleted_at"]
+        self.assertIsNone(still_there)
+
+    def test_failed_delete_reverts_request_to_pending(self) -> None:
+        second = self.repo.create_deletion_request(
+            self.plan2, self.teacher2, "失败回滚", "2099-01-01T00:00:00+00:00"
+        )
+        admin = {"id": self.admin, "role": "admin"}
+        with mock.patch.object(
+            deletion_service.plan_service, "delete_plan", side_effect=RuntimeError("boom")
+        ):
+            with self.assertRaises(RuntimeError):
+                deletion_service.resolve_request(self.repo, admin, second, True)
+        reverted = self.connection.execute(
+            "SELECT status FROM deletion_request WHERE id = ?", (second,)
+        ).fetchone()["status"]
+        self.assertEqual(reverted, "pending")
+        still_there = self.connection.execute(
+            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan2,)
+        ).fetchone()["deleted_at"]
+        self.assertIsNone(still_there)
 
 
 if __name__ == "__main__":
