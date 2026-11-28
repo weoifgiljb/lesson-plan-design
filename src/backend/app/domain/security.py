@@ -27,6 +27,25 @@ def hash_password(password: str, salt: bytes | None = None) -> str:
     return f"scrypt${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${actual_salt.hex()}${digest.hex()}"
 
 
+def _hex_ok(value: str, *, min_len: int, max_len: int) -> bool:
+    """hex 串长度/字符白名单：坏数据一律 False，不让 scrypt 抛 ValueError。"""
+    if not isinstance(value, str) or len(value) % 2:
+        return False
+    if not min_len <= len(value) <= max_len:
+        return False
+    return all(ch in "0123456789abcdef" for ch in value.lower())
+
+
+def _scrypt_params_ok(n: int, r: int, p: int) -> bool:
+    """参数范围 + n 必须是 2 的幂；越界值会让 hashlib.scrypt 抛 ValueError。"""
+    return (
+        2**10 <= n <= 2**20
+        and n & (n - 1) == 0
+        and 1 <= r <= 32
+        and 1 <= p <= 16
+    )
+
+
 def verify_password(password: str, stored: str) -> bool:
     parts = stored.split("$") if isinstance(stored, str) else []
     if len(parts) != 6 or parts[0] != "scrypt":
@@ -34,9 +53,11 @@ def verify_password(password: str, stored: str) -> bool:
     _, n, r, p, salt_hex, digest_hex = parts
     if not (n.isdigit() and r.isdigit() and p.isdigit()):
         return False
-    if len(salt_hex) % 2 or any(ch not in "0123456789abcdef" for ch in salt_hex.lower()):
+    if not _hex_ok(salt_hex, min_len=16, max_len=128):
         return False
-    if any(ch not in "0123456789abcdef" for ch in digest_hex.lower()):
+    if not _hex_ok(digest_hex, min_len=16, max_len=256):
+        return False
+    if not _scrypt_params_ok(int(n), int(r), int(p)):
         return False
     digest = hashlib.scrypt(
         password.encode("utf-8"),

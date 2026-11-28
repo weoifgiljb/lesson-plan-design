@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -16,10 +15,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from backup_data import create_snapshot, default_backup_dir, zip_path_for  # noqa: E402
 
 AUTO_PREFIX = "auto-"
-#: 定时任务在快照目录里留的独占标记；管理员手填 `auto-` 标签的快照没有它，不参与清理
+#: 定时任务在快照目录里留的独占标记；没有它的快照一律视为手工快照，永不清理。
+#: 升级前遗留的自动快照也没标记，宁可留着占磁盘，也不误删教师手工建的快照。
 AUTO_MARKER = ".auto-snapshot"
-#: 升级前遗留的自动快照没有标记，按"<UTC时间戳>-auto-<时间>"名称兜底识别（只用于回收旧残留）
-LEGACY_AUTO_RE = re.compile(r"-auto-\d{8}-\d{6}(?:-\d+)?$")
 
 
 def _manifest(path: Path) -> dict[str, Any] | None:
@@ -31,30 +29,18 @@ def _manifest(path: Path) -> dict[str, Any] | None:
 
 def auto_snapshots(backup_dir: Path) -> list[tuple[Path, dict[str, Any]]]:
     marked: list[tuple[Path, dict[str, Any]]] = []
-    legacy: list[tuple[Path, dict[str, Any]]] = []
     if not backup_dir.is_dir():
         return []
     for path in backup_dir.iterdir():
         if not path.is_dir():
             continue
+        if not (path / AUTO_MARKER).is_file():
+            continue
         manifest = _manifest(path)
         if manifest is None:
             continue
-        if (path / AUTO_MARKER).is_file():
-            marked.append((path, manifest))
-        elif LEGACY_AUTO_RE.search(path.name):
-            legacy.append((path, manifest))
-    # 名称兜底只回收"升级前"的残留：createdAt 必须早于最早的带标记快照，
-    # 否则管理员用 `auto-<时间>` 当标签的手动快照也会被误删。
-    if marked:
-        boundary = min(str(manifest.get("createdAt") or "") for _path, manifest in marked)
-        legacy = [
-            item for item in legacy if str(item[1].get("createdAt") or "") < boundary
-        ]
-    else:
-        legacy = []
-    items = marked + legacy
-    return sorted(items, key=lambda item: str(item[1].get("createdAt") or ""), reverse=True)
+        marked.append((path, manifest))
+    return sorted(marked, key=lambda item: str(item[1].get("createdAt") or ""), reverse=True)
 
 
 def apply_retention(backup_dir: Path, keep: int = 7, weekly_keep: int = 4) -> list[str]:

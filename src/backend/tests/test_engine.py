@@ -2,7 +2,9 @@
 """插件引擎对照：平台算出的哈希与校验结论必须与插件端一致。"""
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 
 from support import PLUGIN_EXAMPLES, plugin_lib, read_package_dir, load_json_bytes
 
@@ -34,6 +36,17 @@ class TestEngineParity(unittest.TestCase):
         self.assertEqual(versions["rulesVersion"], "1.1.0")
         self.assertEqual(versions["rubricVersion"], "1.0")
         self.assertNotIn("status", versions)
+
+    def test_export_failure_keeps_existing_output(self) -> None:
+        # 失败分支只能删 .tmp，不能顺手删掉已存在的旧 DOCX（可能是上一次成功产物）
+        plan = load_json_bytes(read_package_dir("valid-package")["plan.json"])
+        with tempfile.TemporaryDirectory() as root:
+            output = Path(root) / "plan.docx"
+            output.mkdir()  # 目标是目录 → 原子替换必然失败，模拟导出失败
+            result = engine.export_docx(plan, output)
+            self.assertFalse(result["ok"])
+            self.assertTrue(output.is_dir())
+            self.assertFalse(output.with_name(output.name + ".tmp").exists())
 
 
 if __name__ == "__main__":

@@ -113,12 +113,7 @@ CATALOG: dict[str, dict[str, object]] = {
     "SERVICE_UNAVAILABLE": {
         "http": 503,
         "zh": "服务暂不可用",
-        "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）或磁盘不可写",
-    },
-    "SERVICE_UNAVAILABLE": {
-        "http": 503,
-        "zh": "依赖不可用（数据库或磁盘）",
-        "scene": "数据库损坏、数据目录缺失或实例标记异常",
+        "scene": "数据库结构未对齐（旧库需先运行 repair_schema.py）、数据库损坏、数据目录缺失、实例标记异常或磁盘不可写",
     },
     "BACKUP_INVALID": {
         "http": 422,

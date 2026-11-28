@@ -47,7 +47,10 @@ def main() -> int:
         return 0
 
     CONTRACT.write_text(
-        json.dumps(expected, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        json.dumps(expected, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        # 契约文件在仓库里是 LF：不写死会在 Windows 上整篇变 CRLF，制造 1300 行假 diff
+        newline="\n",
     )
     print(f"已同步 {len(CATALOG)} 个错误码到 {CONTRACT.relative_to(REPO_ROOT)}")
     return 0

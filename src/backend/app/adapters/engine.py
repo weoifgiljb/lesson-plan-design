@@ -97,8 +97,8 @@ def export_docx(
         os.replace(temporary, output)
     except Exception as exc:  # noqa: BLE001 - 适配层统一转成可展示错误
         logger.warning("export_docx failed: %s", exc)
+        # 只清临时文件：output 可能是上一次成功导出的产物，失败不能顺手删掉它
         temporary.unlink(missing_ok=True)
-        output.unlink(missing_ok=True)
         return {"ok": False, "code": "INTERNAL", "message": "导出失败（详见服务端日志）"}
     finally:
         temporary.unlink(missing_ok=True)

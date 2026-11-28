@@ -35,6 +35,21 @@ class TestSecurity(unittest.TestCase):
         self.assertFalse(security.verify_password("x", "md5$abc"))
         self.assertFalse(security.verify_password("x", ""))
 
+    def test_corrupt_hash_parameters_return_false_instead_of_raising(self) -> None:
+        # 空 salt / n 非 2 次幂 / 越界参数会让 hashlib.scrypt 抛 ValueError；
+        # 登录路径必须得到 False（401），不能变成 500。
+        salt = "ab" * 16
+        digest = "cd" * 32
+        for stored in (
+            f"scrypt$16384$8$1$${digest}",
+            f"scrypt$3$8$1${salt}${digest}",
+            f"scrypt$1073741824$8$1${salt}${digest}",
+            f"scrypt$16384$8$0${salt}${digest}",
+            f"scrypt$16384$8$1${salt}$",
+        ):
+            with self.subTest(stored=stored[:24]):
+                self.assertFalse(security.verify_password("x", stored))
+
 
 if __name__ == "__main__":
     unittest.main()
