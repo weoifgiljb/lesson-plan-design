@@ -32,6 +32,7 @@ from test_ingest_service import TestIngestService  # noqa: E402,F401
 from test_library_domain import TestLibraryRules, TestPlanDiff  # noqa: E402,F401
 from test_permissions import TestPermissionMatrix  # noqa: E402,F401
 from test_plans_api import TestPlansApi  # noqa: E402,F401
+from test_rate_limit import TestRateLimit  # noqa: E402,F401
 from test_reviews_api import TestReviewsApi  # noqa: E402,F401
 from test_repair_schema import TestRepairSchema  # noqa: E402,F401
 from test_samples_api import TestSamplesApi  # noqa: E402,F401
