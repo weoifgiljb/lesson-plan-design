@@ -60,6 +60,7 @@ def change_password(
     old_password: str,
     new_password: str,
     session_id: int | None = None,
+    revoke_all: bool = False,
     ip: str = "",
     trace_id: str = "",
 ) -> None:
@@ -87,6 +88,10 @@ def change_password(
         if session_id is not None:
             # 改密后其他设备的会话一律失效，避免口令泄露后旧 Cookie 继续可用（R3-F7）
             repo.revoke_other_sessions(int(user["id"]), int(session_id))
+        elif revoke_all:
+            # JWT 通道没有"当前会话"：撤销该账号全部 Cookie 会话（keep=0 即不保留），
+            # 否则同一账号用令牌改密后，旧浏览器会话依然有效。
+            repo.revoke_other_sessions(int(user["id"]), 0)
         audit_service.record(
             repo,
             actor_id=int(user.get("id") or 0),
