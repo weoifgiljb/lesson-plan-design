@@ -13,6 +13,7 @@ from support import isolated_data_dir, tempdir
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
 from app.api.deps import require_role
+from app.domain import auth as auth_rules
 from app.domain import security
 from app.main import create_app
 
@@ -225,6 +226,21 @@ class TestAuthApi(unittest.TestCase):
         )
         self.assertEqual(self._login("newbie").status_code, 401)  # 旧口令失效
         self.assertEqual(self._login("newbie", "Another2026").status_code, 200)
+
+    def test_non_ascii_csrf_token_is_403_not_500(self) -> None:
+        # 真实 ASGI 服务器按 latin-1 解码请求头，非 ASCII 的 X-CSRF-Token 会变成
+        # 非 ASCII str；hmac.compare_digest 对此抛 TypeError（500）。httpx 侧不允许
+        # 发送非 ASCII 头，所以在域函数层复现，并覆盖服务器解码后的 mojibake 形态。
+        login = self._login("teacher1")
+        self.assertEqual(login.status_code, 200, login.text)
+        expected = login.json()["csrfToken"]
+        mojibake = "中文令牌".encode("utf-8").decode("latin-1")
+        for token in ("中文令牌", "é", "Ünicode", mojibake):
+            with self.subTest(token=token):
+                self.assertFalse(auth_rules.csrf_matches(expected, token))
+        # 正常 token 与合法不匹配 token 的行为不变
+        self.assertTrue(auth_rules.csrf_matches(expected, expected))
+        self.assertFalse(auth_rules.csrf_matches(expected, expected + "x"))
 
 
 if __name__ == "__main__":

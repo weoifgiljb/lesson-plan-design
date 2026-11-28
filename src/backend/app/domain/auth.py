@@ -23,7 +23,13 @@ def csrf_matches(expected: str, provided: str) -> bool:
         return False
     if not expected or not provided:
         return False
-    return hmac.compare_digest(expected, provided)
+    # hmac.compare_digest 对含非 ASCII 的 str 会抛 TypeError（头可被任意填 → 500），
+    # 统一按 UTF-8 字节比较；长度不等直接 False，保持定长比较的计时特性。
+    expected_bytes = expected.encode("utf-8", "surrogatepass")
+    provided_bytes = provided.encode("utf-8", "surrogatepass")
+    if len(expected_bytes) != len(provided_bytes):
+        return False
+    return hmac.compare_digest(expected_bytes, provided_bytes)
 
 
 def reason_is_shorter(reason: str, minimum: int = MIN_OVERRIDE_REASON) -> bool:
