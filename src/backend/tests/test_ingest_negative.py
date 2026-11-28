@@ -14,6 +14,7 @@ from app.adapters import archive
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
 from app.application import ingest_service
+from app.domain import report_rules
 from app.domain.errors import AppError
 
 
@@ -84,6 +85,34 @@ class TestIngestNegative(unittest.TestCase):
         with self.assertRaises(AppError) as caught:
             archive.read_package(buffer.getvalue())
         self.assertEqual(caught.exception.code, "PAYLOAD_REJECTED")
+
+    def test_non_string_enum_fields_are_rejected(self) -> None:
+        # 契约包字段来自不可信输入：list/dict 不能因 `in set` 抛 TypeError 打穿成 500
+        plan = self._base_plan()
+        for field, value in (("status", []), ("independence", {"x": 1})):
+            with self.subTest(field=field):
+                report = plugin_report(plan)
+                report[field] = value
+                files = build_package(plan, report=report)
+                with self.assertRaises(AppError) as caught:
+                    self._import(files)
+                self.assertEqual(caught.exception.code, "REPORT_INCONSISTENT")
+                self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM plan_version").fetchone()[0], 0)
+
+        severity = report_rules._check_findings(
+            {"findings": [{"id": "F1", "severity": [], "status": "open"}], "overrides": []}, "h"
+        )
+        self.assertIsNotNone(severity)
+        self.assertEqual(severity.code, "REPORT_INCONSISTENT")
+
+        kind = report_rules._check_override(
+            {"findingId": "F1", "planHash": "h", "teacher": "张老师", "reason": "接受这个轻微问题", "kind": []},
+            "h",
+            {"F1"},
+            set(),
+        )
+        self.assertIsNotNone(kind)
+        self.assertEqual(kind.code, "REPORT_INCONSISTENT")
 
     def test_zip_helper_still_works(self) -> None:
         with tempdir() as root:
