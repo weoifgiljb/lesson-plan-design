@@ -306,6 +306,9 @@ class TestStatsApi(unittest.TestCase):
         )
         self.assertEqual(self.client.get("/api/v1/stats/summary").status_code, 200)
         self.assertEqual(self.client.get("/api/v1/stats/records").status_code, 200)
+        # 形状脏（findings 非 list / severity 非 str）必须计入 unreadableRows，
+        # 否则 openBlocking 被静默算成 0、缺陷密度偏低
+        self.assertEqual(self.client.get("/api/v1/stats/summary").json()["unreadableRows"], 2)
 
 
 if __name__ == "__main__":

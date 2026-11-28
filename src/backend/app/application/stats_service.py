@@ -107,12 +107,19 @@ def _record(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, Any
     content = repo.parse_plan_content(row.get("content_json"))
     structure_ok = bool(content) and engine.validate_plan(content).get("ok") is True
     report = repo.parse_report(row.get("report_json"))
+    report_bad_shape = False
+    if isinstance(report, dict):
+        findings = report.get("findings")
+        report_bad_shape = not isinstance(findings, list) or any(
+            not isinstance(item, dict) or not isinstance(item.get("severity"), str)
+            for item in findings
+        )
     unreadable = (row.get("content_json") not in (None, "") and content is None) or (
         row.get("report_json") not in (None, "") and report is None
-    )
+    ) or report_bad_shape
     complete = False
     open_blocking = 0
-    if isinstance(report, dict):
+    if isinstance(report, dict) and not report_bad_shape:
         snapshot = report.get("planSnapshot")
         complete = evidence.evaluate(
             report,
@@ -120,14 +127,12 @@ def _record(repo: Repo, row: dict[str, Any], rounds: list[int]) -> dict[str, Any
             rounds=rounds,
             snapshot_hash=engine.plan_hash(snapshot) if isinstance(snapshot, dict) else None,
         )["complete"]
-        findings = report.get("findings")
-        # findings 被改坏成非 list 的真值（如 5/true）时不能直接遍历，否则 TypeError -> 500
+        findings = report.get("findings") or []
         open_blocking = sum(
             1
-            for item in (findings if isinstance(findings, list) else [])
+            for item in findings
             if isinstance(item, dict)
             and item.get("status") == "open"
-            # severity 可能被手工改坏成 list/dict：先判字符串，避免 `in set` 抛 TypeError
             and isinstance(item.get("severity"), str)
             and item.get("severity") in {"blocker", "major"}
         )

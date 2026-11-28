@@ -15,7 +15,7 @@ from support import isolated_data_dir, load_json_bytes, plugin_report, read_pack
 
 from app.adapters.db.connection import open_database
 from app.adapters.db.repo import Repo
-from app.application import deletion_service, ingest_service
+from app.application import deletion_service, ingest_service, plan_service
 from app.domain import security
 from app.domain.errors import AppError
 from app.main import create_app
@@ -179,6 +179,14 @@ class TestPlansApi(unittest.TestCase):
         explicit = self._get(f"/api/v1/plans/{self.plan1}/diff?fromVersion=1&toVersion=2").json()
         self.assertEqual(explicit["count"], diff["count"])
 
+    def test_diff_csv_escapes_formula_prefixes(self) -> None:
+        # 教案正文可由教师编辑；CSV 在 Excel/LibreOffice 打开时 = + - @ 开头会被当公式执行
+        self.assertEqual(plan_service._csv_safe("=cmd|'/c calc'!A1"), "'=cmd|'/c calc'!A1")
+        self.assertEqual(plan_service._csv_safe("-5"), "'-5")
+        self.assertEqual(plan_service._csv_safe("@SUM(A1)"), "'@SUM(A1)")
+        self.assertEqual(plan_service._csv_safe("normal text"), "normal text")
+        self.assertEqual(plan_service._csv_safe(None), "")
+
     def test_soft_delete_is_idempotent_and_audited(self) -> None:
         self._login("teacher2")
         csrf = self.client.cookies.get("lpp_csrf")
@@ -288,69 +296,28 @@ class TestPlansApi(unittest.TestCase):
         self.assertEqual(actions.count("plan.delete"), 1)
         self.assertEqual(actions.count("plan.delete.approved"), 1)
 
-    def test_stale_approved_request_can_retry_delete(self) -> None:
-        # 进程在"抢占成功、删教案前"被强杀会留下 approved+教案仍在；超过阈值后应可重试收敛
+    def test_approval_and_delete_are_atomic(self) -> None:
+        # 抢占 + 删教案 + 审批审计同事务：删除失败必须整体回滚，申请仍 pending、教案未删
         request_id = self.repo.create_deletion_request(
-            self.plan1, self.teacher1, "崩溃遗留", "2099-01-01T00:00:00+00:00"
-        )
-        self.connection.execute(
-            "UPDATE deletion_request SET status = 'approved', resolved_at = ?, resolver_id = ? WHERE id = ?",
-            ("2020-01-01T00:00:00+00:00", self.admin, request_id),
+            self.plan2, self.teacher2, "失败回滚", "2099-01-01T00:00:00+00:00"
         )
         admin = {"id": self.admin, "role": "admin"}
-        payload = deletion_service.resolve_request(self.repo, admin, request_id, True)
-        self.assertEqual(payload["status"], "approved")
-        deleted_at = self.connection.execute(
-            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan1,)
-        ).fetchone()["deleted_at"]
-        self.assertIsNotNone(deleted_at)
-        actions = [row["action"] for row in self.repo.list_audit(200)]
-        self.assertEqual(actions.count("plan.delete"), 1)
-        # 重试成功后 resolved_at 已刷新：再次重试必须 409（幂等，不重复删除/审计）
-        with self.assertRaises(AppError) as caught:
-            deletion_service.resolve_request(self.repo, admin, request_id, True)
-        self.assertEqual(caught.exception.code, "CONFLICT_STALE")
-
-    def test_freshly_approved_request_is_not_retried(self) -> None:
-        # 并发场景：赢家刚抢占、教案未删时，输家必须 409，不能跟着再删/再审计
-        request_id = self.repo.create_deletion_request(
-            self.plan2, self.teacher2, "并发抢占", "2099-01-01T00:00:00+00:00"
-        )
-        self.connection.execute(
-            "UPDATE deletion_request SET status = 'approved', resolved_at = ?, resolver_id = ? WHERE id = ?",
-            ("2099-01-01T00:00:00+00:00", self.admin, request_id),
-        )
-        admin = {"id": self.admin, "role": "admin"}
-        with self.assertRaises(AppError) as caught:
-            deletion_service.resolve_request(self.repo, admin, request_id, True)
-        self.assertEqual(caught.exception.code, "CONFLICT_STALE")
-        deleted_at = self.connection.execute(
-            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan2,)
-        ).fetchone()["deleted_at"]
-        self.assertIsNone(deleted_at)
-
-    def test_revert_only_affects_own_claim(self) -> None:
-        # 回滚必须限定"本次抢占"：别人刚抢下的 approved 申请不能被后来者的失败回滚抹掉
-        request_id = self.repo.create_deletion_request(
-            self.plan2, self.teacher2, "归属守卫", "2099-01-01T00:00:00+00:00"
-        )
-        self.connection.execute(
-            "UPDATE deletion_request SET status = 'approved', resolved_at = ?, resolver_id = ? WHERE id = ?",
-            ("2020-01-01T00:00:00+00:00", self.admin, request_id),
-        )
-        self.assertFalse(self.repo.revert_deletion_request(request_id, self.admin + 999))
-        status = self.connection.execute(
-            "SELECT status FROM deletion_request WHERE id = ?", (request_id,)
-        ).fetchone()["status"]
-        self.assertEqual(status, "approved")
-        self.assertTrue(self.repo.revert_deletion_request(request_id, self.admin))
+        with mock.patch.object(Repo, "soft_delete_plan", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError):
+                deletion_service.resolve_request(self.repo, admin, request_id, True)
         status = self.connection.execute(
             "SELECT status FROM deletion_request WHERE id = ?", (request_id,)
         ).fetchone()["status"]
         self.assertEqual(status, "pending")
+        still_there = self.connection.execute(
+            "SELECT deleted_at FROM plan WHERE id = ?", (self.plan2,)
+        ).fetchone()["deleted_at"]
+        self.assertIsNone(still_there)
+        actions = [row["action"] for row in self.repo.list_audit(200)]
+        self.assertNotIn("plan.delete.approved", actions)
 
     def test_losing_claim_does_not_delete_plan(self) -> None:
-        # 抢占失败（已被别人处理）时绝不能先删教案再报 409：否则会留下"教案已删、申请未决"的状态
+        # 抢占失败（已被别人处理）时整体回滚，不删教案
         request_id = self.repo.create_deletion_request(
             self.plan2, self.teacher2, "并发抢占", "2099-01-01T00:00:00+00:00"
         )
@@ -364,20 +331,19 @@ class TestPlansApi(unittest.TestCase):
         ).fetchone()["deleted_at"]
         self.assertIsNone(still_there)
 
-    def test_failed_delete_reverts_request_to_pending(self) -> None:
-        second = self.repo.create_deletion_request(
-            self.plan2, self.teacher2, "失败回滚", "2099-01-01T00:00:00+00:00"
+    def test_already_resolved_request_is_rejected(self) -> None:
+        # 历史遗留/已处理的 approved 申请不再"崩溃重试"，直接 409，避免重复删除/重复审计
+        request_id = self.repo.create_deletion_request(
+            self.plan2, self.teacher2, "已处理的申请", "2099-01-01T00:00:00+00:00"
+        )
+        self.connection.execute(
+            "UPDATE deletion_request SET status = 'approved', resolved_at = ?, resolver_id = ? WHERE id = ?",
+            ("2020-01-01T00:00:00+00:00", self.admin, request_id),
         )
         admin = {"id": self.admin, "role": "admin"}
-        with mock.patch.object(
-            deletion_service.plan_service, "delete_plan", side_effect=RuntimeError("boom")
-        ):
-            with self.assertRaises(RuntimeError):
-                deletion_service.resolve_request(self.repo, admin, second, True)
-        reverted = self.connection.execute(
-            "SELECT status FROM deletion_request WHERE id = ?", (second,)
-        ).fetchone()["status"]
-        self.assertEqual(reverted, "pending")
+        with self.assertRaises(AppError) as caught:
+            deletion_service.resolve_request(self.repo, admin, request_id, True)
+        self.assertEqual(caught.exception.code, "CONFLICT_STALE")
         still_there = self.connection.execute(
             "SELECT deleted_at FROM plan WHERE id = ?", (self.plan2,)
         ).fetchone()["deleted_at"]

@@ -134,12 +134,21 @@ def plan_diff_csv(
     for change in payload["changes"]:
         writer.writerow(
             [
-                change.get("path", ""),
-                json.dumps(change.get("before"), ensure_ascii=False),
-                json.dumps(change.get("after"), ensure_ascii=False),
+                _csv_safe(change.get("path", "")),
+                _csv_safe(json.dumps(change.get("before"), ensure_ascii=False)),
+                _csv_safe(json.dumps(change.get("after"), ensure_ascii=False)),
             ]
         )
     return stream.getvalue()
+
+
+#: Excel/LibreOffice 会把这些前缀当公式执行；CSV 导出必须做前缀转义（教师可直接打开）
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: Any) -> str:
+    text = "" if value is None else str(value)
+    return f"'{text}" if text.startswith(_CSV_FORMULA_PREFIXES) else text
 
 
 def revalidate_version(
@@ -172,6 +181,38 @@ def revalidate_version(
     }
 
 
+def apply_soft_delete(
+    repo: Repo,
+    actor_id: int,
+    plan_id: int,
+    row: dict[str, Any],
+    *,
+    ip: str = "",
+    trace_id: str = "",
+) -> bool:
+    """在调用方事务内软删教案并写审计/同步事件；返回本次是否真的删除。
+
+    拆出来供两条路径复用：教师直接删（DELETE /plans/{id}）与管理员批准删除申请
+    （删除必须和"申请置为 approved"同事务，否则会出现"教案已删、申请未决"）。
+    """
+    if not repo.soft_delete_plan(plan_id):
+        return False
+    audit_service.record(
+        repo,
+        actor_id=actor_id,
+        action="plan.delete",
+        target_type="plan",
+        target_id=str(plan_id),
+        detail={"alreadyDeleted": False},
+        ip=ip,
+        trace_id=trace_id,
+        before_hash=str(row.get("plan_hash") or ""),
+    )
+    # 删除也要能被增量同步拉到（BS-04）
+    repo.insert_sync_event("deleted", plan_id)
+    return True
+
+
 def delete_plan(
     repo: Repo, user: dict[str, Any], plan_id: int, *, ip: str = "", trace_id: str = ""
 ) -> dict[str, Any]:
@@ -185,22 +226,7 @@ def delete_plan(
     if row.get("deleted_at") is not None:
         return {"planId": plan_id, "deleted": True, "alreadyDeleted": True}
     with repo.transaction():
-        changed = repo.soft_delete_plan(plan_id)
-        if not changed:
-            return {"planId": plan_id, "deleted": True, "alreadyDeleted": True}
-        audit_service.record(
-            repo,
-            actor_id=actor_id,
-            action="plan.delete",
-            target_type="plan",
-            target_id=str(plan_id),
-            detail={"alreadyDeleted": False},
-            ip=ip,
-            trace_id=trace_id,
-            before_hash=str(row.get("plan_hash") or ""),
-        )
-        # 删除也要能被增量同步拉到（BS-04）
-        repo.insert_sync_event("deleted", plan_id)
+        apply_soft_delete(repo, actor_id, plan_id, row, ip=ip, trace_id=trace_id)
     return {"planId": plan_id, "deleted": True, "alreadyDeleted": False}
 
 
